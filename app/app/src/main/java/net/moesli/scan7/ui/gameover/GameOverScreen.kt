@@ -1,5 +1,8 @@
 package net.moesli.scan7.ui.gameover
 
+import net.moesli.scan7.ui.components.sampleAvatar
+import net.moesli.scan7.ui.components.avatarSizeForHeight
+import net.moesli.scan7.ui.components.PlayerAvatar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -36,19 +39,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.moesli.scan7.data.GameSnapshot
 import net.moesli.scan7.ui.components.LeaderBadge
-import net.moesli.scan7.ui.components.PlayerToken
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.ScoreRing
 import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.SectionLabel
 import net.moesli.scan7.ui.components.TextLinkButton
-import net.moesli.scan7.ui.components.TokenSize
 import net.moesli.scan7.ui.components.bottomButtonsInsets
 import net.moesli.scan7.ui.components.headerInsets
 import net.moesli.scan7.ui.components.openCardShadow
 import net.moesli.scan7.ui.components.scan7Clickable
 import net.moesli.scan7.ui.players.playerUis
-import net.moesli.scan7.ui.theme.PlayerColors
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
@@ -144,10 +144,10 @@ private fun Winners(state: GameOverUi) {
         2 -> 96.dp
         else -> 72.dp
     }
-    val token = when (winners.size) {
-        1 -> TokenSize(48.dp, 64.dp, 24.sp)
-        2 -> TokenSize(36.dp, 48.dp, 18.sp)
-        else -> TokenSize(26.dp, 35.dp, 13.sp)
+    val avatarHeight = when (winners.size) {
+        1 -> 64.dp
+        2 -> 48.dp
+        else -> 35.dp
     }
     val total = winners.firstOrNull()?.player?.total ?: 0
     Column(
@@ -160,7 +160,7 @@ private fun Winners(state: GameOverUi) {
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
             winners.take(5).forEach { w ->
                 Box {
-                    ScoreRing(1f, w.player.color, w.player.initial, ringSize, token)
+                    ScoreRing(1f, w.player.avatar, ringSize, avatarHeight)
                     LeaderBadge(
                         size = if (winners.size == 1) 32.dp else 24.dp,
                         crownSize = if (winners.size == 1) 18.dp else 14.dp,
@@ -208,9 +208,7 @@ private fun StandingRow(s: StandingUi) {
     ) {
         // Min width keeps the column aligned; grows with a large font scale instead of breaking "1st".
         Text(ordinal(s.rank), color = colors.textMuted, style = Scan7Type.text13, maxLines = 1, softWrap = false, modifier = Modifier.widthIn(min = 36.dp))
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(28.dp, 34.dp)) {
-            PlayerToken(s.player.initial, s.player.color, TokenSize(20.dp, 27.dp, 11.sp))
-        }
+        PlayerAvatar(s.player.avatar, avatarSizeForHeight(27.dp))
         Row(
             horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
             verticalAlignment = Alignment.CenterVertically,
@@ -251,14 +249,13 @@ internal fun sampleGameOver(shared: Boolean = false): GameOverUi {
     val names = listOf("Ben", "Philip", "Anna", "Mia")
     val totals = if (shared) listOf(214, 214, 167, 140) else listOf(226, 205, 167, 140)
     val ranks = if (shared) listOf(1, 1, 3, 4) else listOf(1, 2, 3, 4)
-    val colorIdx = listOf(2, 0, 1, 3)
     return GameOverUi(
         gameId = 1,
         rounds = 9,
         target = 200,
         standings = names.indices.map { i ->
             val win = ranks[i] == 1
-            StandingUi(i.toLong() + 1, ranks[i], PlayerUi(names[i], PlayerColors[colorIdx[i]], totals[i], isLeader = win), win)
+            StandingUi(i.toLong() + 1, ranks[i], PlayerUi(names[i], sampleAvatar(names[i]), totals[i], isLeader = win), win)
         },
     )
 }

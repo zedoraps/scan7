@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.data.GameRepository
+import net.moesli.scan7.game.AvatarCatalog
 import net.moesli.scan7.game.ConfirmedCard
 import net.moesli.scan7.game.ViewMode
 import net.moesli.scan7.scoring.Card
@@ -59,7 +60,7 @@ class DebugSeedLaunch(val scenario: SeedScenario, val open: DebugOpen) {
     }
 }
 
-/** Realistic names, one long; seating order = this order. Color i = palette i. */
+/** Realistic names, one long; seating order = this order. Avatar i = the kit example i. */
 private val Names = listOf(
     "Philip", "Anna", "Maximilian-Alexander", "Mia", "Ben", "Lena", "Jonas", "Sophie", "Elias", "Zoë",
 )
@@ -72,7 +73,7 @@ suspend fun seedAndOpen(context: Context, launch: DebugSeedLaunch): List<Route> 
     AppGraph.database(context).clearAllTables()
     val repo = AppGraph.repository(context)
     repo.setSaveScansForTraining(false)
-    val ids = Names.mapIndexed { i, name -> repo.addPlayer(name, colorIndex = i) }
+    val ids = Names.mapIndexed { i, name -> repo.addPlayer(name, AvatarCatalog.examples[i].second) }
     val seated = ids.take(launch.scenario.players)
     val gameId = repo.startGame(seated)
     val over = launch.scenario == SeedScenario.GAMEOVER

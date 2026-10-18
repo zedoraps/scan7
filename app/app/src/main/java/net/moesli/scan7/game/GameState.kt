@@ -386,7 +386,7 @@ data class GameState(
 
     companion object {
         /**
-         * New game with [players] in seating order. Colors must be unique within the game.
+         * New game with [players] in seating order (avatar colors may repeat).
          * Positions default to an even ring; with [previousPositions] (from the last game with the
          * same player set) those spots are reused, handed out clockwise in the new seating order.
          */
@@ -399,7 +399,6 @@ data class GameState(
         ): GameState {
             require(players.isNotEmpty()) { "A game needs at least one player" }
             require(players.size <= MAX_PLAYERS) { "At most $MAX_PLAYERS players" }
-            require(players.map { it.colorIndex }.toSet().size == players.size) { "Player colors must be unique within a game" }
             val ids = players.map { it.id }
             val reuse = previousPositions != null && previousPositions.keys == ids.toSet()
             val slots = if (reuse) previousPositions.values.toList().sortedClockwise() else defaultPositions(players.size)

@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.scan
 
+import net.moesli.scan7.ui.components.avatarSizeForHeight
+import net.moesli.scan7.ui.components.PlayerAvatar
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -60,11 +62,9 @@ import net.moesli.scan7.training.TrainingCapture
 import net.moesli.scan7.scoring.scoreRow
 import net.moesli.scan7.scoring.secondChanceText
 import net.moesli.scan7.ui.components.IconButton
-import net.moesli.scan7.ui.components.PlayerToken
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.SecondaryButton
-import net.moesli.scan7.ui.components.TokenSize
 import net.moesli.scan7.ui.components.scan7Clickable
 import net.moesli.scan7.ui.theme.ScoreNumberStyle
 import net.moesli.scan7.ui.theme.Scan7Radii
@@ -106,6 +106,10 @@ data class CaptureMeta(
  * Tapping a box or its chip leaves that card out ([excluded], e.g. a neighbour's card in the
  * frame) or includes it again ([onToggleExclude]); score, bust check and outcome ignore it.
  */
+
+/** Review / manual panel header avatar (40 dp tall card). */
+private val ReviewAvatar = avatarSizeForHeight(40.dp)
+
 @Composable
 internal fun ScanReviewStep(
     player: PlayerUi,
@@ -272,9 +276,9 @@ private fun StatusSlot(player: PlayerUi, cards: List<Card>, roundNumber: Int?, b
                     Text("BUST", color = ink, style = Scan7Type.total24.copy(fontSize = 28.sp), maxLines = 1)
                 }
                 Text(player.name, color = ink, style = Scan7Type.tag12.copy(fontSize = 13.sp), maxLines = 1)
-                PlayerToken(player.initial, player.color, TokenSize(30.dp, 40.dp, 14.sp), cornerRadius = 6.dp, outline = ink)
+                PlayerAvatar(player.avatar, ReviewAvatar)
             } else {
-                PlayerToken(player.initial, player.color, TokenSize(30.dp, 40.dp, 14.sp), cornerRadius = 6.dp)
+                PlayerAvatar(player.avatar, ReviewAvatar)
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
                     Text(player.name, color = ink, style = Scan7Type.button.copy(fontSize = 17.sp), maxLines = 1)
                     val progress = "${player.total} → ${player.total + score.total}"
@@ -367,7 +371,7 @@ private fun EmptyPanel(player: PlayerUi, error: String?, onRetake: () -> Unit, o
     val colors = Scan7Theme.colors
     PanelContent {
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m), verticalAlignment = Alignment.CenterVertically) {
-            PlayerToken(player.initial, player.color, TokenSize(30.dp, 40.dp, 14.sp), cornerRadius = 6.dp)
+            PlayerAvatar(player.avatar, ReviewAvatar)
             Text(player.name, color = colors.text, style = Scan7Type.button.copy(fontSize = 17.sp), maxLines = 1)
         }
         Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {

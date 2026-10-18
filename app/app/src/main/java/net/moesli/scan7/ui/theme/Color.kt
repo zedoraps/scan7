@@ -21,22 +21,7 @@ val Scan7TextDone = Color(0xFF7F90A8)
 val Scan7AccentTint = Color(0xFF12384A)
 val Scan7OpenOutline = Color(0xFF3A5075)
 
-/**
- * Fixed player palette in assignment order (max 10 players). Never cyan or magenta: those are
- * reserved for actions/scored and bust.
- */
-val PlayerColors: List<Color> = listOf(
-    Color(0xFFFFC24B), // amber
-    Color(0xFFB39BFF), // violet
-    Color(0xFFA8E55C), // lime
-    Color(0xFFF2E3C4), // sand
-    Color(0xFF7FA8FF), // sky
-    Color(0xFF4FE0A8), // mint
-    Color(0xFFC9B28A), // khaki
-    Color(0xFFFF9C8A), // salmon
-    Color(0xFFA9B8CC), // steel
-    Color(0xFFE2F06B), // chartreuse
-)
+// Player colors live in the avatar catalog (game/Avatar.kt, AvatarCatalog.colors; never cyan or magenta).
 
 // Derived tones for Material roles the brand doesn't define (kept in the same hue family).
 internal val Scan7AccentContainer = Color(0xFF0E4A5A)

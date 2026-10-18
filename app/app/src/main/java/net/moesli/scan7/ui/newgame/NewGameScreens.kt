@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.newgame
 
+import net.moesli.scan7.ui.components.avatarSizeForHeight
+import net.moesli.scan7.ui.components.PlayerAvatar
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.tween
@@ -79,12 +81,10 @@ import net.moesli.scan7.ui.components.Scan7ConfirmDialog
 import net.moesli.scan7.ui.components.DragHandleIcon
 import net.moesli.scan7.ui.components.IconButton
 import net.moesli.scan7.ui.components.MinusIcon
-import net.moesli.scan7.ui.components.PlayerToken
 import net.moesli.scan7.ui.components.PlusIcon
 import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.RowSize
 import net.moesli.scan7.ui.components.ScreenHeader
-import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.SectionLabel
 import net.moesli.scan7.ui.components.bottomButtonsInsets
 import net.moesli.scan7.ui.components.draggingCardShadow
@@ -96,7 +96,6 @@ import net.moesli.scan7.ui.players.PlayerEditorHost
 import net.moesli.scan7.ui.players.SampleStoredPlayers
 import net.moesli.scan7.ui.players.SetupPlayerRow
 import net.moesli.scan7.ui.players.color
-import net.moesli.scan7.ui.players.colorConflicts
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
@@ -106,9 +105,8 @@ import net.moesli.scan7.ui.theme.Scan7Type
 
 /**
  * New game, step 1 (3): stored players with checkboxes (pick order = initial seating order),
- * "+ New player" inline, max [MAX_PLAYERS]. Players who share a color with another selected player
- * show "Same color as …" and a Change button ([onFixColor] → editor); Next stays disabled until
- * every selected player has their own color.
+ * "+ New player" inline, max [MAX_PLAYERS]. Avatar colors may repeat within a game (the editor
+ * only marks the colors the selected players already use).
  */
 @Composable
 fun PickPlayersScreen(
@@ -116,7 +114,6 @@ fun PickPlayersScreen(
     selected: List<Long>,
     onToggle: (Long) -> Unit,
     onNewPlayer: () -> Unit,
-    onFixColor: (Player) -> Unit,
     onNext: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -125,10 +122,8 @@ fun PickPlayersScreen(
     val haptics = LocalHapticFeedback.current
     val byId = players.associateBy { it.id }
     val selectedPlayers = selected.mapNotNull { byId[it] }
-    val conflicts = colorConflicts(selectedPlayers)
     val full = selectedPlayers.size >= MAX_PLAYERS
     val hint = when {
-        conflicts.isNotEmpty() -> "Two selected players share a color. Change one to continue."
         selectedPlayers.size < MIN_PLAYERS && players.isNotEmpty() -> "Pick at least $MIN_PLAYERS players."
         full -> "$MAX_PLAYERS players is the maximum."
         else -> null
@@ -162,7 +157,6 @@ fun PickPlayersScreen(
             }
             players.forEach { p ->
                 val checked = p.id in selected
-                val clash = conflicts[p.id]
                 SetupPlayerRow(
                     player = p,
                     active = checked,
@@ -172,20 +166,7 @@ fun PickPlayersScreen(
                         onToggle(p.id)
                     },
                     checked = checked,
-                    supporting = clash?.let { others -> "Same color as ${others.joinToString(", ") { it.name }}" },
                     leading = { Checkbox(checked) },
-                    trailing = {
-                        if (clash != null) {
-                            SecondaryButton(
-                                text = "Change",
-                                onClick = { onFixColor(p) },
-                                height = Scan7Spacing.minTouch,
-                                cornerRadius = Scan7Radii.actionRow,
-                                textStyle = Scan7Type.text12,
-                                contentDescription = "Change ${p.name}'s color",
-                            )
-                        }
-                    },
                 )
             }
             AddPlayerRow(onClick = onNewPlayer, text = if (players.isEmpty()) "Add your first player" else "New player")
@@ -196,7 +177,7 @@ fun PickPlayersScreen(
         PrimaryButton(
             text = "Next",
             onClick = onNext,
-            enabled = canContinue(selectedPlayers.size, conflicts.isNotEmpty()),
+            enabled = canContinue(selectedPlayers.size),
             modifier = Modifier
                 .fillMaxWidth()
                 .bottomButtonsInsets(),
@@ -436,9 +417,7 @@ private fun SeatRow(
             textAlign = TextAlign.Center,
             modifier = Modifier.width(24.dp),
         )
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(32.dp, 40.dp)) {
-            PlayerToken(player.initial, player.color, RowSize.Regular.token)
-        }
+        PlayerAvatar(player.avatar, avatarSizeForHeight(RowSize.Regular.token.height))
         Text(
             player.name,
             color = colors.text,
@@ -577,7 +556,6 @@ fun NewGameRoute(
             selected = liveSelected,
             onToggle = { selected = toggleSelection(liveSelected, it) },
             onNewPlayer = { editorKey = EditorTarget.New.key },
-            onFixColor = { editorKey = EditorTarget.Edit(it).key },
             onNext = {
                 val picked = liveSelected
                 scope.launch {
@@ -606,8 +584,10 @@ fun NewGameRoute(
     EditorTarget.fromKey(editorKey, list)?.let { t ->
         PlayerEditorHost(
             target = t,
-            players = list,
+            // The game being set up: a new player gets a color none of them uses; their colors get a dot.
+            players = liveSelected.map { byId.getValue(it) },
             repository = repository,
+            dotPlayers = liveSelected.map { byId.getValue(it) },
             onClose = { editorKey = null },
             onSaved = { id -> if (t == EditorTarget.New && id !in selected) selected = toggleSelection(liveSelected, id) },
         )
@@ -620,7 +600,7 @@ private val LongListSaver = Saver<List<Long>, LongArray>(save = { it.toLongArray
 @Composable
 private fun PickPlayersPreview() {
     Scan7Theme {
-        PickPlayersScreen(SampleStoredPlayers, listOf(2, 3, 6), {}, {}, {}, {}, {})
+        PickPlayersScreen(SampleStoredPlayers, listOf(2, 3, 6), {}, {}, {}, {})
     }
 }
 

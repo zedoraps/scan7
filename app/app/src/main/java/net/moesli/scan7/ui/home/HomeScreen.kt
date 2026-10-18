@@ -1,5 +1,8 @@
 package net.moesli.scan7.ui.home
 
+import net.moesli.scan7.game.AvatarCatalog
+import net.moesli.scan7.ui.components.avatarSizeForHeight
+import net.moesli.scan7.ui.components.PlayerAvatar
 import android.os.SystemClock
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -50,17 +53,14 @@ import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.data.GameSnapshot
 import net.moesli.scan7.ui.components.LeaderBadge
-import net.moesli.scan7.ui.components.PlayerToken
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.SectionLabel
-import net.moesli.scan7.ui.components.TokenSize
 import net.moesli.scan7.ui.components.headerInsets
 import net.moesli.scan7.ui.components.openCardShadow
 import net.moesli.scan7.ui.gameover.joinNames
 import net.moesli.scan7.ui.players.playerUis
-import net.moesli.scan7.ui.theme.PlayerColors
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
@@ -95,8 +95,9 @@ fun GameSnapshot.toResumeUi(): ResumeGameUi {
     )
 }
 
-private val ResumeToken = TokenSize(20.dp, 27.dp, 11.sp)
-private val HeroToken = TokenSize(44.dp, 58.dp, 20.sp)
+/** Resume card avatars: 27 dp tall (kit: 24–36 dp in bars). */
+private val ResumeAvatar = avatarSizeForHeight(27.dp)
+private val HeroAvatar = avatarSizeForHeight(58.dp)
 
 /**
  * Home (1): wordmark, Resume card (round, player tokens, leader) when a game is unfinished,
@@ -226,9 +227,7 @@ private fun ResumeCard(game: ResumeGameUi, onResume: () -> Unit) {
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs)) {
                 game.players.forEach { p ->
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(26.dp, 32.dp)) {
-                        PlayerToken(p.initial, p.color, ResumeToken)
-                    }
+                    PlayerAvatar(p.avatar, ResumeAvatar)
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), verticalAlignment = Alignment.CenterVertically) {
@@ -269,18 +268,15 @@ private fun Intro(hasPlayers: Boolean) {
     }
 }
 
-/** Five palette tokens fanned out (decorative). */
+/** Five of the kit's example avatars fanned out (decorative). */
 @Composable
 private fun TokenFan(modifier: Modifier = Modifier) {
     Box(modifier = modifier.size(176.dp, 80.dp).clearAndSetSemantics {}) {
         val angles = listOf(-20f, -10f, 0f, 10f, 20f)
         angles.forEachIndexed { i, a ->
-            PlayerToken(
-                initial = "",
-                color = PlayerColors[i],
-                size = HeroToken,
-                cornerRadius = 7.dp,
-                outline = Scan7Theme.colors.ground,
+            PlayerAvatar(
+                avatar = AvatarCatalog.examples[i].second,
+                size = HeroAvatar,
                 modifier = Modifier
                     .offset(x = (24 + i * 26).dp, y = (10 + kotlin.math.abs(i - 2) * 4).dp)
                     .rotate(a + 8f),

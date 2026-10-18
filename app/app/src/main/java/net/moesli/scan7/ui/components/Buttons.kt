@@ -276,13 +276,7 @@ fun ScanNextButton(
             Text(stringResource(R.string.label_scan_next), color = colors.onAccent, style = Scan7Type.capsButton, maxLines = 1)
             Text(next.name, color = colors.onAccent, style = Scan7Type.buttonName, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        PlayerToken(
-            initial = next.initial,
-            color = next.color,
-            size = TokenSize(32.dp, 42.dp, 14.sp),
-            cornerRadius = 6.dp,
-            outline = colors.onAccent,
-        )
+        PlayerAvatar(next.avatar, avatarSizeForHeight(42.dp))
     }
 }
 

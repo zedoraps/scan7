@@ -23,8 +23,8 @@ interface PlayerDao {
     @Query("SELECT * FROM players WHERE id = :id")
     suspend fun byId(id: Long): PlayerEntity?
 
-    @Query("SELECT colorIndex FROM players WHERE archived = 0")
-    suspend fun activeColors(): List<Int>
+    @Query("SELECT avatarColor FROM players WHERE archived = 0")
+    suspend fun activeColors(): List<String>
 
     @Insert
     suspend fun insert(player: PlayerEntity): Long

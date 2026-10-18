@@ -1,5 +1,8 @@
 package net.moesli.scan7.ui.history
 
+import net.moesli.scan7.ui.components.sampleAvatar
+import net.moesli.scan7.ui.components.avatarSizeForHeight
+import net.moesli.scan7.ui.components.PlayerAvatar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -38,15 +41,12 @@ import androidx.compose.ui.unit.sp
 import net.moesli.scan7.data.GameSnapshot
 import net.moesli.scan7.game.ResultStatus
 import net.moesli.scan7.ui.components.CappedFontScale
-import net.moesli.scan7.ui.components.PlayerToken
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.ScreenHeader
-import net.moesli.scan7.ui.components.TokenSize
 import net.moesli.scan7.ui.components.bottomButtonsInsets
 import net.moesli.scan7.ui.components.headerInsets
 import net.moesli.scan7.ui.components.scan7Clickable
 import net.moesli.scan7.ui.players.playerUis
-import net.moesli.scan7.ui.theme.PlayerColors
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
@@ -162,7 +162,7 @@ private fun HeaderRow(players: List<PlayerUi>) {
         modifier = Modifier
             .fillMaxWidth()
             .background(colors.surface)
-            .height(if (showNames) 64.dp else 48.dp),
+            .height(64.dp),
     ) {
         Text(
             "RND",
@@ -183,12 +183,15 @@ private fun HeaderRow(players: List<PlayerUi>) {
                     .clearAndSetSemantics { contentDescription = p.name }
                     .tableCell(0, i + 1),
             ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(24.dp, 28.dp)) {
-                    PlayerToken(p.initial, p.color, if (showNames) TokenSize(18.dp, 24.dp, 10.sp) else TokenSize(16.dp, 21.dp, 9.sp))
-                }
-                if (showNames) {
-                    Text(p.name, color = colors.text, style = Scan7Type.text11, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+                PlayerAvatar(p.avatar, avatarSizeForHeight(if (showNames) 24.dp else 21.dp))
+                // Avatars never replace names: narrow columns (7+ players) get the smaller text.
+                Text(
+                    p.name,
+                    color = colors.text,
+                    style = if (showNames) Scan7Type.text11 else Scan7Type.text10,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }
@@ -359,7 +362,7 @@ internal fun sampleScoreboard(playerCount: Int = 4, over: Boolean = false): Scor
         gameId = 1,
         target = 200,
         isOver = over,
-        players = ids.indices.map { PlayerUi(names[it], PlayerColors[it], totals[it], isLeader = ids[it] in leaders) },
+        players = ids.indices.map { PlayerUi(names[it], sampleAvatar(names[it]), totals[it], isLeader = ids[it] in leaders) },
         table = ScoreTable(ids, rows, totals, leaders),
     )
 }

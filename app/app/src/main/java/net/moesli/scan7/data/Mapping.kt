@@ -1,5 +1,6 @@
 package net.moesli.scan7.data
 
+import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.ConfirmedCard
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.Player
@@ -11,7 +12,8 @@ import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.defaultPositions
 import net.moesli.scan7.scoring.Card
 
-internal fun PlayerEntity.toPlayer() = Player(id, name, colorIndex, createdAt, archived)
+internal fun PlayerEntity.toPlayer() =
+    Player(id, name, Avatar(avatarFace, avatarPattern, avatarColor).normalized(), createdAt, archived)
 
 internal fun ResultWithCards.toResult() = PlayerResult(
     status = result.status,

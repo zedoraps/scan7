@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui
 
+import net.moesli.scan7.game.Avatar
+import net.moesli.scan7.game.AvatarCatalog
 import net.moesli.scan7.game.ConfirmedCard
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.Player
@@ -21,10 +23,9 @@ import net.moesli.scan7.ui.newgame.moved
 import net.moesli.scan7.ui.newgame.seatingFor
 import net.moesli.scan7.ui.newgame.steppedTarget
 import net.moesli.scan7.ui.newgame.toggleSelection
-import net.moesli.scan7.ui.players.colorConflicts
 import net.moesli.scan7.ui.players.colorName
 import net.moesli.scan7.ui.players.colorOwners
-import net.moesli.scan7.ui.players.suggestedColor
+import net.moesli.scan7.ui.players.suggestedAvatar
 import net.moesli.scan7.ui.sheet.breakdownLine
 import net.moesli.scan7.ui.sheet.chipLabel
 import net.moesli.scan7.ui.sheet.duplicatedCards
@@ -33,52 +34,44 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.random.Random
 
 class SetupLogicTest {
-    private val anna = Player(1, "Anna", 0)
-    private val ben = Player(2, "Ben", 1)
-    private val david = Player(3, "David", 0)
-    private val mia = Player(4, "Mia", 2)
+    private val anna = Player(1, "Anna")
+    private val ben = Player(2, "Ben")
+    private val david = Player(3, "David")
+    private val mia = Player(4, "Mia")
 
-    // ---- colors --------------------------------------------------------------------------
+    // ---- avatar colors --------------------------------------------------------------------
+
+    private fun withColor(p: Player, color: String) = p.copy(avatar = Avatar("happy", "plain", color))
 
     @Test
-    fun colorConflictsListsEveryPlayerSharingAColor() {
-        val conflicts = colorConflicts(listOf(anna, ben, david, mia))
-        assertEquals(setOf(1L, 3L), conflicts.keys)
-        assertEquals(listOf(david), conflicts[1L])
-        assertEquals(listOf(anna), conflicts[3L])
+    fun colorOwnersGroupsByColorWithoutTheEditedPlayer() {
+        val a = withColor(anna, "amber")
+        val b = withColor(ben, "violet")
+        val d = withColor(david, "amber")
+        val owners = colorOwners(listOf(a, b, d), exceptId = 1)
+        assertEquals(listOf(d), owners["amber"])
+        assertEquals(listOf(b), owners["violet"])
+        assertFalse(owners.containsKey("lime"))
+        assertTrue(colorOwners(emptyList(), exceptId = null).isEmpty())
     }
 
     @Test
-    fun noConflictWithUniqueColors() {
-        assertTrue(colorConflicts(listOf(anna, ben, mia)).isEmpty())
-        assertTrue(colorConflicts(emptyList()).isEmpty())
-    }
-
-    @Test
-    fun threeWayConflict() {
-        val e = Player(5, "Eve", 0)
-        val c = colorConflicts(listOf(anna, david, e))
-        assertEquals(listOf(david, e), c[1L])
-    }
-
-    @Test
-    fun colorOwnersExcludesTheEditedPlayer() {
-        val owners = colorOwners(listOf(anna, ben, david), exceptId = 1)
-        assertEquals(listOf(david), owners[0])
-        assertEquals(listOf(ben), owners[1])
-        assertFalse(owners.containsKey(2))
-    }
-
-    @Test
-    fun suggestedColorIsFirstFreeElseLeastUsed() {
-        assertEquals(0, suggestedColor(emptyList()))
-        assertEquals(2, suggestedColor(listOf(anna, ben)))
-        val all = (0 until 10).map { Player(it.toLong() + 10, "P$it", it) } + Player(99, "X", 0)
-        assertEquals(1, suggestedColor(all))
-        assertEquals("Amber", colorName(0))
-        assertEquals("Chartreuse", colorName(9))
+    fun suggestedAvatarTakesTheFirstFreeColorAndARandomFaceAndPattern() {
+        assertEquals("amber", suggestedAvatar(emptyList()).color)
+        assertEquals("lime", suggestedAvatar(listOf(withColor(anna, "amber"), withColor(ben, "violet"))).color)
+        // Every color taken: falls back to the first one.
+        val all = AvatarCatalog.colors.mapIndexed { i, c -> Player(i.toLong(), "P$i", Avatar("happy", "plain", c.id)) }
+        assertEquals("amber", suggestedAvatar(all).color)
+        val a = suggestedAvatar(emptyList(), Random(3))
+        assertTrue(a.face in AvatarCatalog.faces)
+        assertTrue(a.pattern in AvatarCatalog.patterns)
+        assertEquals(a, suggestedAvatar(emptyList(), Random(3)))
+        assertEquals("Amber", colorName("amber"))
+        assertEquals("Chartreuse", colorName("chartreuse"))
+        assertEquals("Amber", colorName("gone"))
     }
 
     // ---- selection / seating / target ----------------------------------------------------
@@ -127,12 +120,11 @@ class SetupLogicTest {
     }
 
     @Test
-    fun canContinueNeedsTwoToTenPlayersWithoutConflicts() {
-        assertFalse(canContinue(1, false))
-        assertTrue(canContinue(2, false))
-        assertTrue(canContinue(10, false))
-        assertFalse(canContinue(11, false))
-        assertFalse(canContinue(4, true))
+    fun canContinueNeedsTwoToTenPlayers() {
+        assertFalse(canContinue(1))
+        assertTrue(canContinue(2))
+        assertTrue(canContinue(10))
+        assertFalse(canContinue(11))
     }
 
     // ---- texts -----------------------------------------------------------------------------

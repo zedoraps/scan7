@@ -70,7 +70,7 @@ data class DebugHomeUi(
 
 /**
  * Debug menu (tap the Home wordmark 5×): detector tools + model info, the "Save scans for
- * training" toggle.
+ * training" toggle, the avatar gallery.
  */
 @Composable
 fun DebugHomeScreen(
@@ -81,6 +81,7 @@ fun DebugHomeScreen(
     onSaveScansChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     onLoadDetector: () -> Unit = {},
+    onAvatars: () -> Unit = {},
 ) {
     val colors = Scan7Theme.colors
     DebugScaffold(title = "Debug", subtitle = "Detector, training data, tools", onBack = onBack, modifier = modifier) { padding ->
@@ -113,6 +114,9 @@ fun DebugHomeScreen(
 
             Section("Training data")
             SaveScansCard(state.saveScans, onSaveScansChange)
+
+            Section("Design")
+            NavCard("Avatars", "Kit layers + example presets (compare with avatar_preview.png)", onAvatars)
 
 
 

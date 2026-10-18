@@ -157,7 +157,7 @@ internal fun Modifier.playerClickable(
     }
 
 /**
- * Player card for the table view. Layout: ring + token, then "Name Total" on one line (Compact:
+ * Player card for the table view. Layout: ring + avatar, then "Name Total" on one line (Compact:
  * name on one line, total below it, so names aren't squeezed), then the Scan/Bust actions (open
  * players, Large/Medium only) or the status tag (finished players, arrange mode, and always on
  * Compact cards). The leader badge overlaps the top-right corner.

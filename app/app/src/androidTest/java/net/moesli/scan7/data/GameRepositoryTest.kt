@@ -38,7 +38,7 @@ class GameRepositoryTest {
         val anna = repo.addPlayer("Anna")
         val ben = repo.addPlayer("Ben")
         val cleo = repo.addPlayer("Cleo")
-        assertEquals(listOf(0, 1, 2), repo.players.first().map { it.colorIndex })
+        assertEquals(listOf("amber", "violet", "lime"), repo.players.first().map { it.avatar.color })
 
         val gameId = repo.startGame(listOf(anna, ben, cleo), target = 40)
         repo.scoreCards(gameId, anna, listOf(ConfirmedCard(Card.N12), ConfirmedCard(Card.N11), ConfirmedCard(Card.TIMES_2), ConfirmedCard(Card.FREEZE)))

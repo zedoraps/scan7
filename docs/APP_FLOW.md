@@ -5,11 +5,15 @@
 > screens (live camera, detect from photo) stay available for testing.
 
 ## Players
-- Players are stored locally on the phone: name + a color from the fixed 10-color palette (shown as a token with their initial). Add, rename, delete any time. Max 10 players per game.
+- Players are stored locally on the phone: name + an **avatar** (color + pattern + face from the avatar kit, [../design/avatars/AVATARS.md](../design/avatars/AVATARS.md): 15 colors, 6 patterns incl. plain, 12 faces; never cyan or magenta). Add, rename, delete any time. Max 10 players per game.
+- The avatar replaces the old initial token everywhere (round cards inside the score ring, list rows, camera header, review/manual, sheets, scoreboard, game over, resume card, players list, new game); the name always stays visible next to it. TalkBack: "Mia, sand avatar, grin face".
+- **Avatar editor** (player sheet): live preview (88 dp) + name at the top, shuffle in the header, Face 3×4, Pattern 1×6, Color 3×5; Save stays pinned at the bottom.
+- **Colors may repeat within a game.** Colors used by other players of the current game (or the game being set up in New game) show a small dot so people can avoid duplicates; nothing is blocked.
+- A new player gets a random face + pattern and the first color nobody uses: in New game, nobody of the selected players; in the players list, no stored player (else the first color).
 - No groups.
 
 ## New game
-1. Select who plays tonight from the stored players (checkboxes). A new player can be added right here and is saved to the list.
+1. Select who plays tonight from the stored players (checkboxes). A new player can be added right here and is saved to the list. Shared avatar colors don't block **Next** (no "Same color as …" check any more).
 2. Put the selected players in seating order (drag to reorder).
 3. Target score: 200 (default, changeable).
 4. Start → round 1.
@@ -32,7 +36,7 @@ Bottom: **Scan next · <next open player>** (primary) + **Close round**; when ev
 ## Scan
 1. Full-screen camera, player name at the top, live boxes on the cards.
 2. **Shutter button only** (no auto-capture). Pressing it freezes the current frame.
-   Left of the shutter: **Bust** (magenta outline + word) marks the player busted without scanning (Undo toast); in Scan next it continues straight to the next open player. Right of the shutter: **Type** (manual entry). The top row is ← back, then the player (token + "SCANNING" / "NEXT" · total over the name in Unbounded ~28 sp). Tap the preview to focus there; pinch to zoom (the zoom pills follow).
+   Left of the shutter: **Bust** (magenta outline + word) marks the player busted without scanning (Undo toast); in Scan next it continues straight to the next open player. Right of the shutter: **Type** (manual entry). The top row is ← back, then the player (avatar + "SCANNING" / "NEXT" · total over the name in Unbounded ~28 sp). Tap the preview to focus there; pinch to zoom (the zoom pills follow).
 3. Review overlay on the frozen frame: boxes and labels stay on the cards; a bottom panel shows
    - detected cards as chips,
    - score breakdown (numbers, x2, plus cards, Flip 7 bonus) and the total,
