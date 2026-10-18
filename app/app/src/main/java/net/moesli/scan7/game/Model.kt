@@ -97,3 +97,20 @@ data class RoundState(
 
     fun points(playerId: Long): Int = result(playerId).points
 }
+
+/** Largest |delta| of one total adjustment (keeps typos like 1000 out). */
+const val MAX_ADJUSTMENT = 999
+
+/**
+ * A manual change of a player's game total ("Adjust total" in the player sheet: penalty, house
+ * rule, …), stored separately from the round results. [delta] is signed and never 0; [round] is
+ * the round that was running (or just closed) when it was made. [id] is 0 until stored.
+ */
+data class ScoreAdjustment(
+    val id: Long = 0,
+    val playerId: Long,
+    val delta: Int,
+    val note: String? = null,
+    val round: Int,
+    val createdAt: Long = 0,
+)

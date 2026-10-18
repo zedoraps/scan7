@@ -33,6 +33,7 @@ import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.SectionLabel
 import net.moesli.scan7.ui.nav.ScanStart
 import net.moesli.scan7.ui.players.playerUis
+import net.moesli.scan7.ui.sheet.AdjustActions
 import net.moesli.scan7.ui.sheet.CloseRoundDialog
 import net.moesli.scan7.ui.sheet.EndGameDialog
 import net.moesli.scan7.ui.sheet.PlayerSheet
@@ -194,6 +195,14 @@ class RoundController(
             SheetAction.Reset -> run("reset") { resetToOpen(gameId, playerId) }
         }
     }
+
+    // ---- Total adjustments (player sheet "Adjust total"; the sheet stays open) -------------
+
+    fun adjustActions(playerId: Long) = AdjustActions(
+        onAdjust = { delta, note -> run("adjust total") { adjustTotal(gameId, playerId, delta, note) } },
+        onRemove = { a -> run("remove adjustment") { removeAdjustment(gameId, a.id) } },
+        onRestore = { a -> run("restore adjustment") { restoreAdjustment(gameId, a) } },
+    )
 }
 
 enum class SheetAction { Scan, Manual, Bust, Edit, Rescan, Reset }
@@ -230,7 +239,7 @@ fun RoundRoute(
         if (player != null) {
             val closed = snap.state.currentRound.isClosed
             PlayerSheet(
-                state = PlayerSheetUi(player, snap.state.currentRound.number, snap.state.result(id).cards),
+                state = PlayerSheetUi(player, snap.state.currentRound.number, snap.state.result(id).cards, snap.state.adjustmentsOf(id)),
                 onScan = { controller.sheetAction(id, SheetAction.Scan) },
                 onEnterManually = { controller.sheetAction(id, SheetAction.Manual) },
                 onBust = {
@@ -242,6 +251,7 @@ fun RoundRoute(
                 // A closed round has no open players: "Reset to open" would mean reopening the round.
                 onResetToOpen = if (closed) null else ({ controller.sheetAction(id, SheetAction.Reset) }),
                 onDismiss = { flags.sheetPlayer = null },
+                adjust = remember(id) { controller.adjustActions(id) },
             )
         }
     }

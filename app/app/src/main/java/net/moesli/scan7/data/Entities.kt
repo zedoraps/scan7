@@ -107,6 +107,29 @@ data class ResultCardEntity(
     val ignored: Boolean,
 )
 
+/**
+ * A manual total adjustment ("Adjust total" in the player sheet), separate from the round
+ * results. [delta] is signed; [roundNumber] is the round running when it was made. Added in DB
+ * version 3.
+ */
+@Entity(
+    tableName = "score_adjustments",
+    foreignKeys = [
+        ForeignKey(entity = GameEntity::class, parentColumns = ["id"], childColumns = ["gameId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = PlayerEntity::class, parentColumns = ["id"], childColumns = ["playerId"]),
+    ],
+    indices = [Index("gameId"), Index("playerId")],
+)
+data class ScoreAdjustmentEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val gameId: Long,
+    val playerId: Long,
+    val delta: Int,
+    val note: String?,
+    val createdAt: Long,
+    val roundNumber: Int,
+)
+
 /** App-level key/value settings (e.g. the preferred view mode). */
 @Entity(tableName = "settings")
 data class SettingEntity(
@@ -132,4 +155,6 @@ data class GameWithDetails(
     val seats: List<GamePlayerEntity>,
     @Relation(entity = RoundEntity::class, parentColumn = "id", entityColumn = "gameId")
     val rounds: List<RoundWithResults>,
+    @Relation(parentColumn = "id", entityColumn = "gameId")
+    val adjustments: List<ScoreAdjustmentEntity>,
 )

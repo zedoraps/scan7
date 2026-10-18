@@ -30,10 +30,29 @@ class MappingTest {
                     },
                 ),
             ),
+            adjustments = emptyList(),
         )
         val loaded = details.toState()
         assertEquals(state, loaded)
         assertTrue(loaded.isOver)
         assertEquals(listOf(1L), loaded.winners)
+    }
+
+    @Test
+    fun adjustments_roundTripThroughEntity_sortedByCreation() {
+        val state = GameState.newGame(players, startedAt = 5, id = 9)
+            .adjustTotal(1, 10, "penalty", now = 20)
+            .adjustTotal(2, -12, null, now = 30)
+        val stored = state.adjustments.mapIndexed { i, a -> a.copy(id = i + 1L).toEntity(9) }
+        assertEquals(ScoreAdjustmentEntity(1, 9, 1, 10, "penalty", 20, 1), stored[0])
+        val details = GameWithDetails(
+            game = state.toGameEntity(),
+            seats = state.toSeatEntities(9),
+            rounds = listOf(RoundWithResults(RoundEntity(id = 1, gameId = 9, number = 1), emptyList())),
+            adjustments = stored.reversed(),
+        )
+        val loaded = details.toState()
+        assertEquals(state.adjustments.mapIndexed { i, a -> a.copy(id = i + 1L) }, loaded.adjustments)
+        assertEquals(mapOf(1L to 10, 2L to -12), loaded.totals)
     }
 }

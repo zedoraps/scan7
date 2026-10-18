@@ -102,6 +102,12 @@ interface GameDao {
 
     @Insert
     suspend fun insertCards(cards: List<ResultCardEntity>)
+
+    @Insert
+    suspend fun insertAdjustment(adjustment: ScoreAdjustmentEntity): Long
+
+    @Query("DELETE FROM score_adjustments WHERE id = :id")
+    suspend fun deleteAdjustment(id: Long)
 }
 
 @Dao

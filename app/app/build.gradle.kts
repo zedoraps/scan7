@@ -78,8 +78,13 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.room.testing)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    constraints {
+        // androidTest runs against the app's versions: room-testing's schema reader needs serialization >= 1.8.
+        implementation(libs.kotlinx.serialization.core) { because("Room MigrationTestHelper (androidTest)") }
+    }
 }
 // The detector model is not in git (~10 MB per version): fail early with a hint instead of
 // building an APK whose camera screens can't detect anything.

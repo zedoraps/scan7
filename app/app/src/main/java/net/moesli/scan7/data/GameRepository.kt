@@ -11,6 +11,7 @@ import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.PALETTE_SIZE
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.ResultSource
+import net.moesli.scan7.game.ScoreAdjustment
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.ViewMode
 import net.moesli.scan7.game.firstFreeColor
@@ -151,7 +152,7 @@ class GameRepository(
             persist(other, other.toState(), other.toState().abandon(now))
         }
         val gameId = gameDao.insertGame(state.toGameEntity())
-        val inserted = GameWithDetails(state.toGameEntity().copy(id = gameId), emptyList(), emptyList())
+        val inserted = GameWithDetails(state.toGameEntity().copy(id = gameId), emptyList(), emptyList(), emptyList())
         persist(inserted, null, state.copy(id = gameId))
         gameId
     }
@@ -168,6 +169,18 @@ class GameRepository(
     /** Sets points directly (manual correction without cards). */
     suspend fun scorePoints(gameId: Long, playerId: Long, points: Int, round: Int? = null): GameState =
         mutate(gameId) { s, now -> s.scorePoints(playerId, points, now, round ?: s.currentRound.number) }
+
+    /** "Adjust total" from the player sheet: signed [delta] with an optional [note], for the current round. */
+    suspend fun adjustTotal(gameId: Long, playerId: Long, delta: Int, note: String? = null): GameState =
+        mutate(gameId) { s, now -> s.adjustTotal(playerId, delta, note, now) }
+
+    /** Removes a stored adjustment (player sheet ✕). */
+    suspend fun removeAdjustment(gameId: Long, adjustmentId: Long): GameState =
+        mutate(gameId) { s, now -> s.removeAdjustment(adjustmentId, now) }
+
+    /** Undo of [removeAdjustment]: stores [adjustment] again as it was (new id). */
+    suspend fun restoreAdjustment(gameId: Long, adjustment: ScoreAdjustment): GameState =
+        mutate(gameId) { s, now -> s.restoreAdjustment(adjustment, now) }
 
     /** One-tap bust. */
     suspend fun bust(gameId: Long, playerId: Long, round: Int? = null): GameState =
@@ -234,6 +247,11 @@ class GameRepository(
         val game = new.toGameEntity().copy(id = gameId)
         if (game != details.game) gameDao.updateGame(game)
         if (old == null || old.seats != new.seats) gameDao.upsertSeats(new.toSeatEntities(gameId))
+
+        // Adjustments: new ones have id 0, removed ones are missing from [new].
+        val keptIds = new.adjustments.map { it.id }.toSet()
+        for (a in details.adjustments) if (a.id !in keptIds) gameDao.deleteAdjustment(a.id)
+        for (a in new.adjustments) if (a.id == 0L) gameDao.insertAdjustment(a.toEntity(gameId))
 
         val roundIds = details.rounds.associate { it.round.number to it.round.id }
         val resultIds = details.rounds.flatMap { r -> r.results.map { (r.round.number to it.result.playerId) to it.result.id } }.toMap()

@@ -30,6 +30,11 @@ data class GameState(
     val endedEarly: Boolean = false,
     /** View chosen for this game; `null` = use the app preference / default. */
     val viewMode: ViewMode? = null,
+    /**
+     * Manual total adjustments ("Adjust total"), oldest first. They count in [totals] (and so in
+     * leaders, standings, ring progress and game over) but are not round results.
+     */
+    val adjustments: List<ScoreAdjustment> = emptyList(),
 ) {
     init {
         require(seats.isNotEmpty()) { "A game needs at least one player" }
@@ -63,17 +68,27 @@ data class GameState(
 
     fun status(playerId: Long, round: Int = currentRound.number): ResultStatus = result(playerId, round).status
 
-    /** Totals over all rounds (incl. points already scored in the running round), in seating order. */
+    /**
+     * Totals over all rounds (incl. points already scored in the running round) plus all
+     * [adjustments], in seating order. The single source of truth for every total in the app.
+     */
     val totals: Map<Long, Int> get() = totalsThrough(rounds.size)
 
-    /** Totals after rounds 1..[round], in seating order. */
+    /** Totals after rounds 1..[round] plus the adjustments made up to that round, in seating order. */
     fun totalsThrough(round: Int): Map<Long, Int> {
         require(round in 0..rounds.size) { "No round $round" }
         val counted = rounds.take(round)
-        return playerIds.associateWith { p -> counted.sumOf { it.points(p) } }
+        val adjusted = adjustments.filter { it.round <= round }
+        return playerIds.associateWith { p -> counted.sumOf { it.points(p) } + adjusted.filter { it.playerId == p }.sumOf { it.delta } }
     }
 
     fun total(playerId: Long): Int = totals.getValue(playerId)
+
+    /** [playerId]'s adjustments, oldest first. */
+    fun adjustmentsOf(playerId: Long): List<ScoreAdjustment> = adjustments.filter { it.playerId == playerId }
+
+    /** Sum of [playerId]'s adjustments (0 without any). */
+    fun adjustmentTotal(playerId: Long): Int = adjustmentsOf(playerId).sumOf { it.delta }
 
     /** Player(s) with the highest total, in seating order; empty while nobody has points. */
     val leaders: List<Long>
@@ -204,6 +219,45 @@ data class GameState(
         check(!(r.isClosed && result.isOpen)) { "A closed round can't have open players" }
         val updated = r.copy(results = r.results + (playerId to result))
         return copy(rounds = rounds.replace(round, updated)).settled(now)
+    }
+
+    // ---- Total adjustments ---------------------------------------------------------------
+
+    /**
+     * "Adjust total": adds [delta] (signed, not 0, at most [MAX_ADJUSTMENT] either way) to
+     * [playerId]'s total with an optional [note], recorded for the current round. The game-over
+     * rule is unchanged: mid-round it never ends the game; on the end-of-round view (round closed)
+     * totals are re-checked like for any edit of a closed round.
+     */
+    fun adjustTotal(playerId: Long, delta: Int, note: String?, now: Long): GameState {
+        seatIndex(playerId)
+        require(delta != 0) { "Adjustment can't be 0" }
+        require(delta in -MAX_ADJUSTMENT..MAX_ADJUSTMENT) { "Adjustment out of range" }
+        check(!abandoned) { "Game was abandoned" }
+        val adjustment = ScoreAdjustment(
+            playerId = playerId,
+            delta = delta,
+            note = note?.trim()?.takeIf { it.isNotEmpty() },
+            round = currentRound.number,
+            createdAt = now,
+        )
+        return copy(adjustments = adjustments + adjustment).settled(now)
+    }
+
+    /** Removes the stored adjustment [adjustmentId] (totals / game over recomputed). */
+    fun removeAdjustment(adjustmentId: Long, now: Long): GameState {
+        check(!abandoned) { "Game was abandoned" }
+        require(adjustments.any { it.id == adjustmentId }) { "No adjustment $adjustmentId" }
+        return copy(adjustments = adjustments.filterNot { it.id == adjustmentId }).settled(now)
+    }
+
+    /** Undo of [removeAdjustment]: puts [adjustment] back as it was (same round, note and time; new id). */
+    fun restoreAdjustment(adjustment: ScoreAdjustment, now: Long): GameState {
+        seatIndex(adjustment.playerId)
+        check(!abandoned) { "Game was abandoned" }
+        require(adjustment.round in 1..rounds.size) { "No round ${adjustment.round}" }
+        val restored = adjustment.copy(id = 0)
+        return copy(adjustments = (adjustments + restored).sortedBy { it.createdAt }).settled(now)
     }
 
     // ---- Round lifecycle -----------------------------------------------------------------

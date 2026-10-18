@@ -111,6 +111,7 @@ drive the phone at a time.
 | 2026-10-18 | **Design handoff adopted** (design/DESIGN_HANDOFF.md): custom components, no Material default look; DM Mono for all text except Unbounded where specified; players = palette color + initial (max 10); table view with free card positions + list view; one-tap bust with undo; "Scan next" chains cameras; end of round reuses the table/list layout. Ask the user before deviating from the handoff. |
 | 2026-10-18 | **Navigation:** small self-made back stack (`ui/nav`, routes saved as strings via rememberSaveable), no navigation-compose. List-view arrange drop **swaps** the two players (`GameState.swapSeats`). Default table positions: one ellipse 0.485 × 0.5 in `game/Seating.kt`. |
 | 2026-10-18 | **App flow agreed** — spec in [docs/APP_FLOW.md](docs/APP_FLOW.md): players stored locally (no groups), select who plays; scan with the **shutter button only** (no auto-capture); bust shown in magenta **plus** the word; the game ends only after a full round is scored, highest total wins. |
+| 2026-10-18 | **Total adjustments** ("Adjust total" in the player sheet): own table `score_adjustments` (DB v3, AutoMigration 2→3, MigrationTest in androidTest), counted in `GameState.totals`; no scoreboard row, only a "±" mark on the total. |
 
 ## Branding (summary; details in brand/BRAND.md)
 - App name **Scan7**; wordmark "scan" in text color + "7" in accent (`Scan7Wordmark`).

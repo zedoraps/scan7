@@ -107,4 +107,38 @@ class GameRepositoryTest {
         assertEquals(emptyList<Long>(), repo.players.first().map { it.id })
         assertTrue(repo.activeGame.first()!!.player(a).archived)
     }
+
+    @Test
+    fun adjustments_storeRemoveRestore_andCountInTotals() = runBlocking {
+        val anna = repo.addPlayer("Anna")
+        val ben = repo.addPlayer("Ben")
+        val gameId = repo.startGame(listOf(anna, ben), target = 50)
+        repo.scorePoints(gameId, anna, 30)
+        repo.adjustTotal(gameId, anna, 10, "penalty")
+        repo.adjustTotal(gameId, ben, -12)
+        var s = repo.observeGame(gameId).first()!!.state
+        assertEquals(mapOf(anna to 40, ben to -12), s.totals)
+        assertEquals(listOf("penalty", null), s.adjustments.map { it.note })
+        assertTrue(s.adjustments.all { it.id > 0 })
+
+        val removed = s.adjustmentsOf(anna).single()
+        repo.removeAdjustment(gameId, removed.id)
+        assertEquals(30, repo.observeGame(gameId).first()!!.state.total(anna))
+        repo.restoreAdjustment(gameId, removed)
+        s = repo.observeGame(gameId).first()!!.state
+        assertEquals(40, s.total(anna))
+
+        // Over the target only once the round closes.
+        repo.adjustTotal(gameId, anna, 15)
+        s = repo.observeGame(gameId).first()!!.state
+        assertTrue(!s.isOver)
+        repo.closeRound(gameId)
+        s = repo.observeGame(gameId).first()!!.state
+        assertTrue(s.isOver)
+        assertEquals(listOf(anna), s.winners)
+
+        // Deleting the game removes its adjustments too (cascade).
+        repo.deleteGame(gameId)
+        assertNull(repo.observeGame(gameId).first())
+    }
 }

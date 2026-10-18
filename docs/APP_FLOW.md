@@ -59,10 +59,14 @@ Used for **Enter manually**, **Fix** (prefilled with the scanned cards) and **Ed
 
 Closed rounds can be reopened from the scoreboard and edited; totals and the game-over state are recomputed.
 
-On the end-of-round view, tapping a player card opens that player's result sheet (Edit / Rescan), not the editor directly. A hint "Tap a player to edit" shows next to *Next round*.
+On the end-of-round view, tapping a player card opens that player's result sheet (Edit / Rescan), not the editor directly. A muted hint "Tap a player to edit" sits above **Next round**; edits there update totals, ranks and the game-over state.
 
 ## Adjust total
-Player sheet → **Adjust total**: a signed number (e.g. +10 / −12) with an optional note, stored separately from round results. The sheet lists the player's adjustments (removable). All totals include them; no separate scoreboard row. Game over is still only checked when a round closes.
+Player sheet (any state, also on the end-of-round view) → **Adjust total**: a small dialog with a signed number (stepper −10 −5 −1 +1 +5 +10, ± sign toggle, or typed: `+10`, `-12`; max ±999), an optional note ("penalty", "house rule") and a preview "Total 123 → 133".
+- Stored as its own entry (table `score_adjustments`, DB v3), not as a round result; it records the round that was running.
+- The sheet lists the player's adjustments (delta, note, round) with ✕ to remove one (inline **Undo**).
+- All totals include adjustments (round cards/rows, leader, progress, scoreboard TOTAL row, game over, resume card) via `GameState.totals`. No separate scoreboard row: an adjusted total shows a tiny "±".
+- Game over is unchanged: only checked once the round is closed (an adjustment mid-round never ends the game; on the end-of-round view totals are re-checked like any edit).
 
 ## End game early
 Round menu (⋮) → **End game** → confirm → the current round is closed as it is (open players BUST) → Game over; the current leader(s) win (tie → shared win).
