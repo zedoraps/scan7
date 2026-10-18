@@ -1,6 +1,7 @@
 package net.moesli.scan7.training
 
-import java.util.TimeZone
+import java.time.ZoneId
+import java.time.ZoneOffset
 import net.moesli.scan7.detection.Box
 import net.moesli.scan7.detection.Detection
 import org.junit.Assert.assertEquals
@@ -8,7 +9,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TrainingSampleTest {
-    private val utc = TimeZone.getTimeZone("UTC")
+    private val utc = ZoneOffset.UTC
 
     // 2026-10-18 13:24:05.123 UTC
     private val t = 1792329845123L
@@ -32,6 +33,14 @@ class TrainingSampleTest {
     @Test
     fun fileStem() {
         assertEquals("scan7_20261018_132405_123", sample.fileStem(utc))
+    }
+
+    @Test
+    fun timestampKeepsZeroMillisAndOffset() {
+        val zurich = ZoneId.of("Europe/Zurich") // CEST (+02:00) on 2026-10-18
+        val whole = sample.copy(timestampMillis = t - 123)
+        assertTrue(whole.toJson(zurich), whole.toJson(zurich).contains("\"timestamp\": \"2026-10-18T15:24:05.000+02:00\""))
+        assertEquals("scan7_20261018_152405_000", whole.fileStem(zurich))
     }
 
     @Test

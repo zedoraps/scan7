@@ -7,6 +7,18 @@ import org.junit.Test
 
 class AdjustTextTest {
     @Test
+    fun deltaError_onlyForTypedInvalidInput() {
+        assertNull(deltaError(""))
+        assertNull(deltaError("+10"))
+        assertNull(deltaError("-3"))
+        assertEquals("Enter a number after the sign", deltaError("-"))
+        assertEquals("Enter a number after the sign", deltaError("+"))
+        assertEquals("Enter a number other than 0", deltaError("0"))
+        assertEquals("Enter a number other than 0", deltaError("-0"))
+        assertEquals("Up to 999 points", deltaError("1000"))
+    }
+
+    @Test
     fun parseDelta_acceptsSignedNumbers() {
         assertEquals(10, parseDelta("+10"))
         assertEquals(-12, parseDelta("-12"))

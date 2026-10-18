@@ -1,9 +1,9 @@
 package net.moesli.scan7.training
 
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
-import java.util.TimeZone
 import net.moesli.scan7.detection.Detection
 
 /*
@@ -60,13 +60,13 @@ data class TrainingSample(
     val excludedDetections: Set<Int> = emptySet(),
 ) {
     /** File name without extension: `scan7_<yyyyMMdd_HHmmss_SSS>` in [zone]. */
-    fun fileStem(zone: TimeZone = TimeZone.getDefault()): String = trainingFileStem(timestampMillis, zone)
+    fun fileStem(zone: ZoneId = ZoneId.systemDefault()): String = trainingFileStem(timestampMillis, zone)
 
-    fun toJson(zone: TimeZone = TimeZone.getDefault()): String {
-        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.ROOT).apply { timeZone = zone }
+    fun toJson(zone: ZoneId = ZoneId.systemDefault()): String {
+        val timestamp = IsoTimestamp.format(Instant.ofEpochMilli(timestampMillis).atZone(zone))
         return buildString {
             append("{\n")
-            field("timestamp", str(iso.format(Date(timestampMillis))))
+            field("timestamp", str(timestamp))
             field("timestamp_millis", timestampMillis.toString())
             field("app_version", str(appVersion))
             field("model_version", modelVersion?.let(::str) ?: "null")
@@ -114,8 +114,13 @@ data class TrainingSample(
     }
 }
 
-fun trainingFileStem(timestampMillis: Long, zone: TimeZone = TimeZone.getDefault()): String =
-    "scan7_" + SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.ROOT).apply { timeZone = zone }.format(Date(timestampMillis))
+fun trainingFileStem(timestampMillis: Long, zone: ZoneId = ZoneId.systemDefault()): String =
+    "scan7_" + StemTimestamp.format(Instant.ofEpochMilli(timestampMillis).atZone(zone))
+
+// java.time formatters are immutable and thread-safe (SimpleDateFormat is neither). Explicit
+// pattern instead of ISO_OFFSET_DATE_TIME, which drops ".000" millis; keep the format the importer reads.
+private val IsoTimestamp = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.ROOT)
+private val StemTimestamp = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS", Locale.ROOT)
 
 private fun strList(values: List<String>): String = values.joinToString(", ", "[", "]") { str(it) }
 

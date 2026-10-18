@@ -1,13 +1,17 @@
 package net.moesli.scan7.ui.newgame
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,14 +20,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,25 +44,31 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.data.GameRepository
+import net.moesli.scan7.data.outlivingUi
 import net.moesli.scan7.game.DEFAULT_TARGET
 import net.moesli.scan7.game.MAX_PLAYERS
 import net.moesli.scan7.game.Player
@@ -105,6 +119,7 @@ fun PickPlayersScreen(
     modifier: Modifier = Modifier,
 ) {
     val colors = Scan7Theme.colors
+    val haptics = LocalHapticFeedback.current
     val byId = players.associateBy { it.id }
     val selectedPlayers = selected.mapNotNull { byId[it] }
     val conflicts = colorConflicts(selectedPlayers)
@@ -149,10 +164,12 @@ fun PickPlayersScreen(
                     player = p,
                     active = checked,
                     enabled = checked || !full,
-                    onClick = { onToggle(p.id) },
-                    role = Role.Checkbox,
+                    onClick = {
+                        haptics.performHapticFeedback(if (checked) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn)
+                        onToggle(p.id)
+                    },
+                    checked = checked,
                     supporting = clash?.let { others -> "Same color as ${others.joinToString(", ") { it.name }}" },
-                    modifier = Modifier.semantics { stateDescription = if (checked) "Selected" else "Not selected" },
                     leading = { Checkbox(checked) },
                     trailing = {
                         if (clash != null) {
@@ -203,6 +220,12 @@ private fun Checkbox(checked: Boolean) {
 
 // ---- Step 2: seating order + target --------------------------------------------------------
 
+/** Lazy list items before the first seat (the section label). */
+private const val SEAT_ITEM_OFFSET = 1
+private val AutoScrollEdge = 64.dp
+private val AutoScrollMaxStep = 12.dp
+private val SeatGlide = tween<IntOffset>(durationMillis = 220, easing = EaseOut)
+
 /**
  * New game, step 2 (3b): selected players in seating order (drag the handle, or long-press a row,
  * to reorder; TalkBack: "Move up" / "Move down" actions), target stepper (default 200), Start.
@@ -223,22 +246,68 @@ fun SeatingScreen(
 ) {
     val colors = Scan7Theme.colors
     val density = LocalDensity.current
+    val haptics = LocalHapticFeedback.current
     val rowHeight = RowSize.Regular.height
     val gap = Scan7Spacing.s
     val spanPx = with(density) { (rowHeight + gap).toPx() }
+    val edgePx = with(density) { AutoScrollEdge.toPx() }
+    val maxStepPx = with(density) { AutoScrollMaxStep.toPx() }
+    val listState = rememberLazyListState()
     var draggingId by remember { mutableStateOf<Long?>(null) }
     var dragIndex by remember { mutableIntStateOf(0) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
-    val count by rememberUpdatedState(seating.size)
+    val ids by rememberUpdatedState(seating.map { it.id })
     val move by rememberUpdatedState(onMove)
+
+    // The lazy list keeps its scroll position by the first visible item's key; when that item is
+    // the one moving, pin the position by index instead, or the list jumps with it.
+    fun moveKeepingScroll(from: Int, to: Int) {
+        val first = listState.firstVisibleItemIndex
+        if (first == from + SEAT_ITEM_OFFSET || first == to + SEAT_ITEM_OFFSET) {
+            listState.requestScrollToItem(first, listState.firstVisibleItemScrollOffset)
+        }
+        move(from, to)
+    }
 
     fun dragBy(dy: Float) {
         dragOffset += dy
-        val to = dragTargetIndex(dragIndex, dragOffset, spanPx, count)
+        val to = dragTargetIndex(dragIndex, dragOffset, spanPx, ids.size)
         if (to != dragIndex) {
-            move(dragIndex, to)
+            moveKeepingScroll(dragIndex, to)
             dragOffset -= (to - dragIndex) * spanPx
             dragIndex = to
+            haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+        }
+    }
+
+    fun startDrag(id: Long, feedback: HapticFeedbackType) {
+        draggingId = id
+        dragIndex = ids.indexOf(id).coerceAtLeast(0)
+        dragOffset = 0f
+        haptics.performHapticFeedback(feedback)
+    }
+
+    fun endDrag() {
+        draggingId = null
+        dragOffset = 0f
+    }
+
+    // Edge auto-scroll while a row is dragged near the top / bottom of the list (no platform
+    // reorder for lazy lists; a library was not approved, see PLATFORM_AUDIT #11).
+    LaunchedEffect(draggingId) {
+        val id = draggingId ?: return@LaunchedEffect
+        while (isActive) {
+            withFrameNanos { }
+            val info = listState.layoutInfo
+            val item = info.visibleItemsInfo.firstOrNull { it.key == id } ?: continue
+            // The row's middle (near the finger) decides, so picking up an edge row doesn't scroll at once.
+            val middle = item.offset + item.size / 2f + dragOffset
+            val step = autoScrollStep(middle, middle, info.viewportStartOffset.toFloat(), info.viewportEndOffset.toFloat(), edgePx, maxStepPx)
+            if (step != 0f) {
+                val consumed = listState.scrollBy(step)
+                // The finger stays put while the content scrolls under it: the row follows the finger.
+                if (consumed != 0f) dragBy(consumed)
+            }
         }
     }
 
@@ -254,68 +323,60 @@ fun SeatingScreen(
             onBack = onBack,
             modifier = Modifier.headerInsets(),
         )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState(), enabled = draggingId == null)
-                .padding(vertical = Scan7Spacing.l),
+        LazyColumn(
+            state = listState,
+            userScrollEnabled = draggingId == null,
+            verticalArrangement = Arrangement.spacedBy(gap),
+            contentPadding = PaddingValues(vertical = Scan7Spacing.l),
+            modifier = Modifier.weight(1f),
         ) {
-            SectionLabel("Clockwise around the table", Modifier.padding(bottom = Scan7Spacing.m))
-            Column(verticalArrangement = Arrangement.spacedBy(gap)) {
-                seating.forEachIndexed { index, player ->
-                    key(player.id) {
-                        val dragging = draggingId == player.id
-                        val start: (Long) -> Unit = { id ->
-                            draggingId = id
-                            dragIndex = seating.indexOfFirst { it.id == id }
-                            dragOffset = 0f
-                        }
-                        val end = {
-                            draggingId = null
-                            dragOffset = 0f
-                        }
-                        SeatRow(
-                            player = player,
-                            seat = index + 1,
-                            dragging = dragging,
-                            canMoveUp = index > 0,
-                            canMoveDown = index < seating.lastIndex,
-                            onMoveUp = { onMove(index, index - 1) },
-                            onMoveDown = { onMove(index, index + 1) },
-                            modifier = Modifier
-                                .zIndex(if (dragging) 1f else 0f)
-                                .graphicsLayer { translationY = if (dragging) dragOffset else 0f }
-                                .pointerInput(player.id) {
-                                    detectDragGesturesAfterLongPress(
-                                        onDragStart = { start(player.id) },
-                                        onDragEnd = end,
-                                        onDragCancel = end,
-                                        onDrag = { change, amount ->
-                                            change.consume()
-                                            dragBy(amount.y)
-                                        },
-                                    )
+            item(key = "label") {
+                SectionLabel("Clockwise around the table", Modifier.padding(bottom = Scan7Spacing.m - gap))
+            }
+            itemsIndexed(seating, key = { _, p -> p.id }) { index, player ->
+                val dragging = draggingId == player.id
+                SeatRow(
+                    player = player,
+                    seat = index + 1,
+                    dragging = dragging,
+                    moves = seatMoves(index, seating.size),
+                    onMove = { to -> moveKeepingScroll(index, to) },
+                    modifier = Modifier
+                        // The dragged row follows the finger itself; the others glide to their slots.
+                        .animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = if (dragging) null else SeatGlide)
+                        .zIndex(if (dragging) 1f else 0f)
+                        .graphicsLayer { translationY = if (dragging) dragOffset else 0f }
+                        .pointerInput(player.id) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { startDrag(player.id, HapticFeedbackType.LongPress) },
+                                onDragEnd = ::endDrag,
+                                onDragCancel = ::endDrag,
+                                onDrag = { change, amount ->
+                                    change.consume()
+                                    dragBy(amount.y)
                                 },
-                            handleModifier = Modifier.pointerInput(player.id) {
-                                detectDragGestures(
-                                    onDragStart = { start(player.id) },
-                                    onDragEnd = end,
-                                    onDragCancel = end,
-                                    onDrag = { change, amount ->
-                                        change.consume()
-                                        dragBy(amount.y)
-                                    },
-                                )
+                            )
+                        },
+                    handleModifier = Modifier.pointerInput(player.id) {
+                        detectDragGestures(
+                            onDragStart = { startDrag(player.id, HapticFeedbackType.GestureThresholdActivate) },
+                            onDragEnd = ::endDrag,
+                            onDragCancel = ::endDrag,
+                            onDrag = { change, amount ->
+                                change.consume()
+                                dragBy(amount.y)
                             },
                         )
-                    }
-                }
+                    },
+                )
             }
-            TargetStepper(
-                target = target,
-                onChange = onTargetChange,
-                modifier = Modifier.padding(top = Scan7Spacing.xl),
-            )
+            item(key = "target") {
+                TargetStepper(
+                    target = target,
+                    onChange = onTargetChange,
+                    modifier = Modifier.padding(top = Scan7Spacing.xl - gap),
+                )
+            }
         }
         val message = error ?: note
         if (message != null) {
@@ -337,10 +398,8 @@ private fun SeatRow(
     player: Player,
     seat: Int,
     dragging: Boolean,
-    canMoveUp: Boolean,
-    canMoveDown: Boolean,
-    onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit,
+    moves: List<SeatMove>,
+    onMove: (to: Int) -> Unit,
     modifier: Modifier,
     handleModifier: Modifier,
 ) {
@@ -361,12 +420,10 @@ private fun SeatRow(
             .clip(shape)
             .background(colors.surface)
             .border(if (dragging) 2.dp else 1.5.dp, if (dragging) colors.accent else colors.line, shape)
+            // TalkBack: one stop per row; reorder with the actions menu (drag needs sight).
             .clearAndSetSemantics {
                 contentDescription = "Seat $seat, ${player.name}"
-                customActions = buildList {
-                    if (canMoveUp) add(CustomAccessibilityAction("Move up") { onMoveUp(); true })
-                    if (canMoveDown) add(CustomAccessibilityAction("Move down") { onMoveDown(); true })
-                }
+                customActions = moves.map { m -> CustomAccessibilityAction(m.label) { onMove(m.to); true } }
             }
             .padding(start = Scan7Spacing.l),
     ) {
@@ -399,14 +456,33 @@ private fun SeatRow(
     }
 }
 
-/** Target stepper: "TARGET / points to win", [−] 200 [+] in steps of [TARGET_STEP]. */
+/**
+ * Target stepper: "TARGET / points to win", [−] 200 [+] in steps of [TARGET_STEP]. For TalkBack
+ * it is one adjustable control (range info + set progress: swipe up / down or volume keys)
+ * instead of three stops; the buttons stay for touch.
+ */
 @Composable
 fun TargetStepper(target: Int, onChange: (Int) -> Unit, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
     Row(
         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
         verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clearAndSetSemantics {
+                contentDescription = "Target, points to win"
+                stateDescription = "$target points"
+                progressBarRangeInfo = ProgressBarRangeInfo(
+                    current = target.toFloat(),
+                    range = MIN_TARGET.toFloat()..MAX_TARGET.toFloat(),
+                    steps = TARGET_STEPS,
+                )
+                setProgress { value ->
+                    val next = targetFromProgress(value)
+                    if (next != target) onChange(next)
+                    true
+                }
+            },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs), modifier = Modifier.weight(1f)) {
             SectionLabel("Target")
@@ -422,9 +498,7 @@ fun TargetStepper(target: Int, onChange: (Int) -> Unit, modifier: Modifier = Mod
             color = colors.text,
             style = Scan7Type.total24,
             textAlign = TextAlign.Center,
-            modifier = Modifier
-                .width(80.dp)
-                .semantics { contentDescription = "Target $target points" },
+            modifier = Modifier.width(80.dp),
         )
         IconButton(
             onClick = { onChange(steppedTarget(target, 1)) },
@@ -456,7 +530,8 @@ fun NewGameRoute(
     var selected by rememberSaveable(stateSaver = LongListSaver) { mutableStateOf(initialSeating.orEmpty()) }
     var seating by rememberSaveable(stateSaver = LongListSaver) { mutableStateOf(initialSeating.orEmpty()) }
     var target by rememberSaveable { mutableIntStateOf(initialTarget) }
-    var editor by remember { mutableStateOf<EditorTarget?>(null) }
+    // Saved as a key, so an open editor survives rotation / process death.
+    var editorKey by rememberSaveable { mutableStateOf<Long?>(null) }
     var starting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -472,8 +547,8 @@ fun NewGameRoute(
             players = list,
             selected = liveSelected,
             onToggle = { selected = toggleSelection(liveSelected, it) },
-            onNewPlayer = { editor = EditorTarget.New },
-            onFixColor = { editor = EditorTarget.Edit(it) },
+            onNewPlayer = { editorKey = EditorTarget.New.key },
+            onFixColor = { editorKey = EditorTarget.Edit(it).key },
             onNext = {
                 val picked = liveSelected
                 scope.launch {
@@ -496,7 +571,8 @@ fun NewGameRoute(
                 starting = true
                 error = null
                 scope.launch {
-                    runCatching { repository.startGame(seating.filter { it in byId }, target) }
+                    // Outlives this screen: a started transaction isn't rolled back by Back.
+                    runCatching { outlivingUi { repository.startGame(seating.filter { it in byId }, target) } }
                         .onSuccess(onGameStarted)
                         .onFailure { error = it.message ?: "Couldn't start the game" }
                     starting = false
@@ -509,12 +585,12 @@ fun NewGameRoute(
             modifier = modifier,
         )
     }
-    editor?.let { t ->
+    EditorTarget.fromKey(editorKey, list)?.let { t ->
         PlayerEditorHost(
             target = t,
             players = list,
             repository = repository,
-            onClose = { editor = null },
+            onClose = { editorKey = null },
             onSaved = { id -> if (t == EditorTarget.New && id !in selected) selected = toggleSelection(liveSelected, id) },
         )
     }

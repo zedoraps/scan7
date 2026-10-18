@@ -13,13 +13,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +39,7 @@ import net.moesli.scan7.game.Player
 import net.moesli.scan7.ui.components.ChevronRightIcon
 import net.moesli.scan7.ui.components.PlayerToken
 import net.moesli.scan7.ui.components.PlusIcon
+import net.moesli.scan7.ui.components.PressDim
 import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.RowSize
 import net.moesli.scan7.ui.components.ScreenHeader
@@ -118,6 +120,7 @@ private fun EmptyPlayers(modifier: Modifier) {
 /**
  * A stored player as a 72 dp row in the card styling: token, name, [trailing] content. [active]
  * rows pop (open-card look); inactive ones recede (done-card look). Used by Players and New game.
+ * With [checked] the row is a checkbox (toggleable, [Role.Checkbox]; [onClick] toggles it).
  */
 @Composable
 fun SetupPlayerRow(
@@ -126,6 +129,7 @@ fun SetupPlayerRow(
     active: Boolean = true,
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
+    checked: Boolean? = null,
     onClickLabel: String? = null,
     role: Role? = Role.Button,
     supporting: String? = null,
@@ -146,7 +150,21 @@ fun SetupPlayerRow(
             .clip(shape)
             .background(if (active) colors.surface else colors.surfaceDone)
             .border(1.5.dp, if (active) colors.line else colors.lineSubtleDone, shape)
-            .then(if (onClick != null) Modifier.scan7Clickable(onClick, enabled, role, onClickLabel) else Modifier)
+            .then(
+                when {
+                    onClick == null -> Modifier
+                    // Checkbox row: real toggle state, so TalkBack says "checked / not checked" itself.
+                    checked != null -> Modifier.toggleable(
+                        value = checked,
+                        interactionSource = null,
+                        indication = PressDim,
+                        enabled = enabled,
+                        role = Role.Checkbox,
+                        onValueChange = { onClick() },
+                    )
+                    else -> Modifier.scan7Clickable(onClick, enabled, role, onClickLabel)
+                },
+            )
             .padding(horizontal = Scan7Spacing.l),
     ) {
         leading?.invoke(this)
@@ -201,17 +219,18 @@ fun PlayersRoute(
     repository: GameRepository = AppGraph.repository(LocalContext.current),
 ) {
     val players by repository.players.collectAsStateWithLifecycle(initialValue = null)
-    var editor by remember { mutableStateOf<EditorTarget?>(null) }
+    // Saved as a key, so an open editor survives rotation / process death.
+    var editorKey by rememberSaveable { mutableStateOf<Long?>(null) }
     val list = players ?: return
     PlayersScreen(
         players = list,
         onBack = onBack,
-        onAdd = { editor = EditorTarget.New },
-        onEdit = { editor = EditorTarget.Edit(it) },
+        onAdd = { editorKey = EditorTarget.New.key },
+        onEdit = { editorKey = EditorTarget.Edit(it).key },
         modifier = modifier,
     )
-    editor?.let { target ->
-        PlayerEditorHost(target, list, repository, onClose = { editor = null })
+    EditorTarget.fromKey(editorKey, list)?.let { target ->
+        PlayerEditorHost(target, list, repository, onClose = { editorKey = null })
     }
 }
 

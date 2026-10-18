@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -91,7 +92,7 @@ fun AdjustTotalContent(
     )
     Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), verticalAlignment = Alignment.CenterVertically) {
         SignToggle(onClick = { input = flipSign(input) })
-        DeltaField(input, onChange = { input = filterDeltaInput(it) }, onDone = apply, modifier = Modifier.weight(1f))
+        DeltaField(input, onChange = { input = filterDeltaInput(it) }, onDone = apply, errorText = deltaError(input), modifier = Modifier.weight(1f))
     }
     Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs)) {
         AdjustSteps.forEach { step ->
@@ -104,7 +105,8 @@ fun AdjustTotalContent(
         style = Scan7Type.text13,
         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
     )
-    Scan7TextField(note, { note = it.take(NOTE_MAX) }, placeholder = "Note (optional): penalty …", label = "Note, optional")
+    // IME Done on the note applies too (same as the number field).
+    Scan7TextField(note, { note = it.take(NOTE_MAX) }, placeholder = "Note (optional): penalty …", label = "Note, optional", onDone = apply)
     Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
         SecondaryButton("Cancel", onCancel, Modifier.weight(1f), height = 56.dp, textStyle = Scan7Type.button.copy(fontSize = 14.sp))
         PrimaryButton(
@@ -121,7 +123,7 @@ fun AdjustTotalContent(
 private const val NOTE_MAX = 40
 
 @Composable
-private fun DeltaField(value: String, onChange: (String) -> Unit, onDone: () -> Unit, modifier: Modifier = Modifier) {
+private fun DeltaField(value: String, onChange: (String) -> Unit, onDone: () -> Unit, errorText: String?, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.iconButton)
     BasicTextField(
@@ -130,9 +132,13 @@ private fun DeltaField(value: String, onChange: (String) -> Unit, onDone: () -> 
         singleLine = true,
         textStyle = Scan7Type.total18.copy(color = colors.text, textAlign = TextAlign.Center),
         cursorBrush = SolidColor(colors.accent),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+        // Number keyboards often have no minus: the ± toggle next to the field covers that.
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done, autoCorrectEnabled = false),
         keyboardActions = KeyboardActions(onDone = { onDone() }),
-        modifier = modifier.semantics { contentDescription = "Points to add, use minus to subtract" },
+        modifier = modifier.semantics {
+            contentDescription = "Points to add, use minus to subtract"
+            if (errorText != null) error(errorText)
+        },
         decorationBox = { inner ->
             Box(
                 contentAlignment = Alignment.Center,

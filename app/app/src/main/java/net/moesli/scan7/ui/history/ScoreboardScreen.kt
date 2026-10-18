@@ -21,7 +21,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.CollectionInfo
+import androidx.compose.ui.semantics.CollectionItemInfo
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.collectionInfo
+import androidx.compose.ui.semantics.collectionItemInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -102,7 +106,9 @@ fun ScoreboardScreen(
                 .fillMaxWidth()
                 .clip(shape)
                 .background(colors.surfaceDone)
-                .border(1.5.dp, colors.line, shape),
+                .border(1.5.dp, colors.line, shape)
+                // TalkBack: a table ("row 3, column 2"); rows = header, rounds, totals.
+                .semantics { collectionInfo = CollectionInfo(rowCount = rounds + 2, columnCount = state.players.size + 1) },
         ) {
             HeaderRow(state.players)
             Divider()
@@ -113,7 +119,7 @@ fun ScoreboardScreen(
             ) {
                 table.rows.forEachIndexed { i, row ->
                     if (i > 0) Divider()
-                    RoundRow(row, state.players, table.playerIds, onEditResult)
+                    RoundRow(row, i + 1, state.players, table.playerIds, onEditResult)
                 }
             }
             Box(
@@ -122,10 +128,14 @@ fun ScoreboardScreen(
                     .height(1.5.dp)
                     .background(colors.line),
             )
-            TotalsRow(table, state.players)
+            TotalsRow(table, rounds + 1, state.players)
         }
     }
 }
+
+/** Position of a cell in the scoreboard table (see the grid's `collectionInfo`). */
+private fun Modifier.tableCell(row: Int, column: Int): Modifier =
+    semantics { collectionItemInfo = CollectionItemInfo(rowIndex = row, rowSpan = 1, columnIndex = column, columnSpan = 1) }
 
 @Composable
 private fun Divider() {
@@ -153,15 +163,19 @@ private fun HeaderRow(players: List<PlayerUi>) {
             color = colors.textMuted,
             style = Scan7Type.tag10,
             textAlign = TextAlign.Center,
-            modifier = Modifier.width(RoundColumn),
+            modifier = Modifier
+                .width(RoundColumn)
+                .clearAndSetSemantics { contentDescription = "Round" }
+                .tableCell(0, 0),
         )
-        players.forEach { p ->
+        players.forEachIndexed { i, p ->
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs),
                 modifier = Modifier
                     .weight(1f)
-                    .semantics { contentDescription = p.name },
+                    .clearAndSetSemantics { contentDescription = p.name }
+                    .tableCell(0, i + 1),
             ) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.size(24.dp, 28.dp)) {
                     PlayerToken(p.initial, p.color, if (showNames) TokenSize(18.dp, 24.dp, 10.sp) else TokenSize(16.dp, 21.dp, 9.sp))
@@ -177,6 +191,7 @@ private fun HeaderRow(players: List<PlayerUi>) {
 @Composable
 private fun RoundRow(
     row: ScoreTableRow,
+    rowIndex: Int,
     players: List<PlayerUi>,
     ids: List<Long>,
     onEditResult: (round: Int, playerId: Long) -> Unit,
@@ -193,7 +208,8 @@ private fun RoundRow(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .width(RoundColumn)
-                .semantics { contentDescription = if (row.isRunning) "Round ${row.round}, running" else "Round ${row.round}" },
+                .clearAndSetSemantics { contentDescription = if (row.isRunning) "Round ${row.round}, running" else "Round ${row.round}" }
+                .tableCell(rowIndex, 0),
         ) {
             Text(row.round.toString(), color = if (row.isRunning) colors.text else colors.textMuted, style = Scan7Type.text13)
             if (row.isRunning) Text("NOW", color = colors.accent, style = Scan7Type.tag10.copy(fontSize = 8.sp))
@@ -204,7 +220,9 @@ private fun RoundRow(
                 description = cell.describe(row.round, players[i].name),
                 onClick = { onEditResult(row.round, ids[i]) },
                 compact = players.size > NAMES_UP_TO,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .tableCell(rowIndex, i + 1),
             )
         }
     }
@@ -250,7 +268,7 @@ private fun Cell(cell: ScoreCell, description: String, onClick: () -> Unit, comp
 }
 
 @Composable
-private fun TotalsRow(table: ScoreTable, players: List<PlayerUi>) {
+private fun TotalsRow(table: ScoreTable, rowIndex: Int, players: List<PlayerUi>) {
     val colors = Scan7Theme.colors
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -259,7 +277,16 @@ private fun TotalsRow(table: ScoreTable, players: List<PlayerUi>) {
             .height(56.dp)
             .background(colors.surface),
     ) {
-        Text("TOTAL", color = colors.textMuted, style = Scan7Type.tag10.copy(fontSize = 9.sp), textAlign = TextAlign.Center, modifier = Modifier.width(RoundColumn))
+        Text(
+            "TOTAL",
+            color = colors.textMuted,
+            style = Scan7Type.tag10.copy(fontSize = 9.sp),
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .width(RoundColumn)
+                .clearAndSetSemantics { contentDescription = "Total" }
+                .tableCell(rowIndex, 0),
+        )
         table.totals.forEachIndexed { i, total ->
             val leader = table.playerIds[i] in table.leaders
             val adjusted = table.playerIds[i] in table.adjusted
@@ -273,7 +300,8 @@ private fun TotalsRow(table: ScoreTable, players: List<PlayerUi>) {
                         contentDescription = "${players[i].name}, total $total" +
                             (if (adjusted) ", includes total adjustments" else "") +
                             if (leader) ", leading" else ""
-                    },
+                    }
+                    .tableCell(rowIndex, i + 1),
             ) {
                 // Tiny "±": the total includes manual adjustments (no separate row, see ScoreTable.adjusted).
                 if (adjusted) Text("±", color = colors.textMuted, style = Scan7Type.tag10.copy(fontSize = 9.sp), maxLines = 1)
