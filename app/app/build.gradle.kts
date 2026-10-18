@@ -22,6 +22,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Parallel agents install side by side on one emulator: ./gradlew -Pscan7.idSuffix=.b installDebug
+            providers.gradleProperty("scan7.idSuffix").orNull?.let { applicationIdSuffix = it }
+        }
         release {
             optimization {
                 enable = true
