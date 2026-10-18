@@ -22,6 +22,7 @@ fun HomeScreen(
     onScoreTester: () -> Unit,
     onDetectFromPhoto: () -> Unit,
     modifier: Modifier = Modifier,
+    onComponentGallery: () -> Unit = {},
     modelInfo: String = "none",
 ) {
     DebugScaffold(
@@ -45,6 +46,8 @@ fun HomeScreen(
             Entry("Score tester", "Build a row by hand and check scoreRow()", onScoreTester)
             HorizontalDivider()
             Entry("Detect from photo", "Pick an image; run the detector on a still", onDetectFromPhoto)
+            HorizontalDivider()
+            Entry("Component gallery", "Design components in all states and size classes", onComponentGallery)
             HorizontalDivider()
         }
     }

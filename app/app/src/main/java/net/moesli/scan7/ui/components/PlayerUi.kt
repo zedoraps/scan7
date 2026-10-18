@@ -1,0 +1,145 @@
+package net.moesli.scan7.ui.components
+
+import androidx.compose.runtime.Immutable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import net.moesli.scan7.ui.theme.PlayerColors
+
+/** A player's state in the current round, as shown by the components. */
+@Immutable
+sealed interface PlayerStatus {
+    /** Not scored yet this round. */
+    data object Open : PlayerStatus
+
+    /** Scored this round with [points]. */
+    data class Scored(val points: Int) : PlayerStatus
+
+    /** Busted this round (0 points). */
+    data object Bust : PlayerStatus
+}
+
+val PlayerStatus.isDone: Boolean get() = this != PlayerStatus.Open
+
+/**
+ * UI model for one player in the round screen components. [total] is the game total so far,
+ * [target] the winning total (ring progress = total / target).
+ */
+@Immutable
+data class PlayerUi(
+    val name: String,
+    val color: Color,
+    val total: Int,
+    val status: PlayerStatus = PlayerStatus.Open,
+    val target: Int = 200,
+    val isLeader: Boolean = false,
+    val id: String = name,
+) {
+    val initial: String get() = name.take(1).uppercase()
+}
+
+/** Interaction mode of a card or row. */
+enum class CardMode {
+    /** Normal round screen: actions on open players, tags on finished ones. */
+    Normal,
+
+    /** Arrange mode: dashed border, wiggle, actions hidden (tags shown for everyone). */
+    Arrange,
+
+    /** This card is being dragged (arrange mode): accent border, lifted, no wiggle. */
+    Dragging,
+}
+
+/** Size of a [PlayerToken]: card-shaped rectangle plus the initial's font size. */
+@Immutable
+data class TokenSize(val width: Dp, val height: Dp, val fontSize: TextUnit)
+
+/** Table-view card size classes (handoff §3, "Player card – table view"). */
+enum class CardSize(
+    val width: Dp,
+    val height: Dp,
+    val padding: Dp,
+    val ring: Dp,
+    val token: TokenSize,
+    val nameSize: TextUnit,
+    val tagHeight: Dp,
+    /** In-card Scan/Bust height, or null when the size class has no in-card actions. */
+    val actionHeight: Dp?,
+) {
+    /** ≤ 4 players. */
+    Large(112.dp, 140.dp, 8.dp, 56.dp, TokenSize(24.dp, 32.dp, 12.sp), 12.sp, 30.dp, 36.dp),
+
+    /** 5–6 players. */
+    Medium(96.dp, 124.dp, 6.dp, 46.dp, TokenSize(20.dp, 27.dp, 11.sp), 11.sp, 26.dp, 30.dp),
+
+    /** 7–10 players: tag only, no in-card actions. */
+    Compact(72.dp, 96.dp, 6.dp, 36.dp, TokenSize(16.dp, 21.dp, 9.sp), 11.sp, 20.dp, null),
+    ;
+
+    companion object {
+        fun forPlayerCount(count: Int): CardSize = when {
+            count <= 4 -> Large
+            count <= 6 -> Medium
+            else -> Compact
+        }
+    }
+}
+
+/** List-view row size classes (handoff §3, "Player row – list view"). */
+enum class RowSize(
+    val height: Dp,
+    /** Vertical gap between rows (used by the list layout). */
+    val gap: Dp,
+    val ring: Dp,
+    val token: TokenSize,
+    val nameSize: TextUnit,
+    /** Width of the right-aligned total column. */
+    val totalWidth: Dp,
+    /** Width of the actions/tag column. */
+    val actionsWidth: Dp,
+    val actionHeight: Dp,
+) {
+    /** ≤ 6 players. */
+    Regular(72.dp, 8.dp, 48.dp, TokenSize(22.dp, 30.dp, 11.sp), 15.sp, 64.dp, 116.dp, 48.dp),
+
+    /** 7–10 players. */
+    Compact(48.dp, 6.dp, 32.dp, TokenSize(15.dp, 20.dp, 9.sp), 14.sp, 52.dp, 108.dp, 36.dp),
+    ;
+
+    companion object {
+        fun forPlayerCount(count: Int): RowSize = if (count <= 6) Regular else Compact
+    }
+}
+
+/** Content description for a card/row body, e.g. "Mia, 96 points, not scored yet". */
+internal fun PlayerUi.accessibilityLabel(): String {
+    val state = when (val s = status) {
+        PlayerStatus.Open -> "not scored yet"
+        is PlayerStatus.Scored -> "scored ${s.points} this round"
+        PlayerStatus.Bust -> "bust this round"
+    }
+    return "$name, $total points, $state" + if (isLeader) ", leading" else ""
+}
+
+/** Demo players from the prototype (design/reference/RoundScreen.dc.html), for previews and the gallery. */
+internal val SamplePlayers: List<PlayerUi> = listOf(
+    PlayerUi("Philip", PlayerColors[0], 142, PlayerStatus.Scored(46)),
+    PlayerUi("Anna", PlayerColors[1], 118, PlayerStatus.Bust),
+    PlayerUi("Ben", PlayerColors[2], 167, PlayerStatus.Open),
+    PlayerUi("Mia", PlayerColors[3], 96, PlayerStatus.Open),
+    PlayerUi("Lena", PlayerColors[4], 131, PlayerStatus.Scored(22)),
+    PlayerUi("Tom", PlayerColors[5], 74, PlayerStatus.Open),
+    PlayerUi("Noah", PlayerColors[6], 158, PlayerStatus.Scored(31)),
+    PlayerUi("Zoe", PlayerColors[7], 102, PlayerStatus.Bust),
+    PlayerUi("Elias", PlayerColors[8], 88, PlayerStatus.Open),
+    PlayerUi("Sara", PlayerColors[9], 120, PlayerStatus.Scored(18)),
+)
+
+/** The first [count] sample players with the leader (highest total) marked. */
+internal fun samplePlayers(count: Int): List<PlayerUi> {
+    val players = SamplePlayers.take(count)
+    val leader = players.maxBy { it.total }
+    return players.map { it.copy(isLeader = it == leader) }
+}
