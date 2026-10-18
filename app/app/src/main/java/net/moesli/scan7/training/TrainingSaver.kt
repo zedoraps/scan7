@@ -152,9 +152,15 @@ object TrainingSaver {
         context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(sample.toJson().toByteArray()) }
     }
 
-    private fun modelVersion(context: Context): String? = runCatching {
-        context.assets.open(MODEL_VERSION_ASSET).bufferedReader().use { it.readLine()?.trim() }
-    }.getOrNull()
+    /** The bundled model's version, read from assets once (sample() runs on the main thread per shutter). */
+    @Volatile
+    private var modelVersion: Result<String?>? = null
+
+    private fun modelVersion(context: Context): String? = (
+        modelVersion ?: runCatching {
+            context.assets.open(MODEL_VERSION_ASSET).bufferedReader().use { it.readLine()?.trim() }
+        }.also { modelVersion = it }
+    ).getOrNull()
 }
 
 private fun ScanOutcome.toTrainingOutcome(capture: ScanCapture): TrainingOutcome {

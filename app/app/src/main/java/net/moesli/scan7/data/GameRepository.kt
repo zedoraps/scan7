@@ -260,9 +260,6 @@ class GameRepository(
      */
     suspend fun endGame(gameId: Long): GameState = mutate(gameId) { s, now -> s.endGame(now) }
 
-    /** Ends the game without a winner (another game was started). */
-    suspend fun abandonGame(gameId: Long): GameState = mutate(gameId) { s, now -> s.abandon(now) }
-
     suspend fun deleteGame(gameId: Long) = gameDao.deleteGame(gameId)
 
     suspend fun loadGame(gameId: Long): GameState? =

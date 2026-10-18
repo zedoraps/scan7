@@ -115,7 +115,9 @@ internal fun ScanCameraStep(
     var zoom by remember { mutableStateOf<ZoomControls?>(null) }
     var lastBustAt by remember { mutableLongStateOf(0L) }
     val haptics = LocalHapticFeedback.current
-    LaunchedEffect(analyzer) { analyzer.clearStats() }
+    // Also per player: after a camera Bust the next player's camera reuses this composition, and
+    // the shutter must not pick the previous player's frames from the ring buffer.
+    LaunchedEffect(analyzer, player.id) { analyzer.clearStats() }
 
     val busting = bustOverlay != null
     val seen = stats?.tracks?.map { it.detection }?.toCards()?.count { it.first.isScoring } ?: 0

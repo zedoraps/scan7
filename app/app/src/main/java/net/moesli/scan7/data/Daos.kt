@@ -75,9 +75,6 @@ interface GameDao {
     @Query("SELECT * FROM game_players WHERE gameId = :gameId ORDER BY seatIndex")
     suspend fun seats(gameId: Long): List<GamePlayerEntity>
 
-    @Query("SELECT gameId FROM game_players WHERE playerId = :playerId")
-    suspend fun gamesOf(playerId: Long): List<Long>
-
     @Insert
     suspend fun insertGame(game: GameEntity): Long
 
