@@ -124,6 +124,7 @@ drive the phone at a time.
 - **Never use Flip 7's artwork, fonts, logo or name styling.**
 
 ## Code conventions
+- **Platform first:** before building a UI behaviour or system feature yourself, use the Android / Jetpack / Material 3 component that already does it (bottom sheets, dialogs, snackbars, drag & drop, pull/scroll, text fields, permissions, haptics, back handling, accessibility actions, photo picker, settings storage …) and **restyle it** with the Scan7 tokens. Custom code only when the platform can't do it, with a one-line comment why.
 - Kotlin/Compose: follow the existing style (4-space indent, trailing commas, `modifier: Modifier = Modifier` as the first optional parameter, small private composables, `@Preview` wrapped in `Scan7Theme`). Use theme colors/typography, no hardcoded colors.
 - Game logic (scoring, smoothing, …) is plain Kotlin without Android dependencies, covered by JVM unit tests in `app/app/src/test`.
 - Python: scripts in `ml/scripts/` runnable via `uv run python scripts/<name>.py` from `ml/` with argparse and sensible defaults; module docstring with usage example; paths relative to the `ml/` root.

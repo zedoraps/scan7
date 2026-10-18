@@ -34,7 +34,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -151,34 +154,51 @@ fun TextLinkButton(
 
 /**
  * Bottom sheet in the card styling: `surface` panel with a `line` border, top radius 18, a grab
- * handle and 16 dp padding. Shown in its own window (dimmed behind), slides up; tapping above it
- * or Back calls [onDismiss].
+ * handle and 16 dp padding. Built on Material 3's [ModalBottomSheet], restyled, so it behaves like
+ * a platform sheet: swipe down (the grab handle's promise), tap the scrim, Back / predictive back
+ * and TalkBack "dismiss" all call [onDismiss]; it opens fully expanded.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Scan7BottomSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Dialog(
+    val colors = Scan7Theme.colors
+    val shape = RoundedCornerShape(topStart = Scan7Radii.cardLarge, topEnd = Scan7Radii.cardLarge)
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = shape,
+        containerColor = colors.surface,
+        contentColor = colors.text,
+        tonalElevation = 0.dp,
+        scrimColor = colors.ground.copy(alpha = 0.6f),
+        dragHandle = { SheetGrabHandle() },
+        modifier = modifier.border(1.5.dp, colors.line, shape),
     ) {
-        val visible = remember { MutableTransitionState(false).apply { targetState = true } }
-        Box(
-            contentAlignment = Alignment.BottomCenter,
+        Column(
             modifier = Modifier
-                .fillMaxSize()
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
+                .fillMaxWidth()
+                .imePadding()
+                .padding(start = Scan7Spacing.l, end = Scan7Spacing.l, bottom = Scan7Spacing.l),
         ) {
-            AnimatedVisibility(
-                visibleState = visible,
-                enter = slideInVertically(tween(220)) { it } + fadeIn(tween(120)),
-            ) {
-                BottomSheetPanel(modifier, content)
-            }
+            Spacer(Modifier.height(Scan7Spacing.s))
+            content()
         }
     }
+}
+
+/** The 36×4 grab bar at the top of a sheet. */
+@Composable
+private fun SheetGrabHandle() {
+    Box(
+        Modifier
+            .padding(vertical = Scan7Spacing.s)
+            .size(36.dp, 4.dp)
+            .background(Scan7Theme.colors.line, RoundedCornerShape(2.dp)),
+    )
 }
 
 /** The sheet panel itself (also used directly in previews and the gallery). */
