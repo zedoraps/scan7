@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -401,26 +402,43 @@ private fun PanelContent(content: @Composable ColumnScope.() -> Unit) {
     )
 }
 
-/** Breakdown line, separators muted: "7 + 12 + 3 = 22 · ×2 = 44 · +4 · Flip 7 +15". */
+/** The score formula of [cards] ([breakdownFormula]), e.g. "(6 + 7 + 8) × 2 + 4 = 46". */
 @Composable
-internal fun Breakdown(cards: List<Card>, modifier: Modifier = Modifier, maxLines: Int = Int.MAX_VALUE) {
+internal fun Breakdown(cards: List<Card>, modifier: Modifier = Modifier, maxLines: Int = Int.MAX_VALUE) =
+    FormulaText(breakdownFormula(cards), modifier, maxLines)
+
+/**
+ * A score formula: numbers in the text color, modifiers in the modifier orange, the Flip 7 bonus
+ * in cyan, operators muted. Wraps only at the operators (the "= 46" stays together); TalkBack
+ * reads the plain spoken version ([spokenFormula]).
+ */
+@Composable
+internal fun FormulaText(
+    parts: List<FormulaPart>,
+    modifier: Modifier = Modifier,
+    maxLines: Int = Int.MAX_VALUE,
+    style: TextStyle = Scan7Type.text13.copy(lineHeight = 20.sp),
+) {
     val colors = Scan7Theme.colors
-    val parts = breakdownParts(cards)
     Text(
         text = buildAnnotatedString {
-            if (parts.isEmpty()) {
-                withStyle(SpanStyle(color = colors.textMuted)) { append(NO_SCORING_CARDS) }
-            }
-            parts.forEachIndexed { i, part ->
-                if (i > 0) withStyle(SpanStyle(color = colors.textMuted)) { append(" · ") }
-                append(part)
+            parts.forEach { p ->
+                val color = when (p.kind) {
+                    FormulaKind.NUMBER, FormulaKind.TOTAL -> colors.text
+                    FormulaKind.MODIFIER -> ModifierInk
+                    FormulaKind.BONUS -> colors.accent
+                    FormulaKind.OPERATOR -> colors.textMuted
+                }
+                // Keep "= 46" (and "× 2") on one line: break only after the other operators.
+                val text = if (p.text == " = " || p.text == " × ") p.text.dropLast(1) + " " else p.text
+                withStyle(SpanStyle(color = color)) { append(text) }
             }
         },
         color = colors.text,
-        style = Scan7Type.text13.copy(lineHeight = 20.sp),
+        style = style,
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
-        modifier = modifier,
+        modifier = modifier.semantics { contentDescription = spokenFormula(parts) },
     )
 }
 

@@ -46,6 +46,8 @@ import net.moesli.scan7.game.countedCards
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.scoring.CardKind
 import net.moesli.scan7.scoring.scoreRow
+import net.moesli.scan7.ui.scan.FormulaText
+import net.moesli.scan7.ui.scan.breakdownFormula
 import net.moesli.scan7.ui.components.BottomSheetPanel
 import net.moesli.scan7.ui.components.CardSize
 import net.moesli.scan7.ui.components.PlayerScoreRing
@@ -373,11 +375,16 @@ private fun ResultPanel(state: PlayerSheetUi) {
             }
         }
         if (score != null) {
-            Text(
-                breakdownLine(counted.filter { it.kind == CardKind.NUMBER }.map { it.value!! }, score),
-                color = if (score.bust) colors.bust else colors.textMuted,
-                style = Scan7Type.text12,
-            )
+            if (score.bust) {
+                Text(
+                    breakdownLine(counted.filter { it.kind == CardKind.NUMBER }.map { it.value!! }, score),
+                    color = colors.bust,
+                    style = Scan7Type.text12,
+                )
+            } else {
+                // Same score formula as the review / manual entry: "(6 + 7 + 8) × 2 + 4 = 46".
+                FormulaText(breakdownFormula(counted), style = Scan7Type.text12)
+            }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs), verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xs)) {
                 state.cards.forEach { CardChip(it.card, it.ignored, duplicate = it.card in duplicates) }
             }

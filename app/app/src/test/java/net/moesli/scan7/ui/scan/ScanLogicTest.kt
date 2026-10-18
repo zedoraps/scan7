@@ -45,25 +45,62 @@ class ScanLogicTest {
     }
 
     @Test
-    fun breakdownMatchesHandoffExample() {
-        val cards = listOf(N7, N12, N3, TIMES_2, PLUS_4)
-        assertEquals("3 + 7 + 12 = 22 · ×2 = 44 · +4", breakdownText(cards))
+    fun formula_withoutTimesTwo_isOneSum() {
+        val cards = listOf(N12, N6, PLUS_6, N8, N7, PLUS_4, N11)
+        assertEquals("6 + 7 + 8 + 11 + 12 + 4 + 6 = 54", breakdownText(cards))
+        assertEquals(54, scoreRow(cards).total)
     }
 
     @Test
-    fun breakdownWithFlip7AndSeveralPlus() {
+    fun formula_withTimesTwo_hasParentheses() {
+        val cards = listOf(N7, N6, TIMES_2, N8, PLUS_4)
+        assertEquals("(6 + 7 + 8) × 2 + 4 = 46", breakdownText(cards))
+        assertEquals(46, scoreRow(cards).total)
+        assertEquals("7 × 2 = 14", breakdownText(listOf(TIMES_2, N7)))
+    }
+
+    @Test
+    fun formula_flip7_addsTheBonusLast() {
         val cards = listOf(N0, N1, N2, N3, N4, N5, N6, PLUS_6, PLUS_2, PLUS_2, SECOND_CHANCE)
-        assertEquals(listOf("0 + 1 + 2 + 3 + 4 + 5 + 6 = 21", "+2 +6", "Flip 7 +15"), breakdownParts(cards))
+        assertEquals("0 + 1 + 2 + 3 + 4 + 5 + 6 + 2 + 6 + 15 = 44", breakdownText(cards))
         assertEquals(21 + 8 + 15, scoreRow(cards).total)
+        val bonus = breakdownFormula(cards).single { it.kind == FormulaKind.BONUS }
+        assertEquals("15", bonus.text)
     }
 
     @Test
-    fun breakdownEdgeCases() {
+    fun formula_secondChance_countsTheDuplicateOnce() {
+        assertEquals("5 + 7 + 12 = 24", breakdownText(listOf(N5, N7, N7, N12, SECOND_CHANCE)))
+    }
+
+    @Test
+    fun formula_edgeCases() {
+        assertEquals("4 + 6 = 10", breakdownText(listOf(PLUS_6, PLUS_4)))
+        assertEquals("4 + 6 = 10", breakdownText(listOf(TIMES_2, PLUS_6, PLUS_4)))
         assertEquals("7", breakdownText(listOf(N7)))
-        assertEquals("7 · ×2 = 14", breakdownText(listOf(TIMES_2, N7)))
-        assertEquals("+4", breakdownText(listOf(PLUS_4)))
-        assertEquals(NO_SCORING_CARDS, breakdownText(listOf(FREEZE)))
-        assertEquals(NO_SCORING_CARDS, breakdownText(emptyList()))
+        assertEquals("4", breakdownText(listOf(PLUS_4)))
+        assertEquals("0", breakdownText(listOf(FREEZE)))
+        assertEquals("0", breakdownText(emptyList()))
+        // Bust: no formula, the band says it.
+        assertTrue(breakdownFormula(listOf(N7, N7, N3)).isEmpty())
+    }
+
+    @Test
+    fun formula_exactlyOneEquals_andColors() {
+        val parts = breakdownFormula(listOf(N7, N6, TIMES_2, N8, PLUS_4))
+        assertEquals(1, parts.count { it.text == " = " })
+        assertEquals(listOf("6", "7", "8"), parts.filter { it.kind == FormulaKind.NUMBER }.map { it.text })
+        assertEquals(listOf("2", "4"), parts.filter { it.kind == FormulaKind.MODIFIER }.map { it.text })
+        assertEquals("46", parts.last { it.kind == FormulaKind.TOTAL }.text)
+        assertTrue(parts.filter { it.kind == FormulaKind.OPERATOR }.all { it.text.trim() in setOf("+", "×", "=", "(", ")") })
+    }
+
+    @Test
+    fun formula_spoken() {
+        assertEquals(
+            "6 plus 7 plus 8 times 2 plus 4 equals 46",
+            spokenFormula(breakdownFormula(listOf(N7, N6, TIMES_2, N8, PLUS_4))),
+        )
     }
 
     @Test
