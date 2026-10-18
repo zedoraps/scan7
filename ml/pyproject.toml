@@ -1,0 +1,14 @@
+[project]
+name = "scan7-ml"
+version = "0.1.0"
+description = "Data generation, training and export for the scan7 Flip 7 card detector"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "numpy",
+    "opencv-python",
+    "pillow",
+    "pyyaml",
+]
+
+[tool.uv]
+package = false

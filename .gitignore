@@ -1,0 +1,19 @@
+# Python
+ml/.venv/
+__pycache__/
+*.pyc
+
+# Generated ML outputs
+ml/out/
+ml/runs/
+*.pt
+*.tflite
+
+# Android
+app/.gradle/
+app/build/
+app/*/build/
+app/local.properties
+app/.idea/
+*.iml
+.DS_Store
