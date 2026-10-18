@@ -2,16 +2,20 @@ package net.moesli.scan7
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import net.moesli.scan7.camera.CameraScreen
+import net.moesli.scan7.debug.HomeScreen
+import net.moesli.scan7.debug.PhotoDetectScreen
+import net.moesli.scan7.debug.ScoreTesterScreen
 import net.moesli.scan7.ui.theme.Scan7Theme
+
+private enum class Screen { HOME, CAMERA, SCORE_TESTER, PHOTO }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -19,29 +23,20 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             Scan7Theme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
+                var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
+                val goHome = { screen = Screen.HOME }
+                BackHandler(enabled = screen != Screen.HOME, onBack = goHome)
+                when (screen) {
+                    Screen.HOME -> HomeScreen(
+                        onLiveCamera = { screen = Screen.CAMERA },
+                        onScoreTester = { screen = Screen.SCORE_TESTER },
+                        onDetectFromPhoto = { screen = Screen.PHOTO },
                     )
+                    Screen.CAMERA -> CameraScreen(onBack = goHome)
+                    Screen.SCORE_TESTER -> ScoreTesterScreen(onBack = goHome)
+                    Screen.PHOTO -> PhotoDetectScreen(onBack = goHome)
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    Scan7Theme {
-        Greeting("Android")
     }
 }
