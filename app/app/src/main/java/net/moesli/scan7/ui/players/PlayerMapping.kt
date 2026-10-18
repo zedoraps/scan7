@@ -7,10 +7,10 @@ import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.ResultStatus
 import net.moesli.scan7.ui.components.PlayerStatus
 import net.moesli.scan7.ui.components.PlayerUi
-import net.moesli.scan7.ui.theme.PlayerColors
+import net.moesli.scan7.ui.components.colorValue
 
-/** The player's palette color. */
-val Player.color: Color get() = PlayerColors[colorIndex.coerceIn(0, PlayerColors.lastIndex)]
+/** The player's avatar color. */
+val Player.color: Color get() = avatar.colorValue
 
 /** Component model for a stored player (outside a game: total 0, open). */
 fun Player.toUi(
@@ -20,7 +20,7 @@ fun Player.toUi(
     isLeader: Boolean = false,
 ): PlayerUi = PlayerUi(
     name = name,
-    color = color,
+    avatar = avatar,
     total = total,
     status = status,
     target = target,

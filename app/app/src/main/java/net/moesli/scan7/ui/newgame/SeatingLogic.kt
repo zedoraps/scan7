@@ -91,6 +91,6 @@ fun autoScrollStep(top: Float, bottom: Float, viewportStart: Float, viewportEnd:
     }
 }
 
-/** "Next" is enabled with [MIN_PLAYERS]..[MAX_PLAYERS] players and no color conflict. */
-fun canContinue(selectedCount: Int, hasConflicts: Boolean): Boolean =
-    selectedCount in MIN_PLAYERS..MAX_PLAYERS && !hasConflicts
+/** "Next" is enabled with [MIN_PLAYERS]..[MAX_PLAYERS] players (avatar colors may repeat). */
+fun canContinue(selectedCount: Int): Boolean =
+    selectedCount in MIN_PLAYERS..MAX_PLAYERS

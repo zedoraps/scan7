@@ -1,7 +1,7 @@
 package net.moesli.scan7.ui.round
 
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
+import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.DEFAULT_ELLIPSE_RX
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.clockwiseAngle
@@ -101,7 +101,7 @@ class RoundLayoutTest {
 
     // ---- Next open / ranks ----
 
-    private fun rp(id: String, status: PlayerStatus) = RoundPlayer(PlayerUi(id, Color.Red, 0, status), TablePosition(0.5f, 0.5f))
+    private fun rp(id: String, status: PlayerStatus) = RoundPlayer(PlayerUi(id, Avatar.DEFAULT, 0, status), TablePosition(0.5f, 0.5f))
 
     @Test
     fun nextOpen() {

@@ -23,10 +23,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RoundMappingTest {
-    private val anna = Player(1, "Anna", 0)
-    private val ben = Player(2, "Ben", 1)
-    private val cleo = Player(3, "Cleo", 2)
-    private val dan = Player(4, "Dan", 3)
+    private val anna = Player(1, "Anna")
+    private val ben = Player(2, "Ben")
+    private val cleo = Player(3, "Cleo")
+    private val dan = Player(4, "Dan")
     private val all = listOf(anna, ben, cleo, dan)
     private val start = GameState.newGame(all, target = 100, id = 7)
 
@@ -118,8 +118,8 @@ class RoundMappingTest {
         assertEquals(RoundView.Table, snap(start).toRoundUiState().view)
         assertEquals(RoundView.List, snap(start, pref = ViewMode.LIST).toRoundUiState().view)
         assertEquals(RoundView.Table, snap(start.withViewMode(ViewMode.TABLE), pref = ViewMode.LIST).toRoundUiState().view)
-        val eight = GameState.newGame((0 until 8).map { Player(it.toLong(), "P$it", it) })
-        assertEquals(RoundView.List, GameSnapshot(eight, eight.playerIds.associateWith { Player(it, "P$it", it.toInt()) }, null).toRoundUiState().view)
+        val eight = GameState.newGame((0 until 8).map { Player(it.toLong(), "P$it") })
+        assertEquals(RoundView.List, GameSnapshot(eight, eight.playerIds.associateWith { Player(it, "P$it") }, null).toRoundUiState().view)
     }
 
     @Test

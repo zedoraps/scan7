@@ -33,7 +33,7 @@ Reference prototype: `design/reference/RoundScreen.dc.html` — an HTML prototyp
 | onAccent | `#0A1220` | Text/icons on cyan or magenta |
 | warning | `#EEF4FA` (= text) | Destructive confirm button: 1.5 px outline + ⚠ icon + label (never cyan, never magenta, no red) |
 
-Player colors (fixed palette, never cyan/magenta): `#FFC24B` amber, `#B39BFF` violet, `#A8E55C` lime, `#F2E3C4` sand, `#7FA8FF` sky, `#4FE0A8` mint, `#C9B28A` khaki, `#FF9C8A` salmon, `#A9B8CC` steel, `#E2F06B` chartreuse.
+Player colors (never cyan/magenta): the 15 avatar colors in design/avatars/avatar_catalog.json; the first ten are the original palette: `#FFC24B` amber, `#B39BFF` violet, `#A8E55C` lime, `#F2E3C4` sand, `#7FA8FF` sky, `#4FE0A8` mint, `#C9B28A` khaki, `#FF9C8A` salmon, `#A9B8CC` steel, `#E2F06B` chartreuse.
 
 ### Type
 - **Unbounded** (600/700): round number, totals, player initials, primary button labels.
@@ -47,8 +47,8 @@ Player colors (fixed palette, never cyan/magenta): `#FFC24B` amber, `#B39BFF` vi
 
 ## 3. Components
 
-### Player token
-Small card-shaped rectangle in the player's color, rotated −8°, radius 5, initial in Unbounded 700 in `onAccent`.
+### Player token → avatar
+Replaced by the player **avatar** (design/avatars/AVATARS.md: tinted card + pattern + face, tilted −8°, `PlayerAvatar`); sizes = the token heights below. Original token: small card-shaped rectangle in the player's color, rotated −8°, radius 5, initial in Unbounded 700 in `onAccent`.
 
 ### Score ring
 Circle around the token showing progress to the target (total / 200). Track `lineSubtle`, progress stroke = player color, round caps, starts at 12 o'clock. Stroke ≈ 7 % of diameter.

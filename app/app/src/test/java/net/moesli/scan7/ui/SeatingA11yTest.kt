@@ -52,8 +52,8 @@ class SeatingA11yTest {
 
     @Test
     fun editorTarget_roundTripsThroughItsKey() {
-        val anna = Player(2, "Anna", 1)
-        val players = listOf(Player(1, "Philip", 0), anna)
+        val anna = Player(2, "Anna")
+        val players = listOf(Player(1, "Philip"), anna)
         assertEquals(EditorTarget.New, EditorTarget.fromKey(EditorTarget.New.key, players))
         assertEquals(EditorTarget.Edit(anna), EditorTarget.fromKey(EditorTarget.Edit(anna).key, players))
         assertNull(EditorTarget.fromKey(null, players))

@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.scan
 
+import net.moesli.scan7.ui.components.avatarSizeForHeight
+import net.moesli.scan7.ui.components.PlayerAvatar
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -54,9 +56,7 @@ import net.moesli.scan7.detection.DisplayMapping
 import net.moesli.scan7.detection.TrackedDetection
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.scoring.CardKind
-import net.moesli.scan7.ui.components.PlayerToken
 import net.moesli.scan7.ui.components.PlayerUi
-import net.moesli.scan7.ui.components.TokenSize
 import net.moesli.scan7.ui.components.dashedBorder
 import net.moesli.scan7.ui.components.scan7Clickable
 import net.moesli.scan7.ui.theme.Scan7Radii
@@ -146,7 +146,7 @@ internal fun PlayerHeading(player: PlayerUi, label: String, modifier: Modifier =
             contentDescription = "${label.lowercase().replaceFirstChar { it.uppercase() }}: ${player.name}"
         },
     ) {
-        PlayerToken(player.initial, player.color, TokenSize(26.dp, 35.dp, 12.sp))
+        PlayerAvatar(player.avatar, avatarSizeForHeight(35.dp))
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(label.uppercase(), color = colors.textMuted, style = Scan7Type.capsButton, maxLines = 1)
             Text(player.name, color = colors.text, style = Scan7Type.button, maxLines = 1)

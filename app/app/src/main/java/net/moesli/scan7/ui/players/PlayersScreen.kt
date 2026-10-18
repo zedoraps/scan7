@@ -1,5 +1,9 @@
 package net.moesli.scan7.ui.players
 
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import net.moesli.scan7.game.avatarDescription
+import net.moesli.scan7.ui.components.avatarSizeForHeight
+import net.moesli.scan7.ui.components.PlayerAvatar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -37,7 +41,6 @@ import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.ui.components.ChevronRightIcon
-import net.moesli.scan7.ui.components.PlayerToken
 import net.moesli.scan7.ui.components.PlusIcon
 import net.moesli.scan7.ui.components.PressDim
 import net.moesli.scan7.ui.components.PrimaryButton
@@ -54,7 +57,7 @@ import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
 
 /**
- * Players list (2): stored players (token + name), tap → editor; Add player at the bottom.
+ * Players list (2): stored players (avatar + name), tap → editor; Add player at the bottom.
  * Empty state: "Add your first player".
  */
 @Composable
@@ -118,7 +121,7 @@ private fun EmptyPlayers(modifier: Modifier) {
 }
 
 /**
- * A stored player as a 72 dp row in the card styling: token, name, [trailing] content. [active]
+ * A stored player as a 72 dp row in the card styling: avatar, name, [trailing] content. [active]
  * rows pop (open-card look); inactive ones recede (done-card look). Used by Players and New game.
  * With [checked] the row is a checkbox (toggleable, [Role.Checkbox]; [onClick] toggles it).
  */
@@ -168,9 +171,12 @@ fun SetupPlayerRow(
             .padding(horizontal = Scan7Spacing.l),
     ) {
         leading?.invoke(this)
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(32.dp, 40.dp)) {
-            PlayerToken(player.initial, player.color, size.token)
-        }
+        // "Mia, sand avatar, grin face": the avatar's description already says the name.
+        PlayerAvatar(
+            player.avatar,
+            avatarSizeForHeight(size.token.height),
+            contentDescription = avatarDescription(player.name, player.avatar),
+        )
         Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
             Text(
                 player.name,
@@ -178,6 +184,7 @@ fun SetupPlayerRow(
                 style = Scan7Type.text15,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.clearAndSetSemantics {},
             )
             if (supporting != null) {
                 Text(supporting, color = colors.textMuted, style = Scan7Type.text12, maxLines = 2)
@@ -204,7 +211,7 @@ fun AddPlayerRow(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Bo
             .scan7Clickable(onClick, enabled)
             .padding(horizontal = Scan7Spacing.l),
     ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(32.dp, 40.dp)) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(avatarSizeForHeight(RowSize.Regular.token.height))) {
             PlusIcon(colors.accent)
         }
         Text(text, color = colors.accent, style = Scan7Type.text15)
@@ -219,6 +226,7 @@ fun PlayersRoute(
     repository: GameRepository = AppGraph.repository(LocalContext.current),
 ) {
     val players by repository.players.collectAsStateWithLifecycle(initialValue = null)
+    val active by repository.activeGame.collectAsStateWithLifecycle(initialValue = null)
     // Saved as a key, so an open editor survives rotation / process death.
     var editorKey by rememberSaveable { mutableStateOf<Long?>(null) }
     val list = players ?: return
@@ -230,7 +238,14 @@ fun PlayersRoute(
         modifier = modifier,
     )
     EditorTarget.fromKey(editorKey, list)?.let { target ->
-        PlayerEditorHost(target, list, repository, onClose = { editorKey = null })
+        // Color dots: the unfinished game's players; a new player's color avoids every stored player.
+        PlayerEditorHost(
+            target,
+            list,
+            repository,
+            onClose = { editorKey = null },
+            dotPlayers = active?.seatedPlayers.orEmpty(),
+        )
     }
 }
 

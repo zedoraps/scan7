@@ -6,7 +6,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import net.moesli.scan7.ui.theme.PlayerColors
+import net.moesli.scan7.game.Avatar
+import net.moesli.scan7.game.AvatarCatalog
 
 /** A player's state in the current round, as shown by the components. */
 @Immutable
@@ -30,7 +31,7 @@ val PlayerStatus.isDone: Boolean get() = this != PlayerStatus.Open
 @Immutable
 data class PlayerUi(
     val name: String,
-    val color: Color,
+    val avatar: Avatar,
     val total: Int,
     val status: PlayerStatus = PlayerStatus.Open,
     val target: Int = 200,
@@ -38,6 +39,9 @@ data class PlayerUi(
     val id: String = name,
 ) {
     val initial: String get() = name.take(1).uppercase()
+
+    /** The avatar's player color (ring progress, progress strip). */
+    val color: Color get() = avatar.colorValue
 }
 
 /** Interaction mode of a card or row. */
@@ -123,18 +127,25 @@ internal fun PlayerUi.accessibilityLabel(): String {
     return "$name, $total points, $state" + if (isLeader) ", leading" else ""
 }
 
-/** Demo players from the prototype (design/reference/RoundScreen.dc.html), for previews and the gallery. */
+/** The avatar kit's example preset of [name] (Philip, Anna, … Sara), else the fallback avatar. */
+internal fun sampleAvatar(name: String): Avatar =
+    AvatarCatalog.examples.firstOrNull { it.first == name }?.second ?: Avatar.DEFAULT
+
+/**
+ * Demo players from the prototype (design/reference/RoundScreen.dc.html) with the kit's example
+ * avatars, for previews and the gallery.
+ */
 internal val SamplePlayers: List<PlayerUi> = listOf(
-    PlayerUi("Philip", PlayerColors[0], 142, PlayerStatus.Scored(46)),
-    PlayerUi("Anna", PlayerColors[1], 118, PlayerStatus.Bust),
-    PlayerUi("Ben", PlayerColors[2], 167, PlayerStatus.Open),
-    PlayerUi("Mia", PlayerColors[3], 96, PlayerStatus.Open),
-    PlayerUi("Lena", PlayerColors[4], 131, PlayerStatus.Scored(22)),
-    PlayerUi("Tom", PlayerColors[5], 74, PlayerStatus.Open),
-    PlayerUi("Noah", PlayerColors[6], 158, PlayerStatus.Scored(31)),
-    PlayerUi("Zoe", PlayerColors[7], 102, PlayerStatus.Bust),
-    PlayerUi("Elias", PlayerColors[8], 88, PlayerStatus.Open),
-    PlayerUi("Sara", PlayerColors[9], 120, PlayerStatus.Scored(18)),
+    PlayerUi("Philip", sampleAvatar("Philip"), 142, PlayerStatus.Scored(46)),
+    PlayerUi("Anna", sampleAvatar("Anna"), 118, PlayerStatus.Bust),
+    PlayerUi("Ben", sampleAvatar("Ben"), 167, PlayerStatus.Open),
+    PlayerUi("Mia", sampleAvatar("Mia"), 96, PlayerStatus.Open),
+    PlayerUi("Lena", sampleAvatar("Lena"), 131, PlayerStatus.Scored(22)),
+    PlayerUi("Tom", sampleAvatar("Tom"), 74, PlayerStatus.Open),
+    PlayerUi("Noah", sampleAvatar("Noah"), 158, PlayerStatus.Scored(31)),
+    PlayerUi("Zoe", sampleAvatar("Zoe"), 102, PlayerStatus.Bust),
+    PlayerUi("Elias", sampleAvatar("Elias"), 88, PlayerStatus.Open),
+    PlayerUi("Sara", sampleAvatar("Sara"), 120, PlayerStatus.Scored(18)),
 )
 
 /** The first [count] sample players with the leader (highest total) marked. */

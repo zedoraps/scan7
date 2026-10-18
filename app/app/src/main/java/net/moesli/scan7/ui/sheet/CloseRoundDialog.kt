@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.sheet
 
+import net.moesli.scan7.ui.components.avatarSizeForHeight
+import net.moesli.scan7.ui.components.PlayerAvatar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -23,17 +25,15 @@ import androidx.compose.ui.unit.sp
 import net.moesli.scan7.ui.components.ConfirmContent
 import net.moesli.scan7.ui.components.Confirmations
 import net.moesli.scan7.ui.components.DialogPanel
-import net.moesli.scan7.ui.components.PlayerToken
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.Scan7ConfirmDialog
-import net.moesli.scan7.ui.components.TokenSize
 import net.moesli.scan7.ui.components.samplePlayers
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
 
-private val ChipToken = TokenSize(16.dp, 21.dp, 9.sp)
+private val ChipAvatar = avatarSizeForHeight(21.dp)
 
 /**
  * Close-round confirmation (8), a [Scan7ConfirmDialog] for [Confirmations.closeRound]: "Close round
@@ -81,9 +81,7 @@ private fun NameChip(player: PlayerUi) {
             .border(1.5.dp, colors.line, shape)
             .padding(start = Scan7Spacing.s, end = Scan7Spacing.m),
     ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(20.dp, 24.dp)) {
-            PlayerToken(player.initial, player.color, ChipToken)
-        }
+        PlayerAvatar(player.avatar, ChipAvatar)
         Text(player.name, color = colors.text, style = Scan7Type.text13, maxLines = 1)
     }
 }

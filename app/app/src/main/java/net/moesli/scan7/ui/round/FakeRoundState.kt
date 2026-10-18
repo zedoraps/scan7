@@ -5,8 +5,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.Color
 import kotlin.random.Random
+import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.DEFAULT_TARGET
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.ViewMode
@@ -37,7 +37,7 @@ class FakeRoundState(
     private class Seat(
         val id: String,
         val name: String,
-        val color: Color,
+        val avatar: Avatar,
         /** Total of the closed rounds. */
         val before: Int,
         val status: PlayerStatus,
@@ -47,7 +47,7 @@ class FakeRoundState(
         val total: Int get() = before + points
 
         fun copy(before: Int = this.before, status: PlayerStatus = this.status, position: TablePosition = this.position) =
-            Seat(id, name, color, before, status, position)
+            Seat(id, name, avatar, before, status, position)
     }
 
     private var seats by mutableStateOf(emptyList<Seat>())
@@ -78,7 +78,7 @@ class FakeRoundState(
     private fun playerUis(): List<PlayerUi> {
         val best = seats.maxOfOrNull { it.total } ?: 0
         return seats.map { s ->
-            PlayerUi(s.name, s.color, s.total, s.status, DEFAULT_TARGET, best > 0 && s.total == best, s.id)
+            PlayerUi(s.name, s.avatar, s.total, s.status, DEFAULT_TARGET, best > 0 && s.total == best, s.id)
         }
     }
 
@@ -95,7 +95,7 @@ class FakeRoundState(
             }
             // Prototype totals include the points of the mixed state; "before" is the closed rounds.
             val before = p.total - ((mixed as? PlayerStatus.Scored)?.points ?: 0)
-            Seat(p.id, p.name, p.color, before, status, positions[i])
+            Seat(p.id, p.name, p.avatar, before, status, positions[i])
         }
         round = 4
         view = if (ViewMode.defaultFor(n) == ViewMode.TABLE) RoundView.Table else RoundView.List

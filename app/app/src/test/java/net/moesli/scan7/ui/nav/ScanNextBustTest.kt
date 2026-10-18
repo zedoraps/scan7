@@ -18,7 +18,7 @@ import org.junit.Test
 class ScanNextBustTest {
     private val game = 7L
     private val start = GameState.newGame(
-        listOf(Player(1, "Anna", 0), Player(2, "Ben", 1), Player(3, "Cleo", 2)),
+        listOf(Player(1, "Anna"), Player(2, "Ben"), Player(3, "Cleo")),
         startedAt = 100,
     )
 

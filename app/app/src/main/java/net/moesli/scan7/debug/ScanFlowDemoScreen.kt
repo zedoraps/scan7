@@ -45,7 +45,7 @@ import net.moesli.scan7.ui.scan.ScanFlowContent
 import net.moesli.scan7.ui.scan.ScanMode
 import net.moesli.scan7.ui.scan.ScanOutcome
 import net.moesli.scan7.ui.scan.chipLabel
-import net.moesli.scan7.ui.theme.PlayerColors
+import net.moesli.scan7.ui.components.sampleAvatar
 
 /**
  * DEBUG BUILDS ONLY launch hooks for the scan flow demo (see [ScanDemoLaunch.from]):
@@ -55,8 +55,8 @@ import net.moesli.scan7.ui.theme.PlayerColors
 private const val EXTRA_SCAN_PHOTO = "debug_scan_photo"
 private const val EXTRA_SCAN_DEMO = "debug_scan_demo"
 
-private val DemoPlayer = PlayerUi("Mia", PlayerColors[3], 96)
-private val DemoNextPlayer = PlayerUi("Ben", PlayerColors[2], 167)
+private val DemoPlayer = PlayerUi("Mia", sampleAvatar("Mia"), 96)
+private val DemoNextPlayer = PlayerUi("Ben", sampleAvatar("Ben"), 167)
 
 /** One way to start the demo flow. */
 enum class ScanDemo(val title: String, val subtitle: String) {

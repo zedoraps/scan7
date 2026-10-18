@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.moesli.scan7.camera.CameraScreen
 import net.moesli.scan7.data.AppGraph
+import net.moesli.scan7.debug.AvatarGalleryScreen
 import net.moesli.scan7.debug.DebugHomeScreen
 import net.moesli.scan7.debug.rememberDebugHomeState
 import net.moesli.scan7.debug.PhotoDetectScreen
@@ -225,10 +226,12 @@ private fun DebugRoute(screen: DebugScreen, stack: BackStack, debug: DebugLaunch
                 onDetectFromPhoto = { open(DebugScreen.PHOTO) },
                 onSaveScansChange = { on -> scope.launch { repository.setSaveScansForTraining(on) } },
                 onLoadDetector = home::loadDetector,
+                onAvatars = { open(DebugScreen.AVATARS) },
             )
         }
         DebugScreen.CAMERA -> CameraScreen(onBack = back)
         DebugScreen.PHOTO -> PhotoDetectScreen(onBack = back, initialUri = debug.photo)
         DebugScreen.SCAN_DEMO -> ScanFlowDemoScreen(onBack = back, launch = debug.scanDemo)
+        DebugScreen.AVATARS -> AvatarGalleryScreen(onBack = back)
     }
 }

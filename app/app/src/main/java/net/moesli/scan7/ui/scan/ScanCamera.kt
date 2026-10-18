@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.scan
 
+import net.moesli.scan7.ui.components.avatarSizeForHeight
+import net.moesli.scan7.ui.components.PlayerAvatar
 import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,12 +66,10 @@ import net.moesli.scan7.camera.formatZoom
 import net.moesli.scan7.camera.rememberCameraPermission
 import net.moesli.scan7.camera.zoomLabel
 import net.moesli.scan7.ui.components.IconButton
-import net.moesli.scan7.ui.components.PlayerToken
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.PressDim
 import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.SecondaryButton
-import net.moesli.scan7.ui.components.TokenSize
 import net.moesli.scan7.ui.components.TorchIcon
 import net.moesli.scan7.ui.components.scan7Clickable
 import net.moesli.scan7.ui.round.BustToastHost
@@ -234,7 +234,8 @@ internal fun ScanCameraStep(
 private val BannerName = Scan7Type.button.copy(fontSize = 28.sp, lineHeight = 34.sp)
 
 /** Token in the camera banner (38 dp tall, next to the 48 dp back button). */
-private val BannerToken = TokenSize(28.dp, 38.dp, 16.sp)
+/** Camera header avatar: 38 dp tall card (the old token height). */
+private val BannerAvatar = avatarSizeForHeight(38.dp)
 
 /**
  * Header overlay on the preview: a ground-colored scrim fading out (readable over bright tables)
@@ -308,7 +309,7 @@ private fun TypeButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-/** "SCANNING · 96 PTS" over the name (Unbounded 28, one line), the player's token left of it. */
+/** "SCANNING · 96 PTS" over the name (Unbounded 28, one line), the player's avatar left of it. */
 @Composable
 private fun PlayerBanner(player: PlayerUi, label: String, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
@@ -321,7 +322,7 @@ private fun PlayerBanner(player: PlayerUi, label: String, modifier: Modifier = M
                 contentDescription = "$label: ${player.name}, ${player.total} points"
             },
     ) {
-        PlayerToken(player.initial, player.color, BannerToken)
+        PlayerAvatar(player.avatar, BannerAvatar)
         Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs), modifier = Modifier.weight(1f)) {
             Text(
                 "${label.uppercase()} · ${player.total} PTS",
