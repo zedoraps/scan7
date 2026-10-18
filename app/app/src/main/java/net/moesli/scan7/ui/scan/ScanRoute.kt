@@ -87,6 +87,8 @@ fun ScanRoute(
         Box(modifier.fillMaxSize().background(Scan7Theme.colors.ground))
         return
     }
+    // Read `picked` again when a save completes: the ▾ menu sets it and saves in the same tap, before
+    // this composition (and `choice`) catches up, so a captured `choice` would still be the old one.
     val choice = picked ?: AfterScan.fromSetting(stored)
     val roundNumber = round ?: state.currentRound.number
     val players = state.playerUis(snap.players, roundNumber)
@@ -123,7 +125,7 @@ fun ScanRoute(
         player = player,
         onResult = { outcome ->
             save("saving the result", { scoreCards(gameId, playerId, outcome.toConfirmedCards(), outcome.resultSource, round) }) {
-                onSaved(it, choice)
+                onSaved(it, picked ?: choice)
             }
         },
         onCancel = onLeave,
@@ -156,7 +158,7 @@ fun ScanRoute(
                             runCatching { repository.undoBust(gameId, playerId) }.onFailure { Log.w(TAG, "undo bust failed", it) }
                         } else {
                             bustToast?.show(playerId.toString(), name)
-                            onSaved(saved, choice)
+                            onSaved(saved, picked ?: choice)
                         }
                         bustShown = null
                         bustUndo = null
