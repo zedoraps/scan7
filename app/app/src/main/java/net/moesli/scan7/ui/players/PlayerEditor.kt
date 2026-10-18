@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.role
@@ -40,7 +41,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import net.moesli.scan7.data.ColorInUseException
 import net.moesli.scan7.data.GameRepository
+import net.moesli.scan7.data.outlivingUi
 import net.moesli.scan7.game.PALETTE_SIZE
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.ui.components.BottomSheetPanel
@@ -64,6 +67,23 @@ sealed interface EditorTarget {
     data object New : EditorTarget
 
     data class Edit(val player: Player) : EditorTarget
+
+    /** Saveable form (for `rememberSaveable`): [NEW_KEY] or the player id. */
+    val key: Long get() = when (this) {
+        New -> NEW_KEY
+        is Edit -> player.id
+    }
+
+    companion object {
+        const val NEW_KEY = -1L
+
+        /** The target behind a saved [key], with the live [players]; null if that player is gone. */
+        fun fromKey(key: Long?, players: List<Player>): EditorTarget? = when (key) {
+            null -> null
+            NEW_KEY -> New
+            else -> players.firstOrNull { it.id == key }?.let(::Edit)
+        }
+    }
 }
 
 private val SwatchToken = TokenSize(30.dp, 40.dp, 14.sp)
@@ -108,6 +128,7 @@ fun PlayerEditorContent(
     var name by rememberSaveable { mutableStateOf(editing?.name ?: "") }
     var colorIndex by rememberSaveable { mutableIntStateOf(editing?.colorIndex ?: suggestedColor(players)) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var nameMissing by rememberSaveable { mutableStateOf(false) }
     val owners = remember(players, editing) { colorOwners(players, editing?.id) }
     val canSave = name.isNotBlank() && !busy
     val initial = name.trim().take(1).uppercase().ifEmpty { "?" }
@@ -127,11 +148,24 @@ fun PlayerEditorContent(
             SectionLabel("Name")
             Scan7TextField(
                 value = name,
-                onValueChange = { name = it.take(MAX_NAME_LENGTH) },
+                onValueChange = {
+                    name = it.take(MAX_NAME_LENGTH)
+                    if (name.isNotBlank()) nameMissing = false
+                },
                 placeholder = "e.g. Anna",
                 label = "Name",
-                onDone = { if (canSave) onSave(name.trim(), colorIndex) },
+                // IME Done = Save; on an empty name it says why nothing happened (also to TalkBack).
+                onDone = { if (canSave) onSave(name.trim(), colorIndex) else if (name.isBlank()) nameMissing = true },
+                modifier = Modifier.semantics { if (nameMissing) error(NAME_MISSING) },
             )
+            if (nameMissing) {
+                Text(
+                    NAME_MISSING,
+                    color = colors.textMuted,
+                    style = Scan7Type.text12,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                )
+            }
         }
         Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
             SectionLabel("Color")
@@ -228,6 +262,7 @@ private fun Swatch(index: Int, initial: String, selected: Boolean, owners: List<
 }
 
 private const val MAX_NAME_LENGTH = 16
+private const val NAME_MISSING = "Enter a name to save"
 
 /**
  * [PlayerEditorSheet] wired to the [repository]: adds or updates the player, deletes (the
@@ -259,18 +294,21 @@ fun PlayerEditorHost(
             busy = true
             scope.launch {
                 runCatching {
-                    if (editing == null) {
-                        repository.addPlayer(name, color)
-                    } else {
-                        repository.updatePlayer(editing.id, name, color)
-                        editing.id
+                    // The write finishes even if the sheet / screen is gone meanwhile.
+                    outlivingUi {
+                        if (editing == null) {
+                            repository.addPlayer(name, color)
+                        } else {
+                            repository.updatePlayer(editing.id, name, color)
+                            editing.id
+                        }
                     }
                 }.onSuccess { id ->
                     // Stays busy while the sheet slides down (no second save).
                     sheetState.hideThen({ onSaved(id) })
                 }.onFailure {
-                    error = when (it.message) {
-                        "Color already used in the running game" -> "Another player in the unfinished game has this color. Pick a different one."
+                    error = when (it) {
+                        is ColorInUseException -> "Another player in the unfinished game has this color. Pick a different one."
                         else -> it.message ?: "Couldn't save"
                     }
                     busy = false
@@ -281,7 +319,7 @@ fun PlayerEditorHost(
             {
                 busy = true
                 scope.launch {
-                    runCatching { repository.deletePlayer(p.id) }
+                    runCatching { outlivingUi { repository.deletePlayer(p.id) } }
                         .onSuccess { sheetState.hideThen() }
                         .onFailure {
                             error = it.message ?: "Couldn't delete"

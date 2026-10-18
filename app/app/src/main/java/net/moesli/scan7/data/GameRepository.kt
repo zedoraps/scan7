@@ -33,6 +33,9 @@ data class GameSnapshot(
     val viewMode: ViewMode get() = state.viewMode ?: preferredViewMode ?: ViewMode.defaultFor(state.seats.size)
 }
 
+/** [GameRepository.updatePlayer]: another player in an unfinished game of this player already has the color. */
+class ColorInUseException : IllegalArgumentException("Color already used in the running game")
+
 /**
  * Single entry point for players, games and settings. Every action loads the game, applies the
  * pure [GameState] logic and writes the changes back in one transaction; the flows update.
@@ -116,7 +119,7 @@ class GameRepository(
                 val game = gameDao.load(gameId) ?: continue
                 if (game.game.finishedAt != null) continue
                 val others = playerDao.byIds(game.seats.map { it.playerId }.filter { it != id })
-                require(others.none { it.colorIndex == colorIndex }) { "Color already used in the running game" }
+                if (others.any { it.colorIndex == colorIndex }) throw ColorInUseException()
             }
             playerDao.update(player.copy(name = clean, colorIndex = colorIndex))
         }

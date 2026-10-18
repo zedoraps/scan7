@@ -25,6 +25,21 @@ fun parseDelta(text: String): Int? {
     return v.takeIf { it in -MAX_ADJUSTMENT..MAX_ADJUSTMENT }
 }
 
+/**
+ * Error for the adjust field (error semantics, read by TalkBack), or null: nothing typed yet is
+ * no error; a lone sign or 0 is ("Enter a number other than 0").
+ */
+fun deltaError(text: String): String? {
+    if (text.isBlank()) return null
+    val d = parseDelta(text)
+    return when {
+        d == null && text.trim().replace(MINUS, '-').trimStart('+', '-').isEmpty() -> "Enter a number after the sign"
+        d == null -> "Up to $MAX_ADJUSTMENT points"
+        d == 0 -> "Enter a number other than 0"
+        else -> null
+    }
+}
+
 /** Keeps only what the field accepts: one leading sign and at most 3 digits. */
 fun filterDeltaInput(text: String): String {
     val t = text.replace(MINUS, '-')
