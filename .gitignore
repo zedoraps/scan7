@@ -35,3 +35,6 @@ ml/*.log
 
 # Claude Code worktrees for parallel agents
 .claude/
+
+# Raw app scans pulled from the phone (images + JSON sidecars)
+ml/data/app_scans/

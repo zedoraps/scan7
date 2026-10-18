@@ -44,6 +44,7 @@ Folders (file names matter for `cards_flat/`):
 | `ml/data/backgrounds/` | 30–50 photos of tables, floors, fabrics, desk mats — no cards |
 | `ml/data/real_photos/train/` | Real game photos for fine-tuning (to be labeled) |
 | `ml/data/real_photos/test/` | Real game photos for evaluation only — **never train on these** |
+| `ml/data/app_scans/` | Raw frames saved by the app ("Save scans for training"), pulled with `scripts/import_app_scans.py`, which copies them into `real_photos/train|test` |
 | `ml/data/unused/` | Kept for reference, not used (Flip 7 box shots, 12 on light background) |
 
 ## Stages

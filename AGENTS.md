@@ -48,6 +48,7 @@ uv run python scripts/preview_synth.py --split val --grids 2 --full 5   # -> out
 uv run python scripts/train.py --data out/synth/dataset.yaml --name synth_v1   # YOLO26n on MPS
 uv run python scripts/train.py --data out/mix/dataset.yaml --model runs/synth_v1/weights/best.pt --name ft_v1
 uv run python scripts/predict.py runs/synth_v1/weights/best.pt data/real_photos/train --out out/pred/v1/train
+uv run python scripts/import_app_scans.py           # pull 'Save scans for training' frames from the phone -> real_photos (80/20), LS sync, pre-label train only
 uv run scripts/export.py runs/synth_v1/weights/best.pt  # own PEP 723 env: NOT `uv run python`; installs into app assets
 ```
 The app's `model.tflite` is **not in git** (gitignored, ~10 MB per version): after a fresh clone, run the export once before building the app.
