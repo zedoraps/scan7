@@ -18,6 +18,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,9 +37,11 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.moesli.scan7.R
-import net.moesli.scan7.ui.components.GlobeIcon
+import net.moesli.scan7.ui.components.ChevronRightIcon
 import net.moesli.scan7.ui.components.IconButton
+import net.moesli.scan7.ui.components.MenuIcon
 import net.moesli.scan7.ui.components.PressDim
+import net.moesli.scan7.ui.components.scan7Clickable
 import net.moesli.scan7.ui.text.AppLanguage
 import net.moesli.scan7.ui.text.AppLocales
 import net.moesli.scan7.ui.theme.Scan7Radii
@@ -47,20 +50,21 @@ import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
 
 /**
- * Globe button in the Home header: an M3 [DropdownMenu] (restyled like the after-scan menu) with
- * the app language as radio items: System default / English / Deutsch ([AppLocales]; on API 33+
- * the same setting as Settings > Apps > Scan7 > Language).
+ * ⋮ in the Home header (same 48 dp button as the round screen's menu): an M3 [DropdownMenu]
+ * restyled like the after-scan menu with the [version] as a muted first line, **About & licenses**
+ * ([onAbout]) and **Language** as an inline radio group (System default / English / Deutsch,
+ * [AppLocales]; on API 33+ the same setting as Settings > Apps > Scan7 > Language). Inline radios
+ * instead of a second menu: three short options, and M3 has no nested menus.
  */
 @Composable
-fun LanguageButton(modifier: Modifier = Modifier) {
+fun HomeMenuButton(version: String, onAbout: () -> Unit, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
     val context = LocalContext.current
     val activity = LocalActivity.current
     var expanded by remember { mutableStateOf(false) }
     val current = remember(expanded) { AppLocales.current(context) }
-    val title = stringResource(R.string.language_title)
     Box(modifier) {
-        IconButton(onClick = { expanded = true }, contentDescription = title) { GlobeIcon(colors.text) }
+        IconButton(onClick = { expanded = true }, contentDescription = stringResource(R.string.home_more_options)) { MenuIcon(colors.text) }
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
@@ -70,10 +74,39 @@ fun LanguageButton(modifier: Modifier = Modifier) {
             tonalElevation = 0.dp,
             shadowElevation = 0.dp,
             border = BorderStroke(1.5.dp, colors.line),
-            modifier = Modifier.widthIn(min = 220.dp),
+            modifier = Modifier.widthIn(min = 240.dp),
         ) {
             Text(
-                title.uppercase(),
+                version,
+                color = colors.textMuted,
+                style = Scan7Type.text12,
+                maxLines = 1,
+                modifier = Modifier.padding(horizontal = Scan7Spacing.l, vertical = Scan7Spacing.s),
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(Scan7Spacing.minTouch + Scan7Spacing.s)
+                    .scan7Clickable({
+                        expanded = false
+                        onAbout()
+                    })
+                    .padding(horizontal = Scan7Spacing.l),
+            ) {
+                Text(
+                    stringResource(R.string.about_title),
+                    color = colors.text,
+                    style = Scan7Type.button.copy(fontSize = 15.sp),
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                )
+                ChevronRightIcon(colors.textMuted)
+            }
+            HorizontalDivider(color = colors.lineSubtle, modifier = Modifier.padding(vertical = Scan7Spacing.xs))
+            Text(
+                stringResource(R.string.language_title).uppercase(),
                 color = colors.textMuted,
                 style = Scan7Type.capsLabel,
                 modifier = Modifier

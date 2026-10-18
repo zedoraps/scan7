@@ -1,5 +1,8 @@
 package net.moesli.scan7.ui.scan
 
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import net.moesli.scan7.ui.components.avatarSizeForHeight
 import net.moesli.scan7.ui.components.PlayerAvatar
 import android.os.SystemClock
@@ -162,9 +165,9 @@ internal fun ScanCameraStep(
                     onBack = onBack,
                     hint = when {
                         !permission.granted -> null
-                        capturing -> "Reading cards…"
-                        notReady -> "Camera is starting – try again"
-                        stats?.error != null -> "Card detector unavailable"
+                        capturing -> stringResource(R.string.camera_reading)
+                        notReady -> stringResource(R.string.camera_starting)
+                        stats?.error != null -> stringResource(R.string.camera_detector_unavailable)
                         else -> null
                     },
                     modifier = Modifier.align(Alignment.TopCenter),
@@ -276,10 +279,10 @@ private fun CameraHeader(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp),
         ) {
-            IconButton(onClick = onBack, contentDescription = "Back to table") { BackIcon(colors.text) }
+            IconButton(onClick = onBack, contentDescription = stringResource(R.string.camera_back)) { BackIcon(colors.text) }
             PlayerBanner(
                 player = player,
-                label = if (mode == ScanMode.ScanNext) "Next" else "Scanning",
+                label = stringResource(if (mode == ScanMode.ScanNext) R.string.camera_label_next else R.string.camera_label_scanning),
                 modifier = Modifier.weight(1f),
             )
         }
@@ -295,6 +298,7 @@ private fun CameraHeader(
 private fun TypeButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.iconButton)
+    val description = stringResource(R.string.camera_type_description)
     Row(
         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
@@ -305,13 +309,13 @@ private fun TypeButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
             .border(1.5.dp, colors.line, shape)
             .scan7Clickable(onClick)
             .clearAndSetSemantics {
-                contentDescription = "Type the cards instead"
+                contentDescription = description
                 role = Role.Button
             }
             .padding(horizontal = Scan7Spacing.s),
     ) {
         KeyboardIcon(colors.text, size = 18.dp)
-        Text("Type", color = colors.text, style = Scan7Type.tag12, maxLines = 1)
+        Text(stringResource(R.string.camera_type), color = colors.text, style = Scan7Type.tag12, maxLines = 1)
     }
 }
 
@@ -319,19 +323,26 @@ private fun TypeButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 @Composable
 private fun PlayerBanner(player: PlayerUi, label: String, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
+    val description = stringResource(
+        R.string.camera_banner_description,
+        label,
+        player.name,
+        pluralStringResource(R.plurals.points, player.total, player.total),
+    )
+    val caps = stringResource(R.string.camera_banner, label.uppercase(), player.total, stringResource(R.string.points_short))
     Row(
         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .clearAndSetSemantics {
                 heading()
-                contentDescription = "$label: ${player.name}, ${player.total} points"
+                contentDescription = description
             },
     ) {
         PlayerAvatar(player.avatar, BannerAvatar)
         Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs), modifier = Modifier.weight(1f)) {
             Text(
-                "${label.uppercase()} · ${player.total} PTS",
+                caps,
                 color = colors.textMuted,
                 style = Scan7Type.capsLabel.copy(fontSize = 12.sp),
                 maxLines = 1,
@@ -346,6 +357,7 @@ private fun PlayerBanner(player: PlayerUi, label: String, modifier: Modifier = M
 @Composable
 private fun TorchToggle(on: Boolean, onChange: (Boolean) -> Unit) {
     val colors = Scan7Theme.colors
+    val torchDescription = stringResource(R.string.camera_torch)
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -359,7 +371,7 @@ private fun TorchToggle(on: Boolean, onChange: (Boolean) -> Unit) {
                 role = Role.Switch,
                 onValueChange = onChange,
             )
-            .semantics { contentDescription = "Torch" },
+            .semantics { contentDescription = torchDescription },
     ) {
         TorchIcon(if (on) colors.onAccent else colors.text, on = on)
     }
@@ -399,6 +411,7 @@ private fun ZoomPills(zoom: ZoomControls, modifier: Modifier = Modifier) {
             val active = preset == zoom.selected
             // The active pill shows the real zoom (after a pinch, e.g. "1.6×").
             val label = if (active) zoomLabel(zoom.ratio) else formatZoom(preset)
+            val zoomDescription = stringResource(R.string.camera_zoom, label)
             // 40×34 pill, touch area 44×48 (half the 4 dp gap sideways, so neighbours don't overlap).
             val source = remember { MutableInteractionSource() }
             val slackX = Scan7Spacing.xxs / 2
@@ -418,7 +431,7 @@ private fun ZoomPills(zoom: ZoomControls, modifier: Modifier = Modifier) {
                             zoom.onSelect(preset)
                         },
                     )
-                    .semantics { contentDescription = "Zoom $label" }
+                    .semantics { contentDescription = zoomDescription }
                     .padding(horizontal = slackX, vertical = slackY)
                     .clip(RoundedCornerShape(Scan7Radii.toggleInner))
                     .background(if (active) colors.accent else colors.surface.copy(alpha = 0f))
@@ -457,17 +470,18 @@ private fun CameraBottomBar(
             .padding(horizontal = Scan7Spacing.l)
             .padding(top = Scan7Spacing.m, bottom = Scan7Spacing.xl),
     ) {
+        val seenDescription = pluralStringResource(R.plurals.camera_cards_seen, seen, seen)
         Row(
             horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .height(18.dp)
                 .alpha(if (showCount) 1f else 0f)
-                .clearAndSetSemantics { if (showCount) contentDescription = "$seen cards seen" },
+                .clearAndSetSemantics { if (showCount) contentDescription = seenDescription },
         ) {
             Box(Modifier.size(8.dp).background(colors.accent, CircleShape))
             Text(seen.toString(), color = colors.text, style = Scan7Type.total15)
-            Text(if (seen == 1) "card seen" else "cards seen", color = colors.textMuted, style = Scan7Type.text12)
+            Text(pluralStringResource(R.plurals.camera_cards_seen_label, seen), color = colors.textMuted, style = Scan7Type.text12)
         }
         Box(Modifier.fillMaxWidth().height(84.dp)) {
             if (onBust != null) BustButton(playerName, onBust, bustEnabled, Modifier.align(Alignment.CenterStart))
@@ -482,6 +496,7 @@ private fun CameraBottomBar(
 private fun BustButton(playerName: String, onClick: () -> Unit, enabled: Boolean, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.iconButton)
+    val description = stringResource(R.string.action_bust_player, playerName)
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -491,11 +506,11 @@ private fun BustButton(playerName: String, onClick: () -> Unit, enabled: Boolean
             .border(1.5.dp, colors.bust, shape)
             .scan7Clickable(onClick, enabled = enabled)
             .clearAndSetSemantics {
-                contentDescription = "Mark $playerName as bust"
+                contentDescription = description
                 role = Role.Button
             },
     ) {
-        Text("✕ BUST", color = colors.bust, style = Scan7Type.tag12, maxLines = 1)
+        Text(stringResource(R.string.label_bust_tag), color = colors.bust, style = Scan7Type.tag12, maxLines = 1)
     }
 }
 
@@ -503,6 +518,7 @@ private fun BustButton(playerName: String, onClick: () -> Unit, enabled: Boolean
 @Composable
 private fun Shutter(enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
+    val description = stringResource(R.string.camera_shutter)
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -511,7 +527,7 @@ private fun Shutter(enabled: Boolean, onClick: () -> Unit, modifier: Modifier = 
             .border(4.dp, colors.text.copy(alpha = if (enabled) 1f else 0.4f), CircleShape)
             .scan7Clickable(onClick, enabled = enabled)
             .semantics {
-                contentDescription = "Take photo"
+                contentDescription = description
                 role = Role.Button
             },
     ) {
@@ -535,14 +551,14 @@ private fun BoxScope.PermissionMissing(onAllow: () -> Unit, onOpenSettings: () -
             .fillMaxWidth()
             .padding(horizontal = Scan7Spacing.xl),
     ) {
-        Text("Camera access needed", color = colors.text, style = Scan7Type.headline16, textAlign = TextAlign.Center)
+        Text(stringResource(R.string.camera_permission_title), color = colors.text, style = Scan7Type.headline16, textAlign = TextAlign.Center)
         Text(
-            "Scan7 uses the camera to read the cards on the table. Images stay on this phone.",
+            stringResource(R.string.camera_permission_body),
             color = colors.textMuted,
             style = Scan7Type.text14,
             textAlign = TextAlign.Center,
         )
-        PrimaryButton("Allow camera", onAllow, Modifier.fillMaxWidth())
-        SecondaryButton("Open app settings", onOpenSettings, Modifier.fillMaxWidth())
+        PrimaryButton(stringResource(R.string.camera_permission_allow), onAllow, Modifier.fillMaxWidth())
+        SecondaryButton(stringResource(R.string.camera_permission_settings), onOpenSettings, Modifier.fillMaxWidth())
     }
 }

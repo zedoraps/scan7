@@ -19,7 +19,7 @@
     <string name="action_edit">Bearbeiten</string>
     <string name="action_undo">Rückgängig</string>
     <string name="action_remove">Entfernen</string>
-    <string name="action_home">Start</string>
+    <string name="action_home">Startseite</string>
     <string name="action_menu">Menü</string>
     <string name="action_scoreboard">Tabelle</string>
     <string name="action_new_game">Neues Spiel</string>
@@ -74,11 +74,11 @@
     <string name="confirm_reset_body_points">Entfernt %1$s aus dieser Runde.</string>
     <string name="confirm_reset_body_bust">Entfernt das RAUS aus dieser Runde.</string>
     <string name="confirm_close_round_title">Runde %1$d beenden?</string>
-    <string name="confirm_close_round_one">%1$s ist noch nicht gewertet und ist dann RAUS.</string>
-    <string name="confirm_close_round_some">%1$s sind noch nicht gewertet und sind dann RAUS.</string>
-    <string name="confirm_close_round_nobody">Noch niemand ist gewertet – alle RAUS?</string>
+    <string name="confirm_close_round_one">%1$s ist noch nicht gewertet und gilt dann als RAUS.</string>
+    <string name="confirm_close_round_some">%1$s sind noch nicht gewertet und gelten dann als RAUS.</string>
+    <string name="confirm_close_round_nobody">Noch niemand ist gewertet – alle auf RAUS setzen?</string>
     <string name="confirm_end_game_title">Spiel jetzt beenden?</string>
-    <string name="confirm_end_game_body">Die Runde endet so, wie sie ist; wer noch offen ist, ist RAUS. Wer vorne liegt, gewinnt.</string>
+    <string name="confirm_end_game_body">Die Runde endet so, wie sie ist; wer noch offen ist, gilt als RAUS. Wer vorne liegt, gewinnt.</string>
     <string name="confirm_start_game_title">Neues Spiel starten?</string>
     <string name="confirm_start_game_body">Das laufende Spiel (Runde %1$d) endet und lässt sich nicht fortsetzen.</string>
 
@@ -96,18 +96,24 @@
         <item quantity="other">Laufendes Spiel, Runde %2$d, %1$d Spieler, %3$s</item>
     </plurals>
     <string name="home_open_scoreboard">Punktetabelle öffnen</string>
-    <string name="home_intro_title">Reihe scannen, Punkte haben.</string>
+    <string name="home_intro_title">Reihe scannen, fertig gezählt.</string>
     <string name="home_intro_players">Wähl aus, wer mitspielt, und halt die Kamera über die Kartenreihe jedes Spielers. Scan7 rechnet zusammen.</string>
     <string name="home_intro_no_players">Noch keine Spieler. Bei „Neues Spiel“ legst du alle am Tisch an – sie bleiben fürs nächste Mal gespeichert.</string>
-    <string name="home_footer">Scan7 v%1$s (%2$d) · Modell %3$s</string>
+    <string name="home_version">Scan7 %1$s (%2$d)</string>
     <string name="history_today">Heute, %1$s</string>
     <string name="history_yesterday">Gestern, %1$s</string>
-    <string name="history_won">%1$s hat gewonnen</string>
-    <string name="history_led">%1$s lag vorne</string>
-    <string name="history_not_finished">Nicht fertig gespielt</string>
+    <plurals name="history_won">
+        <item quantity="one">%2$s hat gewonnen</item>
+        <item quantity="other">%2$s haben gewonnen</item>
+    </plurals>
+    <plurals name="history_led">
+        <item quantity="one">%2$s lag vorne</item>
+        <item quantity="other">%2$s lagen vorne</item>
+    </plurals>
+    <string name="history_not_finished">Nicht beendet</string>
     <string name="history_no_winner">Kein Sieger</string>
     <string name="history_ended_early">vorzeitig beendet</string>
-    <string name="history_abandoned">nicht fertig</string>
+    <string name="history_abandoned">nicht beendet</string>
     <string name="history_with_points">%1$s mit %2$s</string>
     <plurals name="history_players">
         <item quantity="one">%1$d Spieler: %2$s</item>
@@ -136,7 +142,7 @@
     <string name="editor_face_option">Gesicht %1$s</string>
     <string name="editor_pattern_option">Muster %1$s</string>
     <string name="editor_no_pattern">Kein Muster</string>
-    <string name="editor_color_used">%1$s, schon bei %2$s</string>
+    <string name="editor_color_used">%1$s, schon vergeben an %2$s</string>
     <string name="avatar_description">Avatar %1$s, %2$s</string>
     <string name="avatar_description_named">%1$s, %2$s</string>
     <string name="avatar_color_amber">Bernstein</string>
@@ -175,8 +181,8 @@
     <!-- New game + seats -->
     <string name="newgame_title">Neues Spiel</string>
     <string name="newgame_subtitle">Wer spielt mit? · %1$d von %2$d</string>
-    <string name="newgame_min_players">Wähl mindestens %1$d Spieler.</string>
-    <string name="newgame_max_players">Mehr als %1$d Spieler gehen nicht.</string>
+    <string name="newgame_min_players">Wähl mindestens %1$d Spieler aus.</string>
+    <string name="newgame_max_players">Höchstens %1$d Spieler.</string>
     <string name="newgame_no_players">Noch keine Spieler. Leg alle am Tisch an – sie bleiben fürs nächste Mal gespeichert.</string>
     <string name="newgame_skip_seats">Plätze überspringen</string>
     <string name="newgame_target">Ziel</string>
@@ -192,9 +198,9 @@
     <!-- Scoreboard -->
     <string name="scoreboard_title">Punktetabelle</string>
     <string name="scoreboard_final">Endstand · %1$s · bis %2$d</string>
-    <string name="scoreboard_abandoned">Nicht fertig · %1$s · bis %2$d</string>
+    <string name="scoreboard_abandoned">Nicht beendet · %1$s · bis %2$d</string>
     <string name="scoreboard_running">Runde %1$d · bis %2$d · tippen zum Ändern</string>
-    <string name="scoreboard_round_short">RD</string>
+    <string name="scoreboard_round_short">RUNDE</string>
     <string name="scoreboard_round">Runde</string>
     <string name="scoreboard_round_running">Runde %1$d, läuft</string>
     <string name="scoreboard_now">JETZT</string>
@@ -226,8 +232,8 @@
 
     <!-- Player sheet + adjust total -->
     <string name="sheet_points_round">%1$s · Runde %2$d</string>
-    <string name="sheet_points_this_round">Punkte diese Runde</string>
-    <string name="sheet_zero_points_this_round">0 Punkte diese Runde</string>
+    <string name="sheet_points_this_round">Punkte in dieser Runde</string>
+    <string name="sheet_zero_points_this_round">0 Punkte in dieser Runde</string>
     <string name="sheet_marked_bust">Als raus markiert, keine Karten erfasst.</string>
     <string name="sheet_points_only">Punkte ohne Karten eingetragen.</string>
     <string name="sheet_rescan">Neu scannen</string>
@@ -249,12 +255,12 @@
     <string name="adjust_note_label">Notiz, optional</string>
     <string name="adjust_apply">Übernehmen</string>
     <string name="adjust_apply_delta">%1$s übernehmen</string>
-    <string name="adjust_field_description">Punkte dazu, mit Minus abziehen</string>
-    <string name="adjust_flip_sign">Zwischen dazu und abziehen wechseln</string>
+    <string name="adjust_field_description">Punkte zum Addieren, mit Minus abziehen</string>
+    <string name="adjust_flip_sign">Zwischen Plus und Minus wechseln</string>
     <string name="adjust_error_sign">Gib nach dem Vorzeichen eine Zahl ein</string>
     <string name="adjust_error_range">Höchstens %1$d Punkte</string>
     <string name="adjust_error_zero">Gib eine Zahl außer 0 ein</string>
-    <string name="adjust_step_add">%1$d dazu</string>
+    <string name="adjust_step_add">%1$d addieren</string>
     <string name="adjust_step_subtract">%1$d abziehen</string>
     <string name="adjust_preview">Summe %1$d → %2$d</string>
     <string name="adjust_round">Runde %1$d</string>
@@ -322,7 +328,7 @@
     <string name="after_scan_next">Weiter: %1$s</string>
     <string name="after_scan_table">zurück zum Tisch</string>
     <string name="after_scan_description">%1$s, dann %2$s</string>
-    <string name="after_scan_choose">Wählen, was nach „%1$s“ passiert</string>
+    <string name="after_scan_choose">Wähl, was nach „%1$s“ passiert</string>
     <string name="after_scan_label">%1$s · %2$s</string>
     <string name="bust_overlay_description">%1$s ist raus</string>
     <string name="bust_overlay_undo">RÜCKGÄNGIG</string>
@@ -341,5 +347,59 @@
     <string name="about_privacy">Datenschutzerklärung</string>
     <string name="about_third_party">Software von Dritten</string>
     <string name="about_show_license">Lizenz anzeigen</string>
-    <string name="gameover_home">Übersicht</string>
+    <string name="gameover_home">Startseite</string>
+    <string name="round_next">Nächste Runde</string>
+    <string name="round_move_up">%1$s nach oben schieben</string>
+    <string name="round_move_down">%1$s nach unten schieben</string>
+    <string name="seat_number">Platz %1$d</string>
+    <string name="menu_round_title">Runde %1$d · bis %2$d</string>
+    <string name="menu_direction">Scan-Richtung</string>
+    <string name="menu_direction_hint">Wen „Weiter scannen“ als Nächstes nimmt</string>
+    <string name="menu_end_game_hint">Wer vorne liegt, gewinnt jetzt</string>
+    <string name="menu_home_hint">Du kannst das Spiel später fortsetzen</string>
+    <string name="direction_cw_short">↻ Uhrzeigersinn</string>
+    <string name="direction_ccw_short">↺ Gegenrichtung</string>
+    <string name="direction_cw">↻ im Uhrzeigersinn</string>
+    <string name="direction_ccw">↺ gegen den Uhrzeigersinn</string>
+    <string name="direction_cw_spoken">Im Uhrzeigersinn scannen</string>
+    <string name="direction_ccw_spoken">Gegen den Uhrzeigersinn scannen</string>
+    <string name="camera_reading">Karten werden gelesen …</string>
+    <string name="camera_starting">Kamera startet – versuch es gleich noch mal</string>
+    <string name="camera_detector_unavailable">Kartenerkennung nicht verfügbar</string>
+    <string name="camera_back">Zurück zum Tisch</string>
+    <string name="camera_label_next">Als Nächstes</string>
+    <string name="camera_label_scanning">Scannen</string>
+    <string name="camera_type_description">Karten stattdessen von Hand eingeben</string>
+    <string name="camera_type">Eingeben</string>
+    <string name="camera_banner_description">%1$s: %2$s, %3$s</string>
+    <string name="camera_banner">%1$s · %2$d %3$s</string>
+    <string name="camera_torch">Taschenlampe</string>
+    <string name="camera_zoom">Zoom %1$s</string>
+    <plurals name="camera_cards_seen">
+        <item quantity="one">%d Karte erkannt</item>
+        <item quantity="other">%d Karten erkannt</item>
+    </plurals>
+    <plurals name="camera_cards_seen_label">
+        <item quantity="one">Karte erkannt</item>
+        <item quantity="other">Karten erkannt</item>
+    </plurals>
+    <string name="camera_shutter">Foto aufnehmen</string>
+    <string name="camera_permission_title">Kamerazugriff nötig</string>
+    <string name="camera_permission_body">Scan7 liest mit der Kamera die Karten auf dem Tisch. Die Bilder bleiben auf diesem Handy.</string>
+    <string name="camera_permission_allow">Kamera erlauben</string>
+    <string name="camera_permission_settings">App-Einstellungen öffnen</string>
+    <string name="a11y_player_open">noch nicht gewertet</string>
+    <plurals name="a11y_player_scored">
+        <item quantity="one">diese Runde %d Punkt</item>
+        <item quantity="other">diese Runde %d Punkte</item>
+    </plurals>
+    <string name="a11y_player_bust">diese Runde raus</string>
+    <string name="a11y_player_leading">führt</string>
+    <string name="about_tp_yolo">Detektor-Architektur + vortrainierte YOLO26n-Gewichte · AGPL-3.0</string>
+    <string name="about_tp_litert">Erkennung auf dem Gerät, GPU-Delegate · Apache-2.0</string>
+    <string name="about_tp_jetpack">Compose, Material 3, Activity, Core, Lifecycle, Navigation 3, CameraX, Room, SplashScreen · Apache-2.0</string>
+    <string name="about_tp_kotlin">Standardbibliothek, kotlinx.coroutines, kotlinx.serialization · Apache-2.0</string>
+    <string name="about_tp_unbounded">Schrift · © 2022 The Unbounded Project Authors · SIL OFL 1.1</string>
+    <string name="about_tp_dmmono">Schrift · © 2020 The DM Mono Project Authors · SIL OFL 1.1</string>
+    <string name="home_more_options">Weitere Optionen</string>
 </resources>

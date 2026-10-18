@@ -97,12 +97,12 @@ data class ResumeGameUi(
 
 /**
  * Home (1) state. [past] = finished / abandoned games, newest first; [now] for their relative
- * dates. [footer] e.g. "v1.0 (1) · model.tflite ep15 (9.9 MB)".
+ * dates. [version] e.g. "Scan7 1.0 (1)" (first line of the ⋮ menu).
  */
 data class HomeUiState(
     val resume: ResumeGameUi?,
     val playerCount: Int,
-    val footer: String,
+    val version: String,
     val past: List<PastGameUi> = emptyList(),
     val now: Long = 0,
 )
@@ -130,11 +130,10 @@ private val HeroAvatar = avatarSizeForHeight(58.dp)
  * Home (1) = game history: wordmark, Resume card (round, avatars, leader) when a game is
  * unfinished, then "Past games" (finished / abandoned, newest first: date, avatars, winner +
  * points, rounds; tap = [onPastGame], that game's scoreboard) in one `LazyColumn`. Players
- * (secondary) + New game (primary) stay at the bottom, version footer below. The debug menu is
- * hidden: tap the wordmark [DEBUG_TAPS] times (TalkBack: custom action "Open debug menu").
+ * (secondary) + New game (primary) float at the bottom. The ⋮ top right ([HomeMenuButton]) shows
+ * the version, About & licenses ([onAbout]) and the app language. The debug menu (debug builds
+ * only) is hidden: tap the wordmark [DEBUG_TAPS] times (TalkBack: custom action "Open debug menu").
  * Without any game: a short intro; without players it says New game starts by adding them.
- * The debug menu exists in debug builds only. Tapping the version footer opens [onAbout]
- * (About & licenses).
  */
 @Composable
 fun HomeScreen(
@@ -164,38 +163,13 @@ fun HomeScreen(
         ) {
             Scan7Wordmark(fontSize = 32.sp, modifier = if (BuildConfig.DEBUG) Modifier.debugTaps(onDebug) else Modifier)
             Spacer(Modifier.weight(1f))
-            LanguageButton()
+            HomeMenuButton(version = state.version, onAbout = onAbout)
         }
         ContentWithBottomBar(
             bottomBar = {
                 Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
                     SecondaryButton(stringResource(R.string.home_players), onPlayers, Modifier.width(128.dp))
                     PrimaryButton(stringResource(R.string.action_new_game), onNewGame, Modifier.weight(1f))
-                }
-                // Version footer = the entry to About & licenses (its second line names it).
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = Scan7Spacing.xs)
-                        .clip(RoundedCornerShape(Scan7Radii.card))
-                        .scan7Clickable(onAbout)
-                        .padding(vertical = Scan7Spacing.xs),
-                ) {
-                    Text(
-                        text = state.footer,
-                        color = colors.textMuted,
-                        style = Scan7Type.text10,
-                        textAlign = TextAlign.Center,
-                        maxLines = 2,
-                    )
-                    Text(
-                        text = stringResource(R.string.about_title),
-                        color = colors.accent,
-                        style = Scan7Type.text10,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                    )
                 }
             },
         ) { bottomPadding ->
@@ -424,7 +398,6 @@ fun HomeRoute(
     onDebug: () -> Unit,
     onPastGame: (gameId: Long) -> Unit,
     onAbout: () -> Unit,
-    modelInfo: String,
     modifier: Modifier = Modifier,
     repository: GameRepository = AppGraph.repository(LocalContext.current),
 ) {
@@ -436,7 +409,7 @@ fun HomeRoute(
         state = HomeUiState(
             resume = active?.toResumeUi(),
             playerCount = players.size,
-            footer = stringResource(R.string.home_footer, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, modelInfo),
+            version = stringResource(R.string.home_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
             past = past,
             // Relative dates ("Today") only need to be right when Home is (re)composed.
             now = System.currentTimeMillis(),
@@ -463,7 +436,7 @@ internal val SampleResume = ResumeGameUi(
 @Composable
 private fun HomeResumePreview() {
     Scan7Theme {
-        HomeScreen(HomeUiState(SampleResume, 4, "Scan7 v1.0 (1) · model model.tflite ep15 (9.9 MB)"), {}, {}, {}, {}, {})
+        HomeScreen(HomeUiState(SampleResume, 4, "Scan7 1.0 (1)"), {}, {}, {}, {}, {})
     }
 }
 
@@ -482,7 +455,7 @@ private val SamplePast = run {
 @Composable
 private fun HomeHistoryPreview() {
     Scan7Theme {
-        HomeScreen(HomeUiState(SampleResume, 4, "Scan7 v1.0 (1) · model none", SamplePast, 10 * 86_400_000L), {}, {}, {}, {}, {})
+        HomeScreen(HomeUiState(SampleResume, 4, "Scan7 1.0 (1)", SamplePast, 10 * 86_400_000L), {}, {}, {}, {}, {})
     }
 }
 
@@ -490,6 +463,6 @@ private fun HomeHistoryPreview() {
 @Composable
 private fun HomeEmptyPreview() {
     Scan7Theme {
-        HomeScreen(HomeUiState(null, 0, "Scan7 v1.0 (1) · model none"), {}, {}, {}, {}, {})
+        HomeScreen(HomeUiState(null, 0, "Scan7 1.0 (1)"), {}, {}, {}, {}, {})
     }
 }

@@ -97,7 +97,8 @@ class ConfirmationsTest {
 
     @Test
     fun scanDirectionSegmentLabels() {
-        assertEquals("↻ Clockwise", ScanDirection.CLOCKWISE.shortLabel())
-        assertEquals("↺ Counter", ScanDirection.COUNTER_CLOCKWISE.shortLabel())
+        assertEquals("↻ Clockwise", ScanDirection.CLOCKWISE.shortLabel().en)
+        assertEquals("↺ Counter", ScanDirection.COUNTER_CLOCKWISE.shortLabel().en)
+        assertEquals("↻ Uhrzeigersinn", ScanDirection.CLOCKWISE.shortLabel().de)
     }
 }

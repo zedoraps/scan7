@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.round
 
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
@@ -196,7 +198,7 @@ fun RoundScreen(
             if (state.allDone) {
                 // Closes the round and starts the next one (or Game over) in one tap.
                 PrimaryButton(
-                    text = "Next round",
+                    text = stringResource(R.string.round_next),
                     onClick = { if (enabled) actions.onNextRound() },
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -247,15 +249,16 @@ private fun TableView(state: RoundUiState, actions: RoundActions, m: RoundMetric
             .height(m.areaBottom - m.areaTop)
             .alpha(if (state.arranging) ARRANGE_DIM else 1f),
     ) {
+        val roundDescription = stringResource(R.string.round_number, state.round)
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
             modifier = Modifier.clearAndSetSemantics {
-                contentDescription = "Round ${state.round}"
+                contentDescription = roundDescription
                 heading()
             },
         ) {
-            Text("ROUND", color = Scan7Theme.colors.textMuted, style = Scan7Type.capsLabel)
+            Text(stringResource(R.string.round_label), color = Scan7Theme.colors.textMuted, style = Scan7Type.capsLabel)
             Text(state.round.toString(), color = Scan7Theme.colors.text, style = Scan7Type.roundNumberTable)
         }
     }
@@ -399,6 +402,7 @@ private fun ListView(state: RoundUiState, actions: RoundActions, m: RoundMetrics
     val colors = Scan7Theme.colors
 
     // No "ROUND n" in the seating step (no round yet); the rows keep their place.
+    val roundDescription = stringResource(R.string.round_number, state.round)
     if (!state.seating) Row(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier
@@ -407,11 +411,11 @@ private fun ListView(state: RoundUiState, actions: RoundActions, m: RoundMetrics
             .height(40.dp)
             .alpha(if (state.arranging) ARRANGE_DIM else 1f)
             .clearAndSetSemantics {
-                contentDescription = "Round ${state.round}"
+                contentDescription = roundDescription
                 heading()
             },
     ) {
-        Text("ROUND", color = colors.textMuted, style = Scan7Type.capsLabel, modifier = Modifier.alignByBaseline())
+        Text(stringResource(R.string.round_label), color = colors.textMuted, style = Scan7Type.capsLabel, modifier = Modifier.alignByBaseline())
         Text(state.round.toString(), color = colors.text, style = Scan7Type.roundNumberList, modifier = Modifier.alignByBaseline())
     }
 
@@ -549,6 +553,8 @@ private fun ListSeat(
         else -> CardMode.Normal
     }
     val name = rp.player.name
+    val moveUp = stringResource(R.string.round_move_up, name)
+    val moveDown = stringResource(R.string.round_move_down, name)
     Box(
         modifier = Modifier
             .offset { IntOffset(0, anim.value.roundToInt()) }
@@ -571,10 +577,10 @@ private fun ListSeat(
                     // TalkBack reorder without dragging (handoff §6).
                     customActions = buildList {
                         if (index > 0) {
-                            add(CustomAccessibilityAction("Move $name up") { actions.onMoveRow(index, index - 1); true })
+                            add(CustomAccessibilityAction(moveUp) { actions.onMoveRow(index, index - 1); true })
                         }
                         if (index < count - 1) {
-                            add(CustomAccessibilityAction("Move $name down") { actions.onMoveRow(index, index + 1); true })
+                            add(CustomAccessibilityAction(moveDown) { actions.onMoveRow(index, index + 1); true })
                         }
                     }
                 },

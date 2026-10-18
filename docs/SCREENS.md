@@ -53,7 +53,7 @@ Screen inventory. Behaviour is specified in [APP_FLOW.md](APP_FLOW.md); brand ru
 - **New game** (primary).
 - **Players** (manage list).
 - **Debug** is hidden: tap the wordmark 5 times.
-- Footer: app version, model version.
+- ⋮ top right: version line, About & licenses (version + model details), Language (System default / English / Deutsch). No footer.
 
 States: no unfinished game (history only, or the intro when there is no game at all); no players yet (New game leads to adding players first).
 

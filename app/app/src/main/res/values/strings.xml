@@ -108,11 +108,17 @@
     <string name="home_intro_title">Scan a row, get the score.</string>
     <string name="home_intro_players">Pick who\'s playing, then point the camera at each player\'s row of cards. Scan7 adds it up.</string>
     <string name="home_intro_no_players">No players yet. New game starts with adding everyone at the table — they\'re saved for next time.</string>
-    <string name="home_footer">Scan7 v%1$s (%2$d) · model %3$s</string>
+    <string name="home_version">Scan7 %1$s (%2$d)</string>
     <string name="history_today">Today, %1$s</string>
     <string name="history_yesterday">Yesterday, %1$s</string>
-    <string name="history_won">%1$s won</string>
-    <string name="history_led">%1$s led</string>
+    <plurals name="history_won">
+        <item quantity="one">%2$s won</item>
+        <item quantity="other">%2$s won</item>
+    </plurals>
+    <plurals name="history_led">
+        <item quantity="one">%2$s led</item>
+        <item quantity="other">%2$s led</item>
+    </plurals>
     <string name="history_not_finished">Not finished</string>
     <string name="history_no_winner">No winner</string>
     <string name="history_ended_early">ended early</string>
@@ -358,4 +364,58 @@
     <string name="about_third_party">Third-party software</string>
     <string name="about_show_license">Show license</string>
     <string name="gameover_home">Home</string>
+    <string name="round_next">Next round</string>
+    <string name="round_move_up">Move %1$s up</string>
+    <string name="round_move_down">Move %1$s down</string>
+    <string name="seat_number">Seat %1$d</string>
+    <string name="menu_round_title">Round %1$d · to %2$d</string>
+    <string name="menu_direction">Scan direction</string>
+    <string name="menu_direction_hint">Who \"Scan next\" picks after a player</string>
+    <string name="menu_end_game_hint">The leader wins now</string>
+    <string name="menu_home_hint">The game stays resumable</string>
+    <string name="direction_cw_short">↻ Clockwise</string>
+    <string name="direction_ccw_short">↺ Counter</string>
+    <string name="direction_cw">↻ clockwise</string>
+    <string name="direction_ccw">↺ counter-clockwise</string>
+    <string name="direction_cw_spoken">Scan clockwise</string>
+    <string name="direction_ccw_spoken">Scan counter-clockwise</string>
+    <string name="camera_reading">Reading cards…</string>
+    <string name="camera_starting">Camera is starting – try again</string>
+    <string name="camera_detector_unavailable">Card detector unavailable</string>
+    <string name="camera_back">Back to table</string>
+    <string name="camera_label_next">Next</string>
+    <string name="camera_label_scanning">Scanning</string>
+    <string name="camera_type_description">Type the cards instead</string>
+    <string name="camera_type">Type</string>
+    <string name="camera_banner_description">%1$s: %2$s, %3$s</string>
+    <string name="camera_banner">%1$s · %2$d %3$s</string>
+    <string name="camera_torch">Torch</string>
+    <string name="camera_zoom">Zoom %1$s</string>
+    <plurals name="camera_cards_seen">
+        <item quantity="one">%d card seen</item>
+        <item quantity="other">%d cards seen</item>
+    </plurals>
+    <plurals name="camera_cards_seen_label">
+        <item quantity="one">card seen</item>
+        <item quantity="other">cards seen</item>
+    </plurals>
+    <string name="camera_shutter">Take photo</string>
+    <string name="camera_permission_title">Camera access needed</string>
+    <string name="camera_permission_body">Scan7 uses the camera to read the cards on the table. Images stay on this phone.</string>
+    <string name="camera_permission_allow">Allow camera</string>
+    <string name="camera_permission_settings">Open app settings</string>
+    <string name="a11y_player_open">not scored yet</string>
+    <plurals name="a11y_player_scored">
+        <item quantity="one">scored %d this round</item>
+        <item quantity="other">scored %d this round</item>
+    </plurals>
+    <string name="a11y_player_bust">bust this round</string>
+    <string name="a11y_player_leading">leading</string>
+    <string name="about_tp_yolo">Detector architecture + pretrained YOLO26n weights · AGPL-3.0</string>
+    <string name="about_tp_litert">On-device inference, GPU delegate · Apache-2.0</string>
+    <string name="about_tp_jetpack">Compose, Material 3, Activity, Core, Lifecycle, Navigation 3, CameraX, Room, SplashScreen · Apache-2.0</string>
+    <string name="about_tp_kotlin">Standard library, kotlinx.coroutines, kotlinx.serialization · Apache-2.0</string>
+    <string name="about_tp_unbounded">Font · © 2022 The Unbounded Project Authors · SIL OFL 1.1</string>
+    <string name="about_tp_dmmono">Font · © 2020 The DM Mono Project Authors · SIL OFL 1.1</string>
+    <string name="home_more_options">More options</string>
 </resources>
