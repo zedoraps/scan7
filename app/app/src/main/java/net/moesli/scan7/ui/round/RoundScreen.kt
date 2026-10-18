@@ -158,7 +158,7 @@ fun RoundScreen(state: RoundUiState, actions: RoundActions, modifier: Modifier =
             val enabled = !state.arranging
             if (state.roundOver) {
                 PrimaryButton(
-                    text = "Next round",
+                    text = if (state.gameOver) "Final results" else "Next round",
                     onClick = { if (enabled) actions.onNextRound() },
                     modifier = Modifier.fillMaxWidth(),
                 )

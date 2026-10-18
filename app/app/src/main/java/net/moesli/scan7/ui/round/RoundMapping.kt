@@ -1,0 +1,60 @@
+package net.moesli.scan7.ui.round
+
+import net.moesli.scan7.data.GameSnapshot
+import net.moesli.scan7.game.GameState
+import net.moesli.scan7.game.ViewMode
+import net.moesli.scan7.ui.components.RoundView
+import net.moesli.scan7.ui.players.playerUis
+
+/*
+ * Plain mapping from the stored game (GameRepository snapshot) to the Round screen state, plus the
+ * "Scan next" sequencing. No Android dependencies; JVM unit tested (RoundMappingTest).
+ */
+
+fun ViewMode.toRoundView(): RoundView = when (this) {
+    ViewMode.TABLE -> RoundView.Table
+    ViewMode.LIST -> RoundView.List
+}
+
+fun RoundView.toViewMode(): ViewMode = when (this) {
+    RoundView.Table -> ViewMode.TABLE
+    RoundView.List -> ViewMode.LIST
+}
+
+/**
+ * The player of the running round whose result was set last (scored or bust; open players are
+ * skipped), or `null` if nobody is done. "Scan next" continues clockwise after them.
+ */
+fun GameState.lastDonePlayer(): Long? {
+    val r = currentRound
+    return playerIds.filter { r.result(it).isDone }.maxByOrNull { r.result(it).updatedAt }
+}
+
+/**
+ * Scan next chaining: after [playerId] was saved, the next open player in seating order (wrapping
+ * around), or `null` when nobody is open anymore (or the round is closed) → back to the round screen.
+ */
+fun GameState.scanNextAfter(playerId: Long): Long? = nextOpenPlayer(after = playerId)?.takeIf { it != playerId }
+
+/**
+ * Round screen state for this game: the running round (or, once it is closed, the end-of-round view
+ * with round points and ranks), players in seating order with their stored table positions, the
+ * game's view (else the preferred / default one) and the next open player for "Scan next".
+ */
+fun GameSnapshot.toRoundUiState(arranging: Boolean = false): RoundUiState {
+    val s = state
+    val roundOver = s.currentRound.isClosed
+    val uis = s.playerUis(players)
+    val ranks = if (roundOver) s.roundRanks() else emptyMap()
+    val rows = s.seats.mapIndexed { i, seat -> RoundPlayer(uis[i], seat.position, ranks[seat.playerId]) }
+    return RoundUiState(
+        round = s.currentRound.number,
+        target = s.target,
+        players = rows,
+        view = viewMode.toRoundView(),
+        arranging = arranging,
+        roundOver = roundOver,
+        nextOpenId = s.nextOpenPlayer(after = s.lastDonePlayer())?.toString(),
+        gameOver = s.isOver,
+    )
+}

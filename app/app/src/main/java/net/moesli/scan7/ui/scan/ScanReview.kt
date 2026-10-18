@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import net.moesli.scan7.ui.components.TextLinkButton
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -60,10 +61,26 @@ import net.moesli.scan7.ui.theme.Scan7Type
 
 /** A frozen frame (upright) with the detector result on it; [error] if the detector failed. */
 @Immutable
-class ScanCapture(val bitmap: Bitmap, val detections: List<Detection>, val error: String? = null) {
+class ScanCapture(
+    val bitmap: Bitmap,
+    val detections: List<Detection>,
+    val error: String? = null,
+    val meta: CaptureMeta = CaptureMeta(),
+) {
     /** Recognized cards, scoring and ignored, in detection order. */
     val cards: List<Card> = detections.toCards().map { it.first }
 }
+
+/** How a [ScanCapture] was made (stored with "Save scans for training"). */
+@Immutable
+data class CaptureMeta(
+    /** "camera", or "photo" / "synthetic" for debug captures. */
+    val origin: String = "camera",
+    val rotationDegrees: Int? = null,
+    val zoomRatio: Float? = null,
+    val backend: String? = null,
+    val threshold: Float? = null,
+)
 
 /** Review step: the frozen frame with boxes and the result panel (scored / bust / nothing found). */
 @Composable
@@ -76,6 +93,7 @@ internal fun ScanReviewStep(
     onEnterManually: () -> Unit,
     onConfirm: (ScanOutcome) -> Unit,
     modifier: Modifier = Modifier,
+    onSaveForTraining: (() -> Unit)? = null,
 ) {
     val colors = Scan7Theme.colors
     val variant = reviewVariant(capture.cards)
@@ -106,6 +124,17 @@ internal fun ScanReviewStep(
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(Scan7Spacing.screenMargin),
             ) { BackIcon(colors.text) }
+            if (onSaveForTraining != null) {
+                TextLinkButton(
+                    text = "Save for training",
+                    onClick = onSaveForTraining,
+                    color = colors.text,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .padding(Scan7Spacing.screenMargin),
+                )
+            }
         }
         val shape = RoundedCornerShape(topStart = Scan7Radii.cardLarge, topEnd = Scan7Radii.cardLarge)
         Column(

@@ -10,6 +10,7 @@ import kotlin.random.Random
 import net.moesli.scan7.game.DEFAULT_TARGET
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.ViewMode
+import net.moesli.scan7.game.defaultPositions
 import net.moesli.scan7.game.sortedClockwise
 import net.moesli.scan7.ui.components.PlayerStatus
 import net.moesli.scan7.ui.components.PlayerUi
@@ -92,7 +93,7 @@ class FakeRoundState(
     /** Restarts with the first [count] prototype players; default view by player count. */
     fun reset(count: Int, preset: Preset) {
         val n = count.coerceIn(1, SamplePlayers.size)
-        val positions = defaultTablePositions(n)
+        val positions = defaultPositions(n)
         seats = SamplePlayers.take(n).mapIndexed { i, p ->
             val mixed = p.status
             val status = when (preset) {

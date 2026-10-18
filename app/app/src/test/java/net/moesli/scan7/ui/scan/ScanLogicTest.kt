@@ -140,7 +140,7 @@ class ScanLogicTest {
             ScanOutcome.Scored(listOf(N2, PLUS_4), listOf(FREEZE), ScanSource.MANUAL),
             manualOutcome(listOf(PLUS_4, N2), listOf(FREEZE)),
         )
-        assertEquals(ScanOutcome.Bust(listOf(N7, N7), emptyList()), manualOutcome(listOf(N7, N7), emptyList()))
+        assertEquals(ScanOutcome.Bust(listOf(N7, N7), emptyList(), ScanSource.MANUAL), manualOutcome(listOf(N7, N7), emptyList()))
         assertEquals(ScanOutcome.Scored(emptyList(), emptyList(), ScanSource.MANUAL), manualOutcome(emptyList(), emptyList()))
     }
 }

@@ -54,6 +54,13 @@ class GameRepository(
         .map { v -> v?.let { runCatching { ViewMode.valueOf(it) }.getOrNull() } }
         .distinctUntilChanged()
 
+    /** Debug setting "Save scans for training" (default off). */
+    val saveScansForTraining: Flow<Boolean> = settingsDao.observe(KEY_SAVE_SCANS)
+        .map { it == "true" }
+        .distinctUntilChanged()
+
+    suspend fun setSaveScansForTraining(on: Boolean) = settingsDao.put(SettingEntity(KEY_SAVE_SCANS, on.toString()))
+
     private val allPlayers: Flow<Map<Long, Player>> =
         playerDao.observeAll().map { list -> list.associate { it.id to it.toPlayer() } }
 
@@ -168,6 +175,9 @@ class GameRepository(
 
     suspend fun moveSeat(gameId: Long, from: Int, to: Int): GameState = mutate(gameId) { s, _ -> s.moveSeat(from, to) }
 
+    /** List-view arrange drop: the players at seats [a] and [b] swap places. */
+    suspend fun swapSeats(gameId: Long, a: Int, b: Int): GameState = mutate(gameId) { s, _ -> s.swapSeats(a, b) }
+
     /** Drops a card at [x], [y] (normalized 0–1) in the table view; seating order follows clockwise. */
     suspend fun movePosition(gameId: Long, playerId: Long, x: Float, y: Float): GameState =
         mutate(gameId) { s, _ -> s.movePosition(playerId, TablePosition(x, y)) }
@@ -240,5 +250,6 @@ class GameRepository(
 
     private companion object {
         const val KEY_VIEW_MODE = "view_mode"
+        const val KEY_SAVE_SCANS = "save_scans_for_training"
     }
 }

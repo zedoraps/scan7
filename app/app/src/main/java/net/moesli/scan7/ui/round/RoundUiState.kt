@@ -38,6 +38,8 @@ data class RoundPlayer(
  * @param roundOver end-of-round variant: round points + rank per card, "Next round".
  * @param nextOpenId the player "Scan next" goes to; defaults to the first open player in seating
  *   order. Ignored when [roundOver].
+ * @param gameOver with [roundOver]: this was the last round (someone reached [target]); the
+ *   bottom button leads to the final results instead of the next round.
  */
 @Immutable
 data class RoundUiState(
@@ -48,6 +50,7 @@ data class RoundUiState(
     val arranging: Boolean = false,
     val roundOver: Boolean = false,
     val nextOpenId: String? = firstOpenId(players),
+    val gameOver: Boolean = false,
 ) {
     /** The player for "Scan next", or null when nobody is open (or the round is over). */
     val nextOpen: RoundPlayer?
@@ -106,7 +109,7 @@ interface RoundActions {
     /** "Close round" (open players become bust; the caller confirms first if anyone is open). */
     fun onCloseRound() {}
 
-    /** "Next round" on the end-of-round view. */
+    /** "Next round" (or "Final results" when [RoundUiState.gameOver]) on the end-of-round view. */
     fun onNextRound() {}
 
     /** Header menu button. */

@@ -33,7 +33,10 @@ app/                   Android Gradle root; module app/, package net.moesli.scan
     game/              plain-Kotlin game state + rules (GameState: rounds, bust, close, seating; JVM unit tests)
     data/              Room DB (entities, DAOs), GameRepository (Flows + actions), AppGraph container
     camera/ detection/ CameraX preview, detector, overlay
-    debug/             debug screens (home, score tester, detect from photo)
+    ui/nav/            app navigation: Route sealed class + self-made back stack (AppNavHost; Home is the start screen)
+    ui/round/          Round screen + RoundRoute/RoundController (snapshot → RoundUiState, actions → repository)
+    training/          "Save scans for training" (JPEG + JSON sidecar via MediaStore; debug setting)
+    debug/             debug screens (home, score tester, detect from photo), reached via "Debug" on Home
     ui/theme/          Scan7 theme, colors, fonts, wordmark
   app/schemas/         exported Room schemas (committed; bump the DB version + add a migration on change)
 ```
@@ -54,6 +57,8 @@ uv run scripts/export.py runs/synth_v1/weights/best.pt  # own PEP 723 env: NOT `
 The app's `model.tflite` is **not in git** (gitignored, ~10 MB per version): after a fresh clone, run the export once before building the app.
 Debug-only app hooks (debug builds): `adb shell am start -n net.moesli.scan7/.MainActivity --es debug_photo /data/data/net.moesli.scan7/files/x.jpg [--ez debug_cpu true]`
 (copy the photo in with `adb push x.jpg /data/local/tmp/ && adb shell run-as net.moesli.scan7 cp /data/local/tmp/x.jpg files/`).
+`--es debug_game_photo <path>`: every camera scan in the real game flow opens the review on that photo (emulator end-to-end tests).
+Debug home toggle "Save scans for training": confirmed scans → `/sdcard/Pictures/Scan7 Training/scan7_<ts>.jpg` + `/sdcard/Documents/Scan7 Training/scan7_<ts>.json` (`adb pull "/sdcard/Pictures/Scan7 Training"`).
 ```sh
 ```
 
@@ -100,6 +105,7 @@ drive the phone at a time.
 | 2026-10-18 | Android **minSdk 29**; Kotlin + Jetpack Compose + Material 3; CameraX; LiteRT. |
 | 2026-10-18 | **Dark brand theme always** (no light variant, no dynamic color); brand colors override Material defaults. |
 | 2026-10-18 | **Design handoff adopted** (design/DESIGN_HANDOFF.md): custom components, no Material default look; DM Mono for all text except Unbounded where specified; players = palette color + initial (max 10); table view with free card positions + list view; one-tap bust with undo; "Scan next" chains cameras; end of round reuses the table/list layout. Ask the user before deviating from the handoff. |
+| 2026-10-18 | **Navigation:** small self-made back stack (`ui/nav`, routes saved as strings via rememberSaveable), no navigation-compose. List-view arrange drop **swaps** the two players (`GameState.swapSeats`). Default table positions: one ellipse 0.485 × 0.5 in `game/Seating.kt`. |
 | 2026-10-18 | **App flow agreed** — spec in [docs/APP_FLOW.md](docs/APP_FLOW.md): players stored locally (no groups), select who plays; scan with the **shutter button only** (no auto-capture); bust shown in magenta **plus** the word; the game ends only after a full round is scored, highest total wins. |
 
 ## Branding (summary; details in brand/BRAND.md)

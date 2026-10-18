@@ -8,7 +8,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.semantics.Role
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -27,6 +32,8 @@ fun HomeScreen(
     onScanFlowDemo: () -> Unit = {},
     onSetupDemo: () -> Unit = {},
     modelInfo: String = "none",
+    saveScans: Boolean = false,
+    onSaveScansChange: ((Boolean) -> Unit)? = null,
 ) {
     DebugScaffold(
         title = "Scan7 – debug",
@@ -43,7 +50,20 @@ fun HomeScreen(
             )
         },
     ) { innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding)) {
+        Column(modifier = Modifier.padding(innerPadding).verticalScroll(rememberScrollState())) {
+            if (onSaveScansChange != null) {
+                ListItem(
+                    headlineContent = { Text("Save scans for training") },
+                    supportingContent = {
+                        Text("Confirmed scans → Pictures/Scan7 Training (JPEG) + Documents/Scan7 Training (JSON)")
+                    },
+                    trailingContent = { Switch(checked = saveScans, onCheckedChange = onSaveScansChange) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(value = saveScans, role = Role.Switch, onValueChange = onSaveScansChange),
+                )
+                HorizontalDivider()
+            }
             Entry("Live camera", "Preview with live detections and FPS / inference overlay", onLiveCamera)
             HorizontalDivider()
             Entry("Score tester", "Build a row by hand and check scoreRow()", onScoreTester)

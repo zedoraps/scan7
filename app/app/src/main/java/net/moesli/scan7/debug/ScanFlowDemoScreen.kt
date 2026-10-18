@@ -39,6 +39,7 @@ import net.moesli.scan7.detection.Detection
 import net.moesli.scan7.detection.DetectorHolder
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.ui.components.PlayerUi
+import net.moesli.scan7.ui.scan.CaptureMeta
 import net.moesli.scan7.ui.scan.ScanCapture
 import net.moesli.scan7.ui.scan.ScanFlowContent
 import net.moesli.scan7.ui.scan.ScanMode
@@ -159,13 +160,19 @@ private fun demoCapture(demo: ScanDemo, photoPath: String?): DemoCapture {
 }
 
 /** Decodes the photo and runs the real detector on it (detector thread). */
-private suspend fun photoCapture(context: Context, path: String): ScanCapture {
+internal suspend fun photoCapture(context: Context, path: String): ScanCapture {
     val bitmap = withContext(Dispatchers.IO) { decodeUpright(context, Uri.fromFile(File(path))) }
-    val result = DetectorHolder.get(context).mapCatching { d -> withContext(DetectorHolder.dispatcher) { d.detect(bitmap) } }
+    val detector = DetectorHolder.get(context)
+    val result = detector.mapCatching { d -> withContext(DetectorHolder.dispatcher) { d.detect(bitmap) } }
     return ScanCapture(
         bitmap = bitmap,
         detections = result.getOrNull()?.detections.orEmpty(),
         error = result.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName },
+        meta = CaptureMeta(
+            origin = "photo",
+            backend = result.getOrNull()?.backend,
+            threshold = detector.getOrNull()?.confidenceThreshold,
+        ),
     )
 }
 
@@ -202,7 +209,7 @@ private fun syntheticCapture(cards: List<Card>): ScanCapture {
         canvas.drawText(card.chipLabel(), x + cw / 2, y + ch / 2 + 26f, ink)
         Detection(card.label, 0.9f, DetectionBox(x / w, y / h, (x + cw) / w, (y + ch) / h))
     }
-    return ScanCapture(bitmap, detections)
+    return ScanCapture(bitmap, detections, meta = CaptureMeta(origin = "synthetic"))
 }
 
 private fun describe(outcome: ScanOutcome): String = when (outcome) {

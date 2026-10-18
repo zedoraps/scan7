@@ -2,8 +2,10 @@ package net.moesli.scan7.ui.round
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import net.moesli.scan7.game.DEFAULT_ELLIPSE_RX
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.clockwiseAngle
+import net.moesli.scan7.game.defaultPositions
 import net.moesli.scan7.ui.components.PlayerStatus
 import net.moesli.scan7.ui.components.PlayerUi
 import org.junit.Assert.assertEquals
@@ -18,7 +20,7 @@ class RoundLayoutTest {
 
     @Test
     fun defaultPositionsStartAtTopAndGoClockwise() {
-        val p = defaultTablePositions(4)
+        val p = defaultPositions(4)
         assertNear(TablePosition(0.5f, 0f), p[0]) // top
         assertNear(TablePosition(0.5f + DEFAULT_ELLIPSE_RX, 0.5f), p[1]) // right
         assertNear(TablePosition(0.5f, 1f), p[2]) // bottom
@@ -28,7 +30,7 @@ class RoundLayoutTest {
     @Test
     fun defaultPositionsAreEvenlySpacedAndInsideTheArea() {
         for (n in 1..10) {
-            val p = defaultTablePositions(n)
+            val p = defaultPositions(n)
             assertEquals(n, p.size)
             p.forEach { assertTrue(it.x in 0f..1f && it.y in 0f..1f) }
             val angles = p.map { clockwiseAngle(it) }
@@ -40,7 +42,7 @@ class RoundLayoutTest {
     fun defaultEllipseMatchesThePrototypeOnTheReferenceFrame() {
         // 390 wide, area 112–704, Large card 112×140: prototype seat 1 of 4 at left 195+RX−W/2.
         val g = TableGeometry(left = 8f, top = 112f, width = 374f, height = 592f, cardWidth = 112f, cardHeight = 140f)
-        val p = defaultTablePositions(4).map { g.topLeftOf(it) }
+        val p = defaultPositions(4).map { g.topLeftOf(it) }
         val rx = 195f - 112f / 2 - 12f
         assertEquals(195f - 56f, p[0].x, 0.5f)
         assertEquals(112f, p[0].y, eps)

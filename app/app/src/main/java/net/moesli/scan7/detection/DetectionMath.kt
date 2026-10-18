@@ -127,7 +127,32 @@ fun parseEndToEnd(output: FloatArray, labels: List<String>, letterbox: Letterbox
         i += E2E_ROW
     }
     result.sortByDescending { it.score }
-    return result
+    return suppressDuplicates(result)
+}
+
+/** Boxes overlapping more than this (IoU) are treated as the same card. */
+const val DUPLICATE_IOU = 0.6f
+
+/**
+ * The NMS-free head occasionally reports one card twice (same or another class, nearly the same
+ * box), which would show a false bust. Keeps the highest-scoring box of every group overlapping more
+ * than [iou]; real neighbouring cards in a row overlap far less. [sorted] must be by score, descending.
+ */
+fun suppressDuplicates(sorted: List<Detection>, iou: Float = DUPLICATE_IOU): List<Detection> {
+    val kept = ArrayList<Detection>(sorted.size)
+    for (d in sorted) {
+        if (kept.none { iou(it.box, d.box) > iou }) kept.add(d)
+    }
+    return kept
+}
+
+/** Intersection over union of two boxes (any consistent coordinate space). */
+fun iou(a: Box, b: Box): Float {
+    val w = minOf(a.right, b.right) - maxOf(a.left, b.left)
+    val h = minOf(a.bottom, b.bottom) - maxOf(a.top, b.top)
+    if (w <= 0f || h <= 0f) return 0f
+    val inter = w * h
+    return inter / (a.width * a.height + b.width * b.height - inter)
 }
 
 /**

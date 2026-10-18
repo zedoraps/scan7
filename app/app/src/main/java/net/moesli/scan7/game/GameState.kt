@@ -268,6 +268,18 @@ data class GameState(
     }
 
     /**
+     * List-view arrange drop: the players at seats [a] and [b] swap places (prototype `swap`);
+     * everyone else keeps their seat. Positions are handed out as in [reorderSeats].
+     */
+    fun swapSeats(a: Int, b: Int): GameState {
+        require(a in seats.indices && b in seats.indices) { "Seat index out of range" }
+        if (a == b) return this
+        val order = playerIds.toMutableList()
+        order[a] = order[b].also { order[b] = order[a] }
+        return reorderSeats(order)
+    }
+
+    /**
      * Moves a card in the table view (clamped to 0–1). The seating order is then re-derived from
      * the positions: clockwise from the top around the center.
      */

@@ -146,7 +146,10 @@ fun CameraPreview(
     var zoomState by remember { mutableStateOf<ZoomState?>(null) }
     DisposableEffect(camera, lifecycleOwner) {
         val live = camera?.cameraInfo?.zoomState
-        live?.observe(lifecycleOwner) { zoomState = it }
+        live?.observe(lifecycleOwner) {
+            zoomState = it
+            frameAnalyzer.zoomRatio = it.zoomRatio
+        }
         onDispose { live?.removeObservers(lifecycleOwner) }
     }
     val presets = zoomState?.let { zoomPresets(it.minZoomRatio, it.maxZoomRatio) }.orEmpty()

@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.scan
 
+import net.moesli.scan7.game.ConfirmedCard
+import net.moesli.scan7.game.ResultSource
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.scoring.CardKind
 import net.moesli.scan7.scoring.RowScore
@@ -24,8 +26,15 @@ sealed interface ScanOutcome {
         val score: RowScore get() = scoreRow(cards)
     }
 
-    /** The player busted: [cards] contain a duplicated number. Always confirmed by the user. */
-    data class Bust(val cards: List<Card>, val ignored: List<Card> = emptyList()) : ScanOutcome
+    /**
+     * The player busted: [cards] contain a duplicated number. Always confirmed by the user
+     * ("Confirm bust" on the review or the manual screen; [source] tells which).
+     */
+    data class Bust(
+        val cards: List<Card>,
+        val ignored: List<Card> = emptyList(),
+        val source: ScanSource = ScanSource.SCAN,
+    ) : ScanOutcome
 }
 
 /** Whether this card can score (numbers and modifiers); action cards and `back` never do. */
@@ -191,8 +200,27 @@ fun removeChipAt(selected: List<Card>, index: Int): List<Card> = selected.filter
 fun manualOutcome(selected: List<Card>, ignored: List<Card>): ScanOutcome {
     val scoring = selected.filter { it.isScoring }.sortedForDisplay()
     return if (duplicateCounts(scoring).isNotEmpty()) {
-        ScanOutcome.Bust(scoring, ignored)
+        ScanOutcome.Bust(scoring, ignored, ScanSource.MANUAL)
     } else {
         ScanOutcome.Scored(scoring, ignored, ScanSource.MANUAL)
     }
 }
+
+/** Cards to store for an outcome: scoring cards, then the ignored ones (action cards / backs). */
+fun ScanOutcome.toConfirmedCards(): List<ConfirmedCard> {
+    val (cards, ignored) = when (this) {
+        is ScanOutcome.Scored -> cards to ignored
+        is ScanOutcome.Bust -> cards to ignored
+    }
+    return cards.map { ConfirmedCard(it, ignored = false) } + ignored.map { ConfirmedCard(it, ignored = true) }
+}
+
+/** How the outcome was entered, as stored with the result. */
+val ScanOutcome.resultSource: ResultSource
+    get() {
+        val source = when (this) {
+            is ScanOutcome.Scored -> source
+            is ScanOutcome.Bust -> source
+        }
+        return if (source == ScanSource.SCAN) ResultSource.SCAN else ResultSource.MANUAL
+    }

@@ -8,7 +8,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import net.moesli.scan7.BuildConfig
 import net.moesli.scan7.camera.DetectionAnalyzer
+import net.moesli.scan7.data.AppGraph
+import net.moesli.scan7.training.SavedSample
+import net.moesli.scan7.training.TrainingSaver
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.ui.components.PlayerUi
 
@@ -93,6 +99,19 @@ internal fun ScanFlowContent(
     }
     val leave = if (mode == ScanMode.ScanNext) onBackToTable else onCancel
 
+    // "Save scans for training" (debug setting): every confirmed scan is saved; a capture saved
+    // one-off from the review only gets its JSON updated with the outcome.
+    val repository = remember { AppGraph.repository(context) }
+    val saveScans by repository.saveScansForTraining.collectAsStateWithLifecycle(initialValue = false)
+    var savedCapture by remember { mutableStateOf<Pair<ScanCapture, SavedSample>?>(null) }
+    val confirm = { outcome: ScanOutcome, capture: ScanCapture? ->
+        val existing = savedCapture?.takeIf { it.first === capture }?.second
+        if (capture != null && (saveScans || existing != null)) {
+            TrainingSaver.saveAsync(context, capture, outcome, existing)
+        }
+        onResult(outcome)
+    }
+
     when (val s = step) {
         Step.Camera -> {
             BackHandler(onBack = leave)
@@ -100,12 +119,20 @@ internal fun ScanFlowContent(
                 player = player,
                 mode = mode,
                 analyzer = analyzer,
+                recording = saveScans,
                 onCaptured = { frame ->
                     step = Step.Review(
                         ScanCapture(
                             bitmap = frame.bitmap,
                             detections = frame.result.getOrNull()?.detections.orEmpty(),
                             error = frame.result.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName },
+                            meta = CaptureMeta(
+                                origin = "camera",
+                                rotationDegrees = frame.rotationDegrees,
+                                zoomRatio = frame.zoomRatio,
+                                backend = frame.result.getOrNull()?.backend,
+                                threshold = frame.threshold,
+                            ),
                         ),
                     )
                 },
@@ -124,7 +151,18 @@ internal fun ScanFlowContent(
                 onRetake = { step = Step.Camera },
                 onFix = { step = Step.Manual(manualStart(s.capture.cards), back = s) },
                 onEnterManually = { step = Step.Manual(manualStart(s.capture.cards), back = s) },
-                onConfirm = onResult,
+                onConfirm = { confirm(it, s.capture) },
+                onSaveForTraining = if (BuildConfig.DEBUG) {
+                    {
+                        val capture = s.capture
+                        TrainingSaver.saveAsync(context, capture, outcome = null, existing = savedCapture?.takeIf { it.first === capture }?.second) {
+                            savedCapture = capture to it
+                            Toast.makeText(context, "Saved for training", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } else {
+                    null
+                },
                 modifier = modifier,
             )
         }
@@ -134,7 +172,8 @@ internal fun ScanFlowContent(
             ManualEntryStep(
                 player = player,
                 start = s.start,
-                onSave = onResult,
+                // Fix after a scan: the capture is the review this manual step came from.
+                onSave = { confirm(it, (s.back as? Step.Review)?.capture) },
                 onCancel = cancel,
                 modifier = modifier,
             )

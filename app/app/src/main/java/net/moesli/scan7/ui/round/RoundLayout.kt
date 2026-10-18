@@ -1,10 +1,7 @@
 package net.moesli.scan7.ui.round
 
 import androidx.compose.ui.geometry.Offset
-import kotlin.math.PI
-import kotlin.math.cos
 import kotlin.math.roundToInt
-import kotlin.math.sin
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.clockwiseAngle
 import net.moesli.scan7.ui.components.PlayerStatus
@@ -12,29 +9,9 @@ import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.isDone
 
 /*
- * Pure layout and ordering logic of the Round screen (no Compose UI): default ellipse, pixel
- * geometry of the table area, list reorder, next open player, round ranks. JVM unit tested.
+ * Pure layout and ordering logic of the Round screen (no Compose UI): pixel geometry of the table
+ * area (default positions: `game.defaultPositions`), list reorder, next open player, round ranks. JVM unit tested.
  */
-
-/**
- * Horizontal radius of the default ellipse in normalized coordinates. The prototype's ellipse
- * (RX = 195 − W/2 − 12 on 390 wide, clamp margin 8) is ≈ 0.485 of the card's free range for every
- * size class; vertically it spans the full area (RY = 296 − H/2 → 0.5).
- */
-const val DEFAULT_ELLIPSE_RX = 0.485f
-const val DEFAULT_ELLIPSE_RY = 0.5f
-
-/**
- * Default table positions for [count] players: evenly spaced on an ellipse around the area center,
- * the first seat at the top, then clockwise (prototype `defaultPos`).
- */
-fun defaultTablePositions(count: Int): List<TablePosition> = List(count) { i ->
-    val a = 2.0 * PI * i / count
-    TablePosition(
-        x = (0.5 + DEFAULT_ELLIPSE_RX * sin(a)).toFloat(),
-        y = (0.5 - DEFAULT_ELLIPSE_RY * cos(a)).toFloat(),
-    )
-}
 
 /**
  * Pixel geometry of the table area (prototype: x 8 … width − 8, y 112 … 704 of 844) for cards of

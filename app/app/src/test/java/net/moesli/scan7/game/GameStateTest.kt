@@ -61,13 +61,16 @@ class GameStateTest {
 
     @Test
     fun defaultPositions_ringClockwiseFromTop() {
+        // Prototype ellipse 0.485 × 0.5 (normalized to the card's free range).
         val p = defaultPositions(4)
         assertEquals(0.5f, p[0].x, 1e-4f)
-        assertEquals(0.1f, p[0].y, 1e-4f) // top
-        assertEquals(0.9f, p[1].x, 1e-4f) // right (clockwise)
+        assertEquals(0f, p[0].y, 1e-4f) // top
+        assertEquals(0.985f, p[1].x, 1e-4f) // right (clockwise)
         assertEquals(0.5f, p[1].y, 1e-4f)
-        assertEquals(0.9f, p[2].y, 1e-4f) // bottom
-        assertEquals(0.1f, p[3].x, 1e-4f) // left
+        assertEquals(1f, p[2].y, 1e-4f) // bottom
+        assertEquals(0.015f, p[3].x, 1e-4f) // left
+        assertEquals(DEFAULT_ELLIPSE_RX, p[1].x - 0.5f, 1e-4f)
+        assertEquals(DEFAULT_ELLIPSE_RY, p[2].y - 0.5f, 1e-4f)
         assertEquals(p, p.sortedClockwise())
         assertEquals(start.seats.map { it.position }, defaultPositions(3))
     }
@@ -359,6 +362,32 @@ class GameStateTest {
         val four = GameState.newGame(listOf(anna, ben, cleo, dan))
         assertEquals(listOf(2L, 3L, 1L, 4L), four.moveSeat(0, 2).playerIds)
         assertEquals(listOf(4L, 1L, 2L, 3L), four.moveSeat(3, 0).playerIds)
+    }
+
+    @Test
+    fun swapSeats_swapsOnlyTheTwoPlayers() {
+        val four = GameState.newGame(listOf(anna, ben, cleo, dan))
+        assertEquals(listOf(3L, 2L, 1L, 4L), four.swapSeats(0, 2).playerIds)
+        assertEquals(listOf(1L, 4L, 3L, 2L), four.swapSeats(3, 1).playerIds)
+        assertEquals(listOf(2L, 1L, 3L, 4L), four.swapSeats(0, 1).playerIds) // neighbours: same as a move
+    }
+
+    @Test
+    fun swapSeats_keepsPositionSlotsClockwise() {
+        val four = GameState.newGame(listOf(anna, ben, cleo, dan))
+        val g = four.swapSeats(0, 3)
+        assertEquals(four.seats.map { it.position }, g.seats.map { it.position })
+        assertEquals(g.playerIds, g.seats.sortedBy { clockwiseAngle(it.position) }.map { it.playerId })
+    }
+
+    @Test
+    fun swapSeats_sameSeat_unchanged() {
+        assertEquals(start, start.swapSeats(1, 1))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun swapSeats_outOfRange_throws() {
+        start.swapSeats(0, 3)
     }
 
     @Test(expected = IllegalArgumentException::class)

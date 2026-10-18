@@ -5,18 +5,26 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 
-/** Radius of the default ring, in normalized table coordinates (center is 0.5, 0.5). */
-const val DEFAULT_RING_RADIUS = 0.4f
+/**
+ * Horizontal radius of the default ellipse in normalized table coordinates (center 0.5, 0.5).
+ * The prototype's ellipse (RX = 195 − W/2 − 12 on 390 wide, clamp margin 8) is ≈ 0.485 of the
+ * card's free range for every size class; vertically it spans the full area (RY = 296 − H/2 → 0.5).
+ */
+const val DEFAULT_ELLIPSE_RX = 0.485f
+
+/** Vertical radius of the default ellipse (see [DEFAULT_ELLIPSE_RX]). */
+const val DEFAULT_ELLIPSE_RY = 0.5f
 
 /**
- * Default card positions for [count] players: evenly spaced on an ellipse (a circle in normalized
- * coordinates, an ellipse on screen), starting at the top and going clockwise.
+ * Default card positions for [count] players (the single source of truth for new games, missing
+ * stored positions and the demo screens): evenly spaced on the prototype's ellipse around the area
+ * center, the first seat at the top, then clockwise (prototype `defaultPos`).
  */
 fun defaultPositions(count: Int): List<TablePosition> = List(count) { i ->
     val a = 2.0 * PI * i / count
     TablePosition(
-        x = (0.5 + DEFAULT_RING_RADIUS * sin(a)).toFloat(),
-        y = (0.5 - DEFAULT_RING_RADIUS * cos(a)).toFloat(),
+        x = (0.5 + DEFAULT_ELLIPSE_RX * sin(a)).toFloat(),
+        y = (0.5 - DEFAULT_ELLIPSE_RY * cos(a)).toFloat(),
     )
 }
 

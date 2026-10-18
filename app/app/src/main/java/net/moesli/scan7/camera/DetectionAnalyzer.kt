@@ -35,8 +35,17 @@ data class FrameStats(
     val uprightHeight: Int get() = if (rotationDegrees % 180 == 0) height else width
 }
 
-/** A frozen analysis frame (upright, own copy) and the detector result on it. */
-class CapturedFrame(val bitmap: Bitmap, val result: Result<DetectionResult>)
+/**
+ * A frozen analysis frame (upright, own copy) and the detector result on it, with the camera
+ * [rotationDegrees] that was applied, the [zoomRatio] at capture time and the detector [threshold].
+ */
+class CapturedFrame(
+    val bitmap: Bitmap,
+    val result: Result<DetectionResult>,
+    val rotationDegrees: Int = 0,
+    val zoomRatio: Float? = null,
+    val threshold: Float? = null,
+)
 
 /**
  * Runs the card detector on each RGBA_8888 analysis frame. Must be installed on
@@ -58,6 +67,10 @@ class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
     private var lastHeight = 0
     private var lastRotation = 0
     private val _stats = MutableStateFlow<FrameStats?>(null)
+
+    /** Current camera zoom ratio (set by the preview), recorded with captures. */
+    @Volatile var zoomRatio: Float? = null
+
     val stats: StateFlow<FrameStats?> = _stats.asStateFlow()
 
     override fun analyze(image: ImageProxy) {
@@ -101,8 +114,9 @@ class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
         val frame = lastFrame ?: return@withContext null
         val rotate = Matrix().apply { postRotate(lastRotation.toFloat()) }
         val upright = Bitmap.createBitmap(frame, 0, 0, lastWidth, lastHeight, rotate, true)
-        val result = DetectorHolder.getBlocking(appContext).mapCatching { detector -> detector.detect(upright) }
-        CapturedFrame(upright, result)
+        val detector = DetectorHolder.getBlocking(appContext)
+        val result = detector.mapCatching { it.detect(upright) }
+        CapturedFrame(upright, result, lastRotation, zoomRatio, detector.getOrNull()?.confidenceThreshold)
     }
 
     /** Forgets the last frame's stats, e.g. before the preview is shown again after a capture. */

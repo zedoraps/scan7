@@ -71,6 +71,7 @@ internal fun ScanCameraStep(
     player: PlayerUi,
     mode: ScanMode,
     analyzer: DetectionAnalyzer,
+    recording: Boolean,
     onCaptured: (CapturedFrame) -> Unit,
     onTypeInstead: () -> Unit,
     onClose: () -> Unit,
@@ -89,7 +90,7 @@ internal fun ScanCameraStep(
     val canShoot = permission.granted && stats != null && stats?.error == null && !capturing
 
     Column(modifier = modifier.fillMaxSize().background(colors.ground)) {
-        CameraHeader(player, mode, onClose, onBackToTable)
+        CameraHeader(player, mode, recording, onClose, onBackToTable)
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -146,7 +147,7 @@ internal fun ScanCameraStep(
 }
 
 @Composable
-private fun CameraHeader(player: PlayerUi, mode: ScanMode, onClose: () -> Unit, onBackToTable: () -> Unit) {
+private fun CameraHeader(player: PlayerUi, mode: ScanMode, recording: Boolean, onClose: () -> Unit, onBackToTable: () -> Unit) {
     val colors = Scan7Theme.colors
     Row(
         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
@@ -162,9 +163,11 @@ private fun CameraHeader(player: PlayerUi, mode: ScanMode, onClose: () -> Unit, 
             ScanMode.Normal -> {
                 IconButton(onClick = onClose, contentDescription = "Close camera") { CloseIcon(colors.text) }
                 PlayerHeading(player, "Scanning", Modifier.weight(1f))
+                if (recording) RecMarker()
             }
             ScanMode.ScanNext -> {
                 PlayerHeading(player, "Next", Modifier.weight(1f))
+                if (recording) RecMarker()
                 SecondaryButton(
                     text = "Back to table",
                     onClick = onBackToTable,
@@ -323,4 +326,15 @@ private fun BoxScope.PermissionMissing(onAllow: () -> Unit, onOpenSettings: () -
         PrimaryButton("Allow camera", onAllow, Modifier.fillMaxWidth())
         SecondaryButton("Open app settings", onOpenSettings, Modifier.fillMaxWidth())
     }
+}
+
+/** "● REC": confirmed scans are saved for training (debug setting). Muted, never bust magenta. */
+@Composable
+private fun RecMarker() {
+    Text(
+        "● REC",
+        color = Scan7Theme.colors.textMuted,
+        style = Scan7Type.capsLabel,
+        modifier = Modifier.semantics { contentDescription = "Scans are saved for training" },
+    )
 }
