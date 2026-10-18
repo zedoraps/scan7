@@ -50,6 +50,7 @@ Useful facts about the designs:
 - 6 and 9 have a dot under them, so full 360° rotation is safe in augmentation.
 - Similar-looking pairs to watch: 3 / 7 / 10 (reddish), 1 / 12 (gray).
 - Number cards have a word banner at the bottom (German: EINS, ZWEI…). The model must ignore this text so it also works with the English edition (ONE, TWO…).
+- **Card variants across editions** (same class, different look): the English edition's rainbow-striped `00` ("ZERO"), other card backs (e.g. turquoise frame, "THE GREATEST CARD GAME OF ALL TIME!"), and English banners/modifier text. In the English edition 6 and 9 have **no dot**, so orientation comes only from the banner / arch text. Variants are added to the generator as extra cutouts of their class (`<class>_<n>`). "Flip 7: With a Vengeance" is a different game and will be supported later as a separate class set.
 - Deck is unbalanced: one 0, one 1, two 2s … twelve 12s. Few modifiers and actions. The training data must be class-balanced.
 
 ## How cards lie on the table
