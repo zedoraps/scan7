@@ -1,0 +1,132 @@
+package net.moesli.scan7.data
+
+import androidx.room.Embedded
+import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
+import androidx.room.PrimaryKey
+import androidx.room.Relation
+import net.moesli.scan7.game.ResultSource
+import net.moesli.scan7.game.ResultStatus
+import net.moesli.scan7.game.ViewMode
+
+// Enums are stored by name (TEXT) via Room's built-in enum support: never rename enum constants.
+
+@Entity(tableName = "players")
+data class PlayerEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    /** 0–9, index into the player palette. */
+    val colorIndex: Int,
+    val createdAt: Long,
+    /** Deleted by the user but still referenced by past games. */
+    val archived: Boolean = false,
+)
+
+@Entity(tableName = "games")
+data class GameEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val startedAt: Long,
+    /** Set when the game is over (or abandoned); `null` = unfinished, can be resumed. */
+    val finishedAt: Long? = null,
+    val abandoned: Boolean = false,
+    val target: Int,
+    val viewMode: ViewMode? = null,
+)
+
+@Entity(
+    tableName = "game_players",
+    primaryKeys = ["gameId", "playerId"],
+    foreignKeys = [
+        ForeignKey(entity = GameEntity::class, parentColumns = ["id"], childColumns = ["gameId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = PlayerEntity::class, parentColumns = ["id"], childColumns = ["playerId"]),
+    ],
+    indices = [Index("playerId")],
+)
+data class GamePlayerEntity(
+    val gameId: Long,
+    val playerId: Long,
+    /** 0-based seating order (clockwise around the table). */
+    val seatIndex: Int,
+    /** Free card position in the table view, normalized 0–1. */
+    val tableX: Float?,
+    val tableY: Float?,
+)
+
+@Entity(
+    tableName = "rounds",
+    foreignKeys = [
+        ForeignKey(entity = GameEntity::class, parentColumns = ["id"], childColumns = ["gameId"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index(value = ["gameId", "number"], unique = true)],
+)
+data class RoundEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val gameId: Long,
+    /** 1-based. */
+    val number: Int,
+    val closedAt: Long? = null,
+)
+
+@Entity(
+    tableName = "round_results",
+    foreignKeys = [
+        ForeignKey(entity = RoundEntity::class, parentColumns = ["id"], childColumns = ["roundId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = PlayerEntity::class, parentColumns = ["id"], childColumns = ["playerId"]),
+    ],
+    indices = [Index(value = ["roundId", "playerId"], unique = true), Index("playerId")],
+)
+data class RoundResultEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val roundId: Long,
+    val playerId: Long,
+    val status: ResultStatus,
+    val points: Int,
+    /** `null` while open. */
+    val source: ResultSource?,
+    val updatedAt: Long,
+)
+
+/** A confirmed card of a result (for statistics); [label] is the detector class label. */
+@Entity(
+    tableName = "result_cards",
+    foreignKeys = [
+        ForeignKey(entity = RoundResultEntity::class, parentColumns = ["id"], childColumns = ["resultId"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index("resultId")],
+)
+data class ResultCardEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val resultId: Long,
+    /** Order of the card in the row / chip list. */
+    val position: Int,
+    val label: String,
+    val ignored: Boolean,
+)
+
+/** App-level key/value settings (e.g. the preferred view mode). */
+@Entity(tableName = "settings")
+data class SettingEntity(
+    @PrimaryKey val key: String,
+    val value: String,
+)
+
+data class ResultWithCards(
+    @Embedded val result: RoundResultEntity,
+    @Relation(parentColumn = "id", entityColumn = "resultId")
+    val cards: List<ResultCardEntity>,
+)
+
+data class RoundWithResults(
+    @Embedded val round: RoundEntity,
+    @Relation(entity = RoundResultEntity::class, parentColumn = "id", entityColumn = "roundId")
+    val results: List<ResultWithCards>,
+)
+
+data class GameWithDetails(
+    @Embedded val game: GameEntity,
+    @Relation(parentColumn = "id", entityColumn = "gameId")
+    val seats: List<GamePlayerEntity>,
+    @Relation(entity = RoundEntity::class, parentColumn = "id", entityColumn = "gameId")
+    val rounds: List<RoundWithResults>,
+)
