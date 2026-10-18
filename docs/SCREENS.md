@@ -51,7 +51,7 @@ Screen inventory. Behaviour is specified in [APP_FLOW.md](APP_FLOW.md); brand ru
 - **Resume game** (if one is unfinished): round number, players' avatars, leader.
 - **New game** (primary).
 - **Players** (manage list).
-- Small entry to **Debug** (or long-press on wordmark).
+- **Debug** is hidden: tap the wordmark 5 times.
 - Footer: app version, model version.
 
 States: no unfinished game (only New game + Players); no players yet (New game leads to adding players first).

@@ -54,5 +54,16 @@ Used for **Enter manually**, **Fix** (prefilled with the scanned cards) and **Ed
 
 Closed rounds can be reopened from the scoreboard and edited; totals and the game-over state are recomputed.
 
+On the end-of-round view, tapping a player card opens that player's result sheet (Edit / Rescan), not the editor directly.
+
+## End game early
+Round menu (⋮) → **End game** → confirm → the current round is closed as it is (open players BUST) → Game over; the current leader(s) win (tie → shared win).
+
+## Debug menu
+Hidden in every build: tap the Scan7 wordmark on Home 5 times (a toast counts down after the 3rd tap; TalkBack action "Open debug menu"). "Save scans for training" lives there and is ON by default.
+
+## Camera
+Shutter only; best frame of the last second is used. Torch toggle in the camera header (off by default).
+
 ## Stats
 Store everything needed for statistics later (games, rounds, per-player round results incl. bust, and the confirmed cards per row), but no stats UI for now.
