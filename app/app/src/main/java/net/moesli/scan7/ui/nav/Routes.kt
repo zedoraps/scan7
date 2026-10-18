@@ -17,8 +17,11 @@ enum class ScanStart {
     EDIT,
 }
 
-/** Debug screens (debug home + the screens it opens). */
-enum class DebugScreen { HOME, CAMERA, SCORE_TESTER, PHOTO, GALLERY, ROUND_DEMO, SCAN_DEMO, SETUP_DEMO }
+/**
+ * Debug screens (debug menu + the screens it opens). [SCAN_DEMO] has no menu entry: only the
+ * `debug_scan_demo` / `debug_scan_photo` launch hooks open it.
+ */
+enum class DebugScreen { HOME, CAMERA, SCORE_TESTER, PHOTO, GALLERY, SCAN_DEMO }
 
 /**
  * One entry of the app's back stack. Plain data, encoded to a string for `rememberSaveable`

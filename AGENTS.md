@@ -36,7 +36,7 @@ app/                   Android Gradle root; module app/, package net.moesli.scan
     ui/nav/            app navigation: Route sealed class + self-made back stack (AppNavHost; Home is the start screen)
     ui/round/          Round screen + RoundRoute/RoundController (snapshot → RoundUiState, actions → repository)
     training/          "Save scans for training" (JPEG + JSON sidecar via MediaStore; setting, default on)
-    debug/             debug screens (home, score tester, detect from photo), hidden: tap the Home wordmark 5× (all builds; TalkBack action "Open debug menu")
+    debug/             debug menu (Detector: live camera, detect from photo, model/backend info · Training data: save-scans toggle + scans on device · Scoring: score tester · Design: component gallery), hidden: tap the Home wordmark 5× (all builds; TalkBack action "Open debug menu"); the scan-flow demo has no menu entry (only the debug_scan_demo / debug_scan_photo hooks)
     ui/theme/          Scan7 theme, colors, fonts, wordmark
   app/schemas/         exported Room schemas (committed; bump the DB version + add a migration on change)
 ```
@@ -58,8 +58,9 @@ uv run scripts/export.py runs/synth_v1/weights/best.pt  # own PEP 723 env: NOT `
 The app's `model.tflite` is **not in git** (gitignored, ~10 MB per version): after a fresh clone, run the export once before building the app.
 Debug-only app hooks (debug builds): `adb shell am start -n net.moesli.scan7/.MainActivity --es debug_photo /data/data/net.moesli.scan7/files/x.jpg [--ez debug_cpu true]`
 (copy the photo in with `adb push x.jpg /data/local/tmp/ && adb shell run-as net.moesli.scan7 cp /data/local/tmp/x.jpg files/`).
+`--es debug_scan_demo camera|next|edit|bust|flip7|empty` / `--es debug_scan_photo <path>`: the scan flow with a fake player (demo screen, no menu entry).
 `--es debug_game_photo <path>`: every camera scan in the real game flow opens the review on that photo (emulator end-to-end tests).
-Debug home toggle "Save scans for training" (default **on**): every shutter photo → `/sdcard/Pictures/Scan7 Training/scan7_<ts>.jpg` + `/sdcard/Documents/Scan7 Training/scan7_<ts>.json`; outcome `null` until confirmed (`adb pull "/sdcard/Pictures/Scan7 Training"`); cards the user left out on the review are `"excluded": true` per detection and in `outcome.excluded`.
+Debug menu toggle "Save scans for training" (default **on**): every shutter photo → `/sdcard/Pictures/Scan7 Training/scan7_<ts>.jpg` + `/sdcard/Documents/Scan7 Training/scan7_<ts>.json`; outcome `null` until confirmed (`adb pull "/sdcard/Pictures/Scan7 Training"`); cards the user left out on the review are `"excluded": true` per detection and in `outcome.excluded`.
 Release: `./gradlew assembleRelease` (minified, unsigned; `-Pscan7.idSuffix=.p` works for release too). The build fails early (`checkModelAsset`, before preBuild) if `assets/model.tflite` is missing.
 ```sh
 ```

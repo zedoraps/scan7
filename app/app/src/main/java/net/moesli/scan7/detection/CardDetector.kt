@@ -165,7 +165,10 @@ object DetectorHolder {
     val executor: ExecutorService = Executors.newSingleThreadExecutor { r -> Thread(r, "card-detector") }
     val dispatcher: CoroutineDispatcher = executor.asCoroutineDispatcher()
 
-    private var detector: Result<CardDetector>? = null
+    @Volatile private var detector: Result<CardDetector>? = null
+
+    /** The detector if it was already created (or failed to), without creating it. */
+    val loaded: Result<CardDetector>? get() = detector
 
     /** Debug builds only: skip the GPU accelerator (set before the first [get]). */
     @Volatile var forceCpu: Boolean = false
@@ -179,12 +182,19 @@ object DetectorHolder {
     suspend fun get(context: Context): Result<CardDetector> = withContext(dispatcher) { getBlocking(context) }
 }
 
-/** Footer text: model version string (from [MODEL_VERSION_ASSET]) and file size. */
-fun readModelInfo(context: Context): String = runCatching {
+/** The bundled model: version line (from [MODEL_VERSION_ASSET], `null` if missing) and file size. */
+data class ModelDetails(val version: String?, val bytes: Long)
+
+/** [ModelDetails] of the bundled model, `null` if there is no model asset. */
+fun readModelDetails(context: Context): ModelDetails? = runCatching {
     val version = runCatching {
         context.assets.open(MODEL_VERSION_ASSET).bufferedReader().readLine()?.trim()
     }.getOrNull()
-    val bytes = context.assets.openFd(MODEL_ASSET).use { it.length }
-    val mb = "%.1f MB".format(java.util.Locale.ROOT, bytes / 1e6)
-    "$MODEL_ASSET ${version ?: ""} ($mb)".replace("  ", " ")
-}.getOrElse { "none" }
+    ModelDetails(version, context.assets.openFd(MODEL_ASSET).use { it.length })
+}.getOrNull()
+
+/** Footer text: model version string (from [MODEL_VERSION_ASSET]) and file size. */
+fun readModelInfo(context: Context): String = readModelDetails(context)?.let { d ->
+    val mb = "%.1f MB".format(java.util.Locale.ROOT, d.bytes / 1e6)
+    "$MODEL_ASSET ${d.version ?: ""} ($mb)".replace("  ", " ")
+} ?: "none"

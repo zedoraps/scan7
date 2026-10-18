@@ -24,13 +24,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.moesli.scan7.camera.CameraScreen
 import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.debug.ComponentGalleryScreen
-import net.moesli.scan7.debug.HomeScreen
+import net.moesli.scan7.debug.DebugHomeScreen
+import net.moesli.scan7.debug.rememberDebugHomeState
 import net.moesli.scan7.debug.PhotoDetectScreen
-import net.moesli.scan7.debug.RoundDemoScreen
 import net.moesli.scan7.debug.ScanDemoLaunch
 import net.moesli.scan7.debug.ScanFlowDemoScreen
 import net.moesli.scan7.debug.ScoreTesterScreen
-import net.moesli.scan7.debug.SetupDemoScreen
 import net.moesli.scan7.ui.gameover.GameOverScreen
 import net.moesli.scan7.ui.gameover.toGameOverUi
 import net.moesli.scan7.ui.history.ScoreboardScreen
@@ -158,7 +157,7 @@ private fun Screen(route: Route, stack: BackStack, debug: DebugLaunch, modelInfo
         )
         is Route.Scoreboard -> ScoreboardRoute(route.gameId, stack)
         is Route.GameOver -> GameOverRoute(route.gameId, stack)
-        is Route.Debug -> DebugRoute(route.screen, stack, debug, modelInfo)
+        is Route.Debug -> DebugRoute(route.screen, stack, debug)
     }
 }
 
@@ -209,7 +208,7 @@ private fun GameOverRoute(gameId: Long, stack: BackStack) {
 }
 
 @Composable
-private fun DebugRoute(screen: DebugScreen, stack: BackStack, debug: DebugLaunch, modelInfo: String) {
+private fun DebugRoute(screen: DebugScreen, stack: BackStack, debug: DebugLaunch) {
     val back: () -> Unit = { stack.pop() }
     val open = { s: DebugScreen -> stack.push(Route.Debug(s)) }
     when (screen) {
@@ -217,25 +216,22 @@ private fun DebugRoute(screen: DebugScreen, stack: BackStack, debug: DebugLaunch
             val repository = AppGraph.repository(LocalContext.current)
             val scope = rememberCoroutineScope()
             val saveScans by repository.saveScansForTraining.collectAsStateWithLifecycle(initialValue = true)
-            HomeScreen(
+            val home = rememberDebugHomeState()
+            DebugHomeScreen(
+                state = home.ui(saveScans),
+                onBack = back,
                 onLiveCamera = { open(DebugScreen.CAMERA) },
-                onScoreTester = { open(DebugScreen.SCORE_TESTER) },
                 onDetectFromPhoto = { open(DebugScreen.PHOTO) },
+                onScoreTester = { open(DebugScreen.SCORE_TESTER) },
                 onComponentGallery = { open(DebugScreen.GALLERY) },
-                onRoundDemo = { open(DebugScreen.ROUND_DEMO) },
-                onScanFlowDemo = { open(DebugScreen.SCAN_DEMO) },
-                onSetupDemo = { open(DebugScreen.SETUP_DEMO) },
-                modelInfo = modelInfo,
-                saveScans = saveScans,
                 onSaveScansChange = { on -> scope.launch { repository.setSaveScansForTraining(on) } },
+                onLoadDetector = home::loadDetector,
             )
         }
         DebugScreen.CAMERA -> CameraScreen(onBack = back)
         DebugScreen.SCORE_TESTER -> ScoreTesterScreen(onBack = back)
         DebugScreen.PHOTO -> PhotoDetectScreen(onBack = back, initialUri = debug.photo)
         DebugScreen.GALLERY -> ComponentGalleryScreen(onBack = back)
-        DebugScreen.ROUND_DEMO -> RoundDemoScreen(onBack = back)
         DebugScreen.SCAN_DEMO -> ScanFlowDemoScreen(onBack = back, launch = debug.scanDemo)
-        DebugScreen.SETUP_DEMO -> SetupDemoScreen(onExit = back, modelInfo = modelInfo)
     }
 }

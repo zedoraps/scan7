@@ -6,6 +6,9 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
+/** Room schema version (bump together with a migration; schemas are exported to app/schemas). */
+const val DB_SCHEMA_VERSION = 2
+
 @Database(
     entities = [
         PlayerEntity::class,
@@ -16,7 +19,7 @@ import androidx.room.RoomDatabase
         ResultCardEntity::class,
         SettingEntity::class,
     ],
-    version = 2,
+    version = DB_SCHEMA_VERSION,
     exportSchema = true,
     autoMigrations = [
         // 2: games.endedEarly ("End game" from the round menu).

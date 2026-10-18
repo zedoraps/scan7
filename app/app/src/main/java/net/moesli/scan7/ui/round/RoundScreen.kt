@@ -314,6 +314,7 @@ private fun TableSeat(
     }
 
     val drag = remember { DragTracker() }
+    val anchor = remember { DragAnchor() }
     val haptics = LocalHapticFeedback.current
     val arranging = rememberUpdatedState(state.arranging)
     val callbacks = rememberUpdatedState(
@@ -355,7 +356,7 @@ private fun TableSeat(
         modifier = Modifier
             .offset { anim.value.round() }
             .zIndex(if (dragging) 10f else 0f)
-            .arrangeDrag(arranging, callbacks),
+            .arrangeDrag(arranging, anchor, callbacks),
     ) {
         PlayerCard(
             player = rp.player,
@@ -458,6 +459,7 @@ private fun ListSeat(
     }
 
     val drag = remember { DragTracker() }
+    val anchor = remember { DragAnchor() }
     val haptics = LocalHapticFeedback.current
     val arranging = rememberUpdatedState(state.arranging)
     val callbacks = rememberUpdatedState(
@@ -515,7 +517,7 @@ private fun ListSeat(
             onScan = { actions.onScan(rp.id) },
             onBust = { onBust(rp) },
             modifier = Modifier
-                .arrangeDrag(arranging, callbacks)
+                .arrangeDrag(arranging, anchor, callbacks)
                 .semantics {
                     // TalkBack reorder without dragging (handoff §6).
                     customActions = buildList {

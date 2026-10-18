@@ -7,7 +7,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onPlaced
 import kotlinx.coroutines.withTimeoutOrNull
 
 /** Long-press time that enters arrange mode from a card (handoff: ≈ 450 ms). */
@@ -27,6 +28,17 @@ internal interface ArrangeDragCallbacks {
 }
 
 /**
+ * Where the dragged element is laid out, so pointer positions can be read in root coordinates.
+ * Remember one per seat and pass it to [arrangeDrag].
+ */
+internal class DragAnchor {
+    var coordinates: LayoutCoordinates? = null
+
+    /** [local] (a pointer position of the current event) in root coordinates. */
+    fun toRoot(local: Offset): Offset? = coordinates?.takeIf { it.isAttached }?.localToRoot(local)
+}
+
+/**
  * Seat drag for cards and rows, observed in the Initial pass so it runs before the card's own
  * click handling:
  * - in arrange mode a press starts the drag immediately (prototype `pointerdown`);
@@ -36,11 +48,21 @@ internal interface ArrangeDragCallbacks {
  * Once dragging, all pointer changes are consumed so the card sees no click.
  *
  * [arranging] is read as state so toggling arrange mode never restarts a running gesture.
+ *
+ * The drag delta is measured in root coordinates ([anchor]), not with `positionChange()`: the element
+ * moves under the finger while it is dragged, and Compose's local positions and synthetic
+ * "layout moved" events then under-count the finger movement, so the card fell behind the finger
+ * and did not end where it was released.
  */
-internal fun Modifier.arrangeDrag(arranging: State<Boolean>, callbacks: State<ArrangeDragCallbacks>): Modifier =
-    pointerInput(Unit) {
+internal fun Modifier.arrangeDrag(
+    arranging: State<Boolean>,
+    anchor: DragAnchor,
+    callbacks: State<ArrangeDragCallbacks>,
+): Modifier = onPlaced { anchor.coordinates = it }
+    .pointerInput(Unit) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            var last = anchor.toRoot(down.position) ?: return@awaitEachGesture
             if (!arranging.value) {
                 // Released or moved away before the long press: the gesture belongs to the card.
                 var aborted = false
@@ -64,7 +86,9 @@ internal fun Modifier.arrangeDrag(arranging: State<Boolean>, callbacks: State<Ar
                 while (true) {
                     val event = awaitPointerEvent(PointerEventPass.Initial)
                     val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                    val delta = change.positionChangeIgnoreConsumed()
+                    val root = anchor.toRoot(change.position) ?: last
+                    val delta = root - last
+                    last = root
                     change.consume()
                     if (delta != Offset.Zero) callbacks.value.onDrag(delta)
                     if (!change.pressed) {

@@ -81,7 +81,10 @@ class ScanDemoLaunch(val demo: ScanDemo, val photoPath: String? = null) {
     }
 }
 
-/** Debug screen "Scan flow (demo)": runs [ScanFlowContent] with a fake player and shows the outcome. */
+/**
+ * Debug screen "Scan flow (demo)": runs [ScanFlowContent] with a fake player and shows the outcome.
+ * Not in the debug menu: reachable only through the `debug_scan_demo` / `debug_scan_photo` hooks.
+ */
 @Composable
 fun ScanFlowDemoScreen(onBack: () -> Unit, modifier: Modifier = Modifier, launch: ScanDemoLaunch? = null) {
     var running by rememberSaveable { mutableStateOf(launch?.demo) }
