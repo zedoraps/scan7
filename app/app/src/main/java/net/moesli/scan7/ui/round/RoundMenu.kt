@@ -62,7 +62,7 @@ fun RoundMenuContent(
     val colors = Scan7Theme.colors
     Column {
         SectionLabel("Round $round · to $target", Modifier.padding(start = Scan7Spacing.l, bottom = Scan7Spacing.s))
-        MenuRow("Seats / order", onArrange) { ArrangeIcon(colors.text) }
+        MenuRow("Rearrange seats / order", onArrange) { ArrangeIcon(colors.text) }
         MenuRow("Scoreboard", onScoreboard) { ScoreboardIcon(colors.text) }
         ListItem(
             headlineContent = { Text("Scan direction", style = Scan7Type.text15) },

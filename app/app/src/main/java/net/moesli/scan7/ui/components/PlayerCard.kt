@@ -144,7 +144,7 @@ internal fun Modifier.playerClickable(
         interactionSource = null,
         indication = PressDim,
         role = Role.Button,
-        onLongClickLabel = if (onLongClick != null) "Seats / order" else null,
+        onLongClickLabel = if (onLongClick != null) "Rearrange seats / order" else null,
         onLongClick = onLongClick,
         onDoubleClick = onDoubleClick,
         onClick = onClick,
