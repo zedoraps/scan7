@@ -7,6 +7,7 @@
 #   scripts/screen-matrix.sh                  # all profiles × all screens (~15 min)
 #   PROFILES='720x1600@320x1.0' SCREENS='p6_round_table p10_round_table' scripts/screen-matrix.sh
 #   DEVICES='localhost:5561' scripts/screen-matrix.sh   # one emulator
+#   SUFFIX=.layout OUT=/tmp/shots DEVICES='localhost:5565' scripts/screen-matrix.sh --install   # other app id
 #
 # Uses the debug_seed / debug_open hooks (app/.../debug/DebugSeed.kt). Never touch the user's phone,
 # emulator-5554 or another agent's emulator: DEVICES defaults to emu-1 + emu-3. wm size / density /
@@ -16,7 +17,8 @@ cd "$(dirname "$0")/.."
 ROOT=$PWD
 export PATH="$HOME/Library/Android/sdk/platform-tools:$PATH"
 
-PKG=net.moesli.scan7.shots
+SUFFIX=${SUFFIX:-.shots}   # applicationId suffix of the debug build (scan7.idSuffix)
+PKG=net.moesli.scan7$SUFFIX
 ACT=$PKG/net.moesli.scan7.MainActivity
 PHOTO=ml/data/real_photos/train/PXL_20261018_103625190.jpg
 # Photos aren't in git: in a worktree, take it from the main checkout.
@@ -46,7 +48,7 @@ read -r -a SCREEN_LIST <<<"${SCREENS:-${ALL_SCREENS[*]}}"
 
 if [[ "${1:-}" == "--install" ]]; then
   (cd app && JAVA_HOME="${JAVA_HOME:-$HOME/Applications/Android Studio.app/Contents/jbr/Contents/Home}" \
-    ./gradlew -q -Pscan7.idSuffix=.shots assembleDebug)
+    ./gradlew -q -Pscan7.idSuffix=$SUFFIX assembleDebug)
   for d in "${DEVS[@]}"; do adb -s "$d" install -r -g app/app/build/outputs/apk/debug/app-debug.apk >/dev/null; done
 fi
 
@@ -116,5 +118,6 @@ for i in "${!DEVS[@]}"; do
 done
 for p in "${pids[@]}"; do wait "$p"; done
 
+[[ -n "${NO_SHEETS:-}" ]] && exit 0   # e.g. in a worktree without the ml env
 (cd ml && uv run python -I scripts/contact_sheets.py --screens "$OUT" --profiles "${ALL_PROFILES[@]}")
 echo "Done: $OUT/sheet_*.jpg"

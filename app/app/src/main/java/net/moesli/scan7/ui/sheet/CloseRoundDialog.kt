@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -82,7 +83,7 @@ private fun NameChip(player: PlayerUi) {
             .padding(start = Scan7Spacing.s, end = Scan7Spacing.m),
     ) {
         PlayerAvatar(player.avatar, ChipAvatar)
-        Text(player.name, color = colors.text, style = Scan7Type.text13, maxLines = 1)
+        Text(player.name, color = colors.text, style = Scan7Type.text13, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

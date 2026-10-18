@@ -8,7 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Text
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,8 +25,10 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlin.math.tan
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
@@ -113,7 +116,18 @@ fun ProgressStrip(
                     }
                 },
         )
-        Text(text, color = colors.textMuted, style = Scan7Type.text12, maxLines = 1)
+        // Large font scales / narrow phones: shrink to fit the 24 dp strip next to the segments.
+        BasicText(
+            text,
+            style = Scan7Type.text12.copy(color = colors.textMuted, textAlign = TextAlign.End),
+            maxLines = 1,
+            softWrap = false,
+            // Low floor: at font scale 2, 5 sp is still 10 dp, and "10 of 10 scored · to 200" fits on 360 dp.
+            autoSize = TextAutoSize.StepBased(minFontSize = 5.sp, maxFontSize = Scan7Type.text12.fontSize),
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = Scan7Spacing.s),
+        )
     }
 }
 

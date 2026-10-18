@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,8 +25,10 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -52,6 +55,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -88,6 +92,9 @@ private const val ARRANGE_DIM = 0.25f
 
 /** How long a dropped card keeps its drop spot while the caller hasn't confirmed the move. */
 private const val PENDING_MOVE_MS = 1_000L
+
+/** Smallest distance between two default table seats (x or y) before the cards are scaled down. */
+private val TableSeatGap = 4.dp
 
 /** Horizontal clamp margin of table cards (prototype clampX: 8 … 390 − W − 8). */
 private val TableSideMargin = 8.dp
@@ -147,78 +154,81 @@ fun RoundScreen(
     BackHandler(enabled = state.arranging, onBack = actions::onDone)
 
     // Screen stays on during the game (the phone lies on the table between scans).
-    BoxWithConstraints(modifier.fillMaxSize().keepScreenOn().background(colors.ground)) {
-        val m = RoundMetrics(maxWidth, maxHeight, statusTop, navBottom)
-        val dim = if (state.arranging) ARRANGE_DIM else 1f
+    // Tablets / unfolded foldables: the layout keeps its phone width, centred.
+    Box(modifier.fillMaxSize().keepScreenOn().background(colors.ground), contentAlignment = Alignment.TopCenter) {
+        BoxWithConstraints(Modifier.fillMaxHeight().widthIn(max = Scan7Spacing.maxContentWidth).fillMaxWidth()) {
+            val m = RoundMetrics(maxWidth, maxHeight, statusTop, navBottom)
+            val dim = if (state.arranging) ARRANGE_DIM else 1f
 
-        when (state.view) {
-            RoundView.Table -> TableView(state, actions, m, onBust)
-            RoundView.List -> ListView(state, actions, m, onBust)
-        }
+            when (state.view) {
+                RoundView.Table -> TableView(state, actions, m, onBust)
+                RoundView.List -> ListView(state, actions, m, onBust)
+            }
 
-        if (header != null) {
-            header(Modifier.offset(y = m.headerTop))
-        } else {
-            RoundHeader(
-                view = state.view,
-                arranging = state.arranging,
-                actions = actions,
-                modifier = Modifier.offset(y = m.headerTop),
-            )
-        }
-
-        if (bottomBar != null) {
-            bottomBar(
-                Modifier
-                    .offset(y = m.stripTop)
-                    .padding(horizontal = Scan7Spacing.screenMargin)
-                    .fillMaxWidth()
-                    .height(m.buttonsTop + Scan7Spacing.bottomButtonsHeight - m.stripTop),
-            )
-        } else ProgressStrip(
-            players = state.players.map { it.player },
-            target = state.target,
-            modifier = Modifier
-                .offset(y = m.stripTop)
-                .padding(horizontal = Scan7Spacing.screenMargin)
-                .alpha(dim),
-        )
-
-        if (bottomBar == null) Box(
-            modifier = Modifier
-                .offset(y = m.buttonsTop)
-                .padding(horizontal = Scan7Spacing.screenMargin)
-                .fillMaxWidth()
-                .height(Scan7Spacing.bottomButtonsHeight)
-                .alpha(dim)
-                .then(if (state.arranging) Modifier.clearAndSetSemantics {} else Modifier),
-        ) {
-            val enabled = !state.arranging
-            if (state.allDone) {
-                // Closes the round and starts the next one (or Game over) in one tap.
-                PrimaryButton(
-                    text = "Next round",
-                    onClick = { if (enabled) actions.onNextRound() },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            if (header != null) {
+                header(Modifier.offset(y = m.headerTop))
             } else {
-                BottomButtons(
-                    next = state.nextOpen?.player,
-                    onCloseRound = { if (enabled) actions.onCloseRound() },
-                    onScanNext = { if (enabled) actions.onScanNext() },
+                RoundHeader(
+                    view = state.view,
+                    arranging = state.arranging,
+                    actions = actions,
+                    modifier = Modifier.offset(y = m.headerTop),
                 )
             }
-        }
 
-        BustToastHost(
-            toast = toast,
-            onUndo = actions::onUndoBust,
-            onScoreboard = actions::onScoreboard,
-            modifier = Modifier
-                .offset(y = m.toastTop)
-                .padding(horizontal = Scan7Spacing.screenMargin)
-                .zIndex(20f),
-        )
+            if (bottomBar != null) {
+                bottomBar(
+                    Modifier
+                        .offset(y = m.stripTop)
+                        .padding(horizontal = Scan7Spacing.screenMargin)
+                        .fillMaxWidth()
+                        .height(m.buttonsTop + Scan7Spacing.bottomButtonsHeight - m.stripTop),
+                )
+            } else ProgressStrip(
+                players = state.players.map { it.player },
+                target = state.target,
+                modifier = Modifier
+                    .offset(y = m.stripTop)
+                    .padding(horizontal = Scan7Spacing.screenMargin)
+                    .alpha(dim),
+            )
+
+            if (bottomBar == null) Box(
+                modifier = Modifier
+                    .offset(y = m.buttonsTop)
+                    .padding(horizontal = Scan7Spacing.screenMargin)
+                    .fillMaxWidth()
+                    .height(Scan7Spacing.bottomButtonsHeight)
+                    .alpha(dim)
+                    .then(if (state.arranging) Modifier.clearAndSetSemantics {} else Modifier),
+            ) {
+                val enabled = !state.arranging
+                if (state.allDone) {
+                    // Closes the round and starts the next one (or Game over) in one tap.
+                    PrimaryButton(
+                        text = "Next round",
+                        onClick = { if (enabled) actions.onNextRound() },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    BottomButtons(
+                        next = state.nextOpen?.player,
+                        onCloseRound = { if (enabled) actions.onCloseRound() },
+                        onScanNext = { if (enabled) actions.onScanNext() },
+                    )
+                }
+            }
+
+            BustToastHost(
+                toast = toast,
+                onUndo = actions::onUndoBust,
+                onScoreboard = actions::onScoreboard,
+                modifier = Modifier
+                    .offset(y = m.toastTop)
+                    .padding(horizontal = Scan7Spacing.screenMargin)
+                    .zIndex(20f),
+            )
+        }
     }
 }
 
@@ -226,18 +236,31 @@ fun RoundScreen(
 
 @Composable
 private fun TableView(state: RoundUiState, actions: RoundActions, m: RoundMetrics, onBust: (RoundPlayer) -> Unit) {
-    val size = CardSize.forPlayerCount(state.playerCount)
     val density = LocalDensity.current
+    val areaWidth = m.width - TableSideMargin * 2
+    // Largest card size whose default seats fit this screen (not by player count).
+    val size = tableCardSize(state.playerCount, areaWidth.value, (m.areaBottom - m.areaTop).value, TableSeatGap.value)
+    val areaHeight = (m.areaBottom - m.areaTop).coerceAtLeast(size.height)
+    // Short screens (16:9): smaller cards instead of overlapping seats; 1 on regular phones.
+    val scale = tableCardScale(
+        count = state.playerCount,
+        width = areaWidth.value,
+        height = areaHeight.value,
+        cardWidth = size.width.value,
+        cardHeight = size.height.value,
+        gap = TableSeatGap.value,
+    )
     val geometry = with(density) {
         TableGeometry(
             left = TableSideMargin.toPx(),
             top = m.areaTop.toPx(),
-            width = (m.width - TableSideMargin * 2).toPx(),
-            height = (m.areaBottom - m.areaTop).coerceAtLeast(size.height).toPx(),
-            cardWidth = size.width.toPx(),
-            cardHeight = size.height.toPx(),
+            width = areaWidth.toPx(),
+            height = areaHeight.toPx(),
+            cardWidth = size.width.toPx() * scale,
+            cardHeight = size.height.toPx() * scale,
         )
     }
+    val cardDensity = remember(density, scale) { Density(density.density * scale, density.fontScale) }
 
     // Center: "ROUND" + number (72). No table graphic. None in the seating step (no round yet).
     if (!state.seating) Box(
@@ -263,7 +286,7 @@ private fun TableView(state: RoundUiState, actions: RoundActions, m: RoundMetric
 
     state.players.forEachIndexed { index, rp ->
         key(rp.id) {
-            TableSeat(rp, index, size, geometry, state, actions, onBust)
+            TableSeat(rp, index, size, geometry, cardDensity, state, actions, onBust)
         }
     }
 }
@@ -274,6 +297,7 @@ private fun TableSeat(
     index: Int,
     size: CardSize,
     geometry: TableGeometry,
+    cardDensity: Density,
     state: RoundUiState,
     actions: RoundActions,
     onBust: (RoundPlayer) -> Unit,
@@ -349,18 +373,22 @@ private fun TableSeat(
             .zIndex(if (dragging) 10f else 0f)
             .arrangeDrag(arranging, anchor, callbacks),
     ) {
-        PlayerCard(
-            player = rp.player,
-            size = size,
-            mode = mode,
-            index = index,
-            onClick = { if (!state.arranging) actions.onCardClick(rp.id) },
-            onLongClick = actions::onEnterArrange,
-            onScan = { actions.onScan(rp.id) },
-            onBust = { onBust(rp) },
-            onDoubleClick = if (quickScan) ({ actions.onQuickScan(rp.id) }) else null,
-            showScore = !state.seating,
-        )
+        // The card is laid out at the table scale (see tableCardScale), text and touch areas included.
+        CompositionLocalProvider(LocalDensity provides cardDensity) {
+            PlayerCard(
+                player = rp.player,
+                size = size,
+                mode = mode,
+                index = index,
+                onClick = { if (!state.arranging) actions.onCardClick(rp.id) },
+                onLongClick = actions::onEnterArrange,
+                onScan = { actions.onScan(rp.id) },
+                onBust = { onBust(rp) },
+                onDoubleClick = if (quickScan) ({ actions.onQuickScan(rp.id) }) else null,
+                showScore = !state.seating,
+            )
+        }
+        // Seat number at the card's top-left corner, at full size so it stays readable.
         if (state.seating) SeatBadge(index + 1, Modifier.align(Alignment.TopStart).offset(x = (-6).dp, y = (-6).dp))
     }
 }
@@ -396,8 +424,10 @@ private fun Offset.round(): IntOffset = IntOffset(x.roundToInt(), y.roundToInt()
 
 @Composable
 private fun ListView(state: RoundUiState, actions: RoundActions, m: RoundMetrics, onBust: (RoundPlayer) -> Unit) {
-    val size = RowSize.forPlayerCount(state.playerCount)
     val colors = Scan7Theme.colors
+    val rowsTop = m.areaTop + ListRowsOffset
+    // Regular rows when they all fit this screen, else Compact (not by player count).
+    val size = listRowSize(state.playerCount, (m.areaBottom - rowsTop + BadgeRoom).value, BadgeRoom.value)
 
     // No "ROUND n" in the seating step (no round yet); the rows keep their place.
     if (!state.seating) Row(
@@ -417,7 +447,6 @@ private fun ListView(state: RoundUiState, actions: RoundActions, m: RoundMetrics
     }
 
     // Rows scroll when they don't fit (10 rows on a small screen); header, strip and buttons stay put.
-    val rowsTop = m.areaTop + ListRowsOffset
     val count = state.playerCount
     val contentHeight = BadgeRoom + size.height * count + size.gap * (count - 1).coerceAtLeast(0)
     val viewportHeight = (m.areaBottom - rowsTop + BadgeRoom).coerceAtLeast(size.height)

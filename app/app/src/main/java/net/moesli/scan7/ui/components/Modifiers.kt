@@ -1,6 +1,11 @@
 package net.moesli.scan7.ui.components
 
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.ui.Alignment
+import net.moesli.scan7.ui.theme.Scan7Spacing
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
@@ -72,6 +77,17 @@ internal fun Modifier.openCardShadow(shape: Shape): Modifier =
 /** Dragged card shadow: `0 18px 30px rgba(0,0,0,.55)`. */
 internal fun Modifier.draggingCardShadow(shape: Shape): Modifier =
     dropShadow(shape, Shadow(radius = 30.dp, color = Color.Black, offset = DpOffset(0.dp, 18.dp), alpha = 0.55f))
+
+/**
+ * Tablets / unfolded foldables: the content keeps at most [Scan7Spacing.maxContentWidth] and is
+ * centred in the available width (a no-op on phones). Put backgrounds that should span the screen
+ * before it.
+ */
+fun Modifier.centeredMaxWidth(): Modifier = this
+    .fillMaxWidth()
+    .wrapContentWidth(Alignment.CenterHorizontally)
+    .widthIn(max = Scan7Spacing.maxContentWidth)
+    .fillMaxWidth()
 
 /** Largest font scale for components with fixed geometry (table cards, list rows). */
 private const val MAX_FIXED_GEOMETRY_FONT_SCALE = 1.3f
