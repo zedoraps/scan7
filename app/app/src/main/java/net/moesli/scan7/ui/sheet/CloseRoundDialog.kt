@@ -43,7 +43,8 @@ private val ChipToken = TokenSize(16.dp, 21.dp, 9.sp)
 
 /**
  * Close-round dialog (8): "Close round N?"; if [openPlayers] is not empty, their tokens + names
- * and "Anna and David haven't been scored. They'll be marked BUST." Cancel / Close round.
+ * and "Anna and David haven't been scored. They'll be marked BUST." ([nobodyScored]: "Nobody has
+ * been scored yet – mark everyone BUST?"). Cancel / Close round.
  */
 @Composable
 fun CloseRoundDialog(
@@ -52,9 +53,10 @@ fun CloseRoundDialog(
     onCancel: () -> Unit,
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
+    nobodyScored: Boolean = false,
 ) {
     Scan7Dialog(onDismiss = onCancel, modifier = modifier) {
-        CloseRoundContent(round, openPlayers, onCancel, onConfirm)
+        CloseRoundContent(round, openPlayers, onCancel, onConfirm, nobodyScored)
     }
 }
 
@@ -66,6 +68,7 @@ fun CloseRoundContent(
     openPlayers: List<PlayerUi>,
     onCancel: () -> Unit,
     onConfirm: () -> Unit,
+    nobodyScored: Boolean = false,
 ) {
     val colors = Scan7Theme.colors
     Text(
@@ -82,7 +85,7 @@ fun CloseRoundContent(
         ) {
             openPlayers.forEach { p -> NameChip(p) }
         }
-        val warning = unscoredWarning(openPlayers.map { it.name })
+        val warning = unscoredWarning(openPlayers.map { it.name }, nobodyScored)
         Text(
             buildAnnotatedString {
                 val i = warning.lastIndexOf("BUST")

@@ -45,24 +45,25 @@ class ScanLogicTest {
     }
 
     @Test
-    fun formula_withoutTimesTwo_isOneSum() {
+    fun formula_withoutTimesTwo_numbersThenModifiers() {
         val cards = listOf(N12, N6, PLUS_6, N8, N7, PLUS_4, N11)
-        assertEquals("6 + 7 + 8 + 11 + 12 + 4 + 6 = 54", breakdownText(cards))
+        assertEquals("6 + 7 + 8 + 11 + 12\n+ 4 + 6", breakdownText(cards))
         assertEquals(54, scoreRow(cards).total)
     }
 
     @Test
-    fun formula_withTimesTwo_hasParentheses() {
+    fun formula_withTimesTwo_hasParentheses_additionsOnLineTwo() {
         val cards = listOf(N7, N6, TIMES_2, N8, PLUS_4)
-        assertEquals("(6 + 7 + 8) × 2 + 4 = 46", breakdownText(cards))
+        assertEquals("(6 + 7 + 8) × 2\n+ 4", breakdownText(cards))
         assertEquals(46, scoreRow(cards).total)
-        assertEquals("7 × 2 = 14", breakdownText(listOf(TIMES_2, N7)))
+        assertEquals("7 × 2", breakdownText(listOf(TIMES_2, N7)))
+        assertEquals("6 + 7 + 8", breakdownText(listOf(N8, N7, N6)))
     }
 
     @Test
     fun formula_flip7_addsTheBonusLast() {
         val cards = listOf(N0, N1, N2, N3, N4, N5, N6, PLUS_6, PLUS_2, PLUS_2, SECOND_CHANCE)
-        assertEquals("0 + 1 + 2 + 3 + 4 + 5 + 6 + 2 + 6 + 15 = 44", breakdownText(cards))
+        assertEquals("0 + 1 + 2 + 3 + 4 + 5 + 6\n+ 2 + 6 + 15", breakdownText(cards))
         assertEquals(21 + 8 + 15, scoreRow(cards).total)
         val bonus = breakdownFormula(cards).single { it.kind == FormulaKind.BONUS }
         assertEquals("15", bonus.text)
@@ -70,13 +71,14 @@ class ScanLogicTest {
 
     @Test
     fun formula_secondChance_countsTheDuplicateOnce() {
-        assertEquals("5 + 7 + 12 = 24", breakdownText(listOf(N5, N7, N7, N12, SECOND_CHANCE)))
+        assertEquals("5 + 7 + 12", breakdownText(listOf(N5, N7, N7, N12, SECOND_CHANCE)))
     }
 
     @Test
     fun formula_edgeCases() {
-        assertEquals("4 + 6 = 10", breakdownText(listOf(PLUS_6, PLUS_4)))
-        assertEquals("4 + 6 = 10", breakdownText(listOf(TIMES_2, PLUS_6, PLUS_4)))
+        // No number cards: "0" on line 1, the modifiers on line 2 (×2 doubles nothing).
+        assertEquals("0\n+ 4 + 6", breakdownText(listOf(PLUS_6, PLUS_4)))
+        assertEquals("0\n+ 4 + 6", breakdownText(listOf(TIMES_2, PLUS_6, PLUS_4)))
         assertEquals("7", breakdownText(listOf(N7)))
         assertEquals("4", breakdownText(listOf(PLUS_4)))
         assertEquals("0", breakdownText(listOf(FREEZE)))
@@ -86,13 +88,14 @@ class ScanLogicTest {
     }
 
     @Test
-    fun formula_exactlyOneEquals_andColors() {
+    fun formula_noEquals_hiddenTotal_andColors() {
         val parts = breakdownFormula(listOf(N7, N6, TIMES_2, N8, PLUS_4))
-        assertEquals(1, parts.count { it.text == " = " })
+        assertTrue(parts.none { it.text.contains("=") })
         assertEquals(listOf("6", "7", "8"), parts.filter { it.kind == FormulaKind.NUMBER }.map { it.text })
         assertEquals(listOf("2", "4"), parts.filter { it.kind == FormulaKind.MODIFIER }.map { it.text })
-        assertEquals("46", parts.last { it.kind == FormulaKind.TOTAL }.text)
-        assertTrue(parts.filter { it.kind == FormulaKind.OPERATOR }.all { it.text.trim() in setOf("+", "×", "=", "(", ")") })
+        assertEquals("46", parts.single { it.kind == FormulaKind.TOTAL }.text)
+        assertEquals(1, parts.count { it.text == FORMULA_LINE_BREAK })
+        assertTrue(parts.filter { it.kind == FormulaKind.OPERATOR }.all { it.text.trim() in setOf("+", "×", "(", ")", "") })
     }
 
     @Test
@@ -101,6 +104,8 @@ class ScanLogicTest {
             "6 plus 7 plus 8 times 2 plus 4 equals 46",
             spokenFormula(breakdownFormula(listOf(N7, N6, TIMES_2, N8, PLUS_4))),
         )
+        assertEquals("0 plus 4 plus 6 equals 10", spokenFormula(breakdownFormula(listOf(PLUS_6, PLUS_4))))
+        assertEquals("7", spokenFormula(breakdownFormula(listOf(N7))))
     }
 
     @Test
@@ -179,7 +184,7 @@ class ScanLogicTest {
         assertTrue(reviewChips(row, emptySet()).none { it.look == ChipLook.Duplicate })
         val outcome = reviewOutcome(row, emptySet()) as ScanOutcome.Scored
         assertEquals(34, outcome.score.total)
-        assertEquals("5 + 7 + 10 + 12 = 34", breakdownText(includedCards(row, emptySet())))
+        assertEquals("5 + 7 + 10 + 12", breakdownText(includedCards(row, emptySet())))
         // Left-out Second Chance → bust again.
         assertEquals(ReviewVariant.Bust, reviewVariant(row, setOf(6)))
         assertTrue(reviewOutcome(row, setOf(6)) is ScanOutcome.Bust)

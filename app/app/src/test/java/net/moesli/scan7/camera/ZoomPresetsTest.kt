@@ -24,4 +24,28 @@ class ZoomPresetsTest {
         assertEquals("0.5×", formatZoom(0.5f))
         assertEquals("2×", formatZoom(2f))
     }
+
+    @Test
+    fun pinchMultipliesAndClamps() {
+        assertEquals(3f, pinchZoom(2f, 1.5f, 0.5f, 10f), 1e-4f)
+        assertEquals(10f, pinchZoom(8f, 2f, 0.5f, 10f), 1e-4f)
+        assertEquals(0.5f, pinchZoom(1f, 0.1f, 0.5f, 10f), 1e-4f)
+    }
+
+    @Test
+    fun activePresetFollowsTheZoom() {
+        val presets = listOf(0.5f, 1f, 2f, 5f)
+        assertEquals(1f, activePreset(presets, 1f))
+        assertEquals(1f, activePreset(presets, 1.6f))
+        assertEquals(2f, activePreset(presets, 1.995f)) // float noise
+        assertEquals(5f, activePreset(presets, 7.3f))
+        assertEquals(0.5f, activePreset(presets, 0.4f))
+        assertEquals(null, activePreset(emptyList(), 1f))
+    }
+
+    @Test
+    fun zoomLabelRoundsToOneDecimal() {
+        assertEquals("1.6×", zoomLabel(1.63f))
+        assertEquals("2×", zoomLabel(1.99f))
+    }
 }

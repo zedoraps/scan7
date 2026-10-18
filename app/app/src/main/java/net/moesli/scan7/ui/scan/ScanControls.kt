@@ -1,6 +1,7 @@
 package net.moesli.scan7.ui.scan
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,8 +18,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,7 +34,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -39,16 +44,13 @@ import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
+import net.moesli.scan7.ui.components.PressDim
 import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.scan7Clickable
 import net.moesli.scan7.ui.nav.AfterScan
@@ -90,8 +92,13 @@ internal fun ConfirmSplitButton(
     stacked: Boolean = false,
 ) {
     val next = afterScan?.nextName
+    val haptics = LocalHapticFeedback.current
+    val confirm = {
+        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+        onConfirm()
+    }
     if (afterScan == null || next == null) {
-        PrimaryButton(title, onConfirm, modifier, enabled = enabled, color = color)
+        PrimaryButton(title, confirm, modifier, enabled = enabled, color = color)
         return
     }
     val colors = Scan7Theme.colors
@@ -112,7 +119,7 @@ internal fun ConfirmSplitButton(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .scan7Clickable(onConfirm, enabled)
+                    .scan7Clickable(confirm, enabled)
                     .clearAndSetSemantics {
                         contentDescription = "$title, then $destination"
                         role = Role.Button
@@ -155,21 +162,20 @@ internal fun ConfirmSplitButton(
                     },
             ) {
                 Text("▾", color = colors.onAccent, style = Scan7Type.button.copy(fontSize = 20.sp))
+                // Anchored to the ▾ segment: opens above it at the bottom of the screen.
+                AfterScanMenu(
+                    expanded = menu,
+                    title = title,
+                    next = next,
+                    current = afterScan.choice,
+                    onDismiss = { menu = false },
+                    onPick = { choice ->
+                        menu = false
+                        afterScan.onChoose(choice)
+                        confirm()
+                    },
+                )
             }
-        }
-        if (menu) {
-            AfterScanMenu(
-                title = title,
-                next = next,
-                current = afterScan.choice,
-                anchorHeight = Scan7Spacing.bottomButtonsHeight,
-                onDismiss = { menu = false },
-                onPick = { choice ->
-                    menu = false
-                    afterScan.onChoose(choice)
-                    onConfirm()
-                },
-            )
         }
     }
 }
@@ -177,43 +183,40 @@ internal fun ConfirmSplitButton(
 private val SplitArrowWidth = 48.dp
 
 /**
- * The ▾ menu above a split button: "AFTER SAVING" and both options ("✓ OK · Next: Ben", "✓ OK ·
- * back to table"), the remembered one marked with a filled dot. Tap outside / Back dismisses.
+ * The ▾ menu of a split button (Material 3 [DropdownMenu], restyled: `surface`, line border,
+ * radius 12, no shadow): "AFTER SAVING" and both options ("✓ OK · Next: Ben", "✓ OK · back to
+ * table") as radio items, the remembered one marked with a filled dot. Tap outside / Back dismisses.
  */
 @Composable
 private fun AfterScanMenu(
+    expanded: Boolean,
     title: String,
     next: String,
     current: AfterScan,
-    anchorHeight: Dp,
     onDismiss: () -> Unit,
     onPick: (AfterScan) -> Unit,
 ) {
     val colors = Scan7Theme.colors
-    val gap = with(LocalDensity.current) { (anchorHeight + Scan7Spacing.s).roundToPx() }
-    Popup(
-        alignment = Alignment.BottomEnd,
-        offset = IntOffset(0, -gap),
+    DropdownMenu(
+        expanded = expanded,
         onDismissRequest = onDismiss,
-        properties = PopupProperties(focusable = true),
+        offset = DpOffset(0.dp, -Scan7Spacing.s),
+        shape = RoundedCornerShape(Scan7Radii.iconButton),
+        containerColor = colors.surface,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+        border = BorderStroke(1.5.dp, colors.line),
+        modifier = Modifier.widthIn(min = 260.dp, max = 340.dp),
     ) {
-        val shape = RoundedCornerShape(Scan7Radii.iconButton)
-        Column(
+        Text(
+            "AFTER SAVING",
+            color = colors.textMuted,
+            style = Scan7Type.capsLabel,
             modifier = Modifier
-                .widthIn(min = 260.dp, max = 340.dp)
-                .clip(shape)
-                .background(colors.surface)
-                .border(1.5.dp, colors.line, shape)
-                .padding(vertical = Scan7Spacing.s),
-        ) {
-            Text(
-                "AFTER SAVING",
-                color = colors.textMuted,
-                style = Scan7Type.capsLabel,
-                modifier = Modifier
-                    .padding(horizontal = Scan7Spacing.l, vertical = Scan7Spacing.s)
-                    .semantics { heading() },
-            )
+                .padding(horizontal = Scan7Spacing.l, vertical = Scan7Spacing.s)
+                .semantics { heading() },
+        )
+        Column(Modifier.selectableGroup()) {
             for (choice in AfterScan.entries) {
                 val chosen = choice == current
                 Row(
@@ -222,8 +225,13 @@ private fun AfterScanMenu(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(Scan7Spacing.minTouch + Scan7Spacing.s)
-                        .scan7Clickable({ onPick(choice) })
-                        .semantics(mergeDescendants = true) { selected = chosen }
+                        .selectable(
+                            selected = chosen,
+                            interactionSource = null,
+                            indication = PressDim,
+                            role = Role.RadioButton,
+                            onClick = { onPick(choice) },
+                        )
                         .padding(horizontal = Scan7Spacing.l),
                 ) {
                     Box(

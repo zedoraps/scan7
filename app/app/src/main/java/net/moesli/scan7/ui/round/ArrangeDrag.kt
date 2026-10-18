@@ -18,7 +18,8 @@ const val ARRANGE_LONG_PRESS_MS = 450L
 internal interface ArrangeDragCallbacks {
     fun onEnterArrange()
 
-    fun onDragStart()
+    /** [afterLongPress]: the drag began with the long press that entered arrange mode. */
+    fun onDragStart(afterLongPress: Boolean)
 
     fun onDrag(delta: Offset)
 
@@ -63,7 +64,8 @@ internal fun Modifier.arrangeDrag(
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
             var last = anchor.toRoot(down.position) ?: return@awaitEachGesture
-            if (!arranging.value) {
+            val afterLongPress = !arranging.value
+            if (afterLongPress) {
                 // Released or moved away before the long press: the gesture belongs to the card.
                 var aborted = false
                 withTimeoutOrNull(ARRANGE_LONG_PRESS_MS) {
@@ -80,7 +82,7 @@ internal fun Modifier.arrangeDrag(
             } else {
                 down.consume()
             }
-            callbacks.value.onDragStart()
+            callbacks.value.onDragStart(afterLongPress)
             var finished = false
             try {
                 while (true) {

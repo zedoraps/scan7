@@ -8,15 +8,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -39,14 +40,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -54,24 +54,25 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.moesli.scan7.camera.CameraPreview
 import net.moesli.scan7.camera.CapturedFrame
 import net.moesli.scan7.camera.DetectionAnalyzer
+import net.moesli.scan7.camera.TorchControls
 import net.moesli.scan7.camera.ZoomControls
 import net.moesli.scan7.camera.formatZoom
 import net.moesli.scan7.camera.rememberCameraPermission
+import net.moesli.scan7.camera.zoomLabel
 import net.moesli.scan7.ui.components.IconButton
 import net.moesli.scan7.ui.components.PlayerToken
 import net.moesli.scan7.ui.components.PlayerUi
-import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.PressDim
+import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.TokenSize
 import net.moesli.scan7.ui.components.TorchIcon
 import net.moesli.scan7.ui.components.scan7Clickable
-import net.moesli.scan7.ui.round.BustToast
+import net.moesli.scan7.ui.round.BustToastHost
 import net.moesli.scan7.ui.round.BustToastState
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
@@ -82,9 +83,9 @@ import net.moesli.scan7.ui.theme.Scan7Type
 private const val BUST_DEBOUNCE_MS = 800L
 
 /**
- * Camera step: live preview with boxes under the header overlay (scrim, ← back to the table and
- * "Type", the player banner), bottom bar with the "cards seen" count and the row Bust (when
- * [onBust] is set) · shutter · zoom pills + torch. [bustToast] shows the shared bust undo toast
+ * Camera step: live preview with boxes under the header overlay (scrim; one row: ← back to the
+ * table, then the player banner), bottom bar with the "cards seen" count and the row Bust (when
+ * [onBust] is set) · shutter · Type; zoom pills + torch float above it. [bustToast] shows the shared bust undo toast
  * over the preview. [bustOverlay] (the busted player's name) covers everything with the
  * full-screen bust confirmation; Bust and the shutter are disabled meanwhile.
  */
@@ -109,9 +110,8 @@ internal fun ScanCameraStep(
     val scope = rememberCoroutineScope()
     var capturing by remember { mutableStateOf(false) }
     var notReady by remember { mutableStateOf(false) }
-    // Torch: off by default, toggle only shown once the bound camera reports a flash unit.
-    var torchOn by remember { mutableStateOf(false) }
-    var hasFlash by remember { mutableStateOf(false) }
+    // Torch: off by default; state read back from the camera, toggle only with a flash unit.
+    var torch by remember { mutableStateOf<TorchControls?>(null) }
     var zoom by remember { mutableStateOf<ZoomControls?>(null) }
     var lastBustAt by remember { mutableLongStateOf(0L) }
     val haptics = LocalHapticFeedback.current
@@ -144,8 +144,7 @@ internal fun ScanCameraStep(
                                 modifier = Modifier.fillMaxSize(),
                             )
                         },
-                        torchOn = torchOn,
-                        onFlashUnit = { hasFlash = it },
+                        onTorchControls = { torch = it },
                         onZoomControls = { zoom = it },
                     )
                 } else if (permission.asked) {
@@ -155,7 +154,6 @@ internal fun ScanCameraStep(
                     player = player,
                     mode = mode,
                     onBack = onBack,
-                    onType = onTypeInstead,
                     hint = when {
                         !permission.granted -> null
                         capturing -> "Reading cards…"
@@ -167,7 +165,7 @@ internal fun ScanCameraStep(
                 )
                 // Lens/zoom + torch float over the preview (like the system camera), centred just above the bottom bar.
                 val zoomOverlay = zoom?.takeIf { permission.granted }
-                val torchOverlay = if (hasFlash && permission.granted) torchOn else null
+                val torchOverlay = torch?.takeIf { permission.granted }
                 if (zoomOverlay != null || torchOverlay != null) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs),
@@ -177,11 +175,17 @@ internal fun ScanCameraStep(
                             .padding(bottom = Scan7Spacing.m),
                     ) {
                         if (zoomOverlay != null) ZoomPills(zoomOverlay)
-                        if (torchOverlay != null) TorchToggle(torchOverlay) { torchOn = it }
+                        if (torchOverlay != null) {
+                            TorchToggle(torchOverlay.on) {
+                                haptics.performHapticFeedback(if (it) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
+                                torchOverlay.onChange(it)
+                            }
+                        }
                     }
                 }
                 if (bustToast != null) {
-                    CameraBustToast(
+                    // Above the zoom / torch row.
+                    BustToastHost(
                         toast = bustToast,
                         onUndo = onUndoBust,
                         modifier = Modifier
@@ -197,7 +201,7 @@ internal fun ScanCameraStep(
                 shutterEnabled = canShoot,
                 onShutter = {
                     // Best-frame shutter: compares the frames around the press (see DetectionAnalyzer.capture).
-                    haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                     val pressedAt = SystemClock.elapsedRealtime()
                     scope.launch {
                         capturing = true
@@ -212,13 +216,14 @@ internal fun ScanCameraStep(
                         val now = SystemClock.elapsedRealtime()
                         if (!capturing && !busting && now - lastBustAt > BUST_DEBOUNCE_MS) {
                             lastBustAt = now
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                             bust()
                         }
                     }
                 },
                 bustEnabled = !busting && !capturing,
                 playerName = player.name,
+                onType = onTypeInstead,
             )
         }
         if (bustOverlay != null) BustOverlay(bustOverlay, onUndoBustOverlay)
@@ -228,21 +233,19 @@ internal fun ScanCameraStep(
 /** Player name in the camera banner: Unbounded SemiBold 28. */
 private val BannerName = Scan7Type.button.copy(fontSize = 28.sp, lineHeight = 34.sp)
 
-/** Token in the camera banner (44 dp tall). */
-private val BannerToken = TokenSize(33.dp, 44.dp, 18.sp)
+/** Token in the camera banner (38 dp tall, next to the 48 dp back button). */
+private val BannerToken = TokenSize(28.dp, 38.dp, 16.sp)
 
 /**
- * Header overlay on the preview: a ground-colored scrim fading out (readable over bright tables),
- * a control row (← back to the table left, "Type" right) and below it the player banner: a large
- * token, "SCANNING" / "NEXT" with the total, the name big in Unbounded. Then the [hint] pill
- * (only while reading / on errors).
+ * Header overlay on the preview: a ground-colored scrim fading out (readable over bright tables)
+ * behind one row: ← back to the table, then the player banner (token, "SCANNING" / "NEXT" with
+ * the total over the name big in Unbounded). Then the [hint] pill (only while reading / on errors).
  */
 @Composable
 private fun CameraHeader(
     player: PlayerUi,
     mode: ScanMode,
     onBack: () -> Unit,
-    onType: () -> Unit,
     hint: String?,
     modifier: Modifier = Modifier,
 ) {
@@ -264,43 +267,44 @@ private fun CameraHeader(
         Row(
             horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().height(Scan7Spacing.headerHeight),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp),
         ) {
             IconButton(onClick = onBack, contentDescription = "Back to table") { BackIcon(colors.text) }
-            Spacer(Modifier.weight(1f))
-            TypeButton(onType)
+            PlayerBanner(
+                player = player,
+                label = if (mode == ScanMode.ScanNext) "Next" else "Scanning",
+                modifier = Modifier.weight(1f),
+            )
         }
-        PlayerBanner(
-            player = player,
-            label = if (mode == ScanMode.ScanNext) "Next" else "Scanning",
-            modifier = Modifier.padding(top = Scan7Spacing.m),
-        )
         if (hint != null) HintPill(hint, Modifier.padding(top = Scan7Spacing.m))
     }
 }
 
-/** "⌨ Type": secondary style (line border) on a ground backing, opens the manual entry. */
+/**
+ * "⌨ Type" right of the shutter (mirrors Bust on the left): secondary style (line border),
+ * at least 72 x 48 dp, opens the manual entry.
+ */
 @Composable
-private fun TypeButton(onClick: () -> Unit) {
+private fun TypeButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.iconButton)
     Row(
-        horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
+        horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .height(Scan7Spacing.minTouch)
+        modifier = modifier
+            .heightIn(min = Scan7Spacing.minTouch)
+            .widthIn(min = 72.dp)
             .clip(shape)
-            .background(colors.ground.copy(alpha = 0.6f))
             .border(1.5.dp, colors.line, shape)
             .scan7Clickable(onClick)
             .clearAndSetSemantics {
                 contentDescription = "Type the cards instead"
                 role = Role.Button
             }
-            .padding(horizontal = Scan7Spacing.l),
+            .padding(horizontal = Scan7Spacing.s),
     ) {
-        KeyboardIcon(colors.text)
-        Text("Type", color = colors.text, style = Scan7Type.button.copy(fontSize = 13.sp), maxLines = 1)
+        KeyboardIcon(colors.text, size = 18.dp)
+        Text("Type", color = colors.text, style = Scan7Type.tag12, maxLines = 1)
     }
 }
 
@@ -309,16 +313,15 @@ private fun TypeButton(onClick: () -> Unit) {
 private fun PlayerBanner(player: PlayerUi, label: String, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
     Row(
-        horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.l),
+        horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .fillMaxWidth()
             .clearAndSetSemantics {
                 heading()
                 contentDescription = "$label: ${player.name}, ${player.total} points"
             },
     ) {
-        PlayerToken(player.initial, player.color, BannerToken, Modifier.padding(start = Scan7Spacing.xxs))
+        PlayerToken(player.initial, player.color, BannerToken)
         Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs), modifier = Modifier.weight(1f)) {
             Text(
                 "${label.uppercase()} · ${player.total} PTS",
@@ -331,37 +334,6 @@ private fun PlayerBanner(player: PlayerUi, label: String, modifier: Modifier = M
         }
     }
 }
-
-/**
- * The shared "<name> marked bust · Undo" toast on the camera (Scan next: the previous player's
- * bust tap). Same look and timeout as on the round screen; Undo reopens that player, no navigation.
- */
-@Composable
-private fun CameraBustToast(toast: BustToastState, onUndo: (String) -> Unit, modifier: Modifier = Modifier) {
-    val t = toast.current ?: return
-    val a11y = LocalAccessibilityManager.current
-    val timeout = a11y?.calculateRecommendedTimeoutMillis(
-        BUST_TOAST_MS,
-        containsIcons = false,
-        containsText = true,
-        containsControls = true,
-    ) ?: BUST_TOAST_MS
-    LaunchedEffect(t) {
-        delay(timeout)
-        if (toast.current == t) toast.dismiss()
-    }
-    BustToast(
-        name = t.name,
-        onUndo = {
-            onUndo(t.playerId)
-            toast.dismiss()
-        },
-        modifier = modifier,
-    )
-}
-
-/** Same as the round screen's toast. */
-private const val BUST_TOAST_MS = 4_000L
 
 /** Torch toggle: 48 dp icon button, `surface` when off, cyan with the lit icon when on. */
 @Composable
@@ -402,12 +374,13 @@ private fun HintPill(text: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * Zoom presets as a compact pill toggle (round screen's view toggle look), two per row so up to
- * four lenses (0.5× 1× 2× 5×) fit next to the shutter.
+ * Zoom presets as a compact pill toggle (round screen's view toggle look). The pill of the lens in
+ * use is highlighted and follows pinch zoom (CameraX ZoomState).
  */
 @Composable
 private fun ZoomPills(zoom: ZoomControls, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
+    val haptics = LocalHapticFeedback.current
     Row(
         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs),
         modifier = modifier
@@ -417,7 +390,8 @@ private fun ZoomPills(zoom: ZoomControls, modifier: Modifier = Modifier) {
     ) {
         for (preset in zoom.presets) {
             val active = preset == zoom.selected
-            val label = formatZoom(preset)
+            // The active pill shows the real zoom (after a pinch, e.g. "1.6×").
+            val label = if (active) zoomLabel(zoom.ratio) else formatZoom(preset)
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -429,7 +403,10 @@ private fun ZoomPills(zoom: ZoomControls, modifier: Modifier = Modifier) {
                         interactionSource = null,
                         indication = PressDim,
                         role = Role.RadioButton,
-                        onClick = { zoom.onSelect(preset) },
+                        onClick = {
+                            if (!active) haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
+                            zoom.onSelect(preset)
+                        },
                     )
                     .semantics { contentDescription = "Zoom $label" },
             ) {
@@ -440,9 +417,9 @@ private fun ZoomPills(zoom: ZoomControls, modifier: Modifier = Modifier) {
 }
 
 /**
- * Bottom bar: "● 3 cards seen" above the row Bust (left, when [onBust] is set) · shutter (center).
- * Zoom pills and the torch float over the preview instead. Bust sits a full column away from the
- * shutter.
+ * Bottom bar: "● 3 cards seen" above the row Bust (left, when [onBust] is set) · shutter (center)
+ * · Type (right). Zoom pills and the torch float over the preview instead. Bust and Type sit a full
+ * column away from the shutter.
  */
 @Composable
 private fun CameraBottomBar(
@@ -453,6 +430,7 @@ private fun CameraBottomBar(
     onBust: (() -> Unit)?,
     bustEnabled: Boolean,
     playerName: String,
+    onType: () -> Unit,
 ) {
     val colors = Scan7Theme.colors
     Column(
@@ -480,6 +458,7 @@ private fun CameraBottomBar(
         Box(Modifier.fillMaxWidth().height(84.dp)) {
             if (onBust != null) BustButton(playerName, onBust, bustEnabled, Modifier.align(Alignment.CenterStart))
             Shutter(enabled = shutterEnabled, onClick = onShutter, modifier = Modifier.align(Alignment.Center))
+            TypeButton(onType, Modifier.align(Alignment.CenterEnd))
         }
     }
 }

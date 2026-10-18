@@ -8,12 +8,16 @@ import net.moesli.scan7.ui.gameover.joinNames
 
 /**
  * Close-round warning: "Anna and David haven't been scored. They'll be marked BUST." (one player:
- * "Anna hasn't been scored. They'll be marked BUST."). Empty when nobody is open.
+ * "Anna hasn't been scored. They'll be marked BUST."). Empty when nobody is open. With
+ * [nobodyScored] (everyone still open, likely an accident) it asks explicitly instead.
  */
-fun unscoredWarning(names: List<String>): String = when (names.size) {
-    0 -> ""
-    1 -> "${names[0]} hasn't been scored. They'll be marked BUST."
-    else -> "${joinNames(names)} haven't been scored. They'll be marked BUST."
+fun unscoredWarning(names: List<String>, nobodyScored: Boolean = false): String = when {
+    names.isEmpty() -> ""
+    nobodyScored -> "Nobody has been scored yet – mark everyone BUST?"
+    else -> when (names.size) {
+        1 -> "${names[0]} hasn't been scored. They'll be marked BUST."
+        else -> "${joinNames(names)} haven't been scored. They'll be marked BUST."
+    }
 }
 
 /** Chip text for a card: "7", "+4", "×2", "Freeze", "Flip 3", "2nd chance", "Back". */
