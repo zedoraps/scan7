@@ -39,6 +39,9 @@ sealed interface Route {
 
     data class Round(val gameId: Long) : Route
 
+    /** Round menu → Players: pick who plays on (step 1), then Seats (step 2), back to the round. */
+    data class GamePlayers(val gameId: Long) : Route
+
     /** Scan / manual entry for [playerId]; [round] `null` = the running round. */
     data class Scan(val gameId: Long, val playerId: Long, val start: ScanStart, val round: Int? = null) : Route
 
@@ -102,6 +105,7 @@ fun Route.encode(): String = when (this) {
     Route.Players -> "players"
     is Route.NewGame -> "newgame:$target:" + seating?.joinToString(",").orEmpty() + if (seating == null) "" else ";"
     is Route.Round -> "round:$gameId"
+    is Route.GamePlayers -> "gameplayers:$gameId"
     is Route.Scan -> "scan:$gameId:$playerId:${start.name}:${round ?: ""}"
     is Route.Scoreboard -> "scoreboard:$gameId"
     is Route.GameOver -> "gameover:$gameId"
@@ -121,6 +125,7 @@ fun decodeRoute(text: String): Route? = runCatching {
             Route.NewGame(seating, parts[1].toInt())
         }
         "round" -> Route.Round(parts[1].toLong())
+        "gameplayers" -> Route.GamePlayers(parts[1].toLong())
         "scan" -> Route.Scan(parts[1].toLong(), parts[2].toLong(), ScanStart.valueOf(parts[3]), parts[4].toIntOrNull())
         "scoreboard" -> Route.Scoreboard(parts[1].toLong())
         "gameover" -> Route.GameOver(parts[1].toLong())

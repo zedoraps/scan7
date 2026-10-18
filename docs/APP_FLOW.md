@@ -24,13 +24,20 @@ Shown during the whole round: all players in seating order, each with
 - name, total so far,
 - this round's status: `open`, `✓ +46` (scored), or `✕ BUST` (magenta **and** the word BUST).
 
-Header: round number and current leader. Bottom: **Close round**.
+Header: round number and current leader (the leader badge: a white circle with a bold three-point crown, rounded tips over a base band, glyph ≈ 84 % of the badge so it reads at 20 dp). Bottom: **Close round**.
 
-Views: **Table** (cards placed freely around the screen, arranged by long-press/drag, or **Rearrange seats / order** as the first item of the round menu ⋮; the header is logo · Table|List · ⋮) and **List** (rows in seating order); seating order is shared. Default Table for ≤ 6 players, List for 7+; choice remembered. Card positions are saved per game. The round menu is a bottom sheet with an M3 list (`ListItem` rows with icons): Rearrange seats / order, Scoreboard, **Scan direction** (M3 segmented buttons ↻ Clockwise | ↺ Counter, the sheet stays open), End game (warning style), Home.
+Views: **Table** (cards placed freely around the screen, arranged by long-press/drag, or **Rearrange seats / order** as the first item of the round menu ⋮; the header is logo · Table|List · ⋮) and **List** (rows in seating order); seating order is shared. Default Table for ≤ 6 players, List for 7+; choice remembered. Card positions are saved per game. The round menu is a bottom sheet with an M3 list (`ListItem` rows with icons): Rearrange seats / order, **Players** (see "Players during a game"), Scoreboard, **Scan direction** (M3 segmented buttons ↻ Clockwise | ↺ Counter, the sheet stays open), End game (warning style), Home.
 
 Open cards have in-card **Scan** and **Bust** buttons: Bust marks the player busted immediately, with an "Undo" toast. Tap an open card → sheet with **Scan**, **Enter manually**, **Bust**. Tap a done card → its result with **Edit**, **Rescan**, **Reset to open**. Compact cards (7–10 players): name on one line, total below; **double-tap** an open card to scan (TalkBack action "Scan <name>").
 
 Bottom: **Scan next · <next open player>** (primary) + **Close round**; when everyone is done, one full-width **Next round** (closes the round and starts the next one in one tap). "Scan next" follows the **scan direction** (round menu ⋮: ↻ clockwise / ↺ counter-clockwise, app setting `scan_direction`); seating and list order don't change.
+
+## Players during a game
+Round menu (⋮) → **Players** (below Rearrange seats / order; hidden once the game is over): New game's step-1 picker (same rows, checkboxes and "+ New player"), header "Players · Round 6 · 7 of 10", preselected with the seated players; rows that change say "Joins in round 6, open" / "Leaves the game". **Done** with a changed lineup → **Seats** (the round table / list in arrange mode, Done instead of Start game) → back to the round in one transaction (`GameState.withLineup`); an unchanged lineup goes straight back. Back leaves without changes.
+- **Adding:** the player joins the running round as **open**, total 0; their earlier rounds have no result and show "–" in the scoreboard (header tag "FROM R6", TalkBack "joined in round 6"). Default seat: after the last seat (between the last and the first card; if the table is still on the default ring, everyone moves to the ring of the new size). A player who had left comes back with their old results (gap rounds "–").
+- **Removing:** unticking a seated player asks first (warning style, see Confirmations). They leave the running round: their result there (points or BUST) is dropped; past results and adjustments stay and count in their total; their scoreboard column moves to the end, dimmed, tag "LEFT". They no longer count for "all done", Scan next, the progress strip, leaders or the winner (game over checks seated players only; Game over lists them last as "left", unranked). Someone who joined this round and has nothing recorded just disappears.
+- 2 … 10 players (`MIN_PLAYERS` … `MAX_PLAYERS`); only while a round is running.
+- Stored on the seat row: `game_players.joinedRound` (default 1) and `leftRound` (null while playing), DB v5 (AutoMigration 4 → 5). Home history and the scoreboard show everyone who played (seated, then the ones who left) with their totals; "same players" (New game, previous seats) means the final seated lineup.
 
 ## Scan
 1. Full-screen camera, player name at the top, live boxes on the cards.
@@ -84,6 +91,7 @@ One pattern for every confirmation: `Scan7ConfirmDialog` (ui/components, on `Sca
 | Round → Close round | someone is open (nobody open: closes at once) | "Close round N?" + chips + "… marked BUST." · Close round | primary |
 | Close round, nobody scored | all players open | "Nobody has been scored yet – mark everyone BUST?" · Close round | destructive |
 | Round menu → End game | always | "End the game now?" · End game | destructive |
+| Round menu → Players → untick a seated player | always | "Remove Anna from this game?" · Remove (body: "Their points from past rounds stay in the scoreboard." if they played a closed round, plus "Their +46 / BUST in this round is dropped." if they have a result) | destructive |
 | New game → Skip seats / Seats → Start game | a game is unfinished | "Start a new game?" · Start (the unfinished game ends) | destructive |
 | Home → long-press a game → Delete game | always (no Undo) | "Delete this game?" · Delete (body: "Today, 21:40 · Mia won · 6 rounds", then "This can't be undone."; the running game adds "The game in progress will be lost.") | destructive |
 

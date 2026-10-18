@@ -35,6 +35,7 @@ import net.moesli.scan7.game.ScanDirection
 import net.moesli.scan7.ui.components.ArrangeIcon
 import net.moesli.scan7.ui.components.BottomSheetPanel
 import net.moesli.scan7.ui.components.HomeIcon
+import net.moesli.scan7.ui.components.PlayersIcon
 import net.moesli.scan7.ui.components.RotateIcon
 import net.moesli.scan7.ui.components.ScoreboardIcon
 import net.moesli.scan7.ui.components.SectionLabel
@@ -63,11 +64,16 @@ fun RoundMenuContent(
     onDirection: (ScanDirection) -> Unit,
     onEndGame: (() -> Unit)?,
     onHome: () -> Unit,
+    /** "Players": add / remove players mid-game; `null` hides it (game over). */
+    onPlayers: (() -> Unit)? = null,
 ) {
     val colors = Scan7Theme.colors
     Column {
         SectionLabel(stringResource(R.string.menu_round_title, round, target), Modifier.padding(start = Scan7Spacing.l, bottom = Scan7Spacing.s))
         MenuRow(stringResource(R.string.action_rearrange), onArrange) { ArrangeIcon(colors.text) }
+        if (onPlayers != null) {
+            MenuRow(stringResource(R.string.menu_players), onPlayers, supporting = stringResource(R.string.menu_players_hint)) { PlayersIcon(colors.text) }
+        }
         MenuRow(stringResource(R.string.scoreboard_title), onScoreboard) { ScoreboardIcon(colors.text) }
         ListItem(
             headlineContent = { Text(stringResource(R.string.menu_direction), style = Scan7Type.text15) },

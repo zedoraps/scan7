@@ -52,6 +52,9 @@ interface RoundNavigator {
     fun scoreboard()
 
     fun home()
+
+    /** Round menu → Players: add / remove players mid-game. */
+    fun managePlayers() {}
 }
 
 /** Transient Round screen UI (saved across rotation / process death). */
@@ -231,6 +234,13 @@ class RoundController(
         flags.menu = true
     }
 
+    /** Menu "Players" → the players picker (leaves arrange mode). */
+    fun onManagePlayers() {
+        flags.arranging = false
+        flags.sheetPlayer = null
+        navigator.managePlayers()
+    }
+
     /** Menu "End game" → confirmation. */
     fun onEndGame() {
         flags.menu = false
@@ -360,6 +370,7 @@ fun RoundRoute(
                 onDirection = controller::onScanDirection,
                 onEndGame = if (snap.state.isOver) null else ({ sheet.hideThen(controller::onEndGame) }),
                 onHome = { sheet.hideThen(navigator::home) },
+                onPlayers = if (snap.state.canChangePlayers) ({ sheet.hideThen(controller::onManagePlayers) }) else null,
             )
         }
     }

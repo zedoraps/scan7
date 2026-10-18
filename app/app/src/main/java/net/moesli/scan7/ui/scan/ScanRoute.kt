@@ -82,7 +82,8 @@ fun ScanRoute(
     var bustUndo by remember { mutableStateOf<CompletableDeferred<Unit>?>(null) }
     val snap = snapshot
     val state = snap?.state
-    val index = state?.playerIds?.indexOf(playerId) ?: -1
+    // Everyone of the game: a scoreboard edit can open a player who left mid-game.
+    val index = state?.everyoneIds?.indexOf(playerId) ?: -1
     val camera = start == ScanStart.CAMERA || start == ScanStart.NEXT
     val context = LocalContext.current
     val capture by produceState<ScanCapture?>(null, debugCapture, playerId) {
@@ -96,10 +97,10 @@ fun ScanRoute(
     // this composition (and `choice`) catches up, so a captured `choice` would still be the old one.
     val choice = picked ?: AfterScan.fromSetting(stored)
     val roundNumber = round ?: state.currentRound.number
-    val players = state.playerUis(snap.players, roundNumber)
+    val players = state.playerUis(snap.players, roundNumber, state.everyoneIds)
     val player = players[index]
     val nextName = Route.Scan(gameId, playerId, start, round).nextPlayer(state)
-        ?.let { state.playerIds.indexOf(it) }
+        ?.let { state.everyoneIds.indexOf(it) }
         ?.let { players.getOrNull(it)?.name }
     val afterScan = AfterScanUi(choice, nextName) { c ->
         picked = c

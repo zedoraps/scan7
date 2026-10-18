@@ -26,7 +26,8 @@ enum class PastOutcome {
 }
 
 /**
- * One finished / abandoned game in the Home history. [players] in seating order; [winners] the
+ * One finished / abandoned game in the Home history. [players] in seating order (then the ones
+ * who left mid-game); [winners] the
  * winner(s), or for an [PastOutcome.ABANDONED] game the leader(s) when it stopped (may be empty);
  * [points] their total; [rounds] = closed rounds.
  */
@@ -65,14 +66,15 @@ data class PastGameUi(
 
 /** History entry for a finished or abandoned game ([GameState.finishedAt] set). */
 fun GameState.toPastGameUi(players: Map<Long, Player>): PastGameUi {
-    val uis = playerUis(players)
+    // Everyone who played, also the players who left mid-game.
+    val uis = playerUis(players, ids = everyoneIds)
     val outcome = when {
         abandoned -> PastOutcome.ABANDONED
         endedEarly -> PastOutcome.ENDED_EARLY
         else -> PastOutcome.WON
     }
     val best = if (outcome == PastOutcome.ABANDONED) leaders else winners
-    val byId = playerIds.zip(uis).toMap()
+    val byId = everyoneIds.zip(uis).toMap()
     return PastGameUi(
         gameId = id,
         finishedAt = finishedAt ?: startedAt,

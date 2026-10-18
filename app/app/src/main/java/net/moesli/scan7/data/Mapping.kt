@@ -2,6 +2,7 @@ package net.moesli.scan7.data
 
 import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.ConfirmedCard
+import net.moesli.scan7.game.DepartedPlayer
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.PlayerResult
@@ -25,7 +26,8 @@ internal fun ResultWithCards.toResult() = PlayerResult(
 )
 
 internal fun GameWithDetails.toState(): GameState {
-    val ordered = seats.sortedBy { it.seatIndex }
+    val ordered = seats.filter { it.leftRound == null }.sortedBy { it.seatIndex }
+    val left = seats.filter { it.leftRound != null }.sortedWith(compareBy({ it.leftRound }, { it.seatIndex }))
     val fallback = defaultPositions(ordered.size)
     return GameState(
         id = game.id,
@@ -47,6 +49,8 @@ internal fun GameWithDetails.toState(): GameState {
         endedEarly = game.endedEarly,
         viewMode = game.viewMode,
         adjustments = adjustments.sortedWith(compareBy({ it.createdAt }, { it.id })).map { it.toAdjustment() },
+        joinedRounds = ordered.filter { it.joinedRound > 1 }.associate { it.playerId to it.joinedRound },
+        departed = left.map { DepartedPlayer(it.playerId, it.joinedRound, it.leftRound!!) },
     )
 }
 
@@ -73,8 +77,11 @@ internal fun GameState.toGameEntity() = GameEntity(
     viewMode = viewMode,
 )
 
+/** Seated players (seatIndex 0…n-1), then the departed ones (after them, without a table spot). */
 internal fun GameState.toSeatEntities(gameId: Long) = seats.mapIndexed { i, s ->
-    GamePlayerEntity(gameId, s.playerId, i, s.position.x, s.position.y)
+    GamePlayerEntity(gameId, s.playerId, i, s.position.x, s.position.y, joinedRound(s.playerId))
+} + departed.mapIndexed { i, d ->
+    GamePlayerEntity(gameId, d.playerId, seats.size + i, null, null, d.joinedRound, d.leftRound)
 }
 
 internal fun ConfirmedCard.toEntity(resultId: Long, position: Int) =

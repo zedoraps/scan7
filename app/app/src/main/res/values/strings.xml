@@ -435,4 +435,21 @@
     <string name="confirm_delete_game_running">The game in progress will be lost.</string>
     <string name="confirm_delete_game_irreversible">This can\'t be undone.</string>
     <string name="action_enter_manually_two_lines">Enter\nmanually</string>
+    <!-- Players mid-game (round menu → Players) -->
+    <string name="menu_players">Players</string>
+    <string name="menu_players_hint">Add or remove players mid-game</string>
+    <string name="manage_players_subtitle">Round %1$d · %2$d of %3$d</string>
+    <string name="manage_players_joins">Joins in round %1$d, open</string>
+    <string name="manage_players_leaves">Leaves the game</string>
+    <string name="manage_players_error">Couldn\'t change the players</string>
+    <string name="confirm_remove_player_title">Remove %1$s from this game?</string>
+    <string name="confirm_remove_player_body_past">Their points from past rounds stay in the scoreboard.</string>
+    <string name="confirm_remove_player_body_points">Their %1$s in this round is dropped.</string>
+    <string name="confirm_remove_player_body_bust">Their BUST in this round is dropped.</string>
+    <string name="player_left_tag">left</string>
+    <string name="player_joined_tag">from R%1$d</string>
+    <string name="gameover_left">left</string>
+    <string name="scoreboard_joined_description">%1$s, joined in round %2$d</string>
+    <string name="scoreboard_left_description">%1$s, left in round %2$d</string>
+    <string name="scoreboard_cell_absent">Round %1$d, %2$s: not playing</string>
 </resources>

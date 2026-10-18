@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.CollectionInfo
 import androidx.compose.ui.semantics.CollectionItemInfo
@@ -77,7 +78,7 @@ fun GameSnapshot.toScoreboardUi(): ScoreboardUi = ScoreboardUi(
     gameId = state.id,
     target = state.target,
     isOver = state.isOver,
-    players = state.playerUis(players),
+    players = state.playerUis(players, ids = state.everyoneIds),
     table = scoreTable(state),
     abandoned = state.abandoned,
     closedRounds = state.rounds.count { it.isClosed },
@@ -136,7 +137,7 @@ fun ScoreboardScreen(
         ) {
             // Fixed-width columns (up to 10 players): cap the font scale like the table cards (2.0 broke "BUST" and the totals).
             CappedFontScale {
-                HeaderRow(state.players)
+                HeaderRow(state.players, table)
                 Divider()
                 Column(
                     modifier = Modifier
@@ -175,16 +176,18 @@ private fun Divider() {
 }
 
 @Composable
-private fun HeaderRow(players: List<PlayerUi>) {
+private fun HeaderRow(players: List<PlayerUi>, table: ScoreTable) {
     val colors = Scan7Theme.colors
     val showNames = players.size <= NAMES_UP_TO
     val roundDescription = stringResource(R.string.scoreboard_round)
+    // Players who joined later / left get a third line ("from R3" / "left").
+    val marked = table.joined.isNotEmpty() || table.left.isNotEmpty()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .background(colors.surface)
-            .height(64.dp),
+            .height(if (marked) 76.dp else 64.dp),
     ) {
         Text(
             stringResource(R.string.scoreboard_round_short),
@@ -197,12 +200,21 @@ private fun HeaderRow(players: List<PlayerUi>) {
                 .tableCell(0, 0),
         )
         players.forEachIndexed { i, p ->
+            val id = table.playerIds[i]
+            val leftIn = table.left[id]
+            val joinedIn = table.joined[id]
+            val description = when {
+                leftIn != null -> stringResource(R.string.scoreboard_left_description, p.name, leftIn)
+                joinedIn != null -> stringResource(R.string.scoreboard_joined_description, p.name, joinedIn)
+                else -> p.name
+            }
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs),
                 modifier = Modifier
                     .weight(1f)
-                    .clearAndSetSemantics { contentDescription = p.name }
+                    .alpha(if (leftIn != null) 0.6f else 1f)
+                    .clearAndSetSemantics { contentDescription = description }
                     .tableCell(0, i + 1),
             ) {
                 PlayerAvatar(p.avatar, avatarSizeForHeight(if (showNames) 24.dp else 21.dp))
@@ -214,6 +226,20 @@ private fun HeaderRow(players: List<PlayerUi>) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                val tag = when {
+                    leftIn != null -> stringResource(R.string.player_left_tag)
+                    joinedIn != null -> stringResource(R.string.player_joined_tag, joinedIn)
+                    else -> null
+                }
+                if (tag != null) {
+                    Text(
+                        tag.uppercase(),
+                        color = colors.textMuted,
+                        style = Scan7Type.tag10.copy(fontSize = 8.sp, letterSpacing = 0.sp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }
@@ -251,7 +277,7 @@ private fun RoundRow(
             Cell(
                 cell = cell,
                 description = cell.describe(row.round, players[i].name).resolve(),
-                onClick = onEditResult?.let { edit -> { edit(row.round, ids[i]) } },
+                onClick = onEditResult?.takeIf { cell.played }?.let { edit -> { edit(row.round, ids[i]) } },
                 compact = players.size > NAMES_UP_TO,
                 modifier = Modifier
                     .weight(1f)
