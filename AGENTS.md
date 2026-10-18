@@ -1,0 +1,107 @@
+# AGENTS.md
+
+Read this first. It applies to every agent (Claude Code and others) working in this repo.
+Keep it short, factual and current: when a command, rule or decision changes, update it here.
+
+## What Scan7 is
+An Android app that scans one player's row of Flip 7 cards with the phone camera, detects each
+card on-device (YOLO → LiteRT), and computes the score. Players can correct cards before the
+score is saved. Personal / open-source project.
+
+- Plan and milestones: [docs/BRIEF.md](docs/BRIEF.md) (living document)
+- App flow / game screens spec: [docs/APP_FLOW.md](docs/APP_FLOW.md); screen inventory for design: [docs/SCREENS.md](docs/SCREENS.md)
+- Setup, data layout and stage status: [README.md](README.md)
+- Brand kit: [brand/BRAND.md](brand/BRAND.md)
+- Labeling workflow: [ml/labeling/README.md](ml/labeling/README.md)
+
+## Repo layout
+```
+AGENTS.md, CLAUDE.md   agent instructions (CLAUDE.md only imports this file)
+README.md              setup + stage table (commands per stage)
+docs/                  BRIEF.md (project brief), APP_FLOW.md (screen spec), third_party/ (font licenses)
+brand/                 logo SVG/PNG, colors.xml, BRAND.md
+ml/                    Python (uv project): data, synthetic generator, training, export
+  config/              cards.yaml (class list, geometry), synth.yaml (generator)
+  scripts/             make_cutouts, gen_synth, preview_synth, train, predict, export
+  labeling/            Label Studio setup, YOLO export, pre-label import
+  data/                photos (NOT in git; index in data/manifest.csv)
+  models/ runs/ out/   pretrained weights, training runs, generated outputs (gitignored)
+app/                   Android Gradle root; module app/, package net.moesli.scan7
+  app/src/main/java/net/moesli/scan7/
+    scoring/           plain-Kotlin scoring rules (JVM unit tests)
+    camera/ detection/ CameraX preview, detector, overlay
+    debug/             debug screens (home, score tester, detect from photo)
+    ui/theme/          Scan7 theme, colors, fonts, wordmark
+```
+
+## Commands
+
+### ML (`cd ml` first; `uv sync` once)
+```sh
+uv run python scripts/make_cutouts.py                 # stage 1: cards_flat -> out/cutouts (+ --measure, --debug)
+uv run python scripts/gen_synth.py --count 5000 --seed 1 --workers 10   # stage 2 -> out/synth
+uv run python scripts/preview_synth.py --split val --grids 2 --full 5   # -> out/synth_preview
+uv run python scripts/train.py --data out/synth/dataset.yaml --name synth_v1   # YOLO26n on MPS
+uv run python scripts/train.py --data out/mix/dataset.yaml --model runs/synth_v1/weights/best.pt --name ft_v1
+uv run python scripts/predict.py runs/synth_v1/weights/best.pt data/real_photos/train --out out/pred/v1/train
+uv run scripts/export.py runs/synth_v1/weights/best.pt  # own PEP 723 env: NOT `uv run python`; installs into app assets
+```
+
+### Labeling (from the repo root; Label Studio is a separate `uv tool`)
+```sh
+ml/labeling/start.sh                                          # http://localhost:8080
+uv run --project ml python ml/labeling/setup_projects.py      # create projects / sync photos
+uv run --project ml python ml/labeling/make_config.py         # regenerate label config from cards.yaml
+uv run --project ml python ml/labeling/export_yolo.py         # -> ml/out/real/{train,test}
+uv run --project ml python ml/labeling/import_predictions.py ml/out/pred/v1/train/labels --model-version v1   # train project only
+```
+
+### Android (`cd app`)
+```sh
+export JAVA_HOME="$HOME/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+export PATH="$HOME/Library/Android/sdk/platform-tools:$PATH"   # adb
+./gradlew assembleDebug            # build
+./gradlew testDebugUnitTest        # JVM unit tests (scoring etc.)
+./gradlew lintDebug                # lint
+./gradlew installDebug             # install on the connected phone
+./gradlew --stop                   # stop the daemon when done (memory)
+```
+The test phone (Pixel 10 Pro) is connected over **wireless debugging** (adb-tls-connect via
+mDNS); `adb devices` should list `adb-…._adb-tls-connect._tcp`. If it is missing, re-enable
+Wireless debugging on the phone (pair once with `adb pair <ip>:<port>`). Only one agent should
+drive the phone at a time.
+
+## Hard rules
+- **Class order is fixed** by `ml/config/cards.yaml` (ids 0–22 = YOLO class ids = app labels). Never reorder.
+- **Photos are not in git.** `PRIVATE_*` files show personal info: never upload, share, paste or send them anywhere.
+- **The real test set** (`ml/data/real_photos/test`, Label Studio project "scan7 test") is never used for training and never pre-labeled.
+- **Never stop or kill running training jobs** (or their python processes); don't touch `ml/runs/` of a running job.
+- The Mac has **16 GB RAM**: keep memory use modest (one Gradle build at a time, moderate `--workers`/`--batch`, stop daemons when done).
+- Android Studio may hold `.git/index.lock` briefly: **retry** the git command, never delete the lock.
+- Don't commit secrets. `ml/labeling/ls_data/` (DB, credentials) is private and gitignored.
+- Commit only when the user asks.
+
+## Decisions log
+| Date | Decision |
+|---|---|
+| 2026-10-18 | Detector: **Ultralytics YOLO26n** (AGPL; fine because the app is personal/open source; a commercial release needs an Ultralytics license or an Apache-licensed model). |
+| 2026-10-18 | The app scans **one player's row per scan**; neighbouring rows may be partly visible. |
+| 2026-10-18 | Android **minSdk 29**; Kotlin + Jetpack Compose + Material 3; CameraX; LiteRT. |
+| 2026-10-18 | **Dark brand theme always** (no light variant, no dynamic color); brand colors override Material defaults. |
+| 2026-10-18 | **App flow agreed** — spec in [docs/APP_FLOW.md](docs/APP_FLOW.md): players stored locally (no groups), select who plays; scan with the **shutter button only** (no auto-capture); bust shown in magenta **plus** the word; the game ends only after a full round is scored, highest total wins. |
+
+## Branding (summary; details in brand/BRAND.md)
+- App name **Scan7**; wordmark "scan" in text color + "7" in accent (`Scan7Wordmark`).
+- Colors "Deep Cyan": ground `#0A1220`, surface `#15223A`, text `#EEF4FA`, muted `#93A4BC`, accent `#38D6F5`, bust `#FF4F9A`.
+  In Compose use `MaterialTheme.colorScheme` (mapped to these) or `Scan7Theme.colors` for brand-only tokens.
+- **Bust = magenta, always together with the word "Bust" and/or an icon** — never color alone, never orange or red (card colors).
+- **Scan boxes: cyan with a white outline** (`drawScanBox` / `Scan7Theme.colors.scanBox` + `scanBoxOutline`), visible on the light-blue Freeze card.
+- Fonts: **Unbounded** (Bold/SemiBold) for wordmark, big numbers, display/headline; **DM Mono** for titles/labels/buttons; system font for body text. Licenses in `docs/third_party/`.
+- **Never use Flip 7's artwork, fonts, logo or name styling.**
+
+## Code conventions
+- Kotlin/Compose: follow the existing style (4-space indent, trailing commas, `modifier: Modifier = Modifier` as the first optional parameter, small private composables, `@Preview` wrapped in `Scan7Theme`). Use theme colors/typography, no hardcoded colors.
+- Game logic (scoring, smoothing, …) is plain Kotlin without Android dependencies, covered by JVM unit tests in `app/app/src/test`.
+- Python: scripts in `ml/scripts/` runnable via `uv run python scripts/<name>.py` from `ml/` with argparse and sensible defaults; module docstring with usage example; paths relative to the `ml/` root.
+- Configuration lives in `ml/config/*.yaml`, not in code.
+- Keep README.md's stage table and commands current when you change a stage.

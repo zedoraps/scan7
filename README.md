@@ -2,6 +2,12 @@
 
 Android app that scans and scores Flip 7 cards on-device. See [docs/BRIEF.md](docs/BRIEF.md) for the full plan.
 
+## Agents
+Coding agents (Claude Code and others): read [AGENTS.md](AGENTS.md) first — commands, hard rules, decisions, conventions.
+
+## Branding
+App name **Scan7**, dark "Deep Cyan" theme, Unbounded + DM Mono fonts. Brand kit and rules: [brand/BRAND.md](brand/BRAND.md); in the app see `ui/theme/` (`Scan7Theme`, `Scan7Theme.colors`, `Scan7Wordmark`). Font licenses: [docs/third_party/](docs/third_party/).
+
 ## Layout
 - `ml/` – Python: card cutouts, synthetic data, training, export
 - `app/` – Android app (Kotlin + Jetpack Compose) — not started yet
