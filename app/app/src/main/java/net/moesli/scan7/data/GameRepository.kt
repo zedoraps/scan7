@@ -87,6 +87,12 @@ class GameRepository(
     /** The unfinished game to resume (most recent), or `null`. */
     val activeGame: Flow<GameSnapshot?> = snapshots(gameDao.observeActive())
 
+    /** Finished and abandoned games (Home history), most recently finished first. */
+    val pastGames: Flow<List<GameSnapshot>> =
+        combine(gameDao.observePast(), allPlayers, preferredViewMode) { games, players, pref ->
+            games.map { GameSnapshot(it.toState(), players, pref) }
+        }.distinctUntilChanged()
+
     /** Any game by id (e.g. game over / history after it finished). */
     fun observeGame(gameId: Long): Flow<GameSnapshot?> = snapshots(gameDao.observe(gameId))
 

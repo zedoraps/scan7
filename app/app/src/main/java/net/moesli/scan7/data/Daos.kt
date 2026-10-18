@@ -49,6 +49,11 @@ interface GameDao {
     @Query("SELECT * FROM games WHERE id = :id")
     fun observe(id: Long): Flow<GameWithDetails?>
 
+    /** Finished and abandoned games (Home history), most recently finished first. */
+    @Transaction
+    @Query("SELECT * FROM games WHERE finishedAt IS NOT NULL ORDER BY finishedAt DESC, id DESC")
+    fun observePast(): Flow<List<GameWithDetails>>
+
     @Transaction
     @Query("SELECT * FROM games WHERE id = :id")
     suspend fun load(id: Long): GameWithDetails?

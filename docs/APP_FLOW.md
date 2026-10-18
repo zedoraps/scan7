@@ -89,6 +89,9 @@ One pattern for every confirmation: `Scan7ConfirmDialog` (ui/components, on `Sca
 
 No confirmation, Undo instead: Bust (in-card, sheet, camera: Undo toast / overlay) and removing a total adjustment in the player sheet (inline "Removed +5 · Undo").
 
+## Home (game history)
+Home shows the **Resume card** of the unfinished game (round, avatars, leader, Resume) and below it **Past games**: every finished, ended-early and abandoned game, newest first (one `LazyColumn`). A row shows the date ("Today, 21:40" / "Yesterday, …" / "Sun 11 Oct" / "11 Oct 2025"), the winner(s) with the crown badge and their points, the players' avatars and the number of (closed) rounds, plus "ended early" / "not finished". Abandoned games are muted and say who led ("Lena led", or "Not finished" without points). Tap a row → that game's **Scoreboard**; finished games stay editable there, abandoned ones are read-only ("Not finished · 2 rounds · to 200", no running row). **Players** + **New game** stay pinned at the bottom; the intro text only shows when there is no game at all. Later: stats.
+
 ## Debug menu
 Hidden in every build: tap the Scan7 wordmark on Home 5 times (a toast counts down after the 3rd tap; TalkBack action "Open debug menu"). "Save scans for training" lives there and is ON by default.
 
@@ -107,6 +110,5 @@ Store everything needed for statistics later (games, rounds, per-player round re
 - **Compact cards (7–10 players):** name on one line, total below; double-tap a compact card to scan.
 
 ## Queued (after the avatar merge)
-- **Home = game history:** running game card on top (round, avatars, leader, Resume) + New game; below all finished/abandoned games, newest first (date, avatars, winner + points, rounds) → tap = that game's scoreboard. Players reachable from Home. Later: stats.
 - **New game, step 1:** target (200) as a small row; bottom **[Skip seats]** (start now with tick order + default positions) and **[Next]**.
 - **Seating step:** same Table | List toggle and arrange mode as the round screen (cards on the ellipse, order numbers); positions carry over into the game. Fix: the target stepper was hidden under "Start game".
