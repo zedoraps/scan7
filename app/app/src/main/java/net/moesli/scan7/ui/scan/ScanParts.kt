@@ -25,16 +25,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.unit.Density
+import net.moesli.scan7.ui.theme.Scan7Colors
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -300,81 +303,137 @@ internal fun ScanBoxesOverlay(
     modifier: Modifier = Modifier,
 ) {
     val colors = Scan7Theme.colors
-    val bustColors = remember(colors) { colors.copy(scanBox = colors.bust) }
+    val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
-    val ignoredInk = colors.text.copy(alpha = 0.78f)
+    // Per-frame work stays allocation-light (the live overlay redraws on every analysis frame):
+    // strokes, dash effects, tag styles and the tag path are built once and reused.
+    val styles = remember(colors, density) { BoxDrawStyles(colors, density) }
     Canvas(modifier) {
         if (imageWidth <= 0 || imageHeight <= 0) return@Canvas
         val mapping = DisplayMapping.of(imageWidth, imageHeight, size.width, size.height, crop)
-        val radius = 10.dp.toPx()
-        // Excluded, then ignored first so scoring boxes stay on top where they overlap.
-        for (b in boxes.sortedBy { if (it.look == BoxLook.Excluded) 0 else if (it.look == BoxLook.Ignored) 1 else 2 }) {
-            val fade = b.alpha < 1f
-            if (fade) {
-                drawContext.canvas.saveLayer(Rect(Offset.Zero, size), Paint().apply { alpha = b.alpha.coerceIn(0f, 1f) })
+        // Excluded, then ignored first so scoring boxes stay on top where they overlap (one pass
+        // per layer instead of sorting a copy of the list every frame).
+        for (layer in 0..2) {
+            for (i in boxes.indices) {
+                val b = boxes[i]
+                if (b.look.layer == layer) drawScanBoxItem(b, mapping, styles, colors, measurer)
             }
-            val v = mapping.toView(b.box)
-            val topLeft = Offset(v.left, v.top)
-            val boxSize = Size(v.width, v.height)
-            val tagColor: Color
-            val tagText: String
-            val tagStyle: TextStyle
-            if (b.look == BoxLook.Excluded) {
-                drawRoundRect(colors.ground.copy(alpha = 0.55f), topLeft, boxSize, CornerRadius(radius))
-                val dash = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 4.dp.toPx()))
-                drawRoundRect(colors.textMuted, topLeft, boxSize, CornerRadius(radius), style = Stroke(2.dp.toPx(), pathEffect = dash))
-                drawLine(
-                    colors.textMuted,
-                    Offset(v.left + radius, v.bottom - radius),
-                    Offset(v.right - radius, v.top + radius),
-                    strokeWidth = 2.dp.toPx(),
-                    cap = StrokeCap.Round,
-                )
-                tagColor = colors.textMuted
-                tagText = "EXCLUDED"
-                tagStyle = BoxTagSmall
-            } else if (b.look == BoxLook.Ignored) {
-                drawRoundRect(
-                    ignoredInk, topLeft, boxSize, CornerRadius(radius),
-                    style = Stroke(2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))),
-                )
-                tagColor = ignoredInk
-                tagText = b.card.chipLabel()
-                tagStyle = BoxTagSmall
-            } else {
-                drawScanBox(
-                    if (b.look == BoxLook.Duplicate) bustColors else colors,
-                    topLeft, boxSize, strokeWidth = 3.dp.toPx(), outlineWidth = 1.5.dp.toPx(), cornerRadius = radius,
-                )
-                tagColor = if (b.look == BoxLook.Duplicate) colors.bust else colors.scanBox
-                tagText = b.card.chipLabel()
-                tagStyle = BoxTag
-            }
-            val text = measurer.measure(tagText, tagStyle.copy(color = colors.onAccent))
-            val padX = 8.dp.toPx()
-            val padY = 3.dp.toPx()
-            val tagSize = Size(text.size.width + 2 * padX, text.size.height + 2 * padY)
-            val tagTopLeft = Offset(
-                (v.left - 1.dp.toPx()).coerceIn(0f, (size.width - tagSize.width).coerceAtLeast(0f)),
-                (v.top - 1.dp.toPx()).coerceIn(0f, (size.height - tagSize.height).coerceAtLeast(0f)),
-            )
-            val corner = CornerRadius(9.dp.toPx())
-            val tag = Path().apply {
-                addRoundRect(
-                    RoundRect(
-                        left = tagTopLeft.x, top = tagTopLeft.y,
-                        right = tagTopLeft.x + tagSize.width, bottom = tagTopLeft.y + tagSize.height,
-                        topLeftCornerRadius = corner, topRightCornerRadius = CornerRadius.Zero,
-                        bottomRightCornerRadius = corner, bottomLeftCornerRadius = CornerRadius.Zero,
-                    ),
-                )
-            }
-            drawPath(tag, tagColor)
-            drawText(text, topLeft = Offset(tagTopLeft.x + padX, tagTopLeft.y + padY))
-            if (fade) drawContext.canvas.restore()
         }
     }
 }
+
+/** Draw order of a [BoxLook]: lower layers first. */
+private val BoxLook.layer: Int get() = when (this) {
+    BoxLook.Excluded -> 0
+    BoxLook.Ignored -> 1
+    BoxLook.Scoring, BoxLook.Duplicate -> 2
+}
+
+/** Pixel sizes, strokes, tag styles and a reusable tag path for [ScanBoxesOverlay]. */
+private class BoxDrawStyles(colors: Scan7Colors, density: Density) {
+    val radius: Float
+    val scanWidth: Float
+    val outlineWidth: Float
+    val excludedStroke: Stroke
+    val ignoredStroke: Stroke
+    val crossWidth: Float
+    val padX: Float
+    val padY: Float
+    val tagInset: Float
+    val tagCorner: CornerRadius
+    val tagStyle = BoxTag.copy(color = colors.onAccent)
+    val tagStyleSmall = BoxTagSmall.copy(color = colors.onAccent)
+    val tagPath = Path()
+
+    init {
+        with(density) {
+            radius = 10.dp.toPx()
+            scanWidth = 3.dp.toPx()
+            outlineWidth = 1.5.dp.toPx()
+            excludedStroke = Stroke(2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 4.dp.toPx())))
+            ignoredStroke = Stroke(2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())))
+            crossWidth = 2.dp.toPx()
+            padX = 8.dp.toPx()
+            padY = 3.dp.toPx()
+            tagInset = 1.dp.toPx()
+            tagCorner = CornerRadius(9.dp.toPx())
+        }
+    }
+}
+
+/**
+ * One box with its tag. A fading live track ([ScanBox.alpha] < 1) gets the alpha on each draw
+ * call instead of an offscreen layer (a full-screen saveLayer per faded box and frame was costly).
+ */
+private fun DrawScope.drawScanBoxItem(
+    b: ScanBox,
+    mapping: DisplayMapping,
+    s: BoxDrawStyles,
+    colors: Scan7Colors,
+    measurer: TextMeasurer,
+) {
+    val alpha = b.alpha.coerceIn(0f, 1f)
+    if (alpha <= 0f) return
+    val v = mapping.toView(b.box)
+    val topLeft = Offset(v.left, v.top)
+    val boxSize = Size(v.width, v.height)
+    val corner = CornerRadius(s.radius)
+    val tagColor: Color
+    val tagText: String
+    val tagStyle: TextStyle
+    when (b.look) {
+        BoxLook.Excluded -> {
+            drawRoundRect(colors.ground, topLeft, boxSize, corner, alpha = 0.55f * alpha)
+            drawRoundRect(colors.textMuted, topLeft, boxSize, corner, style = s.excludedStroke, alpha = alpha)
+            drawLine(
+                colors.textMuted,
+                Offset(v.left + s.radius, v.bottom - s.radius),
+                Offset(v.right - s.radius, v.top + s.radius),
+                strokeWidth = s.crossWidth,
+                cap = StrokeCap.Round,
+                alpha = alpha,
+            )
+            tagColor = colors.textMuted
+            tagText = "EXCLUDED"
+            tagStyle = s.tagStyleSmall
+        }
+        BoxLook.Ignored -> {
+            drawRoundRect(colors.text, topLeft, boxSize, corner, style = s.ignoredStroke, alpha = IgnoredInkAlpha * alpha)
+            tagColor = colors.text.copy(alpha = IgnoredInkAlpha)
+            tagText = b.card.chipLabel()
+            tagStyle = s.tagStyleSmall
+        }
+        BoxLook.Scoring, BoxLook.Duplicate -> {
+            val ink = if (b.look == BoxLook.Duplicate) colors.bust else colors.scanBox
+            drawScanBox(
+                colors, topLeft, boxSize, strokeWidth = s.scanWidth, outlineWidth = s.outlineWidth,
+                cornerRadius = s.radius, ink = ink, alpha = alpha,
+            )
+            tagColor = ink
+            tagText = b.card.chipLabel()
+            tagStyle = s.tagStyle
+        }
+    }
+    // TextMeasurer caches the layouts of recent (text, style) pairs, so this is cheap per frame.
+    val text = measurer.measure(tagText, tagStyle)
+    val tagWidth = text.size.width + 2 * s.padX
+    val tagHeight = text.size.height + 2 * s.padY
+    val tagLeft = (v.left - s.tagInset).coerceIn(0f, (size.width - tagWidth).coerceAtLeast(0f))
+    val tagTop = (v.top - s.tagInset).coerceIn(0f, (size.height - tagHeight).coerceAtLeast(0f))
+    s.tagPath.reset()
+    s.tagPath.addRoundRect(
+        RoundRect(
+            left = tagLeft, top = tagTop, right = tagLeft + tagWidth, bottom = tagTop + tagHeight,
+            topLeftCornerRadius = s.tagCorner, topRightCornerRadius = CornerRadius.Zero,
+            bottomRightCornerRadius = s.tagCorner, bottomLeftCornerRadius = CornerRadius.Zero,
+        ),
+    )
+    drawPath(s.tagPath, tagColor, alpha = alpha)
+    drawText(text, topLeft = Offset(tagLeft + s.padX, tagTop + s.padY), alpha = alpha)
+}
+
+/** Ink alpha of ignored boxes (action cards / backs). */
+private const val IgnoredInkAlpha = 0.78f
 
 private val BoxTag = TextStyle(fontFamily = Unbounded, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
 private val BoxTagSmall = TextStyle(fontFamily = Unbounded, fontWeight = FontWeight.SemiBold, fontSize = 9.sp)
