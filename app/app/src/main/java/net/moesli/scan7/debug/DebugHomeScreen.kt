@@ -69,10 +69,6 @@ data class DebugHomeUi(
     val acceptScore: Float,
     val keepScore: Float,
     val saveScans: Boolean,
-    /** Saved training scans on the device: `null` while counting. */
-    val trainingScans: Int?,
-    val trainingBytes: Long?,
-    val trainingError: String? = null,
     val appVersion: String,
     val buildType: String,
     val dbSchema: Int,
@@ -80,7 +76,7 @@ data class DebugHomeUi(
 
 /**
  * Debug menu (tap the Home wordmark 5×): detector tools + model info, the "Save scans for
- * training" toggle with the scans saved on the device, score tester and component gallery.
+ * training" toggle.
  */
 @Composable
 fun DebugHomeScreen(
@@ -88,8 +84,6 @@ fun DebugHomeScreen(
     onBack: () -> Unit,
     onLiveCamera: () -> Unit,
     onDetectFromPhoto: () -> Unit,
-    onScoreTester: () -> Unit,
-    onComponentGallery: () -> Unit,
     onSaveScansChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     onLoadDetector: () -> Unit = {},
@@ -125,20 +119,8 @@ fun DebugHomeScreen(
 
             Section("Training data")
             SaveScansCard(state.saveScans, onSaveScansChange)
-            DebugCard {
-                InfoRow("On device", trainingText(state))
-                Text(
-                    "Copied to the Mac with ml/scripts/import_app_scans.py",
-                    color = colors.textMuted,
-                    style = Scan7Type.text12,
-                )
-            }
 
-            Section("Scoring")
-            NavCard("Score tester", "Build a row by hand and check scoreRow()", onScoreTester)
 
-            Section("Design")
-            NavCard("Component gallery", "Design components in all states and size classes", onComponentGallery)
 
             Text(
                 "Scan7 ${state.appVersion} · ${state.buildType} · DB schema ${state.dbSchema}",
@@ -272,15 +254,6 @@ private fun detectorText(status: DetectorStatus): String = when (status) {
     is DetectorStatus.Failed -> "failed: ${status.message}"
 }
 
-private fun trainingText(state: DebugHomeUi): String = when {
-    state.trainingError != null -> "can't read: ${state.trainingError}"
-    state.trainingScans == null -> "counting…"
-    else -> {
-        val n = state.trainingScans
-        "$n ${if (n == 1) "scan" else "scans"} · ${formatBytes(state.trainingBytes ?: 0L)}"
-    }
-}
-
 internal fun formatBytes(bytes: Long): String = when {
     bytes >= 1_000_000 -> "%.1f MB".format(Locale.ROOT, bytes / 1e6)
     bytes >= 1_000 -> "%.0f kB".format(Locale.ROOT, bytes / 1e3)
@@ -302,8 +275,6 @@ private fun DebugHomeScreenPreview() {
                 acceptScore = 0.35f,
                 keepScore = 0.2f,
                 saveScans = true,
-                trainingScans = 12,
-                trainingBytes = 31_400_000,
                 appVersion = "1.0 (1)",
                 buildType = "debug",
                 dbSchema = 2,
@@ -311,8 +282,6 @@ private fun DebugHomeScreenPreview() {
             onBack = {},
             onLiveCamera = {},
             onDetectFromPhoto = {},
-            onScoreTester = {},
-            onComponentGallery = {},
             onSaveScansChange = {},
         )
     }

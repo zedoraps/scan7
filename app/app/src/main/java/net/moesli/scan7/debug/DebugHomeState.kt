@@ -20,19 +20,15 @@ import net.moesli.scan7.detection.DetectorHolder
 import net.moesli.scan7.detection.KEEP_SCORE
 import net.moesli.scan7.detection.MODEL_INPUT_SIZE
 import net.moesli.scan7.detection.readModelDetails
-import net.moesli.scan7.training.TrainingStats
-import net.moesli.scan7.training.readTrainingStats
 
 /**
  * State behind [DebugHomeScreen]: model details, detector backend (only what [DetectorHolder]
- * already loaded; [loadDetector] loads it on request) and the training scans on the device
- * (MediaStore, counted off the main thread every time the menu is shown).
+ * already loaded; [loadDetector] loads it on request) .
  */
 @Stable
 class DebugHomeState(private val context: Context, private val scope: CoroutineScope) {
     private val model = readModelDetails(context)
     private var detector: DetectorStatus by mutableStateOf(statusOf(DetectorHolder.loaded))
-    private var training: Result<TrainingStats>? by mutableStateOf(null)
 
     fun loadDetector() {
         if (detector != DetectorStatus.NotLoaded) return
@@ -40,9 +36,6 @@ class DebugHomeState(private val context: Context, private val scope: CoroutineS
         scope.launch { detector = statusOf(DetectorHolder.get(context)) }
     }
 
-    fun refreshTraining() {
-        scope.launch { training = readTrainingStats(context) }
-    }
 
     fun ui(saveScans: Boolean): DebugHomeUi = DebugHomeUi(
         modelVersion = model?.version,
@@ -52,9 +45,6 @@ class DebugHomeState(private val context: Context, private val scope: CoroutineS
         acceptScore = ACCEPT_SCORE,
         keepScore = KEEP_SCORE,
         saveScans = saveScans,
-        trainingScans = training?.getOrNull()?.scans,
-        trainingBytes = training?.getOrNull()?.bytes,
-        trainingError = training?.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName },
         appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
         buildType = BuildConfig.BUILD_TYPE,
         dbSchema = DB_SCHEMA_VERSION,
@@ -74,6 +64,5 @@ fun rememberDebugHomeState(): DebugHomeState {
     val context = LocalContext.current.applicationContext
     val scope = rememberCoroutineScope()
     val state = remember { DebugHomeState(context, scope) }
-    LaunchedEffect(state) { state.refreshTraining() }
     return state
 }

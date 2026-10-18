@@ -161,7 +161,7 @@ Design note: the grid is the most used input; cards could echo the card colors *
 - Tap a cell → that player's result in that round → 7 (edit). Totals and game-over state update.
 
 ## D Debug screens (existing)
-Live camera with FPS/inference overlay, score tester, detect from photo. Not part of the designed flow; keep reachable for testing.
+Live camera with FPS/inference overlay, detect from photo, "Save scans for training" toggle. Not part of the designed flow; keep reachable for testing.
 
 ---
 

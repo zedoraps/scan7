@@ -23,13 +23,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.moesli.scan7.camera.CameraScreen
 import net.moesli.scan7.data.AppGraph
-import net.moesli.scan7.debug.ComponentGalleryScreen
 import net.moesli.scan7.debug.DebugHomeScreen
 import net.moesli.scan7.debug.rememberDebugHomeState
 import net.moesli.scan7.debug.PhotoDetectScreen
 import net.moesli.scan7.debug.ScanDemoLaunch
 import net.moesli.scan7.debug.ScanFlowDemoScreen
-import net.moesli.scan7.debug.ScoreTesterScreen
 import net.moesli.scan7.ui.gameover.GameOverScreen
 import net.moesli.scan7.ui.gameover.toGameOverUi
 import net.moesli.scan7.ui.history.ScoreboardScreen
@@ -225,16 +223,12 @@ private fun DebugRoute(screen: DebugScreen, stack: BackStack, debug: DebugLaunch
                 onBack = back,
                 onLiveCamera = { open(DebugScreen.CAMERA) },
                 onDetectFromPhoto = { open(DebugScreen.PHOTO) },
-                onScoreTester = { open(DebugScreen.SCORE_TESTER) },
-                onComponentGallery = { open(DebugScreen.GALLERY) },
                 onSaveScansChange = { on -> scope.launch { repository.setSaveScansForTraining(on) } },
                 onLoadDetector = home::loadDetector,
             )
         }
         DebugScreen.CAMERA -> CameraScreen(onBack = back)
-        DebugScreen.SCORE_TESTER -> ScoreTesterScreen(onBack = back)
         DebugScreen.PHOTO -> PhotoDetectScreen(onBack = back, initialUri = debug.photo)
-        DebugScreen.GALLERY -> ComponentGalleryScreen(onBack = back)
         DebugScreen.SCAN_DEMO -> ScanFlowDemoScreen(onBack = back, launch = debug.scanDemo)
     }
 }

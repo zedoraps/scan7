@@ -36,7 +36,7 @@ app/                   Android Gradle root; module app/, package net.moesli.scan
     ui/nav/            app navigation: Route sealed class + self-made back stack (AppNavHost; Home is the start screen)
     ui/round/          Round screen + RoundRoute/RoundController (snapshot → RoundUiState, actions → repository)
     training/          "Save scans for training" (JPEG + JSON sidecar via MediaStore; setting, default on)
-    debug/             debug menu (Detector: live camera, detect from photo, model/backend info · Training data: save-scans toggle + scans on device · Scoring: score tester · Design: component gallery), hidden: tap the Home wordmark 5× (all builds; TalkBack action "Open debug menu"); the scan-flow demo has no menu entry (only the debug_scan_demo / debug_scan_photo hooks)
+    debug/             debug menu (Detector: live camera, detect from photo, model/backend info · Training data: save-scans toggle), hidden: tap the Home wordmark 5× (all builds; TalkBack action "Open debug menu"); the scan-flow demo has no menu entry (only the debug_scan_demo / debug_scan_photo hooks)
     ui/theme/          Scan7 theme, colors, fonts, wordmark
   app/schemas/         exported Room schemas (committed; bump the DB version + add a migration on change)
 ```

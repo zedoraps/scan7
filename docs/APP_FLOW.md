@@ -2,7 +2,7 @@
 
 > Agreed 2026-10-18. This is the spec for the game **flow**; look, layout and interaction are defined in
 > [../design/DESIGN_HANDOFF.md](../design/DESIGN_HANDOFF.md), which wins where they differ. The current debug
-> screens (live camera, score tester, detect from photo) stay available for testing.
+> screens (live camera, detect from photo) stay available for testing.
 
 ## Players
 - Players are stored locally on the phone: name + a color from the fixed 10-color palette (shown as a token with their initial). Add, rename, delete any time. Max 10 players per game.

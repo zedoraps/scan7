@@ -32,53 +32,6 @@ import net.moesli.scan7.scoring.RowScore
 import net.moesli.scan7.scoring.scoreRow
 import net.moesli.scan7.ui.theme.Scan7Theme
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun ScoreTesterScreen(onBack: () -> Unit, modifier: Modifier = Modifier, initialRow: List<Card> = emptyList()) {
-    var row by rememberSaveable { mutableStateOf(initialRow) }
-    DebugScaffold(title = "Score tester", onBack = onBack, modifier = modifier) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    "Row (${row.size}) – tap a card to remove",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.weight(1f).padding(top = 12.dp),
-                )
-                OutlinedButton(onClick = { row = emptyList() }, enabled = row.isNotEmpty()) { Text("Clear") }
-            }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (row.isEmpty()) Text("(empty)", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                row.forEachIndexed { index, card ->
-                    InputChip(
-                        selected = false,
-                        onClick = { row = row.filterIndexed { i, _ -> i != index } },
-                        label = { Text(card.label) },
-                    )
-                }
-            }
-            ScoreBreakdown(scoreRow(row))
-            Text("Add card", style = MaterialTheme.typography.titleSmall)
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Card.entries.forEach { card ->
-                    FilledTonalButton(
-                        onClick = { row = row + card },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                    ) { Text(card.label) }
-                }
-            }
-        }
-    }
-}
-
 @Composable
 internal fun ScoreBreakdown(score: RowScore) {
     if (score.bust) {
@@ -120,13 +73,5 @@ private fun BreakdownLine(name: String, value: String, bold: Boolean = false) {
     Row(modifier = Modifier.fillMaxWidth()) {
         Text(name, fontWeight = weight, modifier = Modifier.weight(1f))
         Text(value, fontWeight = weight)
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun ScoreTesterScreenPreview() {
-    Scan7Theme {
-        ScoreTesterScreen(onBack = {}, initialRow = listOf(Card.N3, Card.N7, Card.N7, Card.TIMES_2))
     }
 }
