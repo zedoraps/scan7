@@ -56,6 +56,14 @@ data class GamePlayerEntity(
     /** Free card position in the table view, normalized 0–1. */
     val tableX: Float?,
     val tableY: Float?,
+    /** Round the player joined in (1 = from the start; later = added mid-game). Added in DB version 5. */
+    @ColumnInfo(defaultValue = "1") val joinedRound: Int = 1,
+    /**
+     * Round the player left in (removed mid-game), `null` while they play. A departed player's row
+     * stays so their past results keep showing; seated rows come first in [seatIndex]. Added in DB
+     * version 5.
+     */
+    val leftRound: Int? = null,
 )
 
 @Entity(

@@ -38,6 +38,7 @@ import net.moesli.scan7.ui.gameover.toGameOverUi
 import net.moesli.scan7.ui.history.ScoreboardScreen
 import net.moesli.scan7.ui.history.toScoreboardUi
 import net.moesli.scan7.ui.home.HomeRoute
+import net.moesli.scan7.ui.newgame.GamePlayersRoute
 import net.moesli.scan7.ui.newgame.NewGameRoute
 import net.moesli.scan7.ui.players.PlayersRoute
 import net.moesli.scan7.ui.round.BustToastState
@@ -155,6 +156,7 @@ private fun Screen(route: Route, stack: BackStack, debug: DebugLaunch, modelInfo
             val navigator = remember(route.gameId, stack) { roundNavigator(route.gameId, stack) }
             RoundRoute(gameId = route.gameId, navigator = navigator, toast = bustToast)
         }
+        is Route.GamePlayers -> GamePlayersRoute(gameId = route.gameId, onDone = back, onBack = back)
         is Route.Scan -> ScanRoute(
             gameId = route.gameId,
             playerId = route.playerId,
@@ -184,6 +186,8 @@ private fun roundNavigator(gameId: Long, stack: BackStack) = object : RoundNavig
     override fun scoreboard() = stack.push(Route.Scoreboard(gameId))
 
     override fun home() = stack.reset(Route.Home)
+
+    override fun managePlayers() = stack.push(Route.GamePlayers(gameId))
 }
 
 @Composable

@@ -65,10 +65,11 @@ interface GameDao {
     @Query("SELECT id FROM games WHERE finishedAt IS NULL")
     suspend fun unfinishedIds(): List<Long>
 
-    /** Most recent game whose players are exactly [ids]. */
+    /** Most recent game whose (final, seated) players are exactly [ids]. */
     @Query(
         """
         SELECT gp.gameId FROM game_players gp JOIN games g ON g.id = gp.gameId
+        WHERE gp.leftRound IS NULL
         GROUP BY gp.gameId
         HAVING COUNT(*) = :count AND SUM(gp.playerId IN (:ids)) = :count
         ORDER BY MAX(g.startedAt) DESC, gp.gameId DESC LIMIT 1
@@ -76,8 +77,13 @@ interface GameDao {
     )
     suspend fun lastGameWithPlayers(ids: List<Long>, count: Int): Long?
 
-    @Query("SELECT * FROM game_players WHERE gameId = :gameId ORDER BY seatIndex")
+    /** Seated players of a game (not the ones who left mid-game), in seating order. */
+    @Query("SELECT * FROM game_players WHERE gameId = :gameId AND leftRound IS NULL ORDER BY seatIndex")
     suspend fun seats(gameId: Long): List<GamePlayerEntity>
+
+    /** A player removed from a game without any trace (joined and left in the same round). */
+    @Query("DELETE FROM game_players WHERE gameId = :gameId AND playerId = :playerId")
+    suspend fun deleteSeat(gameId: Long, playerId: Long)
 
     @Insert
     suspend fun insertGame(game: GameEntity): Long
@@ -103,6 +109,10 @@ interface GameDao {
 
     @Update
     suspend fun updateResult(result: RoundResultEntity)
+
+    /** A dropped result (a player left the running round); its cards go with it (cascade). */
+    @Query("DELETE FROM round_results WHERE id = :id")
+    suspend fun deleteResult(id: Long)
 
     @Query("DELETE FROM result_cards WHERE resultId = :resultId")
     suspend fun deleteCards(resultId: Long)

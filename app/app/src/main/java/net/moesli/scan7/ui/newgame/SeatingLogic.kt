@@ -3,13 +3,11 @@ package net.moesli.scan7.ui.newgame
 import kotlin.math.roundToInt
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.MAX_PLAYERS
+import net.moesli.scan7.game.MIN_PLAYERS
 import net.moesli.scan7.game.PlayerResult
 import net.moesli.scan7.game.RoundState
 import net.moesli.scan7.game.Seat
 import net.moesli.scan7.game.TablePosition
-
-/** Players needed to continue from "pick players" (a game of Flip 7 needs at least two). */
-const val MIN_PLAYERS = 2
 
 /** Target stepper: step and bounds. */
 const val TARGET_STEP = 10

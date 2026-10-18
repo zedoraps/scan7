@@ -28,11 +28,19 @@ fun Player.toUi(
     id = id.toString(),
 )
 
-/** Component models for a game's players in seating order (status of [round], default the running one). */
-fun GameState.playerUis(players: Map<Long, Player>, round: Int = currentRound.number): List<PlayerUi> {
+/**
+ * Component models for a game's players (status of [round], default the running one): [ids]
+ * defaults to the seated players in seating order; pass [GameState.everyoneIds] to include the
+ * players who left mid-game.
+ */
+fun GameState.playerUis(
+    players: Map<Long, Player>,
+    round: Int = currentRound.number,
+    ids: List<Long> = playerIds,
+): List<PlayerUi> {
     val totals = totals
     val leaders = leaders.toSet()
-    return playerIds.map { id ->
+    return ids.map { id ->
         val result = result(id, round)
         val status = when (result.status) {
             ResultStatus.OPEN -> PlayerStatus.Open

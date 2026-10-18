@@ -62,7 +62,7 @@ import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
 
 /** One line of the final standings. */
-data class StandingUi(val playerId: Long, val rank: Int, val player: PlayerUi, val isWinner: Boolean)
+data class StandingUi(val playerId: Long, val rank: Int, val player: PlayerUi, val isWinner: Boolean, val left: Boolean = false)
 
 /** Game over (10) state: [standings] best first (shared ranks on ties). */
 data class GameOverUi(
@@ -78,12 +78,12 @@ data class GameOverUi(
 
 /** Game over data for a finished game. */
 fun GameSnapshot.toGameOverUi(): GameOverUi {
-    val uis = state.playerIds.zip(state.playerUis(players)).toMap()
+    val uis = state.everyoneIds.zip(state.playerUis(players, ids = state.everyoneIds)).toMap()
     return GameOverUi(
         gameId = state.id,
         rounds = state.rounds.size,
         target = state.target,
-        standings = standingsOf(state).map { s -> StandingUi(s.playerId, s.rank, uis.getValue(s.playerId).copy(isLeader = s.isWinner), s.isWinner) },
+        standings = standingsOf(state).map { s -> StandingUi(s.playerId, s.rank, uis.getValue(s.playerId).copy(isLeader = s.isWinner), s.isWinner, s.left) },
     )
 }
 
@@ -177,7 +177,6 @@ private fun Winners(state: GameOverUi) {
                     ScoreRing(1f, w.player.avatar, ringSize, avatarHeight)
                     LeaderBadge(
                         size = if (winners.size == 1) 32.dp else 24.dp,
-                        crownSize = if (winners.size == 1) 18.dp else 14.dp,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .offset(x = 2.dp, y = (-2).dp),
@@ -207,7 +206,8 @@ private fun StandingRow(s: StandingUi) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.card)
     val ink = if (s.isWinner) colors.text else colors.textDone
-    val rank = ordinal(s.rank).resolve()
+    // A player who left mid-game has no rank: "left" instead.
+    val rank = if (s.left) stringResource(R.string.gameover_left) else ordinal(s.rank).resolve()
     val description = stringResource(R.string.gameover_standing_description, rank, s.player.name, pluralStringResource(R.plurals.points, s.player.total, s.player.total)) +
         if (s.isWinner) stringResource(R.string.gameover_winner) else ""
     Row(

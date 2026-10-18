@@ -3,6 +3,7 @@ package net.moesli.scan7.debug
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -15,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.AvatarCatalog
 import net.moesli.scan7.ui.components.AvatarExamplesSheet
+import net.moesli.scan7.ui.components.LeaderBadge
 import net.moesli.scan7.ui.components.PlayerAvatar
 import net.moesli.scan7.ui.components.SectionLabel
 import net.moesli.scan7.ui.theme.Scan7Spacing
@@ -37,6 +39,10 @@ fun AvatarGalleryScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 .padding(horizontal = Scan7Spacing.screenMargin)
                 .padding(bottom = Scan7Spacing.xl),
         ) {
+            SectionLabel("Leader badge (20 / 24 / 32 dp)")
+            Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.l), verticalAlignment = Alignment.CenterVertically) {
+                listOf(20.dp, 24.dp, 32.dp).forEach { LeaderBadge(size = it) }
+            }
             SectionLabel("Faces (sand, dots)")
             LabelledRow(AvatarCatalog.faces.map { it to Avatar(it, "dots", "sand") })
             SectionLabel("Patterns (amber, happy)")

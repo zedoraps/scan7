@@ -15,6 +15,7 @@ import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.ResultSource
 import net.moesli.scan7.game.ScanDirection
 import net.moesli.scan7.game.ScoreAdjustment
+import net.moesli.scan7.game.Seat
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.ViewMode
 import net.moesli.scan7.game.newPlayerAvatar
@@ -29,6 +30,9 @@ data class GameSnapshot(
 ) {
     /** Players in seating order. */
     val seatedPlayers: List<Player> get() = state.playerIds.map { players.getValue(it) }
+
+    /** Everyone who played (seated in seating order, then the ones who left). */
+    val everyone: List<Player> get() = state.everyoneIds.map { players.getValue(it) }
 
     fun player(id: Long): Player = players.getValue(id)
 
@@ -246,6 +250,22 @@ class GameRepository(
     /** Reopens the last (closed) round; also un-finishes the game if it was over. */
     suspend fun reopenRound(gameId: Long): GameState = mutate(gameId) { s, now -> s.reopenRound(now) }
 
+    /**
+     * "Players" from the round menu: the changed lineup ([lineup] = seating order + table spots)
+     * becomes the table in one transaction. New players join the running round as open; players who
+     * are missing leave it (their result there is dropped, past results stay).
+     */
+    suspend fun changePlayers(gameId: Long, lineup: List<Seat>): GameState = mutate(gameId) { s, now -> s.withLineup(lineup, now) }
+
+    /** One player joins the running round (seated after the last seat). */
+    suspend fun addPlayerToGame(gameId: Long, playerId: Long): GameState = db.withTransaction {
+        checkNotNull(playerDao.byId(playerId)) { "No player $playerId" }
+        mutate(gameId) { s, now -> s.addPlayer(playerId, now) }
+    }
+
+    /** One player leaves the running round. */
+    suspend fun removePlayerFromGame(gameId: Long, playerId: Long): GameState = mutate(gameId) { s, now -> s.removePlayer(playerId, now) }
+
     suspend fun reorderSeats(gameId: Long, order: List<Long>): GameState = mutate(gameId) { s, _ -> s.reorderSeats(order) }
 
     suspend fun moveSeat(gameId: Long, from: Int, to: Int): GameState = mutate(gameId) { s, _ -> s.moveSeat(from, to) }
@@ -305,7 +325,12 @@ class GameRepository(
         val gameId = details.game.id
         val game = new.toGameEntity().copy(id = gameId)
         if (game != details.game) gameDao.updateGame(game)
-        if (old == null || old.seats != new.seats) gameDao.upsertSeats(new.toSeatEntities(gameId))
+        if (old == null || old.seats != new.seats || old.departed != new.departed || old.joinedRounds != new.joinedRounds) {
+            // Players gone without a trace (joined and left in the same round) lose their row.
+            val everyone = new.everyoneIds.toSet()
+            for (seat in details.seats) if (seat.playerId !in everyone) gameDao.deleteSeat(gameId, seat.playerId)
+            gameDao.upsertSeats(new.toSeatEntities(gameId))
+        }
 
         // Adjustments: new ones have id 0, removed ones are missing from [new].
         val keptIds = new.adjustments.map { it.id }.toSet()
@@ -321,7 +346,12 @@ class GameRepository(
             if (oldRound != null && oldRound.closedAt != round.closedAt) {
                 gameDao.updateRound(RoundEntity(roundId, gameId, round.number, round.closedAt))
             }
-            for (playerId in new.playerIds) {
+            // Results of the players in that round: everyone seated in the running round; in a closed
+            // one whoever has a result (players who joined later / had left have none).
+            val inRound = if (round.isClosed) round.results.keys else new.playerIds.toSet() + round.results.keys
+            // A player who left the running round: their result there is dropped.
+            for ((key, id) in resultIds) if (key.first == round.number && key.second !in inRound) gameDao.deleteResult(id)
+            for (playerId in inRound) {
                 val result = round.result(playerId)
                 val existingId = resultIds[round.number to playerId]
                 if (existingId != null && oldRound?.result(playerId) == result) continue

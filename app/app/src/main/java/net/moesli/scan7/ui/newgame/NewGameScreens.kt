@@ -53,6 +53,7 @@ import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.data.outlivingUi
 import net.moesli.scan7.game.DEFAULT_TARGET
 import net.moesli.scan7.game.MAX_PLAYERS
+import net.moesli.scan7.game.MIN_PLAYERS
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.ViewMode
@@ -96,6 +97,10 @@ import net.moesli.scan7.ui.theme.Scan7Type
  * Bottom: full-width **Next** (seating step; arranging there is optional, Start game works as is).
  * Avatar colors may repeat within a game (the editor only marks the colors the selected players
  * already use). [error] shows a failed start.
+ *
+ * Also the round menu's "Players" step ([GamePlayersRoute]): there with its own [title] /
+ * [subtitle], no target row ([onTargetChange] `null`), a
+ * [nextLabel] "Done" and a [supporting] line per row ("Joins in round 4" / "Leaves the game").
  */
 @Composable
 fun PickPlayersScreen(
@@ -104,12 +109,16 @@ fun PickPlayersScreen(
     target: Int,
     onToggle: (Long) -> Unit,
     onNewPlayer: () -> Unit,
-    onTargetChange: (Int) -> Unit,
+    onTargetChange: ((Int) -> Unit)?,
     onNext: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     error: String? = null,
     starting: Boolean = false,
+    title: String = stringResource(R.string.newgame_title),
+    subtitle: String? = null,
+    nextLabel: String = stringResource(R.string.action_next),
+    supporting: (Player) -> String? = { null },
 ) {
     val colors = Scan7Theme.colors
     val haptics = LocalHapticFeedback.current
@@ -130,8 +139,8 @@ fun PickPlayersScreen(
             .padding(horizontal = Scan7Spacing.screenMargin),
     ) {
         ScreenHeader(
-            title = stringResource(R.string.newgame_title),
-            subtitle = stringResource(R.string.newgame_subtitle, selectedPlayers.size, MAX_PLAYERS),
+            title = title,
+            subtitle = subtitle ?: stringResource(R.string.newgame_subtitle, selectedPlayers.size, MAX_PLAYERS),
             onBack = onBack,
             modifier = Modifier.headerInsets(),
         )
@@ -141,8 +150,10 @@ fun PickPlayersScreen(
                 if (hint != null) {
                     Text(hint, color = colors.textMuted, style = Scan7Type.text12, modifier = Modifier.padding(bottom = Scan7Spacing.s))
                 }
-                TargetStepper(target = target, onChange = onTargetChange, modifier = Modifier.padding(bottom = Scan7Spacing.m))
-                PrimaryButton(text = stringResource(R.string.action_next), onClick = onNext, enabled = canGo, modifier = Modifier.fillMaxWidth())
+                if (onTargetChange != null) {
+                    TargetStepper(target = target, onChange = onTargetChange, modifier = Modifier.padding(bottom = Scan7Spacing.m))
+                }
+                PrimaryButton(text = nextLabel, onClick = onNext, enabled = canGo, modifier = Modifier.fillMaxWidth())
             },
         ) { bottomPadding ->
             Column(
@@ -171,6 +182,7 @@ fun PickPlayersScreen(
                             onToggle(p.id)
                         },
                         checked = checked,
+                        supporting = supporting(p),
                         leading = { Checkbox(checked) },
                     )
                 }
@@ -278,7 +290,8 @@ fun TargetButtons(target: Int, onChange: (Int) -> Unit) {
  * and Table | List toggle; seat numbers on the cards), so the spots set here are exactly the
  * game's table. Header: back · "Seats" · view toggle; bottom: drag hint + Start game.
  * [players] are in seating order, [positions] their table spots. Start asks first if a game is
- * unfinished ([NewGameRoute]); [error] shows a failed start.
+ * unfinished ([NewGameRoute]); [error] shows a failed start. The round menu's "Players" flow
+ * reuses it with [startLabel] "Done" and the players' game [totals].
  */
 @Composable
 fun SeatingScreen(
@@ -294,13 +307,15 @@ fun SeatingScreen(
     modifier: Modifier = Modifier,
     error: String? = null,
     starting: Boolean = false,
+    startLabel: String = stringResource(R.string.seats_start),
+    totals: Map<Long, Int> = emptyMap(),
 ) {
     val colors = Scan7Theme.colors
     val haptics = LocalHapticFeedback.current
     val state = RoundUiState(
         round = 1,
         target = target,
-        players = players.zip(positions) { p, pos -> RoundPlayer(p.toUi(target = target), pos) },
+        players = players.zip(positions) { p, pos -> RoundPlayer(p.toUi(total = totals[p.id] ?: 0, target = target), pos) },
         view = view,
         arranging = true,
         seating = true,
@@ -348,7 +363,7 @@ fun SeatingScreen(
                     )
                 }
                 PrimaryButton(
-                    text = stringResource(R.string.seats_start),
+                    text = startLabel,
                     onClick = onStart,
                     enabled = !starting && players.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth(),

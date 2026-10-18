@@ -106,6 +106,28 @@ object Confirmations {
     }
 
     /**
+     * Players (round menu) → untick a player of the running game: they leave it. The body says
+     * that their [playedBefore] past rounds stay and what of this round ([status]) is dropped;
+     * with neither (joined this round, still open) there is no body.
+     */
+    fun removePlayer(name: String, status: PlayerStatus, playedBefore: Boolean): ConfirmSpec {
+        val lines = listOfNotNull(
+            uiText(R.string.confirm_remove_player_body_past).takeIf { playedBefore },
+            when (status) {
+                PlayerStatus.Open -> null
+                is PlayerStatus.Scored -> uiText(R.string.confirm_remove_player_body_points, formatPoints(status.points))
+                PlayerStatus.Bust -> uiText(R.string.confirm_remove_player_body_bust)
+            },
+        )
+        return ConfirmSpec(
+            title = uiText(R.string.confirm_remove_player_title, name),
+            confirmLabel = uiText(R.string.action_remove),
+            body = if (lines.isEmpty()) null else UiText.Join(lines, " "),
+            destructive = true,
+        )
+    }
+
+    /**
      * Seating → Start game while a game is unfinished ([unfinishedRound] = its running round,
      * `null` if there is none → starts at once): starting ends that game for good.
      */

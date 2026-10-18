@@ -434,4 +434,20 @@
     <string name="confirm_delete_game_running">Das laufende Spiel geht verloren.</string>
     <string name="confirm_delete_game_irreversible">Das lässt sich nicht rückgängig machen.</string>
     <string name="action_enter_manually_two_lines">Von Hand\neingeben</string>
+    <!-- Spieler während des Spiels (Rundenmenü → Spieler) -->
+    <string name="menu_players">Spieler</string>
+    <string name="manage_players_subtitle">Runde %1$d · %2$d von %3$d</string>
+    <string name="manage_players_joins">Steigt in Runde %1$d ein, offen</string>
+    <string name="manage_players_leaves">Steigt aus</string>
+    <string name="manage_players_error">Spieler konnten nicht geändert werden</string>
+    <string name="confirm_remove_player_title">%1$s aus dem Spiel nehmen?</string>
+    <string name="confirm_remove_player_body_past">Die Punkte aus früheren Runden bleiben in der Punktetabelle.</string>
+    <string name="confirm_remove_player_body_points">Die %1$s aus dieser Runde fallen weg.</string>
+    <string name="confirm_remove_player_body_bust">Das RAUS aus dieser Runde fällt weg.</string>
+    <string name="player_left_tag">weg</string>
+    <string name="player_joined_tag">ab R%1$d</string>
+    <string name="gameover_left">ausgestiegen</string>
+    <string name="scoreboard_joined_description">%1$s, ab Runde %2$d dabei</string>
+    <string name="scoreboard_left_description">%1$s, in Runde %2$d ausgestiegen</string>
+    <string name="scoreboard_cell_absent">Runde %1$d, %2$s: nicht dabei</string>
 </resources>

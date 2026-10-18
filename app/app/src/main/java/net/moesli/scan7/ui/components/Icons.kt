@@ -55,7 +55,18 @@ private object Vectors {
     val dragHandle by lazy {
         vector("DragHandle", listOf(9f, 15f).flatMap { x -> listOf(6f, 12f, 18f).map { y -> circle(x, y, 1.8f) } }.joinToString(""), null)
     }
-    val crown by lazy { vector("Crown", "M3 18h18l-1.5-10-5 4L12 5l-2.5 7-5-4z", null) }
+    /**
+     * Leader crown: three points with rounded (curved) tips over a separate rounded base band, bold
+     * enough for a 20 dp badge. Own drawing (no Flip 7 artwork); spans x 3–21, y 4–20 of the grid.
+     */
+    val crown by lazy {
+        vector(
+            "Crown",
+            "M4.2 16L3.1 8.4Q3 7 4.2 7.8L8.1 10.9 10.9 4.9Q12 3.4 13.1 4.9L15.9 10.9 19.8 7.8Q21 7 20.9 8.4L19.8 16z" +
+                roundRect(4.2f, 17.4f, 15.6f, 2.8f, 1.4f),
+            null,
+        )
+    }
     val scan by lazy { vector("Scan", "M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3M4 12h16", 2.4f) }
     val list by lazy { vector("List", "M4 6h16M4 12h16M4 18h16", 2f) }
     val keypad by lazy {
@@ -65,6 +76,14 @@ private object Vectors {
         vector(
             "Arrange",
             "M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3",
+            2f,
+        )
+    }
+    /** Two people (round menu "Players"). */
+    val players by lazy {
+        vector(
+            "Players",
+            circle(9f, 8f, 3.2f) + "M3.5 19.5c0-3.2 2.4-5.5 5.5-5.5s5.5 2.3 5.5 5.5" + circle(16.8f, 9f, 2.4f) + "M16 14.2c2.7 0 4.6 2 4.6 4.8",
             2f,
         )
     }
@@ -116,6 +135,10 @@ fun DragHandleIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp
 
 @Composable
 fun PencilIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 18.dp) = VectorIcon(Vectors.pencil, color, size, modifier)
+
+/** Two people (manage the game's players). */
+@Composable
+fun PlayersIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) = VectorIcon(Vectors.players, color, size, modifier)
 
 /** Crown for the leader badge. */
 @Composable

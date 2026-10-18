@@ -6,6 +6,9 @@ import net.moesli.scan7.scoring.RowScore
 import net.moesli.scan7.scoring.scoreRow
 
 const val MAX_PLAYERS = 10
+
+/** Fewest players a game can have (a game of Flip 7 needs at least two; also mid-game). */
+const val MIN_PLAYERS = 2
 const val DEFAULT_TARGET = 200
 
 /** Player count up to which the table view is the default (more players → list view). */
@@ -92,6 +95,13 @@ fun List<ConfirmedCard>.countedCards(): List<Card> =
 data class TablePosition(val x: Float, val y: Float) {
     fun clamped(): TablePosition = TablePosition(x.coerceIn(0f, 1f), y.coerceIn(0f, 1f))
 }
+
+/**
+ * A player who left a running game ("Players" in the round menu). Their results of rounds
+ * [joinedRound] until before [leftRound] stay in the scoreboard and their total; they no longer
+ * play, count for the round's progress, Scan next or the winner.
+ */
+data class DepartedPlayer(val playerId: Long, val joinedRound: Int, val leftRound: Int)
 
 /** A player at the table. The order of [GameState.seats] is the seating order. */
 data class Seat(val playerId: Long, val position: TablePosition)

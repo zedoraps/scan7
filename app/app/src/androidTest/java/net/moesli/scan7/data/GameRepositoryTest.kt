@@ -64,6 +64,42 @@ class GameRepositoryTest {
     }
 
     @Test
+    fun playersJoinAndLeaveMidGame_persisted() = runBlocking {
+        val anna = repo.addPlayer("Anna")
+        val ben = repo.addPlayer("Ben")
+        val cleo = repo.addPlayer("Cleo")
+        val dan = repo.addPlayer("Dan")
+        val gameId = repo.startGame(listOf(anna, ben, cleo))
+        repo.scorePoints(gameId, anna, 10)
+        repo.scorePoints(gameId, ben, 20)
+        repo.scorePoints(gameId, cleo, 30)
+        repo.closeRoundAndStartNext(gameId)
+        // Round 2: Ben scores, then leaves (his result in round 2 is dropped); Dan joins.
+        repo.scoreCards(gameId, ben, listOf(ConfirmedCard(Card.N12)), ResultSource.MANUAL)
+        repo.removePlayerFromGame(gameId, ben)
+        repo.addPlayerToGame(gameId, dan)
+
+        val s = repo.loadGame(gameId)!!
+        assertEquals(listOf(anna, cleo, dan), s.playerIds)
+        assertEquals(listOf(anna, cleo, dan, ben), s.everyoneIds)
+        assertEquals(2, s.joinedRound(dan))
+        assertEquals(2, s.leftRound(ben))
+        assertEquals(20, s.total(ben))
+        assertEquals(setOf(anna, cleo, dan), s.round(2).results.keys)
+        assertEquals(setOf(anna, ben, cleo), s.round(1).results.keys)
+        // A finished game with the same final lineup is found for the next game's seats.
+        repo.closeRoundAndStartNext(gameId)
+        assertEquals(setOf(anna, cleo, dan), repo.previousSeating(setOf(anna, cleo, dan))!!.toSet())
+        assertNull(repo.previousSeating(setOf(anna, ben, cleo, dan)))
+
+        // Joined and left in the same round, nothing recorded: no trace.
+        val eve = repo.addPlayer("Eve")
+        repo.addPlayerToGame(gameId, eve)
+        repo.removePlayerFromGame(gameId, eve)
+        assertEquals(listOf(anna, cleo, dan, ben), repo.loadGame(gameId)!!.everyoneIds)
+    }
+
+    @Test
     fun positionsCopiedFromPreviousGameWithSamePlayers() = runBlocking {
         val a = repo.addPlayer("A")
         val b = repo.addPlayer("B")
