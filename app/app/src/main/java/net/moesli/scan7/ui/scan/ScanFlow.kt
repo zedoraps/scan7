@@ -8,12 +8,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import android.widget.Toast
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import net.moesli.scan7.BuildConfig
 import net.moesli.scan7.camera.DetectionAnalyzer
 import net.moesli.scan7.data.AppGraph
+import kotlinx.coroutines.Deferred
+import net.moesli.scan7.detection.KEEP_SCORE
 import net.moesli.scan7.training.SavedSample
+import net.moesli.scan7.training.TrainingCapture
 import net.moesli.scan7.training.TrainingSaver
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.ui.components.PlayerUi
@@ -86,7 +87,7 @@ internal fun ScanFlowContent(
     initialCapture: ScanCapture?,
 ) {
     val context = LocalContext.current
-    // One analyzer for the whole flow: it keeps the latest frame for the shutter.
+    // One analyzer for the whole flow: it buffers the recent frames for the best-frame shutter.
     val analyzer = remember { DetectionAnalyzer(context) }
     var step by remember(player.id) {
         mutableStateOf(
@@ -99,15 +100,15 @@ internal fun ScanFlowContent(
     }
     val leave = if (mode == ScanMode.ScanNext) onBackToTable else onCancel
 
-    // "Save scans for training" (debug setting): every confirmed scan is saved; a capture saved
-    // one-off from the review only gets its JSON updated with the outcome.
+    // "Save scans for training" (on by default): every shutter photo is saved (outcome null) as
+    // its review opens, also if it ends in Retake / Cancel; a confirm then adds the outcome.
     val repository = remember { AppGraph.repository(context) }
     val saveScans by repository.saveScansForTraining.collectAsStateWithLifecycle(initialValue = false)
-    var savedCapture by remember { mutableStateOf<Pair<ScanCapture, SavedSample>?>(null) }
+    var savedCapture by remember { mutableStateOf<Pair<ScanCapture, Deferred<SavedSample?>>?>(null) }
     val confirm = { outcome: ScanOutcome, capture: ScanCapture? ->
-        val existing = savedCapture?.takeIf { it.first === capture }?.second
-        if (capture != null && (saveScans || existing != null)) {
-            TrainingSaver.saveAsync(context, capture, outcome, existing)
+        val saved = savedCapture?.takeIf { it.first === capture }?.second
+        if (capture != null && (saveScans || saved != null)) {
+            TrainingSaver.saveOutcome(context, capture, outcome, saved)
         }
         onResult(outcome)
     }
@@ -121,20 +122,26 @@ internal fun ScanFlowContent(
                 analyzer = analyzer,
                 recording = saveScans,
                 onCaptured = { frame ->
-                    step = Step.Review(
-                        ScanCapture(
-                            bitmap = frame.bitmap,
-                            detections = frame.result.getOrNull()?.detections.orEmpty(),
-                            error = frame.result.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName },
-                            meta = CaptureMeta(
-                                origin = "camera",
-                                rotationDegrees = frame.rotationDegrees,
-                                zoomRatio = frame.zoomRatio,
-                                backend = frame.result.getOrNull()?.backend,
-                                threshold = frame.threshold,
+                    val capture = ScanCapture(
+                        bitmap = frame.bitmap,
+                        detections = frame.detections,
+                        meta = CaptureMeta(
+                            origin = "camera",
+                            rotationDegrees = frame.rotationDegrees,
+                            zoomRatio = frame.zoomRatio,
+                            backend = frame.backend,
+                            threshold = frame.threshold,
+                            choice = TrainingCapture(
+                                bestOf = frame.choice.bestOf,
+                                chosenOffsetMs = frame.choice.chosenOffsetMs,
+                                selectionScore = frame.choice.selectionScore,
+                                sharpness = frame.choice.sharpness,
+                                keepThreshold = KEEP_SCORE,
                             ),
                         ),
                     )
+                    if (saveScans) savedCapture = capture to TrainingSaver.saveCapture(context, capture)
+                    step = Step.Review(capture)
                 },
                 onTypeInstead = { step = Step.Manual(SplitCards(emptyList(), emptyList()), back = Step.Camera) },
                 onClose = onCancel,
@@ -152,17 +159,6 @@ internal fun ScanFlowContent(
                 onFix = { step = Step.Manual(manualStart(s.capture.cards), back = s) },
                 onEnterManually = { step = Step.Manual(manualStart(s.capture.cards), back = s) },
                 onConfirm = { confirm(it, s.capture) },
-                onSaveForTraining = if (BuildConfig.DEBUG) {
-                    {
-                        val capture = s.capture
-                        TrainingSaver.saveAsync(context, capture, outcome = null, existing = savedCapture?.takeIf { it.first === capture }?.second) {
-                            savedCapture = capture to it
-                            Toast.makeText(context, "Saved for training", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                } else {
-                    null
-                },
                 modifier = modifier,
             )
         }

@@ -216,7 +216,7 @@ private fun DebugRoute(screen: DebugScreen, stack: BackStack, debug: DebugLaunch
         DebugScreen.HOME -> {
             val repository = AppGraph.repository(LocalContext.current)
             val scope = rememberCoroutineScope()
-            val saveScans by repository.saveScansForTraining.collectAsStateWithLifecycle(initialValue = false)
+            val saveScans by repository.saveScansForTraining.collectAsStateWithLifecycle(initialValue = true)
             HomeScreen(
                 onLiveCamera = { open(DebugScreen.CAMERA) },
                 onScoreTester = { open(DebugScreen.SCORE_TESTER) },

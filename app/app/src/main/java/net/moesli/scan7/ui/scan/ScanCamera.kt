@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.scan
 
+import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -86,7 +87,7 @@ internal fun ScanCameraStep(
     var notReady by remember { mutableStateOf(false) }
     LaunchedEffect(analyzer) { analyzer.clearStats() }
 
-    val seen = stats?.detections?.toCards()?.count { it.first.isScoring } ?: 0
+    val seen = stats?.tracks?.map { it.detection }?.toCards()?.count { it.first.isScoring } ?: 0
     val canShoot = permission.granted && stats != null && stats?.error == null && !capturing
 
     Column(modifier = modifier.fillMaxSize().background(colors.ground)) {
@@ -105,7 +106,7 @@ internal fun ScanCameraStep(
                     analyzer = analyzer,
                     overlay = { s ->
                         ScanBoxesOverlay(
-                            boxes = scanBoxes(s.detections, markDuplicates = false),
+                            boxes = trackBoxes(s.tracks),
                             imageWidth = s.uprightWidth,
                             imageHeight = s.uprightHeight,
                             crop = true,
@@ -133,10 +134,12 @@ internal fun ScanCameraStep(
             showCount = permission.granted && stats != null,
             shutterEnabled = canShoot,
             onShutter = {
+                // Best-frame shutter: compares the frames around the press (see DetectionAnalyzer.capture).
+                val pressedAt = SystemClock.elapsedRealtime()
                 scope.launch {
                     capturing = true
                     notReady = false
-                    val frame = analyzer.capture()
+                    val frame = analyzer.capture(pressedAt)
                     capturing = false
                     if (frame == null) notReady = true else onCaptured(frame)
                 }
@@ -328,7 +331,7 @@ private fun BoxScope.PermissionMissing(onAllow: () -> Unit, onOpenSettings: () -
     }
 }
 
-/** "● REC": confirmed scans are saved for training (debug setting). Muted, never bust magenta. */
+/** "● REC": every shutter photo is saved for training ("Save scans for training" setting). Muted, never bust magenta. */
 @Composable
 private fun RecMarker() {
     Text(

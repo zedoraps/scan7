@@ -35,7 +35,7 @@ app/                   Android Gradle root; module app/, package net.moesli.scan
     camera/ detection/ CameraX preview, detector, overlay
     ui/nav/            app navigation: Route sealed class + self-made back stack (AppNavHost; Home is the start screen)
     ui/round/          Round screen + RoundRoute/RoundController (snapshot → RoundUiState, actions → repository)
-    training/          "Save scans for training" (JPEG + JSON sidecar via MediaStore; debug setting)
+    training/          "Save scans for training" (JPEG + JSON sidecar via MediaStore; setting, default on)
     debug/             debug screens (home, score tester, detect from photo), reached via "Debug" on Home
     ui/theme/          Scan7 theme, colors, fonts, wordmark
   app/schemas/         exported Room schemas (committed; bump the DB version + add a migration on change)
@@ -59,7 +59,7 @@ The app's `model.tflite` is **not in git** (gitignored, ~10 MB per version): aft
 Debug-only app hooks (debug builds): `adb shell am start -n net.moesli.scan7/.MainActivity --es debug_photo /data/data/net.moesli.scan7/files/x.jpg [--ez debug_cpu true]`
 (copy the photo in with `adb push x.jpg /data/local/tmp/ && adb shell run-as net.moesli.scan7 cp /data/local/tmp/x.jpg files/`).
 `--es debug_game_photo <path>`: every camera scan in the real game flow opens the review on that photo (emulator end-to-end tests).
-Debug home toggle "Save scans for training": confirmed scans → `/sdcard/Pictures/Scan7 Training/scan7_<ts>.jpg` + `/sdcard/Documents/Scan7 Training/scan7_<ts>.json` (`adb pull "/sdcard/Pictures/Scan7 Training"`).
+Debug home toggle "Save scans for training" (default **on**): every shutter photo → `/sdcard/Pictures/Scan7 Training/scan7_<ts>.jpg` + `/sdcard/Documents/Scan7 Training/scan7_<ts>.json`; outcome `null` until confirmed (`adb pull "/sdcard/Pictures/Scan7 Training"`).
 ```sh
 ```
 

@@ -27,7 +27,7 @@ const val MODEL_VERSION_ASSET = "model_version.txt"
 
 /** Model input edge in px; must match the export (ml/scripts/export.py --imgsz). */
 const val MODEL_INPUT_SIZE = 640
-const val DEFAULT_CONFIDENCE = 0.35f
+const val DEFAULT_CONFIDENCE = ACCEPT_SCORE
 
 /** Result of one detector run. [imageWidth]/[imageHeight] are the upright source size. */
 data class DetectionResult(
@@ -39,6 +39,8 @@ data class DetectionResult(
     /** Time for letterbox/rotate + float conversion. */
     val preprocessMs: Float,
     val backend: String,
+    /** [laplacianVariance] of the model input (content area), for picking the sharpest frame. */
+    val sharpness: Float = 0f,
 )
 
 /**
@@ -74,12 +76,14 @@ class CardDetector private constructor(
      * buffers can be wider than the image because of row padding). [rotationDegrees] is the
      * clockwise rotation that makes the source upright; it is applied while letterboxing, so no
      * upright copy is made. Boxes come back normalized in upright source coordinates.
+     * [threshold] defaults to [confidenceThreshold]; the live camera passes the lower [KEEP_SCORE].
      */
     fun detect(
         source: Bitmap,
         rotationDegrees: Int = 0,
         width: Int = source.width,
         height: Int = source.height,
+        threshold: Float = confidenceThreshold,
     ): DetectionResult {
         val t0 = SystemClock.elapsedRealtimeNanos()
         val (uprightWidth, uprightHeight) = uprightSize(width, height, rotationDegrees)
@@ -94,12 +98,13 @@ class CardDetector private constructor(
         }
         inputBitmap.getPixels(pixels, 0, size, 0, 0, size, size)
         argbToChwFloat(pixels, size, input)
+        val sharpness = laplacianVariance(pixels, size, letterbox.padX, letterbox.padY, letterbox.contentWidth, letterbox.contentHeight)
         val t1 = SystemClock.elapsedRealtimeNanos()
         inputBuffers[0].writeFloat(input)
         model.run(inputBuffers, outputBuffers)
         val output = outputBuffers[0].readFloat()
         val t2 = SystemClock.elapsedRealtimeNanos()
-        val detections = parseEndToEnd(output, labels, letterbox, confidenceThreshold)
+        val detections = parseEndToEnd(output, labels, letterbox, threshold)
         return DetectionResult(
             detections = detections,
             imageWidth = uprightWidth,
@@ -107,6 +112,7 @@ class CardDetector private constructor(
             inferenceMs = (t2 - t1) / 1e6f,
             preprocessMs = (t1 - t0) / 1e6f,
             backend = backend,
+            sharpness = sharpness,
         )
     }
 

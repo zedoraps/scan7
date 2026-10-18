@@ -24,8 +24,9 @@ class TrainingSampleTest {
         backend = "GPU",
         threshold = 0.35f,
         origin = "camera",
-        detections = listOf(Detection("7", 0.91f, Box(0.1f, 0.2f, 0.3f, 0.5f)), Detection("freeze", 0.5f, Box(0f, 0f, 0.25f, 0.25f))),
+        detections = listOf(Detection("7", 0.91f, Box(0.1f, 0.2f, 0.3f, 0.5f)), Detection("freeze", 0.5f, Box(0f, 0f, 0.25f, 0.25f), fromTracking = true)),
         outcome = TrainingOutcome("scored", "manual_after_scan", listOf("7", "x2"), listOf("freeze"), 14),
+        capture = TrainingCapture(bestOf = 6, chosenOffsetMs = -120, selectionScore = 3.25f, sharpness = 410.5f, keepThreshold = 0.2f),
     )
 
     @Test
@@ -46,7 +47,10 @@ class TrainingSampleTest {
             "\"image\": {\"width\": 960, \"height\": 1280}",
             "\"detector\": {\"backend\": \"GPU\", \"threshold\": 0.35}",
             "\"origin\": \"camera\"",
-            "{\"label\": \"7\", \"score\": 0.91, \"box\": {\"left\": 0.1, \"top\": 0.2, \"right\": 0.3, \"bottom\": 0.5}}",
+            "{\"label\": \"7\", \"score\": 0.91, \"box\": {\"left\": 0.1, \"top\": 0.2, \"right\": 0.3, \"bottom\": 0.5}, \"from_tracking\": false}",
+            "\"label\": \"freeze\", \"score\": 0.5, \"box\": {\"left\": 0.0, \"top\": 0.0, \"right\": 0.25, \"bottom\": 0.25}, \"from_tracking\": true}",
+            "\"capture\": {\"best_of\": 6, \"chosen_offset_ms\": -120, \"selection_score\": 3.25, \"sharpness\": 410.5, \"keep_threshold\": 0.2}",
+            "\"detections_from_tracking\": 1",
             "\"outcome\": {\"kind\": \"scored\", \"source\": \"manual_after_scan\", \"points\": 14, \"cards\": [\"7\", \"x2\"], \"ignored\": [\"freeze\"]}",
         ).forEach { assertTrue("missing $it in\n$json", json.contains(it)) }
         assertBalanced(json)
@@ -54,8 +58,9 @@ class TrainingSampleTest {
 
     @Test
     fun unconfirmedAndEmpty() {
-        val json = sample.copy(outcome = null, detections = emptyList(), zoomRatio = null, rotationDegrees = null, modelVersion = null).toJson(utc)
+        val json = sample.copy(outcome = null, detections = emptyList(), zoomRatio = null, rotationDegrees = null, modelVersion = null, capture = null).toJson(utc)
         assertTrue(json.contains("\"outcome\": null"))
+        assertTrue(json.contains("\"capture\": null"))
         assertTrue(json.contains("\"detections\": []"))
         assertTrue(json.contains("\"zoom_ratio\": null"))
         assertTrue(json.contains("\"model_version\": null"))

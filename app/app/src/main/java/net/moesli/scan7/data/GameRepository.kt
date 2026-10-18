@@ -54,9 +54,12 @@ class GameRepository(
         .map { v -> v?.let { runCatching { ViewMode.valueOf(it) }.getOrNull() } }
         .distinctUntilChanged()
 
-    /** Debug setting "Save scans for training" (default off). */
+    /**
+     * Setting "Save scans for training": every shutter photo + JSON. Default on (also for installs
+     * that never touched the toggle); off only once the user switched it off.
+     */
     val saveScansForTraining: Flow<Boolean> = settingsDao.observe(KEY_SAVE_SCANS)
-        .map { it == "true" }
+        .map { it != "false" }
         .distinctUntilChanged()
 
     suspend fun setSaveScansForTraining(on: Boolean) = settingsDao.put(SettingEntity(KEY_SAVE_SCANS, on.toString()))

@@ -12,20 +12,37 @@ import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import net.moesli.scan7.detection.ACCEPT_SCORE
 import net.moesli.scan7.detection.Detection
-import net.moesli.scan7.detection.DetectionResult
+import net.moesli.scan7.detection.DetectionTracker
 import net.moesli.scan7.detection.DetectorHolder
+import net.moesli.scan7.detection.FrameCandidate
+import net.moesli.scan7.detection.KEEP_SCORE
+import net.moesli.scan7.detection.SHUTTER_LOOKAHEAD_MS
+import net.moesli.scan7.detection.SHUTTER_LOOKBACK_MS
+import net.moesli.scan7.detection.SHUTTER_MAX_WAIT_MS
+import net.moesli.scan7.detection.TrackedDetection
+import net.moesli.scan7.detection.selectBestFrame
+import net.moesli.scan7.detection.selectionScore
+import net.moesli.scan7.detection.stableDetections
 
 private const val TAG = "DetectionAnalyzer"
 
-/** Per-frame info for the live overlay. [width]/[height] are the buffer size as delivered (before rotation). */
+/**
+ * Per-frame info for the live overlay. [width]/[height] are the buffer size as delivered (before
+ * rotation). [detections] are this frame's raw detections ≥ [ACCEPT_SCORE] (debug overlay);
+ * [tracks] the smoothed, hysteresis-filtered cards the scan camera shows.
+ */
 data class FrameStats(
     val fps: Float,
     val width: Int,
     val height: Int,
     val rotationDegrees: Int,
     val detections: List<Detection> = emptyList(),
+    val tracks: List<TrackedDetection> = emptyList(),
     val inferenceMs: Float = 0f,
     val preprocessMs: Float = 0f,
     val backend: String? = null,
@@ -35,38 +52,70 @@ data class FrameStats(
     val uprightHeight: Int get() = if (rotationDegrees % 180 == 0) height else width
 }
 
-/**
- * A frozen analysis frame (upright, own copy) and the detector result on it, with the camera
- * [rotationDegrees] that was applied, the [zoomRatio] at capture time and the detector [threshold].
- */
-class CapturedFrame(
-    val bitmap: Bitmap,
-    val result: Result<DetectionResult>,
-    val rotationDegrees: Int = 0,
-    val zoomRatio: Float? = null,
-    val threshold: Float? = null,
+/** How the shutter picked its frame (stored with "Save scans for training"). */
+data class FrameChoice(
+    /** Number of buffered frames that were compared. */
+    val bestOf: Int,
+    /** Arrival of the chosen frame relative to the shutter press (negative = before). */
+    val chosenOffsetMs: Long,
+    /** [selectionScore] of the chosen frame. */
+    val selectionScore: Float,
+    val sharpness: Float,
 )
 
 /**
- * Runs the card detector on each RGBA_8888 analysis frame. Must be installed on
- * [DetectorHolder.executor]. The frame is copied into one reused bitmap (row padding included);
- * rotation and letterboxing happen in a single draw inside the detector.
+ * A frozen analysis frame (upright, own copy) and its [detections] after hysteresis and tracking
+ * fill-in ([stableDetections]), with the camera [rotationDegrees] that was applied, the
+ * [zoomRatio] at that frame and the detector [threshold].
+ */
+class CapturedFrame(
+    val bitmap: Bitmap,
+    val detections: List<Detection>,
+    val rotationDegrees: Int,
+    val zoomRatio: Float?,
+    val backend: String?,
+    val threshold: Float,
+    val choice: FrameChoice,
+)
+
+/** Analysis frames kept for the best-frame shutter (≈ 1 s at 8 fps; 8 × ~5 MB at 1280×960). */
+private const val RING_SIZE = 8
+
+/** One buffered analysis frame; the bitmap is reused (raw buffer copy, rotation not applied). */
+private class FrameSlot {
+    var bitmap: Bitmap? = null
+    var valid = false
+    var width = 0
+    var height = 0
+    var rotation = 0
+    var timeMs = 0L
+    var zoomRatio: Float? = null
+    var backend: String? = null
+    var detections: List<Detection> = emptyList()
+    var sharpness = 0f
+}
+
+/**
+ * Runs the card detector (at [KEEP_SCORE]) on each RGBA_8888 analysis frame and feeds a
+ * [DetectionTracker]. Must be installed on [DetectorHolder.executor]. Each frame is copied into
+ * the next slot of a ring of [RING_SIZE] reused bitmaps (row padding included); rotation and
+ * letterboxing happen in a single draw inside the detector.
  *
- * The latest frame stays available for [capture] (shutter button): it runs on the same detector
- * thread, so it reads the frame between two [analyze] calls without extra per-frame copies.
+ * [capture] (shutter) picks the best buffered frame from [SHUTTER_LOOKBACK_MS] before to
+ * [SHUTTER_LOOKAHEAD_MS] after the press by [selectionScore]; the ring is only touched on the
+ * detector thread, so no locking and no extra per-frame copies.
  */
 class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
     private val appContext = context.applicationContext
     private val fpsCounter = FpsCounter()
     private var fps = 0f
-    private var frameBitmap: Bitmap? = null
     private var lastLog = 0L
-    // Latest frame, only touched on the detector thread.
-    private var lastFrame: Bitmap? = null
-    private var lastWidth = 0
-    private var lastHeight = 0
-    private var lastRotation = 0
+    // Detector-thread state.
+    private val ring = Array(RING_SIZE) { FrameSlot() }
+    private var nextSlot = 0
+    private val tracker = DetectionTracker()
     private val _stats = MutableStateFlow<FrameStats?>(null)
+    private val lastFrameTime = MutableStateFlow(0L)
 
     /** Current camera zoom ratio (set by the preview), recorded with captures. */
     @Volatile var zoomRatio: Float? = null
@@ -75,6 +124,7 @@ class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
 
     override fun analyze(image: ImageProxy) {
         image.use {
+            val arrived = SystemClock.elapsedRealtime()
             fpsCounter.onFrame(it.imageInfo.timestamp)?.let { newFps -> fps = newFps }
             val rotation = it.imageInfo.rotationDegrees
             val base = FrameStats(fps, it.width, it.height, rotation)
@@ -82,59 +132,104 @@ class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
                 _stats.value = base.copy(error = e.message ?: e.javaClass.simpleName)
                 return
             }
-            val frame = copyToBitmap(it)
-            lastFrame = frame
-            lastWidth = it.width
-            lastHeight = it.height
-            lastRotation = rotation
-            val result = detector.detect(frame, rotation, it.width, it.height)
+            val slot = ring[nextSlot]
+            nextSlot = (nextSlot + 1) % RING_SIZE
+            slot.valid = false
+            val frame = copyToBitmap(it, slot)
+            val result = detector.detect(frame, rotation, it.width, it.height, threshold = KEEP_SCORE)
+            val tracks = tracker.update(result.detections)
+            slot.apply {
+                width = it.width
+                height = it.height
+                this.rotation = rotation
+                timeMs = arrived
+                zoomRatio = this@DetectionAnalyzer.zoomRatio
+                backend = result.backend
+                detections = stableDetections(result.detections, tracks)
+                sharpness = result.sharpness
+                valid = true
+            }
             val stats = base.copy(
-                detections = result.detections,
+                detections = result.detections.filter { d -> d.score >= ACCEPT_SCORE },
+                tracks = tracks,
                 inferenceMs = result.inferenceMs,
                 preprocessMs = result.preprocessMs,
                 backend = result.backend,
             )
             _stats.value = stats
+            lastFrameTime.value = arrived
             val now = SystemClock.elapsedRealtime()
             if (now - lastLog >= 1000) {
                 lastLog = now
-                Log.i(TAG, "%.1f fps · inference %.1f ms · pre %.1f ms · %s · %d dets · %dx%d rot %d".format(
+                Log.i(TAG, "%.1f fps · inference %.1f ms · pre %.1f ms · %s · %d dets · %d tracks · sharp %.0f · %dx%d rot %d".format(
                     Locale.ROOT, stats.fps, stats.inferenceMs, stats.preprocessMs, stats.backend,
-                    stats.detections.size, stats.width, stats.height, rotation,
+                    stats.detections.size, tracks.size, result.sharpness, stats.width, stats.height, rotation,
                 ))
             }
         }
     }
 
     /**
-     * Freezes the latest analysis frame: an upright copy (row padding cropped, rotation applied)
-     * plus one detector run on it, both on the detector thread. Null before the first frame.
+     * Best-frame shutter for a press at [pressedAt] ([SystemClock.elapsedRealtime]): waits until a
+     * frame newer than [SHUTTER_LOOKAHEAD_MS] after the press has been analyzed (at most until
+     * [SHUTTER_MAX_WAIT_MS] after the press), then picks the best buffered frame of that window by
+     * [selectBestFrame] and makes an upright copy of it. Its detections are the ones of the live
+     * pipeline (same hysteresis and tracking), so the detector doesn't run again. Null before
+     * the first frame.
      */
-    suspend fun capture(): CapturedFrame? = withContext(DetectorHolder.dispatcher) {
-        val frame = lastFrame ?: return@withContext null
-        val rotate = Matrix().apply { postRotate(lastRotation.toFloat()) }
-        val upright = Bitmap.createBitmap(frame, 0, 0, lastWidth, lastHeight, rotate, true)
-        val detector = DetectorHolder.getBlocking(appContext)
-        val result = detector.mapCatching { it.detect(upright) }
-        CapturedFrame(upright, result, lastRotation, zoomRatio, detector.getOrNull()?.confidenceThreshold)
+    suspend fun capture(pressedAt: Long = SystemClock.elapsedRealtime()): CapturedFrame? {
+        val wait = pressedAt + SHUTTER_MAX_WAIT_MS - SystemClock.elapsedRealtime()
+        if (wait > 0) withTimeoutOrNull(wait) { lastFrameTime.first { it >= pressedAt + SHUTTER_LOOKAHEAD_MS } }
+        return withContext(DetectorHolder.dispatcher) { choose(pressedAt) }
     }
 
-    /** Forgets the last frame's stats, e.g. before the preview is shown again after a capture. */
+    private fun choose(pressedAt: Long): CapturedFrame? {
+        val valid = ring.filter { it.valid && it.bitmap != null }
+        val window = valid.filter { it.timeMs in (pressedAt - SHUTTER_LOOKBACK_MS)..(pressedAt + SHUTTER_LOOKAHEAD_MS) }
+        // Nothing in the window (stalled detector): fall back to the latest frame.
+        val slots = window.ifEmpty { listOfNotNull(valid.maxByOrNull { it.timeMs }) }.sortedBy { it.timeMs }
+        if (slots.isEmpty()) return null
+        val candidates = slots.map { FrameCandidate(it.detections, it.sharpness) }
+        val best = selectBestFrame(candidates)
+        val slot = slots[best]
+        val rotate = Matrix().apply { postRotate(slot.rotation.toFloat()) }
+        val upright = Bitmap.createBitmap(slot.bitmap!!, 0, 0, slot.width, slot.height, rotate, true)
+        val choice = FrameChoice(
+            bestOf = slots.size,
+            chosenOffsetMs = slot.timeMs - pressedAt,
+            selectionScore = selectionScore(candidates[best], candidates.maxOf { it.sharpness }),
+            sharpness = slot.sharpness,
+        )
+        Log.i(TAG, "Shutter: frame %+d ms of %d, score %.2f, %d cards (%d from tracking), ready %d ms after the press".format(
+            Locale.ROOT, choice.chosenOffsetMs, choice.bestOf, choice.selectionScore, slot.detections.size,
+            slot.detections.count { it.fromTracking }, SystemClock.elapsedRealtime() - pressedAt,
+        ))
+        return CapturedFrame(upright, slot.detections, slot.rotation, slot.zoomRatio, slot.backend, ACCEPT_SCORE, choice)
+    }
+
+    /**
+     * Forgets the last frame's stats, the buffered frames and the tracks, e.g. before the preview
+     * is shown again after a capture.
+     */
     fun clearStats() {
         _stats.value = null
+        DetectorHolder.executor.execute {
+            ring.forEach { it.valid = false }
+            tracker.reset()
+        }
     }
 
-    /** Copies the RGBA plane into a reused bitmap whose width covers the row stride. */
-    private fun copyToBitmap(image: ImageProxy): Bitmap {
+    /** Copies the RGBA plane into the [slot]'s reused bitmap whose width covers the row stride. */
+    private fun copyToBitmap(image: ImageProxy, slot: FrameSlot): Bitmap {
         val plane = image.planes[0]
         val strideWidth = plane.rowStride / plane.pixelStride
         val buffer = plane.buffer.apply { rewind() }
         if (buffer.remaining() < strideWidth * image.height * 4) {
             // Last row not padded: can't bulk-copy into a stride-wide bitmap (allocates; rare).
-            return image.toBitmap()
+            return image.toBitmap().also { b -> slot.bitmap = b }
         }
-        val bitmap = frameBitmap?.takeIf { b -> b.width == strideWidth && b.height == image.height }
-            ?: createBitmap(strideWidth, image.height).also { b -> frameBitmap = b }
+        val bitmap = slot.bitmap?.takeIf { b -> b.isMutable && b.width == strideWidth && b.height == image.height }
+            ?: createBitmap(strideWidth, image.height).also { b -> slot.bitmap = b }
         bitmap.copyPixelsFromBuffer(buffer)
         return bitmap
     }

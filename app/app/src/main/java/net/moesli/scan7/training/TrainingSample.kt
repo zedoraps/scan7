@@ -24,6 +24,18 @@ data class TrainingOutcome(
     val points: Int,
 )
 
+/** How the best-frame shutter chose the frame: `"capture": {"best_of", "chosen_offset_ms", "selection_score", …}`. */
+data class TrainingCapture(
+    /** Buffered frames compared. */
+    val bestOf: Int,
+    /** Chosen frame's arrival relative to the shutter press in ms (negative = before the press). */
+    val chosenOffsetMs: Long,
+    val selectionScore: Float,
+    val sharpness: Float,
+    /** Live detector threshold (hysteresis: tracks stay alive down to this score). */
+    val keepThreshold: Float,
+)
+
 /** Everything stored next to the JPEG. Boxes are normalized 0–1 in the upright image. */
 data class TrainingSample(
     val timestampMillis: Long,
@@ -40,6 +52,8 @@ data class TrainingSample(
     val origin: String,
     val detections: List<Detection>,
     val outcome: TrainingOutcome?,
+    /** Best-frame shutter info; null for debug captures (photo file / synthetic). */
+    val capture: TrainingCapture? = null,
 ) {
     /** File name without extension: `scan7_<yyyyMMdd_HHmmss_SSS>` in [zone]. */
     fun fileStem(zone: TimeZone = TimeZone.getDefault()): String = trainingFileStem(timestampMillis, zone)
@@ -57,12 +71,25 @@ data class TrainingSample(
             field("image", "{\"width\": $imageWidth, \"height\": $imageHeight}")
             field("detector", "{\"backend\": ${backend?.let(::str) ?: "null"}, \"threshold\": ${num(threshold)}}")
             field("origin", str(origin))
+            val c = capture
+            field(
+                "capture",
+                if (c == null) {
+                    "null"
+                } else {
+                    "{\"best_of\": ${c.bestOf}, \"chosen_offset_ms\": ${c.chosenOffsetMs}, " +
+                        "\"selection_score\": ${num(c.selectionScore)}, \"sharpness\": ${num(c.sharpness)}, " +
+                        "\"keep_threshold\": ${num(c.keepThreshold)}}"
+                },
+            )
+            field("detections_from_tracking", detections.count { it.fromTracking }.toString())
             field(
                 "detections",
                 detections.joinToString(",\n    ", "[\n    ", "\n  ]") { d ->
                     "{\"label\": ${str(d.label)}, \"score\": ${num(d.score)}, \"box\": " +
                         "{\"left\": ${num(d.box.left)}, \"top\": ${num(d.box.top)}, " +
-                        "\"right\": ${num(d.box.right)}, \"bottom\": ${num(d.box.bottom)}}}"
+                        "\"right\": ${num(d.box.right)}, \"bottom\": ${num(d.box.bottom)}}, " +
+                        "\"from_tracking\": ${d.fromTracking}}"
                 }.let { if (detections.isEmpty()) "[]" else it },
             )
             val o = outcome

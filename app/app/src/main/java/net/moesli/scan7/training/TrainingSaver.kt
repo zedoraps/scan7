@@ -9,8 +9,10 @@ import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.moesli.scan7.BuildConfig
@@ -31,8 +33,9 @@ data class SavedSample(val imageUri: Uri, val jsonUri: Uri, val stem: String, va
 /**
  * "Save scans for training": writes the frozen upright frame as JPEG (quality 95) to
  * `Pictures/Scan7 Training/` and a JSON sidecar to `Documents/Scan7 Training/` via MediaStore
- * (no storage permission on API 29+). IO runs on its own process-wide scope, so a save started when
- * the user confirms keeps going after the scan screen is gone; failures only show a toast.
+ * (no storage permission on API 29+). Every shutter photo is saved when its review opens
+ * ([saveCapture]); a confirm then only fills in the outcome ([saveOutcome]). IO runs on its own
+ * process-wide scope, so a save keeps going after the scan screen is gone; failures only show a toast.
  */
 object TrainingSaver {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -52,38 +55,44 @@ object TrainingSaver {
             origin = capture.meta.origin,
             detections = capture.detections,
             outcome = outcome?.toTrainingOutcome(),
+            capture = capture.meta.choice,
         )
 
     /**
-     * Saves [capture] (with [outcome] if confirmed) in the background. With [existing] (the same
-     * capture was saved before, e.g. via the review's "Save for training") only its JSON is
-     * rewritten with the outcome, so the image isn't stored twice. [onSaved] runs on the main thread.
+     * Saves [capture] (image + JSON, outcome null) in the background, right when the review opens.
+     * The result (null if saving failed) is what [saveOutcome] later updates.
      */
-    fun saveAsync(
-        context: Context,
-        capture: ScanCapture,
-        outcome: ScanOutcome?,
-        existing: SavedSample? = null,
-        onSaved: (SavedSample) -> Unit = {},
-    ) {
+    fun saveCapture(context: Context, capture: ScanCapture): Deferred<SavedSample?> {
+        val app = context.applicationContext
+        val sample = sample(app, capture, outcome = null)
+        return scope.async { runCatching { save(app, capture.bitmap, sample) }.onFailure { failed(app, it) }.getOrNull() }
+    }
+
+    /**
+     * Records the confirmed [outcome] of [capture] in the background: with [saved] (from
+     * [saveCapture], awaited) only its JSON is rewritten, so the image isn't stored twice;
+     * without it (or if that save failed) image and JSON are saved now.
+     */
+    fun saveOutcome(context: Context, capture: ScanCapture, outcome: ScanOutcome, saved: Deferred<SavedSample?>?) {
         val app = context.applicationContext
         val sample = sample(app, capture, outcome)
         scope.launch {
             runCatching {
+                val existing = saved?.await()
                 if (existing != null) {
                     writeJson(app, existing.jsonUri, sample.copy(timestampMillis = existing.timestampMillis))
-                    existing
+                    Log.i(TAG, "Updated ${existing.stem} with the outcome")
                 } else {
                     save(app, capture.bitmap, sample)
                 }
-            }.onSuccess { saved ->
-                withContext(Dispatchers.Main) { onSaved(saved) }
-            }.onFailure {
-                Log.w(TAG, "Saving the training sample failed", it)
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(app, "Couldn't save the scan for training", Toast.LENGTH_SHORT).show()
-                }
-            }
+            }.onFailure { failed(app, it) }
+        }
+    }
+
+    private suspend fun failed(app: Context, e: Throwable) {
+        Log.w(TAG, "Saving the training sample failed", e)
+        withContext(Dispatchers.Main) {
+            Toast.makeText(app, "Couldn't save the scan for training", Toast.LENGTH_SHORT).show()
         }
     }
 

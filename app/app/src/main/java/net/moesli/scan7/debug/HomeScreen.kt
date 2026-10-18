@@ -32,7 +32,7 @@ fun HomeScreen(
     onScanFlowDemo: () -> Unit = {},
     onSetupDemo: () -> Unit = {},
     modelInfo: String = "none",
-    saveScans: Boolean = false,
+    saveScans: Boolean = true,
     onSaveScansChange: ((Boolean) -> Unit)? = null,
 ) {
     DebugScaffold(
@@ -55,7 +55,7 @@ fun HomeScreen(
                 ListItem(
                     headlineContent = { Text("Save scans for training") },
                     supportingContent = {
-                        Text("Confirmed scans → Pictures/Scan7 Training (JPEG) + Documents/Scan7 Training (JSON)")
+                        Text("Every shutter photo → Pictures/Scan7 Training (JPEG) + Documents/Scan7 Training (JSON), outcome added on confirm")
                     },
                     trailingContent = { Switch(checked = saveScans, onCheckedChange = onSaveScansChange) },
                     modifier = Modifier

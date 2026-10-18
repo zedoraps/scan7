@@ -23,9 +23,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
@@ -46,6 +48,7 @@ import androidx.compose.ui.unit.sp
 import net.moesli.scan7.detection.Box as DetectionBox
 import net.moesli.scan7.detection.Detection
 import net.moesli.scan7.detection.DisplayMapping
+import net.moesli.scan7.detection.TrackedDetection
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.scoring.CardKind
 import net.moesli.scan7.ui.components.PlayerToken
@@ -218,27 +221,34 @@ private val ChipLabelStyle = TextStyle(fontFamily = Unbounded, fontWeight = Font
 /** How a box is drawn. */
 enum class BoxLook { Scoring, Duplicate, Ignored }
 
-/** One detected card for the overlay. [box] is normalized in upright image coordinates. */
+/**
+ * One detected card for the overlay. [box] is normalized in upright image coordinates; [alpha] < 1
+ * fades a live track that was missed in the latest frames.
+ */
 @Immutable
-data class ScanBox(val card: Card, val box: DetectionBox, val look: BoxLook)
+data class ScanBox(val card: Card, val box: DetectionBox, val look: BoxLook, val alpha: Float = 1f)
 
 /** Detections with a known card label (unknown labels are dropped). */
 fun List<Detection>.toCards(): List<Pair<Card, DetectionBox>> =
     mapNotNull { d -> Card.fromLabel(d.label)?.let { it to d.box } }
 
 /** Overlay boxes: scoring cards cyan, duplicated numbers magenta (if [markDuplicates]), others ignored. */
-fun scanBoxes(detections: List<Detection>, markDuplicates: Boolean): List<ScanBox> {
-    val cards = detections.toCards()
+fun scanBoxes(detections: List<Detection>, markDuplicates: Boolean, alphas: List<Float>? = null): List<ScanBox> {
+    val cards = detections.mapIndexedNotNull { i, d -> Card.fromLabel(d.label)?.let { Triple(it, d.box, alphas?.getOrNull(i) ?: 1f) } }
     val dups = if (markDuplicates) duplicateCounts(cards.map { it.first }) else emptyMap()
-    return cards.map { (card, box) ->
+    return cards.map { (card, box, alpha) ->
         val look = when {
             !card.isScoring -> BoxLook.Ignored
             isDuplicate(card, dups) -> BoxLook.Duplicate
             else -> BoxLook.Scoring
         }
-        ScanBox(card, box, look)
+        ScanBox(card, box, look, alpha)
     }
 }
+
+/** Live overlay boxes from the smoothed tracks, fading while a track is missed. */
+fun trackBoxes(tracks: List<TrackedDetection>): List<ScanBox> =
+    scanBoxes(tracks.map { it.detection }, markDuplicates = false, alphas = tracks.map { it.alpha })
 
 /**
  * Draws [boxes] on an image of [imageWidth]×[imageHeight] shown centered in the same bounds,
@@ -264,6 +274,10 @@ internal fun ScanBoxesOverlay(
         val radius = 10.dp.toPx()
         // Ignored first so scoring boxes stay on top where they overlap.
         for (b in boxes.sortedBy { it.look != BoxLook.Ignored }) {
+            val fade = b.alpha < 1f
+            if (fade) {
+                drawContext.canvas.saveLayer(Rect(Offset.Zero, size), Paint().apply { alpha = b.alpha.coerceIn(0f, 1f) })
+            }
             val v = mapping.toView(b.box)
             val topLeft = Offset(v.left, v.top)
             val boxSize = Size(v.width, v.height)
@@ -308,6 +322,7 @@ internal fun ScanBoxesOverlay(
             }
             drawPath(tag, tagColor)
             drawText(text, topLeft = Offset(tagTopLeft.x + padX, tagTopLeft.y + padY))
+            if (fade) drawContext.canvas.restore()
         }
     }
 }
