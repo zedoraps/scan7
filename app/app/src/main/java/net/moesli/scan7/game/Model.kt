@@ -32,6 +32,18 @@ enum class ResultStatus { OPEN, SCORED, BUST }
 /** How a result was entered. */
 enum class ResultSource { SCAN, MANUAL, BUST_TAP, CLOSE_ROUND }
 
+/**
+ * Order in which "Scan next" walks the table (app setting, round menu). Only decides who is
+ * "next"; the seating order (= list order = clockwise table order) never changes.
+ */
+enum class ScanDirection {
+    CLOCKWISE,
+    COUNTER_CLOCKWISE,
+    ;
+
+    fun toggled(): ScanDirection = if (this == CLOCKWISE) COUNTER_CLOCKWISE else CLOCKWISE
+}
+
 enum class ViewMode {
     TABLE,
     LIST,

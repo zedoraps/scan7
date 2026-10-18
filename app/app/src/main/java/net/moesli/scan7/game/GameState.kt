@@ -35,6 +35,11 @@ data class GameState(
      * leaders, standings, ring progress and game over) but are not round results.
      */
     val adjustments: List<ScoreAdjustment> = emptyList(),
+    /**
+     * "Scan next" order: an app-wide setting, not part of the stored game (the repository fills it
+     * in from the settings table). Default for [nextOpenPlayer].
+     */
+    val scanDirection: ScanDirection = ScanDirection.CLOCKWISE,
 ) {
     init {
         require(seats.isNotEmpty()) { "A game needs at least one player" }
@@ -107,18 +112,21 @@ data class GameState(
     val isRoundComplete: Boolean get() = openPlayers().isEmpty()
 
     /**
-     * Next open player of the running round in seating order, for "Scan next": the first open
-     * player after [after] (wrapping around), or the first open player if [after] is `null`.
-     * [after] itself is returned only if it is the sole open player. `null` when nobody is open
-     * or the round is closed.
+     * Next open player of the running round for "Scan next", walking the seats in [direction]
+     * (clockwise = seating order): the first open player after [after] (wrapping around), or, if
+     * [after] is `null`, the first open player starting at the first seat. [after] itself is
+     * returned only if it is the sole open player. `null` when nobody is open or the round is
+     * closed.
      */
-    fun nextOpenPlayer(after: Long? = null): Long? {
+    fun nextOpenPlayer(after: Long? = null, direction: ScanDirection = scanDirection): Long? {
         if (currentRound.isClosed) return null
         val open = openPlayers().toSet()
         if (open.isEmpty()) return null
-        if (after == null) return playerIds.first { it in open }
-        val start = seatIndex(after)
-        return (1..seats.size).map { playerIds[(start + it) % seats.size] }.first { it in open }
+        val n = seats.size
+        val step = if (direction == ScanDirection.CLOCKWISE) 1 else -1
+        // Without [after]: start at the first seat itself (offset 0), else at the seat after it.
+        val (start, offsets) = if (after == null) 0 to (0 until n) else seatIndex(after) to (1..n)
+        return offsets.map { playerIds[(start + step * it).mod(n)] }.first { it in open }
     }
 
     /**
@@ -281,6 +289,15 @@ data class GameState(
         check(!abandoned) { "Game was abandoned" }
         val next = RoundState(rounds.size + 1, playerIds.associateWith { PlayerResult.OPEN })
         return copy(rounds = rounds + next)
+    }
+
+    /**
+     * "Next round" / confirmed "Close round" in one step: closes the running round ([closeRound])
+     * and, unless the game is now over, starts the next one ([nextRound]).
+     */
+    fun closeAndStartNext(now: Long): GameState {
+        val closed = closeRound(now)
+        return if (closed.isOver) closed else closed.nextRound()
     }
 
     /**

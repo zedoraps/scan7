@@ -32,15 +32,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
@@ -122,12 +126,19 @@ internal fun Modifier.cardSurface(look: CardLook, shape: Shape, cornerRadius: Dp
     .background(look.background)
     .cardBorder(look.borderWidth, look.borderColor, shape, cornerRadius, look.dashed)
 
-/** Card body / row click handling: tap opens the player, long-press starts arrange mode. */
+/**
+ * Card body / row click handling: tap opens the player, long-press starts arrange mode. With
+ * [onDoubleClick] (compact table cards: scan) a double-tap calls it; a single tap then waits for
+ * the double-tap timeout (~300 ms) before [onClick], so only pass it where it is used. TalkBack
+ * gets it as the custom action [doubleClickLabel].
+ */
 @OptIn(ExperimentalFoundationApi::class)
 internal fun Modifier.playerClickable(
     player: PlayerUi,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)?,
+    onDoubleClick: (() -> Unit)? = null,
+    doubleClickLabel: String? = null,
 ): Modifier = this
     .combinedClickable(
         interactionSource = null,
@@ -135,14 +146,24 @@ internal fun Modifier.playerClickable(
         role = Role.Button,
         onLongClickLabel = if (onLongClick != null) "Arrange seats" else null,
         onLongClick = onLongClick,
+        onDoubleClick = onDoubleClick,
         onClick = onClick,
     )
-    .semantics { contentDescription = player.accessibilityLabel() }
+    .semantics {
+        contentDescription = player.accessibilityLabel()
+        if (onDoubleClick != null && doubleClickLabel != null) {
+            customActions = listOf(CustomAccessibilityAction(doubleClickLabel) { onDoubleClick(); true })
+        }
+    }
 
 /**
- * Player card for the table view. Layout: ring + token, then "Name Total" on one line, then the
- * Scan/Bust actions (open players, Large/Medium only) or the status tag (finished players, arrange
- * mode, and always on Compact cards). The leader badge overlaps the top-right corner.
+ * Player card for the table view. Layout: ring + token, then "Name Total" on one line (Compact:
+ * name on one line, total below it, so names aren't squeezed), then the Scan/Bust actions (open
+ * players, Large/Medium only) or the status tag (finished players, arrange mode, and always on
+ * Compact cards). The leader badge overlaps the top-right corner.
+ *
+ * [onDoubleClick] (Compact cards have no in-card Scan): double-tap → scan, also offered to
+ * TalkBack as the custom action "Scan <name>"; `null` keeps single taps instant.
  *
  * Stateless: [mode] and [index] (wiggle stagger) come from the screen; dragging itself is handled
  * by the caller (apply the drag offset to [modifier]).
@@ -158,9 +179,11 @@ fun PlayerCard(
     onLongClick: (() -> Unit)? = null,
     onScan: () -> Unit = {},
     onBust: () -> Unit = {},
+    onDoubleClick: (() -> Unit)? = null,
 ) {
     val done = player.status.isDone
     val look = cardLook(player.status, mode)
+    val compact = size == CardSize.Compact
     val radius = if (size == CardSize.Large) Scan7Radii.cardLarge else Scan7Radii.card
     val shape = RoundedCornerShape(radius)
     val rotation = wiggleRotation(mode == CardMode.Arrange, index)
@@ -177,23 +200,27 @@ fun PlayerCard(
             },
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xs),
+            verticalArrangement = Arrangement.spacedBy(if (compact) CompactTagGap else Scan7Spacing.xs),
             modifier = Modifier
                 .matchParentSize()
                 .cardSurface(look, shape, radius)
-                .playerClickable(player, onClick, onLongClick)
-                .padding(size.padding),
+                .playerClickable(player, onClick, onLongClick, onDoubleClick, "Scan ${player.name}")
+                .padding(horizontal = size.padding, vertical = if (compact) CompactPaddingV else size.padding),
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs, Alignment.CenterVertically),
+                verticalArrangement = Arrangement.spacedBy(if (compact) 1.dp else Scan7Spacing.xxs, Alignment.CenterVertically),
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .clearAndSetSemantics {},
             ) {
                 PlayerScoreRing(player, size.ring, size.token)
-                NameAndTotal(player, look.ink, size.nameStyle(), size.totalStyle())
+                if (compact) {
+                    CompactNameAndTotal(player, look.ink)
+                } else {
+                    NameAndTotal(player, look.ink, size.nameStyle(), size.totalStyle())
+                }
             }
             if (showActions) {
                 ScanBustActions(
@@ -251,6 +278,34 @@ private fun NameAndTotal(player: PlayerUi, ink: Color, nameStyle: TextStyle, tot
         )
     }
 }
+
+/**
+ * Compact cards (72×96, 7–10 players): name on its own line (full 60 dp width), total below in
+ * Unbounded. Tight line heights so ring 36 + name 12 + total 13 + gaps fit the 63 dp above the tag.
+ */
+@Composable
+private fun CompactNameAndTotal(player: PlayerUi, ink: Color) {
+    Text(
+        text = player.name,
+        color = ink,
+        style = Scan7Type.text11.copy(lineHeight = 12.sp),
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Text(
+        text = player.total.toString(),
+        color = ink,
+        style = Scan7Type.total13.copy(lineHeight = 13.sp),
+        maxLines = 1,
+        softWrap = false,
+    )
+}
+
+/** Compact card: vertical padding (5 instead of 6) and gap above the tag (3 instead of 6). */
+private val CompactPaddingV = 5.dp
+private val CompactTagGap = 3.dp
 
 private fun CardSize.nameStyle(): TextStyle = if (this == CardSize.Large) Scan7Type.text12 else Scan7Type.text11
 

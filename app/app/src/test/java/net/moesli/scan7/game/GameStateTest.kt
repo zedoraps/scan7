@@ -200,6 +200,56 @@ class GameStateTest {
         assertEquals(1L, g.nextOpenPlayer(after = 2))
     }
 
+    @Test
+    fun nextOpenPlayer_counterClockwiseWithWraparound() {
+        val ccw = ScanDirection.COUNTER_CLOCKWISE
+        val four = GameState.newGame(listOf(anna, ben, cleo, dan))
+        assertEquals(1L, four.nextOpenPlayer(direction = ccw)) // starts at the first seat
+        assertEquals(4L, four.nextOpenPlayer(after = 1, direction = ccw)) // wraps backwards to Dan
+        assertEquals(1L, four.nextOpenPlayer(after = 2, direction = ccw))
+        val g = four.scorePoints(1, 5, 1).scorePoints(4, 5, 1) // Ben, Cleo open
+        assertEquals(3L, g.nextOpenPlayer(direction = ccw)) // from seat 1 backwards: Dan done → Cleo
+        assertEquals(2L, g.nextOpenPlayer(after = 3, direction = ccw))
+        assertEquals(3L, g.nextOpenPlayer(after = 2, direction = ccw)) // wraps past Anna and Dan
+        assertEquals(3L, g.nextOpenPlayer(after = 1, direction = ccw)) // skips done Dan
+        val onlyBen = g.scorePoints(3, 5, 1)
+        assertEquals(2L, onlyBen.nextOpenPlayer(after = 2, direction = ccw)) // sole open player
+        assertNull(onlyBen.scorePoints(2, 5, 1).nextOpenPlayer(after = 2, direction = ccw))
+    }
+
+    @Test
+    fun nextOpenPlayer_defaultsToTheStateDirection() {
+        val four = GameState.newGame(listOf(anna, ben, cleo, dan))
+        assertEquals(2L, four.nextOpenPlayer(after = 1))
+        val ccw = four.copy(scanDirection = ScanDirection.COUNTER_CLOCKWISE)
+        assertEquals(4L, ccw.nextOpenPlayer(after = 1))
+        assertEquals(2L, ccw.nextOpenPlayer(after = 1, direction = ScanDirection.CLOCKWISE))
+        // Seating order is not affected.
+        assertEquals(four.playerIds, ccw.playerIds)
+        assertEquals(ScanDirection.CLOCKWISE, ScanDirection.COUNTER_CLOCKWISE.toggled())
+        assertEquals(ScanDirection.COUNTER_CLOCKWISE, ScanDirection.CLOCKWISE.toggled())
+    }
+
+    @Test
+    fun closeAndStartNext_closesThenStartsTheNextRound() {
+        val g = start.scorePoints(1, 20, 1).closeAndStartNext(now = 5)
+        assertEquals(2, g.currentRound.number)
+        assertTrue(g.round(1).isClosed)
+        assertEquals(ResultStatus.BUST, g.status(2, round = 1)) // open → bust
+        assertEquals(listOf(1L, 2L, 3L), g.openPlayers())
+        assertEquals(20, g.total(1))
+        assertFalse(g.isOver)
+    }
+
+    @Test
+    fun closeAndStartNext_gameOverStaysOnTheClosedRound() {
+        val g = start.scorePoints(1, 210, 1).scorePoints(2, 5, 1).scorePoints(3, 5, 1).closeAndStartNext(now = 5)
+        assertEquals(1, g.currentRound.number)
+        assertTrue(g.isOver)
+        assertEquals(5L, g.finishedAt)
+        assertEquals(listOf(1L), g.winners)
+    }
+
     // ---- Close round / game over ----
 
     @Test

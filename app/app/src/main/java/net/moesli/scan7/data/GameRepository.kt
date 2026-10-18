@@ -11,6 +11,7 @@ import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.PALETTE_SIZE
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.ResultSource
+import net.moesli.scan7.game.ScanDirection
 import net.moesli.scan7.game.ScoreAdjustment
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.ViewMode
@@ -65,6 +66,13 @@ class GameRepository(
 
     suspend fun setSaveScansForTraining(on: Boolean) = settingsDao.put(SettingEntity(KEY_SAVE_SCANS, on.toString()))
 
+    /** "Scan next" direction (round menu), app-wide; clockwise until changed. */
+    val scanDirection: Flow<ScanDirection> = settingsDao.observe(KEY_SCAN_DIRECTION)
+        .map(::parseScanDirection)
+        .distinctUntilChanged()
+
+    suspend fun setScanDirection(direction: ScanDirection) = settingsDao.put(SettingEntity(KEY_SCAN_DIRECTION, direction.name))
+
     private val allPlayers: Flow<Map<Long, Player>> =
         playerDao.observeAll().map { list -> list.associate { it.id to it.toPlayer() } }
 
@@ -75,8 +83,8 @@ class GameRepository(
     fun observeGame(gameId: Long): Flow<GameSnapshot?> = snapshots(gameDao.observe(gameId))
 
     private fun snapshots(source: Flow<GameWithDetails?>): Flow<GameSnapshot?> =
-        combine(source, allPlayers, preferredViewMode) { details, players, pref ->
-            details?.let { GameSnapshot(it.toState(), players, pref) }
+        combine(source, allPlayers, preferredViewMode, scanDirection) { details, players, pref, direction ->
+            details?.let { GameSnapshot(it.toState().copy(scanDirection = direction), players, pref) }
         }.distinctUntilChanged()
 
     // ---- Players -------------------------------------------------------------------------
@@ -196,6 +204,12 @@ class GameRepository(
 
     suspend fun nextRound(gameId: Long): GameState = mutate(gameId) { s, _ -> s.nextRound() }
 
+    /**
+     * "Next round" (everyone done) or a confirmed "Close round": closes the running round and,
+     * unless the game is now over, starts the next one, in one transaction.
+     */
+    suspend fun closeRoundAndStartNext(gameId: Long): GameState = mutate(gameId) { s, now -> s.closeAndStartNext(now) }
+
     /** Reopens the last (closed) round; also un-finishes the game if it was over. */
     suspend fun reopenRound(gameId: Long): GameState = mutate(gameId) { s, now -> s.reopenRound(now) }
 
@@ -229,13 +243,16 @@ class GameRepository(
 
     suspend fun deleteGame(gameId: Long) = gameDao.deleteGame(gameId)
 
-    suspend fun loadGame(gameId: Long): GameState? = gameDao.load(gameId)?.toState()
+    suspend fun loadGame(gameId: Long): GameState? =
+        gameDao.load(gameId)?.toState()?.copy(scanDirection = parseScanDirection(settingsDao.get(KEY_SCAN_DIRECTION)))
 
     // ---- Internals -----------------------------------------------------------------------
 
     private suspend fun mutate(gameId: Long, op: (GameState, Long) -> GameState): GameState = db.withTransaction {
         val details = checkNotNull(gameDao.load(gameId)) { "No game $gameId" }
-        val old = details.toState()
+        // The scan direction is an app setting carried on the state (Scan next after saving).
+        val direction = parseScanDirection(settingsDao.get(KEY_SCAN_DIRECTION))
+        val old = details.toState().copy(scanDirection = direction)
         val new = op(old, clock())
         persist(details, old, new)
         new
@@ -290,5 +307,9 @@ class GameRepository(
     private companion object {
         const val KEY_VIEW_MODE = "view_mode"
         const val KEY_SAVE_SCANS = "save_scans_for_training"
+        const val KEY_SCAN_DIRECTION = "scan_direction"
+
+        fun parseScanDirection(value: String?): ScanDirection =
+            value?.let { v -> ScanDirection.entries.firstOrNull { it.name == v } } ?: ScanDirection.CLOCKWISE
     }
 }

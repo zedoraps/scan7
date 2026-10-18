@@ -22,7 +22,7 @@ import net.moesli.scan7.ui.components.isDone
  * In-memory Round screen state with FAKE data (prototype players), for the debug demo and
  * previews. Implements every [RoundActions] callback: scan = scored with random points, bust /
  * undo, card tap (open → scan, done → reset to open), table drop (seating re-derived clockwise),
- * list swap, close round (open → bust, end-of-round view), next round.
+ * list swap, close round / next round (open → bust, next round starts with the results overlay).
  */
 @Stable
 class FakeRoundState(
@@ -32,7 +32,7 @@ class FakeRoundState(
 ) : RoundActions {
 
     /** Quick round states for the demo. */
-    enum class Preset { AllOpen, Mixed, AllDone, EndOfRound }
+    enum class Preset { AllOpen, Mixed, AllDone, Results }
 
     private class Seat(
         val id: String,
@@ -54,7 +54,8 @@ class FakeRoundState(
     private var round by mutableIntStateOf(4)
     private var view by mutableStateOf(RoundView.Table)
     private var arranging by mutableStateOf(false)
-    private var roundOver by mutableStateOf(false)
+    /** Results overlay of the previous round, `null` = hidden. */
+    private var results by mutableStateOf<RoundResultsUi?>(null)
     private var lastScanned by mutableStateOf<String?>(null)
 
     init {
@@ -64,31 +65,25 @@ class FakeRoundState(
     /** The current screen state (snapshot-backed: reading it in composition subscribes). */
     val state: RoundUiState
         get() {
-            val totals = seats.map { it.total }
-            val best = totals.maxOrNull() ?: 0
-            val players = seats.map { s ->
-                PlayerUi(
-                    name = s.name,
-                    color = s.color,
-                    total = s.total,
-                    status = s.status,
-                    target = DEFAULT_TARGET,
-                    isLeader = best > 0 && s.total == best,
-                    id = s.id,
-                )
-            }
-            val ranks = if (roundOver) roundRanks(players) else emptyMap()
-            val rows = players.mapIndexed { i, p -> RoundPlayer(p, seats[i].position, ranks[p.id]) }
+            val players = playerUis()
+            val rows = players.mapIndexed { i, p -> RoundPlayer(p, seats[i].position) }
             return RoundUiState(
                 round = round,
                 target = DEFAULT_TARGET,
                 players = rows,
                 view = view,
                 arranging = arranging,
-                roundOver = roundOver,
                 nextOpenId = nextOpenIdAfter(rows, lastScanned),
+                results = results,
             )
         }
+
+    private fun playerUis(): List<PlayerUi> {
+        val best = seats.maxOfOrNull { it.total } ?: 0
+        return seats.map { s ->
+            PlayerUi(s.name, s.color, s.total, s.status, DEFAULT_TARGET, best > 0 && s.total == best, s.id)
+        }
+    }
 
     /** Restarts with the first [count] prototype players; default view by player count. */
     fun reset(count: Int, preset: Preset) {
@@ -99,7 +94,7 @@ class FakeRoundState(
             val status = when (preset) {
                 Preset.AllOpen -> PlayerStatus.Open
                 Preset.Mixed -> mixed
-                Preset.AllDone, Preset.EndOfRound -> if (mixed == PlayerStatus.Open) PlayerStatus.Scored(DONE_POINTS[i]) else mixed
+                Preset.AllDone, Preset.Results -> if (mixed == PlayerStatus.Open) PlayerStatus.Scored(DONE_POINTS[i]) else mixed
             }
             // Prototype totals include the points of the mixed state; "before" is the closed rounds.
             val before = p.total - ((mixed as? PlayerStatus.Scored)?.points ?: 0)
@@ -108,8 +103,9 @@ class FakeRoundState(
         round = 4
         view = if (ViewMode.defaultFor(n) == ViewMode.TABLE) RoundView.Table else RoundView.List
         arranging = false
-        roundOver = preset == Preset.EndOfRound
+        results = null
         lastScanned = null
+        if (preset == Preset.Results) startNextRound()
     }
 
     /** Applies a status preset to the current players (keeps seats, positions and view). */
@@ -129,13 +125,12 @@ class FakeRoundState(
     private fun randomPoints(): Int = random.nextInt(0, 61)
 
     override fun onScan(playerId: String) {
-        if (roundOver) return
+        results = null
         update(playerId) { it.copy(status = PlayerStatus.Scored(randomPoints())) }
         lastScanned = playerId
     }
 
     override fun onBust(playerId: String) {
-        if (roundOver) return
         update(playerId) { it.copy(status = PlayerStatus.Bust) }
     }
 
@@ -144,7 +139,6 @@ class FakeRoundState(
     }
 
     override fun onCardClick(playerId: String) {
-        if (roundOver) return
         val seat = seats.firstOrNull { it.id == playerId } ?: return
         // Stand-ins for the player sheet / result screen.
         if (seat.status.isDone) update(playerId) { it.copy(status = PlayerStatus.Open) } else onScan(playerId)
@@ -182,14 +176,25 @@ class FakeRoundState(
     override fun onCloseRound() {
         seats = seats.map { if (it.status == PlayerStatus.Open) it.copy(status = PlayerStatus.Bust) else it }
         arranging = false
-        roundOver = true
+        startNextRound()
     }
 
     override fun onNextRound() {
-        if (!roundOver) return
+        if (seats.any { it.status == PlayerStatus.Open }) return
+        onCloseRound()
+    }
+
+    override fun onDismissResults() {
+        results = null
+    }
+
+    /** The round is complete: results overlay of it, then everyone open in the next round. */
+    private fun startNextRound() {
+        val players = playerUis()
+        val ranks = roundRanks(players)
+        results = RoundResultsUi(round, players.map { RoundResultRow(it, ranks.getValue(it.id)) }.sortedBy { it.rank })
         seats = seats.map { it.copy(before = it.total, status = PlayerStatus.Open) }
         round += 1
-        roundOver = false
         lastScanned = null
     }
 

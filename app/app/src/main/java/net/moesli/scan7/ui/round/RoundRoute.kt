@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -64,6 +65,8 @@ class RoundFlags(
     confirmClose: Boolean = false,
     menu: Boolean = false,
     confirmEnd: Boolean = false,
+    resultsRound: Int? = null,
+    sheetRound: Int? = null,
 ) {
     var arranging by mutableStateOf(arranging)
     var sheetPlayer by mutableStateOf(sheetPlayer)
@@ -73,11 +76,27 @@ class RoundFlags(
     /** "End game" confirmation (round menu). */
     var confirmEnd by mutableStateOf(confirmEnd)
 
+    /** Round results overlay of this (closed) round, `null` = hidden. */
+    var resultsRound by mutableStateOf(resultsRound)
+
+    /** Round of the open player sheet: `null` = the running round, else a closed one (results overlay). */
+    var sheetRound by mutableStateOf(sheetRound)
+
     companion object {
         val Saver = listSaver<RoundFlags, Any>(
-            save = { listOf(it.arranging, it.sheetPlayer ?: -1L, it.confirmClose, it.menu, it.confirmEnd) },
+            save = {
+                listOf(it.arranging, it.sheetPlayer ?: -1L, it.confirmClose, it.menu, it.confirmEnd, it.resultsRound ?: -1, it.sheetRound ?: -1)
+            },
             restore = {
-                RoundFlags(it[0] as Boolean, (it[1] as Long).takeIf { id -> id >= 0 }, it[2] as Boolean, it[3] as Boolean, it[4] as Boolean)
+                RoundFlags(
+                    arranging = it[0] as Boolean,
+                    sheetPlayer = (it[1] as Long).takeIf { id -> id >= 0 },
+                    confirmClose = it[2] as Boolean,
+                    menu = it[3] as Boolean,
+                    confirmEnd = it[4] as Boolean,
+                    resultsRound = (it[5] as Int).takeIf { r -> r > 0 },
+                    sheetRound = (it[6] as Int).takeIf { r -> r > 0 },
+                )
             },
         )
     }
@@ -106,9 +125,13 @@ class RoundController(
         }
     }
 
-    private val roundOver: Boolean get() = snapshot?.state?.currentRound?.isClosed == true
+    /** A scan of the running round starts: the results overlay of the last round goes away. */
+    private fun scanRunning(playerId: Long, start: ScanStart) {
+        flags.resultsRound = null
+        navigator.scan(playerId, start)
+    }
 
-    override fun onScan(playerId: String) = navigator.scan(playerId.toLong(), ScanStart.CAMERA)
+    override fun onScan(playerId: String) = scanRunning(playerId.toLong(), ScanStart.CAMERA)
 
     override fun onBust(playerId: String) = run("bust") { bust(gameId, playerId.toLong()) }
 
@@ -116,8 +139,19 @@ class RoundController(
 
     override fun onCardClick(playerId: String) {
         if (snapshot == null) return
-        // Open card → scan / manual / bust; done card (also on the end-of-round view) → its result.
+        // Open card → scan / manual / bust; done card → its result.
+        flags.sheetRound = null
         flags.sheetPlayer = playerId.toLong()
+    }
+
+    override fun onResultClick(playerId: String) {
+        val round = flags.resultsRound ?: return
+        flags.sheetRound = round
+        flags.sheetPlayer = playerId.toLong()
+    }
+
+    override fun onDismissResults() {
+        flags.resultsRound = null
     }
 
     override fun onToggleView(view: RoundView) = run("view") { setViewMode(gameId, view.toViewMode()) }
@@ -137,7 +171,7 @@ class RoundController(
 
     override fun onScanNext() {
         val next = snapshot?.toRoundUiState()?.nextOpen ?: return
-        navigator.scan(next.id.toLong(), ScanStart.NEXT)
+        scanRunning(next.id.toLong(), ScanStart.NEXT)
     }
 
     override fun onCloseRound() {
@@ -146,15 +180,67 @@ class RoundController(
         if (state.openPlayers().isNotEmpty()) flags.confirmClose = true else closeRound()
     }
 
+    /** Confirmed "Close round" (or nobody open): close and start the next round in one step. */
     fun closeRound() {
         flags.confirmClose = false
         flags.arranging = false
-        run("close round") { closeRound(gameId) }
+        finishRound()
     }
 
     override fun onNextRound() {
         val state = snapshot?.state ?: return
-        if (state.isOver) navigator.gameOver() else run("next round") { nextRound(gameId) }
+        if (state.currentRound.isClosed || !state.isRoundComplete) return
+        flags.arranging = false
+        finishRound()
+    }
+
+    private var finishing = false
+
+    /**
+     * Closes the running round and starts the next one (one transaction), then shows the closed
+     * round's results on top of the new round, or Game over when someone reached the target.
+     */
+    private fun finishRound() {
+        if (finishing) return
+        finishing = true
+        scope.launch {
+            runCatching { repository.closeRoundAndStartNext(gameId) }
+                .onSuccess { s -> if (s.isOver) navigator.gameOver() else showResults(s.currentRound.number - 1) }
+                .onFailure { Log.w(TAG, "close round failed", it) }
+            finishing = false
+        }
+    }
+
+    private fun showResults(round: Int) {
+        flags.sheetPlayer = null
+        flags.resultsRound = round
+    }
+
+    /**
+     * The stored game's running round is already closed (an older version's end-of-round step, or
+     * a scoreboard edit took a finished game below the target again): Game over if it is over,
+     * else start the next round and show the closed round's results.
+     */
+    fun settleClosedRound() {
+        val state = snapshot?.state ?: return
+        if (!state.currentRound.isClosed || finishing) return
+        if (state.isOver) {
+            navigator.gameOver()
+            return
+        }
+        finishing = true
+        scope.launch {
+            runCatching { repository.nextRound(gameId) }
+                .onSuccess { s -> showResults(s.currentRound.number - 1) }
+                .onFailure { Log.w(TAG, "next round failed", it) }
+            finishing = false
+        }
+    }
+
+    /** Round menu: toggles the "Scan next" direction (app setting). */
+    fun onToggleScanDirection() {
+        val current = snapshot?.state?.scanDirection ?: return
+        run("scan direction") { setScanDirection(current.toggled()) }
     }
 
     override fun onMenu() {
@@ -182,12 +268,17 @@ class RoundController(
 
     fun sheetAction(playerId: Long, action: SheetAction) {
         flags.sheetPlayer = null
-        // End of round: Edit / Rescan change the closed round's result (totals, ranks recomputed).
-        val closedRound = snapshot?.state?.currentRound?.takeIf { it.isClosed }?.number
+        // From the results overlay: Edit / Rescan change the closed round's result (totals and
+        // ranks recomputed); the overlay stays to show them. Running round: the overlay goes away.
+        val closedRound = flags.sheetRound
+        flags.sheetRound = null
+        val scan = { start: ScanStart ->
+            if (closedRound != null) navigator.scan(playerId, start, closedRound) else scanRunning(playerId, start)
+        }
         when (action) {
-            SheetAction.Scan, SheetAction.Rescan -> navigator.scan(playerId, ScanStart.CAMERA, closedRound)
-            SheetAction.Manual -> navigator.scan(playerId, ScanStart.MANUAL)
-            SheetAction.Edit -> navigator.scan(playerId, ScanStart.EDIT, closedRound)
+            SheetAction.Scan, SheetAction.Rescan -> scan(ScanStart.CAMERA)
+            SheetAction.Manual -> scan(ScanStart.MANUAL)
+            SheetAction.Edit -> scan(ScanStart.EDIT)
             SheetAction.Bust -> {
                 run("bust") { bust(gameId, playerId) }
                 snapshot?.players?.get(playerId)?.let { toast.show(playerId.toString(), it.name) }
@@ -233,15 +324,25 @@ fun RoundRoute(
         Box(modifier.fillMaxSize().background(Scan7Theme.colors.ground))
         return
     }
-    RoundScreen(state = snap.toRoundUiState(flags.arranging), actions = controller, modifier = modifier, toast = toast)
+    val roundClosed = snap.state.currentRound.isClosed
+    LaunchedEffect(roundClosed) { if (roundClosed) controller.settleClosedRound() }
+    RoundScreen(
+        state = snap.toRoundUiState(flags.arranging, resultsRound = flags.resultsRound),
+        actions = controller,
+        modifier = modifier,
+        toast = toast,
+    )
 
     val uis = snap.state.playerIds.zip(snap.state.playerUis(snap.players)).toMap()
     flags.sheetPlayer?.let { id ->
-        val player = uis[id]
+        // Results overlay → the closed round's result; else the running round.
+        val round = flags.sheetRound?.takeIf { it in 1..snap.state.rounds.size } ?: snap.state.currentRound.number
+        val index = snap.state.playerIds.indexOf(id)
+        val player = if (index >= 0) snap.state.playerUis(snap.players, round)[index] else null
         if (player != null) {
-            val closed = snap.state.currentRound.isClosed
+            val closed = snap.state.round(round).isClosed
             PlayerSheet(
-                state = PlayerSheetUi(player, snap.state.currentRound.number, snap.state.result(id).cards, snap.state.adjustmentsOf(id)),
+                state = PlayerSheetUi(player, round, snap.state.result(id, round).cards, snap.state.adjustmentsOf(id)),
                 onScan = { controller.sheetAction(id, SheetAction.Scan) },
                 onEnterManually = { controller.sheetAction(id, SheetAction.Manual) },
                 onBust = {
@@ -252,7 +353,10 @@ fun RoundRoute(
                 onRescan = { controller.sheetAction(id, SheetAction.Rescan) },
                 // A closed round has no open players: "Reset to open" would mean reopening the round.
                 onResetToOpen = if (closed) null else ({ controller.sheetAction(id, SheetAction.Reset) }),
-                onDismiss = { flags.sheetPlayer = null },
+                onDismiss = {
+                    flags.sheetPlayer = null
+                    flags.sheetRound = null
+                },
                 adjust = remember(id) { controller.adjustActions(id) },
             )
         }
@@ -282,6 +386,16 @@ fun RoundRoute(
                     Modifier.fillMaxWidth(),
                     height = Scan7Spacing.minTouch,
                     textStyle = Scan7Type.text13,
+                )
+                // Toggle item showing the current direction; only decides who "Scan next" is.
+                val direction = snap.state.scanDirection
+                SecondaryButton(
+                    "Scan direction: " + direction.label(),
+                    controller::onToggleScanDirection,
+                    Modifier.fillMaxWidth(),
+                    height = Scan7Spacing.minTouch,
+                    textStyle = Scan7Type.text13,
+                    contentDescription = "Scan direction: ${direction.spoken()}. Switch to ${direction.toggled().spoken()}",
                 )
                 if (!snap.state.isOver) {
                     SecondaryButton(
