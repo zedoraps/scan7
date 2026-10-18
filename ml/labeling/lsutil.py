@@ -20,6 +20,8 @@ LABEL_CONFIG = HERE / "label_config.xml"
 PROJECTS = {
     "train": ("scan7 train", DATA_ROOT / "real_photos" / "train"),
     "test": ("scan7 test", DATA_ROOT / "real_photos" / "test"),
+    # English-edition web photos: evaluation only (language check), never training.
+    "web": ("scan7 web (EN test)", DATA_ROOT / "web_test" / "images"),
 }
 IMAGE_REGEX = r".*\.(jpe?g|JPE?G|png|PNG)$"
 # Must match the name= attributes in label_config.xml.
