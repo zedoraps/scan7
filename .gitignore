@@ -9,7 +9,8 @@ ml/runs/
 *.pt
 *.tflite
 # The app's bundled detector (app/app/src/main/assets/model.tflite) is NOT tracked: recreate it with
-# `cd ml && uv run scripts/export.py <checkpoint>` (~10 MB per version would bloat git history).
+# `cd ml && uv run scripts/export.py <checkpoint>` or fetch the released one with `cd app && ./gradlew downloadModel`
+# (~10 MB per version would bloat git history).
 
 # Android
 app/.gradle/
@@ -41,3 +42,9 @@ ml/data/app_scans/
 
 # App screenshot matrix (scripts/screen-matrix.sh)
 /out/
+
+# Release upload keys (they belong in ~/keys, never in the repo)
+*.jks
+*.keystore
+# downloadModel temp file
+*.tflite.part

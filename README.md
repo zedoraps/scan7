@@ -2,6 +2,8 @@
 
 Android app that scans and scores Flip 7 cards on-device. See [docs/BRIEF.md](docs/BRIEF.md) for the full plan.
 
+*Unofficial score keeper for Flip 7. Not affiliated with The Op Games.*
+
 ## Agents
 Coding agents (Claude Code and others): read [AGENTS.md](AGENTS.md) first — commands, hard rules, decisions, conventions.
 
@@ -10,7 +12,7 @@ App name **Scan7**, dark "Deep Cyan" theme, Unbounded + DM Mono fonts. Brand kit
 
 ## Layout
 - `ml/` – Python: card cutouts, synthetic data, training, export
-- `app/` – Android app (Kotlin + Jetpack Compose) — not started yet
+- `app/` – Android app (Kotlin + Jetpack Compose)
 - `docs/` – project brief and notes
 
 ## Setup
@@ -32,6 +34,27 @@ Run any script with `uv run python scripts/<name>.py` from `ml/`.
   export PATH="$HOME/Library/Android/sdk/platform-tools:$PATH"
   ```
 - Test on a real phone over USB (enable USB debugging, then `adb devices`).
+- The detector model isn't in git: after cloning run `cd app && ./gradlew downloadModel` (or export your own, stage 5).
+- Releases (signing, versioning, Play / GitHub / F-Droid): [docs/RELEASE.md](docs/RELEASE.md).
+
+## License
+Scan7 is free software under the **GNU Affero General Public License v3.0** ([LICENSE](LICENSE)):
+the app ships a detector trained with Ultralytics YOLO, which is AGPL-3.0. If you distribute a
+modified version (or offer it over a network), you must publish its source under the same license.
+
+Third-party components:
+
+| Component | Used for | License |
+|---|---|---|
+| [Ultralytics YOLO](https://github.com/ultralytics/ultralytics) (YOLO26n, pretrained weights) | training + the exported detector model | AGPL-3.0 |
+| [LiteRT](https://github.com/google-ai-edge/LiteRT) (Google AI Edge) | on-device inference (GPU / CPU) | Apache-2.0 |
+| Android Jetpack: Compose, Material 3, CameraX, Room, Lifecycle, Navigation 3, Core, Activity, SplashScreen | app UI, camera, database | Apache-2.0 |
+| Kotlin, kotlinx.coroutines, kotlinx.serialization | language + libraries | Apache-2.0 |
+| Unbounded, DM Mono fonts | app typography | SIL OFL 1.1 ([docs/third_party/](docs/third_party/)) |
+
+The app shows these notices with the full texts under Home → version footer → *About & licenses*.
+Flip 7 is a trademark of its owner and is only named to describe what the app is for; the app uses
+none of the game's artwork, logo or fonts. Privacy policy: [docs/privacy.md](docs/privacy.md).
 
 ## Input data
 Photos are **not in git**: they're large, and the `PRIVATE_*` files show personal info. `ml/data/manifest.csv` lists every file with its original camera filename and notes. Back up `ml/data/` separately.
