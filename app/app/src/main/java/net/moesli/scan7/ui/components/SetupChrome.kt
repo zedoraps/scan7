@@ -153,7 +153,7 @@ fun TextLinkButton(
 }
 
 /**
- * Bottom sheet in the card styling: `surface` panel with a `line` border, top radius 18, a grab
+ * Bottom sheet in the card styling: `surface` panel, top radius 18, a grab
  * handle and 16 dp padding. Built on Material 3's [ModalBottomSheet], restyled, so it behaves like
  * a platform sheet: swipe down (the grab handle's promise), tap the scrim, Back / predictive back
  * and TalkBack "dismiss" all call [onDismiss]; it opens fully expanded.
@@ -176,7 +176,9 @@ fun Scan7BottomSheet(
         tonalElevation = 0.dp,
         scrimColor = colors.ground.copy(alpha = 0.6f),
         dragHandle = { SheetGrabHandle() },
-        modifier = modifier.border(1.5.dp, colors.line, shape),
+        // No border: ModalBottomSheet applies `modifier` to its full-height layout, so a border
+        // would draw a frame up the screen; surface colour + scrim set the sheet apart.
+        modifier = modifier,
     ) {
         Column(
             modifier = Modifier
