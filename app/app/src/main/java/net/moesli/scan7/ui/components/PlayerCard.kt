@@ -1,5 +1,8 @@
 package net.moesli.scan7.ui.components
 
+import androidx.compose.ui.composed
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.StartOffset
@@ -139,12 +142,25 @@ internal fun Modifier.playerClickable(
     onLongClick: (() -> Unit)?,
     onDoubleClick: (() -> Unit)? = null,
     doubleClickLabel: String? = null,
+): Modifier = composed {
+    val longClickLabel = if (onLongClick != null) stringResource(R.string.action_rearrange) else null
+    clickableWithLabels(player, onClick, onLongClick, onDoubleClick, doubleClickLabel, longClickLabel)
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+private fun Modifier.clickableWithLabels(
+    player: PlayerUi,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
+    onDoubleClick: (() -> Unit)?,
+    doubleClickLabel: String?,
+    longClickLabel: String?,
 ): Modifier = this
     .combinedClickable(
         interactionSource = null,
         indication = PressDim,
         role = Role.Button,
-        onLongClickLabel = if (onLongClick != null) "Rearrange seats / order" else null,
+        onLongClickLabel = longClickLabel,
         onLongClick = onLongClick,
         onDoubleClick = onDoubleClick,
         onClick = onClick,
@@ -206,7 +222,7 @@ fun PlayerCard(
                 modifier = Modifier
                     .matchParentSize()
                     .cardSurface(look, shape, radius)
-                    .playerClickable(player, onClick, onLongClick, onDoubleClick, "Scan ${player.name}")
+                    .playerClickable(player, onClick, onLongClick, onDoubleClick, stringResource(R.string.action_scan_player, player.name))
                     .padding(horizontal = size.padding, vertical = if (compact) CompactPaddingV else size.padding),
             ) {
                 Column(

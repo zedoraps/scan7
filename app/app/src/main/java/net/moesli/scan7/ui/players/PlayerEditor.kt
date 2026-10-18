@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.players
 
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -126,10 +128,11 @@ fun PlayerEditorContent(
     val owners = remember(dotPlayers, editing) { colorOwners(dotPlayers, editing?.id) }
     val usedBy = remember(owners) { owners.mapValues { (_, ps) -> ps.map { it.name } } }
     val canSave = name.isNotBlank() && !busy
+    val nameMissingText = stringResource(R.string.editor_name_missing)
 
     Column {
         AvatarEditorHeader(
-            title = if (editing == null) "New player" else "Edit player",
+            title = stringResource(if (editing == null) R.string.editor_new_title else R.string.editor_edit_title),
             onShuffle = {
                 val taken = (players + dotPlayers).filter { it.id != editing?.id }.map { it.avatar.color }
                 avatar = shuffledAvatar(avatar, taken)
@@ -151,15 +154,15 @@ fun PlayerEditorContent(
                             name = it.take(MAX_NAME_LENGTH)
                             if (name.isNotBlank()) nameMissing = false
                         },
-                        placeholder = "e.g. Anna",
-                        label = "Name",
+                        placeholder = stringResource(R.string.editor_name_placeholder),
+                        label = stringResource(R.string.editor_name),
                         // IME Done = Save; on an empty name it says why nothing happened (also to TalkBack).
                         onDone = { if (canSave) onSave(name.trim(), avatar) else if (name.isBlank()) nameMissing = true },
-                        modifier = Modifier.semantics { if (nameMissing) error(NAME_MISSING) },
+                        modifier = Modifier.semantics { if (nameMissing) error(nameMissingText) },
                     )
                     if (nameMissing) {
                         Text(
-                            NAME_MISSING,
+                            nameMissingText,
                             color = colors.textMuted,
                             style = Scan7Type.text12,
                             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
@@ -181,15 +184,14 @@ fun PlayerEditorContent(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
             if (onDelete != null) {
-                SecondaryButton("Delete", onDelete, Modifier.width(112.dp), height = 56.dp, enabled = !busy)
+                SecondaryButton(stringResource(R.string.action_delete), onDelete, Modifier.width(112.dp), height = 56.dp, enabled = !busy)
             }
-            PrimaryButton("Save", { onSave(name.trim(), avatar) }, Modifier.weight(1f), height = 56.dp, enabled = canSave)
+            PrimaryButton(stringResource(R.string.action_save), { onSave(name.trim(), avatar) }, Modifier.weight(1f), height = 56.dp, enabled = canSave)
         }
     }
 }
 
 private const val MAX_NAME_LENGTH = 16
-private const val NAME_MISSING = "Enter a name to save"
 
 /**
  * [PlayerEditorSheet] wired to the [repository]: adds or updates the player, deletes (the
@@ -210,6 +212,8 @@ fun PlayerEditorHost(
     // Save / Delete close the sheet with its slide-down once the repository call succeeded.
     val sheetState = rememberScan7SheetState()
     var error by remember(target) { mutableStateOf<String?>(null) }
+    val saveError = stringResource(R.string.error_save)
+    val deleteError = stringResource(R.string.error_delete)
     var busy by remember(target) { mutableStateOf(false) }
     val editing = (target as? EditorTarget.Edit)?.player
     PlayerEditorSheet(
@@ -237,7 +241,7 @@ fun PlayerEditorHost(
                     // Stays busy while the sheet slides down (no second save).
                     sheetState.hideThen({ onSaved(id) })
                 }.onFailure {
-                    error = it.message ?: "Couldn't save"
+                    error = saveError
                     busy = false
                 }
             }
@@ -249,7 +253,7 @@ fun PlayerEditorHost(
                     runCatching { outlivingUi { repository.deletePlayer(p.id) } }
                         .onSuccess { sheetState.hideThen() }
                         .onFailure {
-                            error = it.message ?: "Couldn't delete"
+                            error = deleteError
                             busy = false
                         }
                 }

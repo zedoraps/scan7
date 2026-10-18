@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.sheet
 
+import net.moesli.scan7.ui.text.de
+import net.moesli.scan7.ui.text.en
 import net.moesli.scan7.game.ScoreAdjustment
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -11,11 +13,12 @@ class AdjustTextTest {
         assertNull(deltaError(""))
         assertNull(deltaError("+10"))
         assertNull(deltaError("-3"))
-        assertEquals("Enter a number after the sign", deltaError("-"))
-        assertEquals("Enter a number after the sign", deltaError("+"))
-        assertEquals("Enter a number other than 0", deltaError("0"))
-        assertEquals("Enter a number other than 0", deltaError("-0"))
-        assertEquals("Up to 999 points", deltaError("1000"))
+        assertEquals("Enter a number after the sign", deltaError("-")!!.en)
+        assertEquals("Enter a number after the sign", deltaError("+")!!.en)
+        assertEquals("Enter a number other than 0", deltaError("0")!!.en)
+        assertEquals("Enter a number other than 0", deltaError("-0")!!.en)
+        assertEquals("Up to 999 points", deltaError("1000")!!.en)
+        assertEquals("Höchstens 999 Punkte", deltaError("1000")!!.de)
     }
 
     @Test
@@ -67,13 +70,15 @@ class AdjustTextTest {
     fun display() {
         assertEquals("+10", formatDelta(10))
         assertEquals("−12", formatDelta(-12))
-        assertEquals("Total 123 → 111", adjustPreview(123, -12))
-        assertEquals("Add 5", stepDescription(5))
-        assertEquals("Subtract 10", stepDescription(-10))
+        assertEquals("Total 123 → 111", adjustPreview(123, -12).en)
+        assertEquals("Add 5", stepDescription(5).en)
+        assertEquals("Subtract 10", stepDescription(-10).en)
+        assertEquals("10 abziehen", stepDescription(-10).de)
         val a = ScoreAdjustment(1, 1, -12, "penalty", 2)
-        assertEquals("penalty · round 2", adjustmentDetail(a))
-        assertEquals("round 2", adjustmentDetail(a.copy(note = null)))
-        assertEquals("minus 12, penalty, round 2", adjustmentDescription(a))
-        assertEquals("plus 3, round 2", adjustmentDescription(a.copy(delta = 3, note = null)))
+        assertEquals("penalty · round 2", adjustmentDetail(a).en)
+        assertEquals("penalty · Runde 2", adjustmentDetail(a).de)
+        assertEquals("round 2", adjustmentDetail(a.copy(note = null)).en)
+        assertEquals("minus 12, penalty, round 2", adjustmentDescription(a).en)
+        assertEquals("plus 3, round 2", adjustmentDescription(a.copy(delta = 3, note = null)).en)
     }
 }

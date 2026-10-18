@@ -1,5 +1,10 @@
 package net.moesli.scan7.ui.scan
 
+import net.moesli.scan7.ui.text.spokenText
+import net.moesli.scan7.ui.text.chipText
+import net.moesli.scan7.ui.text.uiText
+import net.moesli.scan7.ui.text.UiText
+import net.moesli.scan7.R
 import net.moesli.scan7.game.ConfirmedCard
 import net.moesli.scan7.game.ResultSource
 import net.moesli.scan7.scoring.Card
@@ -83,25 +88,10 @@ fun splitCards(cards: List<Card>): SplitCards {
 }
 
 /** Chip / box tag text: "7", "+4", "×2", "Freeze", "Flip 3", "2nd chance", "Back". */
-fun Card.chipLabel(): String = when (kind) {
-    CardKind.NUMBER -> value.toString()
-    CardKind.MODIFIER_PLUS -> "+$value"
-    CardKind.MODIFIER_TIMES2 -> "×2"
-    CardKind.ACTION, CardKind.BACK -> when (this) {
-        Card.FREEZE -> "Freeze"
-        Card.FLIP_THREE -> "Flip 3"
-        Card.SECOND_CHANCE -> "2nd chance"
-        else -> "Back"
-    }
-}
+fun Card.chipLabel(): UiText = chipText()
 
 /** Spoken label for TalkBack: "7", "plus 4", "times 2", "Freeze". */
-fun Card.spokenLabel(): String = when (kind) {
-    CardKind.NUMBER -> value.toString()
-    CardKind.MODIFIER_PLUS -> "plus $value"
-    CardKind.MODIFIER_TIMES2 -> "times 2"
-    else -> chipLabel()
-}
+fun Card.spokenLabel(): UiText = spokenText()
 
 /** What a piece of the [breakdownFormula] is (its color on screen; [TOTAL] is not shown). */
 enum class FormulaKind { NUMBER, MODIFIER, BONUS, OPERATOR, TOTAL }
@@ -169,19 +159,20 @@ fun breakdownText(cards: List<Card>): String =
     breakdownFormula(cards).filter { it.kind != FormulaKind.TOTAL }.joinToString("") { it.text }
 
 /** The formula for TalkBack: "6 plus 7 plus 8 times 2 plus 4 equals 46" (no "equals" for one value). */
-fun spokenFormula(parts: List<FormulaPart>): String {
+fun spokenFormula(parts: List<FormulaPart>): UiText {
     val shown = parts.filter { it.kind != FormulaKind.TOTAL }
-    val text = shown.joinToString("") { p ->
+    val words = shown.mapNotNull { p ->
         when (p.text) {
-            " + ", "+ " -> " plus "
-            " × " -> " times "
-            "(", ")", FORMULA_LINE_BREAK -> ""
-            else -> p.text
+            " + ", "+ " -> uiText(R.string.formula_plus)
+            " × " -> uiText(R.string.formula_times)
+            "(", ")", FORMULA_LINE_BREAK -> null
+            else -> UiText.Raw(p.text)
         }
     }
+    val text = UiText.Join(words, " ")
     val total = parts.lastOrNull { it.kind == FormulaKind.TOTAL }?.text
     val values = shown.count { it.kind != FormulaKind.OPERATOR }
-    return if (total != null && values > 1) "$text equals $total" else text
+    return if (total != null && values > 1) uiText(R.string.formula_equals, text, total) else text
 }
 
 /** What the row would score without the bust rule (shown struck through on the bust panel). */
@@ -207,18 +198,15 @@ fun isDuplicate(card: Card, duplicates: Map<Int, Int>): Boolean =
     card.kind == CardKind.NUMBER && card.value in duplicates
 
 /** Bust band text: "Two 7s", "Three 12s", "Two 3s, two 7s". Empty when there is no duplicate. */
-fun duplicateSummary(duplicates: Map<Int, Int>): String =
-    duplicates.entries.mapIndexed { i, (value, count) ->
-        val word = countWord(count)
-        "${if (i == 0) word else word.lowercase()} ${value}s"
-    }.joinToString(", ")
+fun duplicateSummary(duplicates: Map<Int, Int>): UiText =
+    UiText.Capitalized(UiText.Join(duplicates.map { (value, count) -> duplicateText(value, count) }, ", "))
 
-private fun countWord(count: Int): String = when (count) {
-    2 -> "Two"
-    3 -> "Three"
-    4 -> "Four"
-    5 -> "Five"
-    else -> "$count×"
+private fun duplicateText(value: Int, count: Int): UiText = when (count) {
+    2 -> uiText(R.string.dup_two, value)
+    3 -> uiText(R.string.dup_three, value)
+    4 -> uiText(R.string.dup_four, value)
+    5 -> uiText(R.string.dup_five, value)
+    else -> uiText(R.string.dup_many, value, count)
 }
 
 // ---- Leaving cards out on the review ---------------------------------------------------------
@@ -372,11 +360,11 @@ fun isGridCardEnabled(selected: List<Card>, card: Card, ignored: List<Card> = em
  * Manual-screen hint at the number grid: "7 number cards – the maximum" at the limit, a warning
  * above it (Fix prefilled from a scan with more than 7), null below.
  */
-fun numberLimitHint(selected: List<Card>): String? {
+fun numberLimitHint(selected: List<Card>): UiText? {
     val count = rowNumberCount(selected)
     return when {
-        count > MAX_NUMBER_CARDS -> "$count number cards – at most $MAX_NUMBER_CARDS fit in a row"
-        count == MAX_NUMBER_CARDS -> "$MAX_NUMBER_CARDS number cards – the maximum"
+        count > MAX_NUMBER_CARDS -> uiText(R.string.manual_limit_over, count, MAX_NUMBER_CARDS)
+        count == MAX_NUMBER_CARDS -> uiText(R.string.manual_limit_reached, MAX_NUMBER_CARDS)
         else -> null
     }
 }
@@ -385,10 +373,10 @@ fun numberLimitHint(selected: List<Card>): String? {
  * TalkBack state of a number toggle that is disabled by the limit; the node is also marked
  * disabled, so TalkBack reads "7 number cards selected … disabled" (no doubled "disabled").
  */
-const val NUMBER_LIMIT_STATE = "$MAX_NUMBER_CARDS number cards selected"
+val NUMBER_LIMIT_STATE: UiText = uiText(R.string.manual_limit_state, MAX_NUMBER_CARDS)
 
 /** Review panel warning while more than 7 number cards are included. */
-const val REVIEW_NUMBER_LIMIT_WARNING = "More than $MAX_NUMBER_CARDS number cards – tap cards to leave them out"
+val REVIEW_NUMBER_LIMIT_WARNING: UiText = uiText(R.string.review_number_limit, MAX_NUMBER_CARDS)
 
 /** How many copies of [card] are selected (the manual selection is a multiset). */
 fun selectedCount(selected: List<Card>, card: Card): Int = selected.count { it == card }
@@ -408,7 +396,7 @@ fun toggleCard(selected: List<Card>, card: Card, ignored: List<Card> = emptyList
 }
 
 /** TalkBack state of a grid toggle holding several copies: "2 selected, tap to remove one"; else null. */
-fun gridCountState(count: Int): String? = if (count >= 2) "$count selected, tap to remove one" else null
+fun gridCountState(count: Int): UiText? = if (count >= 2) uiText(R.string.manual_count_state, count) else null
 
 /** Chip tap: removes the chip at [index] (only that copy of a duplicated number). */
 fun removeChipAt(selected: List<Card>, index: Int): List<Card> = selected.filterIndexed { i, _ -> i != index }

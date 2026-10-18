@@ -1,5 +1,11 @@
 package net.moesli.scan7.ui.players
 
+import net.moesli.scan7.ui.text.avatarPatternLabel
+import net.moesli.scan7.ui.text.avatarFaceName
+import net.moesli.scan7.ui.text.avatarColorName
+import net.moesli.scan7.ui.text.UiText
+import net.moesli.scan7.ui.text.resolve
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -45,7 +51,7 @@ import net.moesli.scan7.R
 import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.AvatarCatalog
 import net.moesli.scan7.game.AvatarColor
-import net.moesli.scan7.game.avatarDescription
+import net.moesli.scan7.ui.text.avatarDescription
 import net.moesli.scan7.ui.components.BottomSheetPanel
 import net.moesli.scan7.ui.components.IconButton
 import net.moesli.scan7.ui.components.PlayerAvatar
@@ -84,7 +90,7 @@ fun AvatarEditorHeader(title: String, onShuffle: () -> Unit, modifier: Modifier 
                 .weight(1f)
                 .semantics { heading() },
         )
-        IconButton(onClick = onShuffle, contentDescription = "Shuffle avatar") {
+        IconButton(onClick = onShuffle, contentDescription = stringResource(R.string.editor_shuffle)) {
             Icon(ShuffleVector, contentDescription = null, tint = colors.accent, modifier = Modifier.size(20.dp))
         }
     }
@@ -103,7 +109,7 @@ fun AvatarPreviewRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.fillMaxWidth(),
     ) {
-        PlayerAvatar(avatar, AvatarPreviewSize, contentDescription = avatarDescription(name, avatar))
+        PlayerAvatar(avatar, AvatarPreviewSize, contentDescription = avatarDescription(name, avatar).resolve())
         Box(Modifier.weight(1f)) { nameField() }
     }
 }
@@ -121,13 +127,13 @@ fun AvatarPickers(
     modifier: Modifier = Modifier,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.l), modifier = modifier.fillMaxWidth()) {
-        PickerSection("Face") {
+        PickerSection(stringResource(R.string.editor_face)) {
             AvatarCatalog.faces.chunked(4).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
                     row.forEach { face ->
                         PickerButton(
                             selected = face == avatar.face,
-                            label = "${face.replaceFirstChar { it.uppercase() }} face",
+                            label = stringResource(R.string.editor_face_option, avatarFaceName(face).resolve()),
                             onClick = { onChange(avatar.copy(face = face)) },
                             height = FaceButtonHeight,
                             modifier = Modifier.weight(1f),
@@ -136,12 +142,12 @@ fun AvatarPickers(
                 }
             }
         }
-        PickerSection("Pattern") {
+        PickerSection(stringResource(R.string.editor_pattern)) {
             Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
                 AvatarCatalog.patterns.forEach { pattern ->
                     PickerButton(
                         selected = pattern == avatar.pattern,
-                        label = if (pattern == AvatarCatalog.PLAIN) "No pattern" else "${pattern.replaceFirstChar { it.uppercase() }} pattern",
+                        label = avatarPatternLabel(pattern).resolve(),
                         onClick = { onChange(avatar.copy(pattern = pattern)) },
                         height = PatternButtonHeight,
                         modifier = Modifier.weight(1f),
@@ -149,14 +155,15 @@ fun AvatarPickers(
                 }
             }
         }
-        PickerSection("Color") {
+        PickerSection(stringResource(R.string.editor_color)) {
             AvatarCatalog.colors.chunked(5).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
                     row.forEach { c ->
                         val owners = usedBy[c.id].orEmpty()
+                        val colorName = avatarColorName(c.id).resolve()
                         PickerButton(
                             selected = c.id == avatar.color,
-                            label = c.name + if (owners.isEmpty()) "" else ", used by ${owners.joinToString(", ")}",
+                            label = if (owners.isEmpty()) colorName else stringResource(R.string.editor_color_used, colorName, UiText.Names(owners).resolve()),
                             onClick = { onChange(avatar.copy(color = c.id)) },
                             height = ColorButtonHeight,
                             modifier = Modifier.weight(1f),

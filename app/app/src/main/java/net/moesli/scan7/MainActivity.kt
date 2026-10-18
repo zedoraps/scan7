@@ -1,5 +1,6 @@
 package net.moesli.scan7
 
+import android.content.Context
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -25,6 +26,7 @@ import net.moesli.scan7.detection.readModelInfo
 import net.moesli.scan7.ui.nav.AppNavHost
 import net.moesli.scan7.ui.nav.DebugLaunch
 import net.moesli.scan7.ui.nav.Route
+import net.moesli.scan7.ui.text.AppLocales
 import net.moesli.scan7.ui.theme.Scan7Theme
 
 /**
@@ -47,6 +49,11 @@ private const val EXTRA_DEBUG_CPU = "debug_cpu"
 private const val EXTRA_DEBUG_GAME_PHOTO = "debug_game_photo"
 
 class MainActivity : ComponentActivity() {
+    // API 29–32 only: applies the in-app language choice (API 33+ uses per-app locales).
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocales.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // Branded splash on every API level (Theme.Scan7.Starting → Theme.Scan7).
         installSplashScreen()

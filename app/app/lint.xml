@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Strings (AGENTS.md "Strings"): English in values/, German in values-de/. These fail lintDebug.
+     HardcodedText only covers XML; Compose text is guarded by HardcodedUiTextTest (JVM). -->
+<lint>
+    <issue id="HardcodedText" severity="error" />
+    <issue id="MissingTranslation" severity="error" />
+    <issue id="ExtraTranslation" severity="error" />
+    <issue id="MissingQuantity" severity="error" />
+    <issue id="ImpliedQuantity" severity="error" />
+    <issue id="StringFormatMatches" severity="error" />
+    <issue id="StringFormatInvalid" severity="error" />
+    <issue id="StringFormatCount" severity="error" />
+    <!-- PluralsCandidate stays a warning: it also flags fixed counts ("at most 7 number cards"). -->
+    <issue id="UnusedQuantity" severity="ignore" />
+</lint>

@@ -1,5 +1,8 @@
 package net.moesli.scan7.game
 
+import net.moesli.scan7.ui.text.avatarDescription
+import net.moesli.scan7.ui.text.de
+import net.moesli.scan7.ui.text.en
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -68,8 +71,9 @@ class AvatarTest {
 
     @Test
     fun descriptionFollowsTheKit() {
-        assertEquals("Mia, sand avatar, grin face", avatarDescription("Mia", Avatar("grin", "plain", "sand")))
-        assertEquals("amber avatar, happy face", avatarDescription(null, Avatar("x", "y", "z")))
-        assertNotEquals(avatarDescription("A", Avatar.DEFAULT), avatarDescription("B", Avatar.DEFAULT))
+        assertEquals("Mia, Sand avatar, grin face", avatarDescription("Mia", Avatar("grin", "plain", "sand")).en)
+        assertEquals("Amber avatar, happy face", avatarDescription(null, Avatar("x", "y", "z")).en)
+        assertEquals("Mia, Avatar Sand, grinsend", avatarDescription("Mia", Avatar("grin", "plain", "sand")).de)
+        assertNotEquals(avatarDescription("A", Avatar.DEFAULT).en, avatarDescription("B", Avatar.DEFAULT).en)
     }
 }

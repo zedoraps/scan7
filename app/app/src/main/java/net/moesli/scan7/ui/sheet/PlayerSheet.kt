@@ -1,5 +1,10 @@
 package net.moesli.scan7.ui.sheet
 
+import net.moesli.scan7.ui.text.chipText
+import net.moesli.scan7.ui.text.resolve
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.background
@@ -188,7 +193,7 @@ fun AdjustSection(
     val name = state.player.name
     Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
         if (state.adjustments.isNotEmpty()) {
-            SectionLabel("Total adjustments")
+            SectionLabel(stringResource(R.string.sheet_adjustments))
             state.adjustments.forEach { AdjustmentRow(it, onRemove = { onRemove(it) }) }
         }
         if (removed != null) {
@@ -199,22 +204,22 @@ fun AdjustSection(
                     .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
             ) {
                 Text(
-                    "Removed ${formatDelta(removed.delta)}",
+                    stringResource(R.string.sheet_removed, formatDelta(removed.delta)),
                     color = colors.textMuted,
                     style = Scan7Type.text13,
                     modifier = Modifier.weight(1f),
                 )
-                TextLinkButton("Undo", onClick = { onUndo(removed) })
+                TextLinkButton(stringResource(R.string.action_undo), onClick = { onUndo(removed) })
             }
         }
         SecondaryButton(
-            "Adjust total",
+            stringResource(R.string.sheet_adjust),
             onAdjust,
             Modifier.fillMaxWidth(),
             height = Scan7Spacing.minTouch,
             cornerRadius = Scan7Radii.iconButton,
             textStyle = Scan7Type.button.copy(fontSize = 13.sp),
-            contentDescription = "Adjust $name's total (penalty, house rule)",
+            contentDescription = stringResource(R.string.sheet_adjust_description, name),
         )
     }
 }
@@ -223,6 +228,9 @@ fun AdjustSection(
 private fun AdjustmentRow(adjustment: ScoreAdjustment, onRemove: () -> Unit) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.tagRow)
+    val spoken = adjustmentDescription(adjustment).resolve()
+    val description = stringResource(R.string.sheet_adjustment_description, spoken)
+    val removeDescription = stringResource(R.string.sheet_remove_adjustment, spoken)
     Row(
         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
         verticalAlignment = Alignment.CenterVertically,
@@ -236,11 +244,11 @@ private fun AdjustmentRow(adjustment: ScoreAdjustment, onRemove: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .weight(1f)
-                .clearAndSetSemantics { contentDescription = "Adjustment " + adjustmentDescription(adjustment) },
+                .clearAndSetSemantics { contentDescription = description },
         ) {
             Text(formatDelta(adjustment.delta), color = colors.text, style = Scan7Type.total15, maxLines = 1)
             Text(
-                adjustmentDetail(adjustment),
+                adjustmentDetail(adjustment).resolve(),
                 color = colors.textMuted,
                 style = Scan7Type.text12,
                 maxLines = 1,
@@ -254,7 +262,7 @@ private fun AdjustmentRow(adjustment: ScoreAdjustment, onRemove: () -> Unit) {
                 .clip(shape)
                 .scan7Clickable(onRemove)
                 .clearAndSetSemantics {
-                    contentDescription = "Remove adjustment " + adjustmentDescription(adjustment)
+                    contentDescription = removeDescription
                     role = Role.Button
                 },
         ) {
@@ -282,18 +290,30 @@ fun PlayerSheetContent(
         } else {
             ResultPanel(state)
             Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
-                SecondaryButton("Edit", onEdit, Modifier.weight(1f), height = 56.dp, contentDescription = "Edit ${player.name}'s cards")
-                SecondaryButton("Rescan", onRescan, Modifier.weight(1f), height = 56.dp, contentDescription = "Rescan ${player.name}")
+                SecondaryButton(
+                    stringResource(R.string.action_edit),
+                    onEdit,
+                    Modifier.weight(1f),
+                    height = 56.dp,
+                    contentDescription = stringResource(R.string.sheet_edit_cards, player.name),
+                )
+                SecondaryButton(
+                    stringResource(R.string.sheet_rescan),
+                    onRescan,
+                    Modifier.weight(1f),
+                    height = 56.dp,
+                    contentDescription = stringResource(R.string.sheet_rescan_player, player.name),
+                )
             }
             if (onResetToOpen != null) {
                 SecondaryButton(
-                    "Reset to open",
+                    stringResource(R.string.sheet_reset),
                     onResetToOpen,
                     Modifier.fillMaxWidth(),
                     height = Scan7Spacing.minTouch,
                     cornerRadius = Scan7Radii.iconButton,
                     textStyle = Scan7Type.button.copy(fontSize = 13.sp),
-                    contentDescription = "Reset ${player.name} to not scored",
+                    contentDescription = stringResource(R.string.sheet_reset_description, player.name),
                 )
             }
         }
@@ -313,7 +333,7 @@ private fun SheetHeader(state: PlayerSheetUi) {
         Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs), modifier = Modifier.weight(1f)) {
             Text(player.name, color = colors.text, style = Scan7Type.buttonName, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "${player.total} ${if (player.total == 1) "point" else "points"} · round ${state.round}",
+                stringResource(R.string.sheet_points_round, pluralStringResource(R.plurals.points, player.total, player.total), state.round),
                 color = colors.textMuted,
                 style = Scan7Type.text12,
             )
@@ -325,6 +345,8 @@ private fun SheetHeader(state: PlayerSheetUi) {
 private fun OpenActions(name: String, onScan: () -> Unit, onEnterManually: () -> Unit, onBust: () -> Unit) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.button)
+    val scanDescription = stringResource(R.string.action_scan_player, name)
+    val bustDescription = stringResource(R.string.action_bust_player, name)
     Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m, Alignment.CenterHorizontally),
@@ -336,16 +358,16 @@ private fun OpenActions(name: String, onScan: () -> Unit, onEnterManually: () ->
                 .background(colors.accent)
                 .scan7Clickable(onScan)
                 .clearAndSetSemantics {
-                    contentDescription = "Scan $name"
+                    contentDescription = scanDescription
                     role = Role.Button
                 },
         ) {
             ScanIcon(colors.onAccent, size = 28.dp)
-            Text("Scan", color = colors.onAccent, style = Scan7Type.button.copy(fontSize = 18.sp))
+            Text(stringResource(R.string.action_scan), color = colors.onAccent, style = Scan7Type.button.copy(fontSize = 18.sp))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
             SecondaryButton(
-                "Enter manually",
+                stringResource(R.string.action_enter_manually),
                 onEnterManually,
                 Modifier.weight(1f),
                 height = 56.dp,
@@ -360,11 +382,11 @@ private fun OpenActions(name: String, onScan: () -> Unit, onEnterManually: () ->
                     .border(1.5.dp, colors.bust, shape)
                     .scan7Clickable(onBust)
                     .clearAndSetSemantics {
-                        contentDescription = "Mark $name as bust"
+                        contentDescription = bustDescription
                         role = Role.Button
                     },
             ) {
-                Text("✕ BUST", color = colors.bust, style = Scan7Type.tag12.copy(fontSize = 14.sp))
+                Text(stringResource(R.string.label_bust_tag), color = colors.bust, style = Scan7Type.tag12.copy(fontSize = 14.sp))
             }
         }
     }
@@ -390,18 +412,18 @@ private fun ResultPanel(state: PlayerSheetUi) {
             when (status) {
                 is PlayerStatus.Scored -> {
                     Text("+${status.points}", color = colors.accent, style = Scan7Type.roundNumberList)
-                    Text("points this round", color = colors.textMuted, style = Scan7Type.text12, modifier = Modifier.padding(bottom = 2.dp))
+                    Text(stringResource(R.string.sheet_points_this_round), color = colors.textMuted, style = Scan7Type.text12, modifier = Modifier.padding(bottom = 2.dp))
                 }
                 else -> {
-                    Text("✕ BUST", color = colors.bust, style = Scan7Type.roundNumberList)
-                    Text("0 points this round", color = colors.textMuted, style = Scan7Type.text12, modifier = Modifier.padding(bottom = 2.dp))
+                    Text(stringResource(R.string.label_bust_tag), color = colors.bust, style = Scan7Type.roundNumberList)
+                    Text(stringResource(R.string.sheet_zero_points_this_round), color = colors.textMuted, style = Scan7Type.text12, modifier = Modifier.padding(bottom = 2.dp))
                 }
             }
         }
         if (score != null) {
             if (score.bust) {
                 Text(
-                    breakdownLine(counted.filter { it.kind == CardKind.NUMBER }.map { it.value!! }, score),
+                    breakdownLine(counted.filter { it.kind == CardKind.NUMBER }.map { it.value!! }, score).resolve(),
                     color = colors.bust,
                     style = Scan7Type.text12,
                 )
@@ -414,7 +436,7 @@ private fun ResultPanel(state: PlayerSheetUi) {
             }
         } else {
             Text(
-                if (status == PlayerStatus.Bust) "Marked bust, no cards recorded." else "Points entered without cards.",
+                stringResource(if (status == PlayerStatus.Bust) R.string.sheet_marked_bust else R.string.sheet_points_only),
                 color = colors.textMuted,
                 style = Scan7Type.text12,
             )
@@ -427,7 +449,13 @@ private fun ResultPanel(state: PlayerSheetUi) {
 fun CardChip(card: Card, ignored: Boolean, modifier: Modifier = Modifier, duplicate: Boolean = false) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.tagRow)
-    val label = chipLabel(card)
+    val label = card.chipText().resolve()
+    val description = when {
+        ignored -> stringResource(R.string.sheet_card_ignored_description, label)
+        duplicate -> stringResource(R.string.sheet_card_duplicate_description, label)
+        else -> label
+    }
+    val text = if (ignored) stringResource(R.string.sheet_card_ignored, label) else label
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -442,10 +470,10 @@ fun CardChip(card: Card, ignored: Boolean, modifier: Modifier = Modifier, duplic
                 },
             )
             .padding(horizontal = Scan7Spacing.s)
-            .semantics { contentDescription = if (ignored) "$label, ignored" else if (duplicate) "$label, duplicate" else label },
+            .semantics { contentDescription = description },
     ) {
         Text(
-            if (ignored) "$label · ignored" else label,
+            text,
             color = when {
                 ignored -> colors.textMuted
                 duplicate -> colors.bust

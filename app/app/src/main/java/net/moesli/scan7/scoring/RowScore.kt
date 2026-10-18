@@ -64,7 +64,3 @@ fun scoreRow(cards: List<Card>): RowScore {
         cancelledDuplicates = if (cancelled) duplicated else emptyList(),
     )
 }
-
-/** Info line when a Second Chance cancelled duplicates: "Second Chance used · 7 counted once"; else null. */
-fun RowScore.secondChanceText(): String? =
-    if (cancelledDuplicates.isEmpty()) null else "Second Chance used · ${cancelledDuplicates.joinToString(", ")} counted once"

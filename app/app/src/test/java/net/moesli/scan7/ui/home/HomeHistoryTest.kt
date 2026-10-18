@@ -3,7 +3,8 @@ package net.moesli.scan7.ui.home
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
-import java.util.Locale
+import net.moesli.scan7.ui.text.de
+import net.moesli.scan7.ui.text.en
 import net.moesli.scan7.data.GameSnapshot
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.Player
@@ -37,17 +38,20 @@ class HomeHistoryTest {
         assertEquals(2, ui.rounds)
         assertEquals(500L, ui.finishedAt)
         assertEquals(listOf("Anna", "Ben", "Cleo"), ui.players.map { it.name })
-        assertEquals("Anna won", ui.headline)
-        assertEquals("2 rounds", ui.detail)
+        assertEquals("Anna won", ui.headline.en)
+        assertEquals("2 rounds", ui.detail.en)
+        assertEquals("Anna hat gewonnen", ui.headline.de)
+        assertEquals("2 Runden", ui.detail.de)
     }
 
     @Test
     fun sharedWin_bothNamed() {
         val g = start.playRound(200, 200, 5)
         val ui = g.toPastGameUi(players)
-        assertEquals("Anna and Ben won", ui.headline)
+        assertEquals("Anna and Ben won", ui.headline.en)
         assertEquals(200, ui.points)
-        assertEquals("1 round", ui.detail)
+        assertEquals("1 round", ui.detail.en)
+        assertEquals("1 Runde", ui.detail.de)
     }
 
     @Test
@@ -55,10 +59,11 @@ class HomeHistoryTest {
         val g = start.playRound(30, 50, 10).nextRound().endGame(now = 900)
         val ui = g.toPastGameUi(players)
         assertEquals(PastOutcome.ENDED_EARLY, ui.outcome)
-        assertEquals("Ben won", ui.headline)
+        assertEquals("Ben won", ui.headline.en)
         assertEquals(50, ui.points)
         assertEquals(2, ui.rounds)
-        assertEquals("2 rounds · ended early", ui.detail)
+        assertEquals("2 rounds · ended early", ui.detail.en)
+        assertEquals("2 Runden · vorzeitig beendet", ui.detail.de)
     }
 
     @Test
@@ -66,16 +71,16 @@ class HomeHistoryTest {
         val g = start.playRound(30, 50, 10).nextRound().scorePoints(1, 99, 2).abandon(now = 300)
         val ui = g.toPastGameUi(players)
         assertEquals(PastOutcome.ABANDONED, ui.outcome)
-        assertEquals("Anna led", ui.headline) // 30 + 99 in the unfinished round
+        assertEquals("Anna led", ui.headline.en) // 30 + 99 in the unfinished round
         assertEquals(129, ui.points)
         assertEquals(1, ui.rounds)
-        assertEquals("1 round · not finished", ui.detail)
+        assertEquals("1 round · not finished", ui.detail.en)
     }
 
     @Test
     fun abandoned_withoutPoints() {
         val ui = start.abandon(now = 300).toPastGameUi(players)
-        assertEquals("Not finished", ui.headline)
+        assertEquals("Not finished", ui.headline.en)
         assertEquals(emptyList<String>(), ui.winners.map { it.name })
         assertEquals(0, ui.rounds)
     }
@@ -84,16 +89,17 @@ class HomeHistoryTest {
     fun scoreboard_abandonedIsReadOnlyAndNotRunning() {
         val g = start.playRound(30, 50, 10).nextRound().abandon(now = 300)
         val ui = GameSnapshot(g, players, null).toScoreboardUi()
-        assertEquals("Not finished · 1 round · to 200", ui.subtitle())
+        assertEquals("Not finished · 1 round · to 200", ui.subtitle().en)
         assertFalse(ui.table.rows.any { it.isRunning })
     }
 
     @Test
     fun scoreboard_subtitles() {
         val over = start.playRound(200, 0, 0)
-        assertEquals("Final · 1 round · to 200", GameSnapshot(over, players, null).toScoreboardUi().subtitle())
+        assertEquals("Final · 1 round · to 200", GameSnapshot(over, players, null).toScoreboardUi().subtitle().en)
+        assertEquals("Endstand · 1 Runde · bis 200", GameSnapshot(over, players, null).toScoreboardUi().subtitle().de)
         val running = start.playRound(10, 0, 0).nextRound()
-        assertEquals("Round 2 · to 200 · tap to edit", GameSnapshot(running, players, null).toScoreboardUi().subtitle())
+        assertEquals("Round 2 · to 200 · tap to edit", GameSnapshot(running, players, null).toScoreboardUi().subtitle().en)
     }
 
     @Test
@@ -101,9 +107,18 @@ class HomeHistoryTest {
         val zone: ZoneId = ZoneOffset.UTC
         fun at(y: Int, mo: Int, d: Int, h: Int = 20, mi: Int = 15) = LocalDateTime.of(y, mo, d, h, mi).toInstant(ZoneOffset.UTC).toEpochMilli()
         val now = at(2026, 10, 18, 22, 0)
-        assertEquals("Today, 20:15", historyDate(at(2026, 10, 18), now, zone, Locale.UK))
-        assertEquals("Yesterday, 20:15", historyDate(at(2026, 10, 17), now, zone, Locale.UK))
-        assertEquals("Sun 11 Oct", historyDate(at(2026, 10, 11), now, zone, Locale.UK))
-        assertEquals("11 Oct 2025", historyDate(at(2025, 10, 11), now, zone, Locale.UK))
+        assertEquals(HistoryDay.TODAY, historyDay(at(2026, 10, 18, 0, 5), now, zone))
+        assertEquals(HistoryDay.YESTERDAY, historyDay(at(2026, 10, 17, 23, 59), now, zone))
+        assertEquals(HistoryDay.THIS_YEAR, historyDay(at(2026, 1, 1), now, zone))
+        assertEquals(HistoryDay.OLDER, historyDay(at(2025, 12, 31), now, zone))
+        // The words come from the strings, the formats from the caller (the app: Android skeletons).
+        val time = { _: Long -> "20:15" }
+        val date = { _: Long, withYear: Boolean -> if (withYear) "11 Oct 2025" else "Sun 11 Oct" }
+        assertEquals("Today, 20:15", historyDate(at(2026, 10, 18), now, time, date, zone).en)
+        assertEquals("Heute, 20:15", historyDate(at(2026, 10, 18), now, time, date, zone).de)
+        assertEquals("Yesterday, 20:15", historyDate(at(2026, 10, 17), now, time, date, zone).en)
+        assertEquals("Gestern, 20:15", historyDate(at(2026, 10, 17), now, time, date, zone).de)
+        assertEquals("Sun 11 Oct", historyDate(at(2026, 10, 11), now, time, date, zone).en)
+        assertEquals("11 Oct 2025", historyDate(at(2025, 10, 11), now, time, date, zone).en)
     }
 }

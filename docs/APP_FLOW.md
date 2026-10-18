@@ -90,6 +90,7 @@ No confirmation, Undo instead: Bust (in-card, sheet, camera: Undo toast / overla
 
 ## Home (game history)
 Home shows the **Resume card** of the unfinished game (round, avatars, leader, Resume) and below it **Past games**: every finished, ended-early and abandoned game, newest first (one `LazyColumn`). A row shows the date ("Today, 21:40" / "Yesterday, …" / "Sun 11 Oct" / "11 Oct 2025"), the winner(s) with the crown badge and their points, the players' avatars and the number of (closed) rounds, plus "ended early" / "not finished". Abandoned games are muted and say who led ("Lena led", or "Not finished" without points). Tap a row → that game's **Scoreboard**; finished games stay editable there, abandoned ones are read-only ("Not finished · 2 rounds · to 200", no running row). **Players** + **New game** stay pinned at the bottom; the intro text only shows when there is no game at all. Later: stats.
+The **globe** button in the Home header picks the app language: System default / English / Deutsch (the same setting as Android's per-app language on API 33+). German says **RAUS** for BUST; dates and times follow the locale.
 
 ## Debug menu
 Hidden in every build: tap the Scan7 wordmark on Home 5 times (a toast counts down after the 3rd tap; TalkBack action "Open debug menu"). "Save scans for training" lives there and is ON by default.

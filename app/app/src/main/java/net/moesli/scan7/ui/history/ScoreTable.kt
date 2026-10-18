@@ -1,5 +1,9 @@
 package net.moesli.scan7.ui.history
 
+import net.moesli.scan7.ui.text.uiPlural
+import net.moesli.scan7.ui.text.uiText
+import net.moesli.scan7.ui.text.UiText
+import net.moesli.scan7.R
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.ResultStatus
 
@@ -43,15 +47,15 @@ fun scoreTable(state: GameState): ScoreTable {
 }
 
 /** Cell text: points, "BUST" (always the word, never color alone) or "–" while open. */
-fun ScoreCell.text(): String = when (status) {
-    ResultStatus.SCORED -> points.toString()
-    ResultStatus.BUST -> "BUST"
-    ResultStatus.OPEN -> "–"
+fun ScoreCell.text(): UiText = when (status) {
+    ResultStatus.SCORED -> UiText.Raw(points.toString())
+    ResultStatus.BUST -> uiText(R.string.label_bust)
+    ResultStatus.OPEN -> UiText.Raw("–")
 }
 
 /** Content description of a cell, e.g. "Round 2, Anna: bust". */
-fun ScoreCell.describe(round: Int, name: String): String = "Round $round, $name: " + when (status) {
-    ResultStatus.SCORED -> "$points points"
-    ResultStatus.BUST -> "bust"
-    ResultStatus.OPEN -> "not scored yet"
+fun ScoreCell.describe(round: Int, name: String): UiText = when (status) {
+    ResultStatus.SCORED -> uiText(R.string.scoreboard_cell_points, round, name, uiPlural(R.plurals.points, points))
+    ResultStatus.BUST -> uiText(R.string.scoreboard_cell_bust, round, name)
+    ResultStatus.OPEN -> uiText(R.string.scoreboard_cell_open, round, name)
 }

@@ -1,5 +1,11 @@
 package net.moesli.scan7.ui.home
 
+import net.moesli.scan7.ui.text.resolve
+import net.moesli.scan7.ui.text.UiText
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import net.moesli.scan7.game.AvatarCatalog
 import net.moesli.scan7.ui.components.avatarSizeForHeight
 import net.moesli.scan7.ui.components.PlayerAvatar
@@ -71,7 +77,6 @@ import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.SectionLabel
 import net.moesli.scan7.ui.components.headerInsets
 import net.moesli.scan7.ui.components.openCardShadow
-import net.moesli.scan7.ui.gameover.joinNames
 import net.moesli.scan7.ui.players.playerUis
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
@@ -138,6 +143,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
 ) {
     val colors = Scan7Theme.colors
+    val dates = rememberHomeDateFormat()
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -152,6 +158,8 @@ fun HomeScreen(
                 .height(Scan7Spacing.headerHeight),
         ) {
             Scan7Wordmark(fontSize = 32.sp, modifier = Modifier.debugTaps(onDebug))
+            Spacer(Modifier.weight(1f))
+            LanguageButton()
         }
         LazyColumn(
             contentPadding = PaddingValues(vertical = Scan7Spacing.xl),
@@ -166,20 +174,20 @@ fun HomeScreen(
             if (state.past.isNotEmpty()) {
                 item(key = "past-label") {
                     SectionLabel(
-                        "Past games",
+                        stringResource(R.string.home_past_games),
                         Modifier
                             .padding(top = if (resume != null) Scan7Spacing.l else 0.dp, bottom = Scan7Spacing.xxs)
                             .semantics { heading() },
                     )
                 }
                 items(state.past, key = { it.gameId }) { game ->
-                    PastGameRow(game, state.now, onClick = { onPastGame(game.gameId) })
+                    PastGameRow(game, state.now, dates, onClick = { onPastGame(game.gameId) })
                 }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
-            SecondaryButton("Players", onPlayers, Modifier.width(128.dp))
-            PrimaryButton("New game", onNewGame, Modifier.weight(1f))
+            SecondaryButton(stringResource(R.string.home_players), onPlayers, Modifier.width(128.dp))
+            PrimaryButton(stringResource(R.string.action_new_game), onNewGame, Modifier.weight(1f))
         }
         Text(
             text = state.footer,
@@ -206,6 +214,7 @@ private fun Modifier.debugTaps(onDebug: () -> Unit): Modifier = composed {
     val counter = remember { DebugTapCounter() }
     val toast = remember { arrayOfNulls<Toast>(1) }
     val open by rememberUpdatedState(onDebug)
+    val actionLabel = stringResource(R.string.home_debug_action)
     DisposableEffect(Unit) { onDispose { toast[0]?.cancel() } }
     pointerInput(Unit) {
         detectTapGestures {
@@ -222,7 +231,7 @@ private fun Modifier.debugTaps(onDebug: () -> Unit): Modifier = composed {
             }
         }
     }.semantics {
-        customActions = listOf(CustomAccessibilityAction("Open debug menu") { open(); true })
+        customActions = listOf(CustomAccessibilityAction(actionLabel) { open(); true })
     }
 }
 
@@ -231,10 +240,11 @@ private fun ResumeCard(game: ResumeGameUi, onResume: () -> Unit) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.cardLarge)
     val leaderText = when {
-        game.leaders.isEmpty() -> "No points yet"
-        game.leaders.size == 1 -> "${game.leaders[0].name} leads · ${game.leaders[0].total}"
-        else -> "${joinNames(game.leaders.map { it.name })} lead · ${game.leaders[0].total}"
+        game.leaders.isEmpty() -> stringResource(R.string.home_no_points)
+        game.leaders.size == 1 -> stringResource(R.string.home_leader_one, game.leaders[0].name, game.leaders[0].total)
+        else -> stringResource(R.string.home_leader_many, UiText.Names(game.leaders.map { it.name }).resolve(), game.leaders[0].total)
     }
+    val description = pluralStringResource(R.plurals.home_resume_description, game.players.size, game.players.size, game.round, leaderText)
     Column(
         verticalArrangement = Arrangement.spacedBy(Scan7Spacing.l),
         modifier = Modifier
@@ -247,15 +257,15 @@ private fun ResumeCard(game: ResumeGameUi, onResume: () -> Unit) {
         Column(
             verticalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
             modifier = Modifier.clearAndSetSemantics {
-                contentDescription = "Unfinished game, round ${game.round}, ${game.players.size} players, $leaderText"
+                contentDescription = description
             },
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                SectionLabel("Resume game", Modifier.weight(1f))
-                Text("to ${game.target}", color = colors.textMuted, style = Scan7Type.text12)
+                SectionLabel(stringResource(R.string.home_resume_title), Modifier.weight(1f))
+                Text(stringResource(R.string.target_short, game.target), color = colors.textMuted, style = Scan7Type.text12)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
-                Text("ROUND", color = colors.textMuted, style = Scan7Type.capsLabel, modifier = Modifier.padding(bottom = 4.dp))
+                Text(stringResource(R.string.round_label), color = colors.textMuted, style = Scan7Type.capsLabel, modifier = Modifier.padding(bottom = 4.dp))
                 Text(game.round.toString(), color = colors.text, style = Scan7Type.roundNumberList)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs)) {
@@ -269,7 +279,7 @@ private fun ResumeCard(game: ResumeGameUi, onResume: () -> Unit) {
             }
         }
         PrimaryButton(
-            "Resume",
+            stringResource(R.string.home_resume),
             onResume,
             Modifier.fillMaxWidth(),
             height = Scan7Spacing.minTouch + Scan7Spacing.s,
@@ -285,23 +295,27 @@ private fun ResumeCard(game: ResumeGameUi, onResume: () -> Unit) {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PastGameRow(game: PastGameUi, now: Long, onClick: () -> Unit) {
+private fun PastGameRow(game: PastGameUi, now: Long, dates: HomeDateFormat, onClick: () -> Unit) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.card)
     val won = game.outcome != PastOutcome.ABANDONED && game.winners.isNotEmpty()
-    val date = historyDate(game.finishedAt, now)
-    val description = buildString {
-        append(date).append(", ").append(game.headline)
-        if (game.winners.isNotEmpty()) append(" with ").append(game.points).append(" points")
-        append(", ").append(game.detail)
-        append(", ").append(game.players.size).append(" players: ").append(joinNames(game.players.map { it.name }))
+    val date = historyDate(game.finishedAt, now, dates::time, dates::date).resolve()
+    val headline = game.headline.resolve()
+    val detail = game.detail.resolve()
+    val withPoints = if (game.winners.isEmpty()) {
+        headline
+    } else {
+        stringResource(R.string.history_with_points, headline, pluralStringResource(R.plurals.points, game.points, game.points))
     }
+    val players = pluralStringResource(R.plurals.history_players, game.players.size, game.players.size, UiText.Names(game.players.map { it.name }).resolve())
+    val description = listOf(date, withPoints, detail, players).joinToString(", ")
+    val openLabel = stringResource(R.string.home_open_scoreboard)
     ListItem(
         overlineContent = { Text(date, style = Scan7Type.text12, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         headlineContent = {
             Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), verticalAlignment = Alignment.CenterVertically) {
                 if (won) LeaderBadge(size = 20.dp)
-                Text(game.headline, style = Scan7Type.text15, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(headline, style = Scan7Type.text15, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         },
         supportingContent = {
@@ -309,7 +323,7 @@ private fun PastGameRow(game: PastGameUi, now: Long, onClick: () -> Unit) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     game.players.forEach { PlayerAvatar(it.avatar, PastAvatar) }
                 }
-                Text(game.detail, style = Scan7Type.text12, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(detail, style = Scan7Type.text12, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         },
         trailingContent = if (game.winners.isEmpty()) {
@@ -318,7 +332,7 @@ private fun PastGameRow(game: PastGameUi, now: Long, onClick: () -> Unit) {
             {
                 Column(horizontalAlignment = Alignment.End) {
                     Text(game.points.toString(), color = if (won) colors.text else colors.textMuted, style = Scan7Type.total18, maxLines = 1)
-                    Text("PTS", color = colors.textMuted, style = Scan7Type.tag10, maxLines = 1)
+                    Text(stringResource(R.string.points_short), color = colors.textMuted, style = Scan7Type.tag10, maxLines = 1)
                 }
             }
         },
@@ -332,11 +346,11 @@ private fun PastGameRow(game: PastGameUi, now: Long, onClick: () -> Unit) {
             .fillMaxWidth()
             .clip(shape)
             .border(1.dp, colors.lineSubtle, shape)
-            .scan7Clickable(onClick, onClickLabel = "Open scoreboard")
+            .scan7Clickable(onClick, onClickLabel = openLabel)
             .clearAndSetSemantics {
                 contentDescription = description
                 role = Role.Button
-                onClick(label = "Open scoreboard") { onClick(); true }
+                onClick(label = openLabel) { onClick(); true }
             },
     )
 }
@@ -347,17 +361,13 @@ private fun Intro(hasPlayers: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.l), modifier = Modifier.fillMaxWidth()) {
         TokenFan(Modifier.padding(vertical = Scan7Spacing.xl).align(Alignment.CenterHorizontally))
         Text(
-            "Scan a row, get the score.",
+            stringResource(R.string.home_intro_title),
             color = colors.text,
             style = Scan7Type.total24,
             modifier = Modifier.semantics { heading() },
         )
         Text(
-            if (hasPlayers) {
-                "Pick who's playing, then point the camera at each player's row of cards. Scan7 adds it up."
-            } else {
-                "No players yet. New game starts with adding everyone at the table — they're saved for next time."
-            },
+            stringResource(if (hasPlayers) R.string.home_intro_players else R.string.home_intro_no_players),
             color = colors.textMuted,
             style = Scan7Type.text13,
         )
@@ -401,7 +411,7 @@ fun HomeRoute(
         state = HomeUiState(
             resume = active?.toResumeUi(),
             playerCount = players.size,
-            footer = "Scan7 v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · model $modelInfo",
+            footer = stringResource(R.string.home_footer, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, modelInfo),
             past = past,
             // Relative dates ("Today") only need to be right when Home is (re)composed.
             now = System.currentTimeMillis(),

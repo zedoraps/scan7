@@ -1,16 +1,19 @@
 package net.moesli.scan7.ui.components
 
-import net.moesli.scan7.ui.gameover.joinNames
+import net.moesli.scan7.R
+import net.moesli.scan7.ui.text.UiText
+import net.moesli.scan7.ui.text.uiText
 
 /**
  * What a [Scan7ConfirmDialog] says: [title] ("Delete Anna?"), an optional short [body], the
  * [confirmLabel] (the action, e.g. "Delete") and whether the action is [destructive] (warning
- * button instead of the cyan primary). Plain Kotlin, so "which confirm when" is JVM-testable.
+ * button instead of the cyan primary). Plain Kotlin ([UiText] = string ids + args), so "which
+ * confirm when" is JVM-testable.
  */
 data class ConfirmSpec(
-    val title: String,
-    val confirmLabel: String,
-    val body: String? = null,
+    val title: UiText,
+    val confirmLabel: UiText,
+    val body: UiText? = null,
     val destructive: Boolean = false,
 )
 
@@ -24,9 +27,9 @@ data class ConfirmSpec(
 object Confirmations {
     /** Player editor → Delete. The repository archives a player who played, so history stays. */
     fun deletePlayer(name: String) = ConfirmSpec(
-        title = "Delete $name?",
-        confirmLabel = "Delete",
-        body = "Past games keep showing them.",
+        title = uiText(R.string.confirm_delete_player_title, name),
+        confirmLabel = uiText(R.string.action_delete),
+        body = uiText(R.string.confirm_delete_player_body),
         destructive = true,
     )
 
@@ -34,15 +37,15 @@ object Confirmations {
     fun resetToOpen(name: String, status: PlayerStatus): ConfirmSpec? = when (status) {
         PlayerStatus.Open -> null
         is PlayerStatus.Scored -> ConfirmSpec(
-            title = "Reset $name to open?",
-            confirmLabel = "Reset",
-            body = "Removes ${formatPoints(status.points)} from this round.",
+            title = uiText(R.string.confirm_reset_title, name),
+            confirmLabel = uiText(R.string.action_reset),
+            body = uiText(R.string.confirm_reset_body_points, formatPoints(status.points)),
             destructive = true,
         )
         PlayerStatus.Bust -> ConfirmSpec(
-            title = "Reset $name to open?",
-            confirmLabel = "Reset",
-            body = "Removes the BUST from this round.",
+            title = uiText(R.string.confirm_reset_title, name),
+            confirmLabel = uiText(R.string.action_reset),
+            body = uiText(R.string.confirm_reset_body_bust),
             destructive = true,
         )
     }
@@ -56,8 +59,8 @@ object Confirmations {
         if (openNames.isEmpty()) return null
         val nobodyScored = openNames.size >= playerCount
         return ConfirmSpec(
-            title = "Close round $round?",
-            confirmLabel = "Close round",
+            title = uiText(R.string.confirm_close_round_title, round),
+            confirmLabel = uiText(R.string.action_close_round),
             body = unscoredWarning(openNames, nobodyScored),
             destructive = nobodyScored,
         )
@@ -65,9 +68,9 @@ object Confirmations {
 
     /** Round menu → End game: closes the round as it is and ends the game (can't be undone). */
     fun endGame() = ConfirmSpec(
-        title = "End the game now?",
-        confirmLabel = "End game",
-        body = "The round is closed as it is; open players count as BUST. The leader wins.",
+        title = uiText(R.string.confirm_end_game_title),
+        confirmLabel = uiText(R.string.action_end_game),
+        body = uiText(R.string.confirm_end_game_body),
         destructive = true,
     )
 
@@ -77,9 +80,9 @@ object Confirmations {
      */
     fun startGame(unfinishedRound: Int?): ConfirmSpec? = unfinishedRound?.let { round ->
         ConfirmSpec(
-            title = "Start a new game?",
-            confirmLabel = "Start",
-            body = "The unfinished game (round $round) ends and can't be resumed.",
+            title = uiText(R.string.confirm_start_game_title),
+            confirmLabel = uiText(R.string.action_start),
+            body = uiText(R.string.confirm_start_game_body, round),
             destructive = true,
         )
     }
@@ -90,14 +93,12 @@ private fun formatPoints(points: Int): String = if (points > 0) "+$points" else 
 
 /**
  * Close-round warning: "Anna and David haven't been scored. They'll be marked BUST." (one player:
- * "Anna hasn't been scored. They'll be marked BUST."). Empty when nobody is open. With
+ * "Anna hasn't been scored. They'll be marked BUST."). `null` when nobody is open. With
  * [nobodyScored] (everyone still open, likely an accident) it asks explicitly instead.
  */
-fun unscoredWarning(names: List<String>, nobodyScored: Boolean = false): String = when {
-    names.isEmpty() -> ""
-    nobodyScored -> "Nobody has been scored yet – mark everyone BUST?"
-    else -> when (names.size) {
-        1 -> "${names[0]} hasn't been scored. They'll be marked BUST."
-        else -> "${joinNames(names)} haven't been scored. They'll be marked BUST."
-    }
+fun unscoredWarning(names: List<String>, nobodyScored: Boolean = false): UiText? = when {
+    names.isEmpty() -> null
+    nobodyScored -> uiText(R.string.confirm_close_round_nobody)
+    names.size == 1 -> uiText(R.string.confirm_close_round_one, names[0])
+    else -> uiText(R.string.confirm_close_round_some, UiText.Names(names))
 }

@@ -1,5 +1,8 @@
 package net.moesli.scan7.ui.newgame
 
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -115,8 +118,8 @@ fun PickPlayersScreen(
     val full = selectedPlayers.size >= MAX_PLAYERS
     val hint = when {
         error != null -> error
-        selectedPlayers.size < MIN_PLAYERS && players.isNotEmpty() -> "Pick at least $MIN_PLAYERS players."
-        full -> "$MAX_PLAYERS players is the maximum."
+        selectedPlayers.size < MIN_PLAYERS && players.isNotEmpty() -> stringResource(R.string.newgame_min_players, MIN_PLAYERS)
+        full -> stringResource(R.string.newgame_max_players, MAX_PLAYERS)
         else -> null
     }
     val canGo = canContinue(selectedPlayers.size) && !starting
@@ -127,8 +130,8 @@ fun PickPlayersScreen(
             .padding(horizontal = Scan7Spacing.screenMargin),
     ) {
         ScreenHeader(
-            title = "New game",
-            subtitle = "Who's playing? · ${selectedPlayers.size} of $MAX_PLAYERS",
+            title = stringResource(R.string.newgame_title),
+            subtitle = stringResource(R.string.newgame_subtitle, selectedPlayers.size, MAX_PLAYERS),
             onBack = onBack,
             modifier = Modifier.headerInsets(),
         )
@@ -141,7 +144,7 @@ fun PickPlayersScreen(
         ) {
             if (players.isEmpty()) {
                 Text(
-                    "No players yet. Add everyone who's at the table — they're saved for next time.",
+                    stringResource(R.string.newgame_no_players),
                     color = colors.textMuted,
                     style = Scan7Type.text13,
                     modifier = Modifier.padding(bottom = Scan7Spacing.s),
@@ -161,7 +164,7 @@ fun PickPlayersScreen(
                     leading = { Checkbox(checked) },
                 )
             }
-            AddPlayerRow(onClick = onNewPlayer, text = if (players.isEmpty()) "Add your first player" else "New player")
+            AddPlayerRow(onClick = onNewPlayer, text = stringResource(if (players.isEmpty()) R.string.players_add_first else R.string.players_new))
         }
         // Pinned below the scrolling list (never under the buttons, at any font scale).
         if (hint != null) {
@@ -174,8 +177,8 @@ fun PickPlayersScreen(
                 .fillMaxWidth()
                 .bottomButtonsInsets(),
         ) {
-            SecondaryButton(text = "Skip seats", onClick = onSkipSeats, enabled = canGo, modifier = Modifier.weight(1f))
-            PrimaryButton(text = "Next", onClick = onNext, enabled = canGo, modifier = Modifier.weight(1f))
+            SecondaryButton(text = stringResource(R.string.newgame_skip_seats), onClick = onSkipSeats, enabled = canGo, modifier = Modifier.weight(1f))
+            PrimaryButton(text = stringResource(R.string.action_next), onClick = onNext, enabled = canGo, modifier = Modifier.weight(1f))
         }
     }
 }
@@ -205,6 +208,8 @@ private fun Checkbox(checked: Boolean) {
 @Composable
 fun TargetStepper(target: Int, onChange: (Int) -> Unit, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
+    val description = stringResource(R.string.newgame_target_description)
+    val state = pluralStringResource(R.plurals.points, target, target)
     Row(
         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs),
         verticalAlignment = Alignment.CenterVertically,
@@ -215,8 +220,8 @@ fun TargetStepper(target: Int, onChange: (Int) -> Unit, modifier: Modifier = Mod
             .background(colors.surface)
             .padding(start = Scan7Spacing.l, end = Scan7Spacing.xxs)
             .clearAndSetSemantics {
-                contentDescription = "Target, points to win"
-                stateDescription = "$target points"
+                contentDescription = description
+                stateDescription = state
                 progressBarRangeInfo = ProgressBarRangeInfo(
                     current = target.toFloat(),
                     range = MIN_TARGET.toFloat()..MAX_TARGET.toFloat(),
@@ -229,10 +234,10 @@ fun TargetStepper(target: Int, onChange: (Int) -> Unit, modifier: Modifier = Mod
                 }
             },
     ) {
-        SectionLabel("Target", Modifier.weight(1f))
+        SectionLabel(stringResource(R.string.newgame_target), Modifier.weight(1f))
         IconButton(
             onClick = { onChange(steppedTarget(target, -1)) },
-            contentDescription = "Lower target",
+            contentDescription = stringResource(R.string.newgame_target_lower),
             enabled = target > MIN_TARGET,
         ) { MinusIcon(colors.text) }
         Text(
@@ -246,7 +251,7 @@ fun TargetStepper(target: Int, onChange: (Int) -> Unit, modifier: Modifier = Mod
         )
         IconButton(
             onClick = { onChange(steppedTarget(target, 1)) },
-            contentDescription = "Raise target",
+            contentDescription = stringResource(R.string.newgame_target_raise),
             enabled = target < MAX_TARGET,
         ) { PlusIcon(colors.text) }
     }
@@ -300,7 +305,7 @@ fun SeatingScreen(
         modifier = modifier,
         header = { headerModifier ->
             ScreenHeader(
-                title = "Seats",
+                title = stringResource(R.string.seats_title),
                 onBack = onBack,
                 modifier = headerModifier.padding(horizontal = Scan7Spacing.screenMargin),
             ) {
@@ -319,7 +324,7 @@ fun SeatingScreen(
             Column(barModifier) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.weight(1f).fillMaxWidth()) {
                     Text(
-                        text = error ?: if (view == RoundView.Table) "Drag players to where they sit" else "Drag rows into seating order",
+                        text = error ?: stringResource(if (view == RoundView.Table) R.string.seats_hint_table else R.string.seats_hint_list),
                         color = colors.textMuted,
                         style = Scan7Type.text12,
                         textAlign = TextAlign.Center,
@@ -328,7 +333,7 @@ fun SeatingScreen(
                     )
                 }
                 PrimaryButton(
-                    text = "Start game",
+                    text = stringResource(R.string.seats_start),
                     onClick = onStart,
                     enabled = !starting && players.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth(),
@@ -389,6 +394,7 @@ fun NewGameRoute(
 
     // Start while a game is unfinished asks first (starting ends that game for good).
     val startConfirm = Confirmations.startGame(active?.state?.currentRound?.number)
+    val startError = stringResource(R.string.seats_error_start)
     val seatsToStart: () -> SeatingDraft? = { if (step == 1) SeatingDraft.of(liveSelected) else liveDraft }
     fun start() {
         val seats = seatsToStart() ?: return
@@ -399,7 +405,7 @@ fun NewGameRoute(
             // Outlives this screen: a started transaction isn't rolled back by Back.
             runCatching { outlivingUi { repository.startGame(seats.ids, target, seats.positions) } }
                 .onSuccess(onGameStarted)
-                .onFailure { error = it.message ?: "Couldn't start the game" }
+                .onFailure { error = startError }
             starting = false
         }
     }
