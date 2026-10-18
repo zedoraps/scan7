@@ -14,7 +14,7 @@ Screen inventory. Behaviour is specified in [APP_FLOW.md](APP_FLOW.md); brand ru
           ▼                               │
    3 New game: pick players               │
           ▼                               │
-   3b Seating order + target              │
+   3b Seats (table / list arrange)        │
           ▼                               ▼
    ┌──────────────────────────────────────────┐
    │ 4 Round screen                           │◄────────────┐
@@ -73,12 +73,13 @@ Note: player colors must stay distinguishable from accent cyan and bust magenta.
 ## 3 New game – pick players
 - All stored players with checkboxes (avatar + name).
 - **+ New player** inline (opens 2a, new player is auto-selected).
-- **Next** (enabled with ≥ 1 player; probably ≥ 2).
+- Compact **target** row (default **200**, − / + in steps of 10), pinned above the buttons.
+- **Skip seats** (secondary: start now, tick order on the default ring) + **Next** (primary), both enabled with 2–10 players.
 
-### 3b Seating order + target
-- Selected players as a draggable list (drag handles), in the order they sit.
-- Target score, default **200** (stepper or field).
-- **Start game** (primary).
+### 3b Seats
+- The round screen's table / list (same cards and rows) in arrange mode, seat number badges 1…n.
+- Header: ← · "Seats" · Table | List toggle. Table: drag cards to where people sit; list: drop a row on another to swap.
+- Bottom: drag hint + **Start game** (primary). Positions carry over into the game's table view.
 
 ## 4 Round screen  ★ main screen
 **Purpose:** what's shown during the whole round.
