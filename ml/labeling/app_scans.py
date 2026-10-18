@@ -136,3 +136,13 @@ def to_ls_results(boxes: list[Box], hint: str, width: int, height: int, from_nam
         res.append({"id": "apphint", "from_name": hint_name, "to_name": to_name, "type": "textarea",
                     "value": {"text": [hint]}})
     return res
+
+
+def review_all_hint(boxes: list[Box], truth: list[str] | None) -> str:
+    """Hint for batches whose app confirmations may be wrong: show both lists, accept nothing."""
+    model = _fmt(b.label for b in boxes) or "nothing"
+    if truth is None:
+        return f"Model saw: {model}. Not confirmed in the app - check every card."
+    diff = "" if Counter(b.label for b in boxes) == Counter(truth) else "  <- differs"
+    return (f"Model saw: {model}. Confirmed in the app (may be wrong): {_fmt(truth) or 'nothing'}.{diff} "
+            "Check every card.")

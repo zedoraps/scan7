@@ -52,10 +52,10 @@ def pull_from_phone(dest: Path) -> None:
             print(f"  warning: adb pull {remote}: {res.stderr.strip()}")
 
 
-def upload_reviews(images: list[Path]) -> None:
+def upload_reviews(images: list[Path], review_all: bool = False) -> None:
     """Annotations / pre-labels / hints in Label Studio for newly imported app scans."""
     sys.path.insert(0, str(ML / "labeling"))
-    from app_scans import load_sidecar, reconcile, test_hint, to_ls_results
+    from app_scans import load_sidecar, reconcile, review_all_hint, test_hint, to_ls_results
     from lsutil import FROM_NAME, HINT_NAME, LS, PROJECTS, TO_NAME, task_image_relpath
 
     ls = LS()
@@ -79,6 +79,11 @@ def upload_reviews(images: list[Path]) -> None:
                 ls.post("/api/predictions", {"task": task["id"], "result": res, "model_version": "app-hint"})
                 counts["test hint"] += 1
                 continue
+            if review_all:
+                res = to_ls_results(boxes, review_all_hint(boxes, truth), w, h, FROM_NAME, TO_NAME, HINT_NAME)
+                ls.post("/api/predictions", {"task": task["id"], "result": res, "model_version": "app-scan"})
+                counts["to review"] += 1
+                continue
             review = reconcile(boxes, truth)
             res = to_ls_results(review.boxes, review.hint, w, h, FROM_NAME, TO_NAME, HINT_NAME)
             if review.auto_accept:
@@ -100,6 +105,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--from-dir", type=Path, help="folder with scan7_*.jpg/.json instead of pulling via adb")
     ap.add_argument("--no-prelabel", action="store_true", help="only copy + sync, no annotations/hints")
+    ap.add_argument("--review-all", action="store_true",
+                    help="app confirmations may be wrong: nothing is auto-accepted, every train scan gets the\n                         model boxes + a hint with both card lists")
     args = ap.parse_args()
 
     RAW.mkdir(parents=True, exist_ok=True)
@@ -145,7 +152,7 @@ def main():
     run = lambda *cmd: subprocess.run(cmd, cwd=ML.parent, check=True)
     run("uv", "run", "--project", "ml", "python", "ml/labeling/setup_projects.py")
     if not args.no_prelabel:
-        upload_reviews([(DATA / r["path"]) for r in rows])
+        upload_reviews([(DATA / r["path"]) for r in rows], review_all=args.review_all)
 
 if __name__ == "__main__":
     main()

@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "labeling"))
-from app_scans import Box, reconcile, test_hint  # noqa: E402
+from app_scans import Box, reconcile, review_all_hint, test_hint  # noqa: E402
 
 
 def box(label, score=0.9, x=0.1):
@@ -60,6 +60,12 @@ class ReconcileTest(unittest.TestCase):
 
     def test_test_hint_lists_confirmed_cards(self):
         self.assertIn("07, 12", test_hint(["12", "07"]))
+
+    def test_review_all_hint_shows_both_lists(self):
+        h = review_all_hint([box("01"), box("12")], ["07", "12"])
+        self.assertIn("Model saw: 01, 12", h)
+        self.assertIn("may be wrong): 07, 12", h)
+        self.assertIn("differs", h)
 
 
 if __name__ == "__main__":
