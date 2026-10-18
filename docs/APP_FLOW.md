@@ -38,6 +38,7 @@ Bottom: **Scan next · <next open player>** (primary) + **Close round**; when ev
    - buttons **Retake** (back to camera), **Fix** (manual screen, prefilled), **✓ OK** (save).
    After OK: if the scan was started via **Scan next**, go straight to the camera for the next open player ("Next: Ben", with "Back to table"); otherwise back to the round screen.
 4. If a number is detected twice, the panel shows **BUST · two 7s** (magenta + text) with **Confirm bust** and **Fix**.
+5. **Leave a card out:** tapping a box on the photo or its chip toggles it *excluded* (dashed grey, "EXCLUDED"), e.g. a neighbour's card. Excluded cards don't count for the score or the bust check and aren't prefilled in Fix. They are still saved as real cards for training.
 
 ## Manual screen
 Used for **Enter manually**, **Fix** (prefilled with the scanned cards) and **Edit**.
