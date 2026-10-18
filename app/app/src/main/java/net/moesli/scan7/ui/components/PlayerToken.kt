@@ -67,7 +67,9 @@ fun ScoreRing(
                 )
             }
         }
-        PlayerAvatar(avatar, avatarSizeForHeight(avatarHeight))
+        // Scales with the ring when a layout shrinks it (e.g. a large font scale on a compact card).
+        val avatarSize = avatarSizeForHeight(avatarHeight)
+        PlayerAvatar(avatar, avatarSize, Modifier.fillMaxSize((avatarSize / size).coerceAtMost(1f)))
     }
 }
 

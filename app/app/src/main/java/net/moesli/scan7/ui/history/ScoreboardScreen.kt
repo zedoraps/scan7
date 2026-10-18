@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.moesli.scan7.data.GameSnapshot
 import net.moesli.scan7.game.ResultStatus
+import net.moesli.scan7.ui.components.CappedFontScale
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.ScreenHeader
 import net.moesli.scan7.ui.components.bottomButtonsInsets
@@ -110,25 +113,28 @@ fun ScoreboardScreen(
                 // TalkBack: a table ("row 3, column 2"); rows = header, rounds, totals.
                 .semantics { collectionInfo = CollectionInfo(rowCount = rounds + 2, columnCount = state.players.size + 1) },
         ) {
-            HeaderRow(state.players)
-            Divider()
-            Column(
-                modifier = Modifier
-                    .weight(1f, fill = false)
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                table.rows.forEachIndexed { i, row ->
-                    if (i > 0) Divider()
-                    RoundRow(row, i + 1, state.players, table.playerIds, onEditResult)
+            // Fixed-width columns (up to 10 players): cap the font scale like the table cards (2.0 broke "BUST" and the totals).
+            CappedFontScale {
+                HeaderRow(state.players)
+                Divider()
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    table.rows.forEachIndexed { i, row ->
+                        if (i > 0) Divider()
+                        RoundRow(row, i + 1, state.players, table.playerIds, onEditResult)
+                    }
                 }
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(1.5.dp)
+                        .background(colors.line),
+                )
+                TotalsRow(table, rounds + 1, state.players)
             }
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(1.5.dp)
-                    .background(colors.line),
-            )
-            TotalsRow(table, rounds + 1, state.players)
         }
     }
 }
@@ -298,7 +304,7 @@ private fun TotalsRow(table: ScoreTable, rowIndex: Int, players: List<PlayerUi>)
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(end = Scan7Spacing.s - 1.dp)
+                    .padding(end = if (players.size <= NAMES_UP_TO) Scan7Spacing.s - 1.dp else 2.dp)
                     .clearAndSetSemantics {
                         contentDescription = "${players[i].name}, total $total" +
                             (if (adjusted) ", includes total adjustments" else "") +
@@ -308,13 +314,15 @@ private fun TotalsRow(table: ScoreTable, rowIndex: Int, players: List<PlayerUi>)
             ) {
                 // Tiny "±": the total includes manual adjustments (no separate row, see ScoreTable.adjusted).
                 if (adjusted) Text("±", color = colors.textMuted, style = Scan7Type.tag10.copy(fontSize = 9.sp), maxLines = 1)
-                Text(
+                // Shrinks to fit: 3-digit totals in 10 narrow columns (or a large font scale) were clipped.
+                val style = if (players.size <= NAMES_UP_TO) Scan7Type.total15 else Scan7Type.total13.copy(fontSize = 11.sp)
+                BasicText(
                     total.toString(),
-                    color = if (leader) colors.accent else colors.text,
-                    style = if (players.size <= NAMES_UP_TO) Scan7Type.total15 else Scan7Type.total13.copy(fontSize = 11.sp),
-                    textAlign = TextAlign.End,
+                    style = style.copy(color = if (leader) colors.accent else colors.text, textAlign = TextAlign.End),
                     maxLines = 1,
                     softWrap = false,
+                    autoSize = TextAutoSize.StepBased(minFontSize = 6.sp, maxFontSize = style.fontSize),
+                    modifier = Modifier.weight(1f, fill = false),
                 )
             }
         }

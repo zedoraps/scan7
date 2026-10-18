@@ -27,7 +27,7 @@ Shown during the whole round: all players in seating order, each with
 
 Header: round number and current leader. Bottom: **Close round**.
 
-Views: **Table** (cards placed freely around the screen, arranged by long-press/drag, or **Arrange seats** as the first item of the round menu ⋮; the header is logo · Table|List · ⋮) and **List** (rows in seating order); seating order is shared. Default Table for ≤ 6 players, List for 7+; choice remembered. Card positions are saved per game. The round menu is a bottom sheet with an M3 list (`ListItem` rows with icons): Arrange seats, Scoreboard, **Scan direction** (M3 segmented buttons ↻ Clockwise | ↺ Counter, the sheet stays open), End game (warning style), Home.
+Views: **Table** (cards placed freely around the screen, arranged by long-press/drag, or **Rearrange seats / order** as the first item of the round menu ⋮; the header is logo · Table|List · ⋮) and **List** (rows in seating order); seating order is shared. Default Table for ≤ 6 players, List for 7+; choice remembered. Card positions are saved per game. The round menu is a bottom sheet with an M3 list (`ListItem` rows with icons): Rearrange seats / order, Scoreboard, **Scan direction** (M3 segmented buttons ↻ Clockwise | ↺ Counter, the sheet stays open), End game (warning style), Home.
 
 Open cards have in-card **Scan** and **Bust** buttons: Bust marks the player busted immediately, with an "Undo" toast. Tap an open card → sheet with **Scan**, **Enter manually**, **Bust**. Tap a done card → its result with **Edit**, **Rescan**, **Reset to open**. Compact cards (7–10 players): name on one line, total below; **double-tap** an open card to scan (TalkBack action "Scan <name>").
 
@@ -105,3 +105,8 @@ Store everything needed for statistics later (games, rounds, per-player round re
 - **Camera:** top row: ← back (= back to table), then the player banner; bottom: BUST · shutter · Type, with the zoom pills + torch floating above. No REC marker, no hint text. Bust shows a full-screen magenta "✕ <name> BUST" overlay (~1 s, with Undo) and blocks a second tap.
 - **Review / manual chips:** no "ignored" text; action cards and backs only dashed outline. Stable panel height (no jump on bust), no "Misread a card…" text.
 - **Compact cards (7–10 players):** name on one line, total below; double-tap a compact card to scan.
+
+## Queued (after the avatar merge)
+- **Home = game history:** running game card on top (round, avatars, leader, Resume) + New game; below all finished/abandoned games, newest first (date, avatars, winner + points, rounds) → tap = that game's scoreboard. Players reachable from Home. Later: stats.
+- **New game, step 1:** target (200) as a small row; bottom **[Skip seats]** (start now with tick order + default positions) and **[Next]**.
+- **Seating step:** same Table | List toggle and arrange mode as the round screen (cards on the ellipse, order numbers); positions carry over into the game. Fix: the target stepper was hidden under "Start game".

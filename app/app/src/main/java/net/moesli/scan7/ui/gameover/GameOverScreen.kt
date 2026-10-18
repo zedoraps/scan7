@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -205,7 +206,8 @@ private fun StandingRow(s: StandingUi) {
                 contentDescription = "${ordinal(s.rank)}, ${s.player.name}, ${s.player.total} points" + if (s.isWinner) ", winner" else ""
             },
     ) {
-        Text(ordinal(s.rank), color = colors.textMuted, style = Scan7Type.text13, modifier = Modifier.width(36.dp))
+        // Min width keeps the column aligned; grows with a large font scale instead of breaking "1st".
+        Text(ordinal(s.rank), color = colors.textMuted, style = Scan7Type.text13, maxLines = 1, softWrap = false, modifier = Modifier.widthIn(min = 36.dp))
         PlayerAvatar(s.player.avatar, avatarSizeForHeight(27.dp))
         Row(
             horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),

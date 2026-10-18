@@ -7,15 +7,24 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import java.io.File
+import net.moesli.scan7.debug.DebugSeedLaunch
 import net.moesli.scan7.debug.ScanDemoLaunch
+import net.moesli.scan7.debug.seedAndOpen
 import net.moesli.scan7.debug.photoCapture
 import net.moesli.scan7.detection.readModelInfo
 import net.moesli.scan7.ui.nav.AppNavHost
 import net.moesli.scan7.ui.nav.DebugLaunch
+import net.moesli.scan7.ui.nav.Route
 import net.moesli.scan7.ui.theme.Scan7Theme
 
 /**
@@ -57,17 +66,31 @@ class MainActivity : ComponentActivity() {
         }
         // DEBUG: --es debug_scan_photo <path> / --es debug_scan_demo <variant> (see ScanFlowDemoScreen).
         val scanDemo = if (BuildConfig.DEBUG) ScanDemoLaunch.from(intent) else null
-        val gamePhoto = if (BuildConfig.DEBUG) intent.getStringExtra(EXTRA_DEBUG_GAME_PHOTO) else null
+        // DEBUG: --es debug_seed <scenario> [--es debug_open <screen>] wipes + seeds the DB (DebugSeed.kt).
+        val seed = if (BuildConfig.DEBUG) DebugSeedLaunch.from(intent) else null
+        val gamePhoto = if (BuildConfig.DEBUG) intent.getStringExtra(EXTRA_DEBUG_GAME_PHOTO) ?: seed?.reviewPhoto(this) else null
         val debug = DebugLaunch(
             photo = debugPhoto,
             scanDemo = scanDemo,
             gamePhotoCapture = gamePhoto?.let { path -> { context -> photoCapture(context, path) } },
         )
+        // Seed only on a fresh start (not on recreation: the saved back stack wins then).
+        val seedNow = seed?.takeIf { savedInstanceState == null }
         setContent {
             Scan7Theme {
                 val context = LocalContext.current
                 val modelInfo = remember { readModelInfo(context) }
-                AppNavHost(debug = debug, modelInfo = modelInfo)
+                if (seedNow == null) {
+                    AppNavHost(debug = debug, modelInfo = modelInfo)
+                } else {
+                    val stack by produceState<List<Route>?>(null) { value = seedAndOpen(context, seedNow) }
+                    val seeded = stack
+                    if (seeded == null) {
+                        Box(Modifier.fillMaxSize().background(Scan7Theme.colors.ground))
+                    } else {
+                        AppNavHost(debug = DebugLaunch(debug.photo, debug.scanDemo, debug.gamePhotoCapture, seeded), modelInfo = modelInfo)
+                    }
+                }
             }
         }
     }

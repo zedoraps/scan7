@@ -56,7 +56,7 @@ enum class CardMode {
     Dragging,
 }
 
-/** Size of a [PlayerToken]: card-shaped rectangle plus the initial's font size. */
+/** Avatar slot of a card / row: [height] = the avatar card height (kit sizes); [width] and [fontSize] are left from the old initial token. */
 @Immutable
 data class TokenSize(val width: Dp, val height: Dp, val fontSize: TextUnit)
 
