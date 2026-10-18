@@ -15,6 +15,7 @@ ML_DIR="$(cd "$HERE/.." && pwd)"
 DATA_DIR="$HERE/ls_data"
 CREDS="$DATA_DIR/credentials.txt"
 PORT="${LS_PORT:-8080}"
+# LS_HOST=0.0.0.0 makes it reachable from other devices on the network (default: this Mac only)
 
 LS_BIN="$(command -v label-studio || true)"
 [ -z "$LS_BIN" ] && [ -x "$HOME/.local/bin/label-studio" ] && LS_BIN="$HOME/.local/bin/label-studio"
@@ -56,7 +57,7 @@ export LABEL_STUDIO_USER_TOKEN="$LS_TOKEN"
 echo "Label Studio: http://localhost:$PORT  (login: see $CREDS)"
 exec "$LS_BIN" start \
   --data-dir "$DATA_DIR" \
-  --internal-host 127.0.0.1 \
+  --internal-host "${LS_HOST:-127.0.0.1}" \
   --port "$PORT" \
   --no-browser \
   --enable-legacy-api-token \
