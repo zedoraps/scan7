@@ -123,9 +123,13 @@ Answers are drafted in [store/README.md](store/README.md).
 ### 6. Store listing
 - [ ] Texts from [store/listing-en.md](store/listing-en.md) and the German translation from
       [store/listing-de.md](store/listing-de.md) (add de-DE under *Store listing → Translations*).
-- [ ] Icon [store/icon-512.png](store/icon-512.png), feature graphic 1024 × 500 (spec in
-      store/README.md, not made yet), 2–8 phone screenshots at 1080 × 1920 (shot list in
-      store/README.md).
+- [ ] Icon [store/icon-512.png](store/icon-512.png), feature graphic
+      [store/feature-graphic-en.png](store/feature-graphic-en.png) / [-de.png](store/feature-graphic-de.png)
+      (`uv run --project ml python -I docs/store/make_feature_graphic.py`), 2–8 phone screenshots
+      at 1080 × 1920 per language (shot list in store/README.md), freshly made on an emulator:
+      `ANDROID_SERIAL=localhost:5561 scripts/store-screenshots.sh`, then optionally
+      `uv run --project ml python -I docs/store/caption_screenshots.py` for the captioned set
+      (`docs/store/screenshots/<locale>/captioned/`).
 - [ ] Category Entertainment (or Tools), contact e-mail, website = the GitHub repo.
 - [ ] Keep the disclaimer "Unofficial score keeper for Flip 7. Not affiliated with The Op Games."
       in the description; never use the game's artwork or logo.
@@ -168,4 +172,3 @@ Answers are drafted in [store/README.md](store/README.md).
 - `WAKE_LOCK`, `ACCESS_NETWORK_STATE`, `RECEIVE_BOOT_COMPLETED` come from `androidx.work`, which
   LiteRT pulls in for AI Pack downloads that Scan7 doesn't use: remove them with
   `tools:node="remove"` in the manifest (like the FOREGROUND_SERVICE ones) after testing on a device.
-- Feature graphic and captioned screenshots still have to be made.
