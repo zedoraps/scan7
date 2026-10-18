@@ -162,10 +162,15 @@ fun CameraPreview(
             .build()
     }
 
-    // Analysis runs on the detector's own thread (shared, never shut down).
+    // Analysis runs on the detector's own thread (shared, never shut down). Leaving the preview
+    // frees the analyzer's frame buffers (a hoisted analyzer outlives it, e.g. during the review);
+    // they are allocated again by the first frame when the preview comes back.
     DisposableEffect(analysis, frameAnalyzer) {
         analysis.setAnalyzer(DetectorHolder.executor, frameAnalyzer)
-        onDispose { analysis.clearAnalyzer() }
+        onDispose {
+            analysis.clearAnalyzer()
+            frameAnalyzer.releaseBuffers()
+        }
     }
 
     LaunchedEffect(lifecycleOwner) {

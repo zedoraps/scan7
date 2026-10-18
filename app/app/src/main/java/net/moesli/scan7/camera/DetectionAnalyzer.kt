@@ -81,9 +81,11 @@ class CapturedFrame(
 /** Analysis frames kept for the best-frame shutter (≈ 1 s at 8 fps; 8 × ~5 MB at 1280×960). */
 private const val RING_SIZE = 8
 
-/** One buffered analysis frame; the bitmap is reused (raw buffer copy, rotation not applied). */
-private class FrameSlot {
-    var bitmap: Bitmap? = null
+/**
+ * Metadata of one buffered analysis frame; its bitmap (raw buffer copy, rotation not applied) is
+ * slot [index] of the analyzer's [BufferRing].
+ */
+private class FrameSlot(val index: Int) {
     var valid = false
     var width = 0
     var height = 0
@@ -99,7 +101,8 @@ private class FrameSlot {
  * Runs the card detector (at [KEEP_SCORE]) on each RGBA_8888 analysis frame and feeds a
  * [DetectionTracker]. Must be installed on [DetectorHolder.executor]. Each frame is copied into
  * the next slot of a ring of [RING_SIZE] reused bitmaps (row padding included); rotation and
- * letterboxing happen in a single draw inside the detector.
+ * letterboxing happen in a single draw inside the detector. The bitmaps are created lazily and
+ * freed by [releaseBuffers] (camera unbound), so they don't stay alive off-camera.
  *
  * [capture] (shutter) picks the best buffered frame from [SHUTTER_LOOKBACK_MS] before to
  * [SHUTTER_LOOKAHEAD_MS] after the press by [selectionScore]; the ring is only touched on the
@@ -111,8 +114,8 @@ class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
     private var fps = 0f
     private var lastLog = 0L
     // Detector-thread state.
-    private val ring = Array(RING_SIZE) { FrameSlot() }
-    private var nextSlot = 0
+    private val ring = Array(RING_SIZE) { FrameSlot(it) }
+    private val bitmaps = BufferRing<Bitmap>(RING_SIZE) { it.recycle() }
     private val tracker = DetectionTracker()
     private val _stats = MutableStateFlow<FrameStats?>(null)
     private val lastFrameTime = MutableStateFlow(0L)
@@ -132,8 +135,7 @@ class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
                 _stats.value = base.copy(error = e.message ?: e.javaClass.simpleName)
                 return
             }
-            val slot = ring[nextSlot]
-            nextSlot = (nextSlot + 1) % RING_SIZE
+            val slot = ring[bitmaps.advance()]
             slot.valid = false
             val frame = copyToBitmap(it, slot)
             val result = detector.detect(frame, rotation, it.width, it.height, threshold = KEEP_SCORE)
@@ -184,7 +186,7 @@ class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
     }
 
     private fun choose(pressedAt: Long): CapturedFrame? {
-        val valid = ring.filter { it.valid && it.bitmap != null }
+        val valid = ring.filter { it.valid && bitmaps[it.index] != null }
         val window = valid.filter { it.timeMs in (pressedAt - SHUTTER_LOOKBACK_MS)..(pressedAt + SHUTTER_LOOKAHEAD_MS) }
         // Nothing in the window (stalled detector): fall back to the latest frame.
         val slots = window.ifEmpty { listOfNotNull(valid.maxByOrNull { it.timeMs }) }.sortedBy { it.timeMs }
@@ -193,7 +195,12 @@ class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
         val best = selectBestFrame(candidates)
         val slot = slots[best]
         val rotate = Matrix().apply { postRotate(slot.rotation.toFloat()) }
-        val upright = Bitmap.createBitmap(slot.bitmap!!, 0, 0, slot.width, slot.height, rotate, true)
+        val source = bitmaps[slot.index]!!
+        // Must be an own copy: the ring bitmap is reused by the next frames and recycled by
+        // releaseBuffers() while the review still shows this one. createBitmap returns the source
+        // itself only for an immutable, uncropped, unrotated source: copy it in that case.
+        val upright = Bitmap.createBitmap(source, 0, 0, slot.width, slot.height, rotate, true)
+            .let { if (it === source) it.copy(Bitmap.Config.ARGB_8888, false) else it }
         val choice = FrameChoice(
             bestOf = slots.size,
             chosenOffsetMs = slot.timeMs - pressedAt,
@@ -219,6 +226,20 @@ class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
         }
     }
 
+    /**
+     * Frees the buffered frames (≈ 40 MB) and forgets the tracks, e.g. when the camera unbinds
+     * (Review / Manual keep the analyzer but need no frames). Runs on [DetectorHolder.executor]
+     * after any queued frame or [capture] (same thread), so no bitmap is recycled while in use;
+     * a captured frame is an own copy. The next analyzed frame allocates the ring again.
+     */
+    fun releaseBuffers() {
+        DetectorHolder.executor.execute {
+            ring.forEach { it.valid = false }
+            bitmaps.release()
+            tracker.reset()
+        }
+    }
+
     /** Copies the RGBA plane into the [slot]'s reused bitmap whose width covers the row stride. */
     private fun copyToBitmap(image: ImageProxy, slot: FrameSlot): Bitmap {
         val plane = image.planes[0]
@@ -226,10 +247,13 @@ class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
         val buffer = plane.buffer.apply { rewind() }
         if (buffer.remaining() < strideWidth * image.height * 4) {
             // Last row not padded: can't bulk-copy into a stride-wide bitmap (allocates; rare).
-            return image.toBitmap().also { b -> slot.bitmap = b }
+            return image.toBitmap().also { b -> bitmaps.put(slot.index, b) }
         }
-        val bitmap = slot.bitmap?.takeIf { b -> b.isMutable && b.width == strideWidth && b.height == image.height }
-            ?: createBitmap(strideWidth, image.height).also { b -> slot.bitmap = b }
+        val bitmap = bitmaps.obtain(
+            slot.index,
+            fits = { b -> b.isMutable && b.width == strideWidth && b.height == image.height },
+            create = { createBitmap(strideWidth, image.height) },
+        )
         bitmap.copyPixelsFromBuffer(buffer)
         return bitmap
     }
