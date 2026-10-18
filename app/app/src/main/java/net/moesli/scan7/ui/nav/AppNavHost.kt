@@ -137,6 +137,7 @@ private fun Screen(route: Route, stack: BackStack, debug: DebugLaunch, modelInfo
             onNewGame = { stack.push(Route.NewGame()) },
             onPlayers = { stack.push(Route.Players) },
             onDebug = { stack.push(Route.Debug(DebugScreen.HOME)) },
+            onPastGame = { stack.push(Route.Scoreboard(it)) },
             modelInfo = modelInfo,
         )
         Route.Players -> PlayersRoute(onBack = back)
