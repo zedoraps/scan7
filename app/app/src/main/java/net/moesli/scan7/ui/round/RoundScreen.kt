@@ -6,6 +6,8 @@ import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -22,6 +24,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -34,7 +38,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalAccessibilityManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -102,22 +108,56 @@ private class RoundMetrics(val width: Dp, height: Dp, statusTop: Dp, navBottom: 
     val toastTop: Dp = buttonsTop - Scan7Spacing.s - Scan7Spacing.minTouch
 }
 
-private data class ToastData(val playerId: String, val name: String)
+/** Room above the first list row for the rank badges (they overlap the row's top-left corner). */
+private val BadgeRoom = 8.dp
+
+/** One showing of the bust toast; [seq] makes every showing distinct (same player busted again). */
+@Immutable
+data class BustToastData(val playerId: String, val name: String, val seq: Long)
+
+/**
+ * State of the "<name> marked bust · Undo" toast, hoisted out of [RoundScreen] so every bust path
+ * (in-card Bust inside the screen, the player sheet's Bust in the route) shows the same toast.
+ */
+@Stable
+class BustToastState {
+    var current: BustToastData? by mutableStateOf(null)
+        private set
+    private var seq = 0L
+
+    fun show(playerId: String, name: String) {
+        current = BustToastData(playerId, name, ++seq)
+    }
+
+    fun dismiss() {
+        current = null
+    }
+}
+
+@Composable
+fun rememberBustToastState(): BustToastState = remember { BustToastState() }
 
 /**
  * The Round screen (main screen, handoff §4): header, table or list of players in seating order,
  * progress strip and bottom buttons; arrange mode; end-of-round variant ([RoundUiState.roundOver]).
- * Stateless apart from transient UI (drag in progress, the bust undo toast).
+ * Stateless apart from transient UI (drag in progress); the bust undo toast lives in [toast] so the
+ * caller can show it for other bust paths too (player sheet). In-card Bust shows it here.
  */
 @Composable
-fun RoundScreen(state: RoundUiState, actions: RoundActions, modifier: Modifier = Modifier) {
+fun RoundScreen(
+    state: RoundUiState,
+    actions: RoundActions,
+    modifier: Modifier = Modifier,
+    toast: BustToastState = rememberBustToastState(),
+) {
     val colors = Scan7Theme.colors
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    var toast by remember { mutableStateOf<ToastData?>(null) }
+    val haptics = LocalHapticFeedback.current
     val onBust: (RoundPlayer) -> Unit = {
+        haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
         actions.onBust(it.id)
-        toast = ToastData(it.id, it.player.name)
+        toast.show(it.id, it.player.name)
     }
     BackHandler(enabled = state.arranging, onBack = actions::onDone)
 
@@ -171,7 +211,7 @@ fun RoundScreen(state: RoundUiState, actions: RoundActions, modifier: Modifier =
             }
         }
 
-        toast?.let { t ->
+        toast.current?.let { t ->
             val a11y = LocalAccessibilityManager.current
             val timeout = a11y?.calculateRecommendedTimeoutMillis(
                 TOAST_MS,
@@ -181,13 +221,13 @@ fun RoundScreen(state: RoundUiState, actions: RoundActions, modifier: Modifier =
             ) ?: TOAST_MS
             LaunchedEffect(t) {
                 delay(timeout)
-                toast = null
+                if (toast.current == t) toast.dismiss()
             }
             BustToast(
                 name = t.name,
                 onUndo = {
                     actions.onUndoBust(t.playerId)
-                    toast = null
+                    toast.dismiss()
                 },
                 modifier = Modifier
                     .offset(y = m.toastTop)
@@ -274,9 +314,11 @@ private fun TableSeat(
     }
 
     val drag = remember { DragTracker() }
+    val haptics = LocalHapticFeedback.current
     val arranging = rememberUpdatedState(state.arranging)
     val callbacks = rememberUpdatedState(
         object : ArrangeDragCallbacks {
+            // Long-press haptic: the card's combinedClickable already ticks at the long press.
             override fun onEnterArrange() = actions.onEnterArrange()
 
             override fun onDragStart() {
@@ -292,6 +334,7 @@ private fun TableSeat(
 
             override fun onDragEnd() {
                 val position = geometry.positionOf(drag.raw)
+                haptics.performHapticFeedback(HapticFeedbackType.GestureEnd)
                 pending = position
                 dragging = false
                 actions.onMoveCard(rp.id, position)
@@ -361,10 +404,23 @@ private fun ListView(state: RoundUiState, actions: RoundActions, m: RoundMetrics
         Text(state.round.toString(), color = colors.text, style = Scan7Type.roundNumberList, modifier = Modifier.alignByBaseline())
     }
 
+    // Rows scroll when they don't fit (10 rows on a small screen); header, strip and buttons stay put.
     val rowsTop = m.areaTop + ListRowsOffset
-    state.players.forEachIndexed { index, rp ->
-        key(rp.id) {
-            ListSeat(rp, index, size, rowsTop, state, actions, onBust)
+    val count = state.playerCount
+    val contentHeight = BadgeRoom + size.height * count + size.gap * (count - 1).coerceAtLeast(0)
+    Box(
+        modifier = Modifier
+            .offset(y = rowsTop - BadgeRoom)
+            .fillMaxWidth()
+            .height((m.areaBottom - rowsTop + BadgeRoom).coerceAtLeast(size.height))
+            .verticalScroll(rememberScrollState()),
+    ) {
+        Box(Modifier.fillMaxWidth().height(contentHeight)) {
+            state.players.forEachIndexed { index, rp ->
+                key(rp.id) {
+                    ListSeat(rp, index, size, BadgeRoom, state, actions, onBust)
+                }
+            }
         }
     }
 }
@@ -402,9 +458,11 @@ private fun ListSeat(
     }
 
     val drag = remember { DragTracker() }
+    val haptics = LocalHapticFeedback.current
     val arranging = rememberUpdatedState(state.arranging)
     val callbacks = rememberUpdatedState(
         object : ArrangeDragCallbacks {
+            // Long-press haptic: the card's combinedClickable already ticks at the long press.
             override fun onEnterArrange() = actions.onEnterArrange()
 
             override fun onDragStart() {
@@ -421,6 +479,7 @@ private fun ListSeat(
             override fun onDragEnd() {
                 val shown = clampRowDrag(drag.rawY - topPx, pitchPx, count, overshootPx)
                 val to = dropIndex(shown, pitchPx, count)
+                haptics.performHapticFeedback(HapticFeedbackType.GestureEnd)
                 dragging = false
                 if (to != index) {
                     pending = to

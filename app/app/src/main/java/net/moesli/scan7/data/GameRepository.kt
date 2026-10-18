@@ -123,6 +123,18 @@ class GameRepository(
      * last game with exactly the same players, else the default ring. Any other unfinished game
      * is abandoned (there is only one game to resume). Returns the new game id.
      */
+    /**
+     * Seating order of the last game played with exactly [players] (in any order), or null. The new
+     * game screen starts from it, so everyone gets their old table spot back (spots are handed out in
+     * seating order, see GameState.newGame).
+     */
+    suspend fun previousSeating(players: Collection<Long>): List<Long>? {
+        val ids = players.distinct()
+        if (ids.isEmpty()) return null
+        val gameId = gameDao.lastGameWithPlayers(ids, ids.size) ?: return null
+        return gameDao.seats(gameId).map { it.playerId }
+    }
+
     suspend fun startGame(seating: List<Long>, target: Int = DEFAULT_TARGET): Long = db.withTransaction {
         val now = clock()
         val byId = playerDao.byIds(seating).associateBy { it.id }
@@ -193,7 +205,13 @@ class GameRepository(
 
     suspend fun setPreferredViewMode(mode: ViewMode) = settingsDao.put(SettingEntity(KEY_VIEW_MODE, mode.name))
 
-    /** Ends the game from the menu without a winner. */
+    /**
+     * "End game" from the round menu: closes the running round as it is (open players BUST) and
+     * finishes the game with the current leader(s) as winners (recorded as finished, not abandoned).
+     */
+    suspend fun endGame(gameId: Long): GameState = mutate(gameId) { s, now -> s.endGame(now) }
+
+    /** Ends the game without a winner (another game was started). */
     suspend fun abandonGame(gameId: Long): GameState = mutate(gameId) { s, now -> s.abandon(now) }
 
     suspend fun deleteGame(gameId: Long) = gameDao.deleteGame(gameId)

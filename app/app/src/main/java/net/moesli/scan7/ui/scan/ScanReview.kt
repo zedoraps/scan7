@@ -23,7 +23,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +49,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.moesli.scan7.detection.Detection
+import net.moesli.scan7.detection.DisplayMapping
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.training.TrainingCapture
 import net.moesli.scan7.scoring.scoreRow
@@ -67,8 +74,12 @@ class ScanCapture(
     val error: String? = null,
     val meta: CaptureMeta = CaptureMeta(),
 ) {
+    /** Recognized cards with their detection index (unknown labels skipped), in detection order. */
+    val detectedCards: List<DetectedCard> =
+        detections.mapIndexedNotNull { i, d -> Card.fromLabel(d.label)?.let { DetectedCard(i, it) } }
+
     /** Recognized cards, scoring and ignored, in detection order. */
-    val cards: List<Card> = detections.toCards().map { it.first }
+    val cards: List<Card> = detectedCards.map { it.card }
 }
 
 /** How a [ScanCapture] was made (stored with "Save scans for training"). */
@@ -84,7 +95,11 @@ data class CaptureMeta(
     val choice: TrainingCapture? = null,
 )
 
-/** Review step: the frozen frame with boxes and the result panel (scored / bust / nothing found). */
+/**
+ * Review step: the frozen frame with boxes and the result panel (scored / bust / nothing found).
+ * Tapping a box or its chip leaves that card out ([excluded], e.g. a neighbour's card in the
+ * frame) or includes it again ([onToggleExclude]); score, bust check and outcome ignore it.
+ */
 @Composable
 internal fun ScanReviewStep(
     player: PlayerUi,
@@ -95,11 +110,20 @@ internal fun ScanReviewStep(
     onEnterManually: () -> Unit,
     onConfirm: (ScanOutcome) -> Unit,
     modifier: Modifier = Modifier,
+    excluded: Set<Int> = emptySet(),
+    onToggleExclude: (Int) -> Unit = {},
 ) {
     val colors = Scan7Theme.colors
-    val variant = reviewVariant(capture.cards)
+    val detected = capture.detectedCards
+    val variant = reviewVariant(detected, excluded)
     val bust = variant == ReviewVariant.Bust
-    val boxes = remember(capture) { scanBoxes(capture.detections, markDuplicates = true) }
+    val boxes = remember(capture, excluded) { scanBoxes(capture.detections, markDuplicates = true, excluded = excluded) }
+    val chips = remember(capture, excluded) { reviewChips(detected, excluded) }
+    val included = remember(capture, excluded) { includedCards(detected, excluded) }
+    val confirm = { onConfirm(reviewOutcome(detected, excluded)) }
+    val minTouchPx = with(LocalDensity.current) { Scan7Spacing.minTouch.toPx() }
+    val toggle by rememberUpdatedState(onToggleExclude)
+    val currentBoxes by rememberUpdatedState(boxes)
 
     Column(modifier = modifier.fillMaxSize().background(colors.ground)) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -116,7 +140,21 @@ internal fun ScanReviewStep(
                 imageWidth = capture.bitmap.width,
                 imageHeight = capture.bitmap.height,
                 crop = false,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(capture) {
+                        // Tap a box: leave that card out / include it again (smallest box wins).
+                        detectTapGestures { tap ->
+                            val mapping = DisplayMapping.of(
+                                capture.bitmap.width, capture.bitmap.height, size.width.toFloat(), size.height.toFloat(), crop = false,
+                            )
+                            val hits = currentBoxes.map { b ->
+                                val v = mapping.toView(b.box)
+                                HitBox(b.index, v.left, v.top, v.right, v.bottom)
+                            }
+                            pickBox(hits, tap.x, tap.y, minTouchPx)?.let(toggle)
+                        }
+                    },
             )
             IconButton(
                 onClick = onRetake,
@@ -135,8 +173,8 @@ internal fun ScanReviewStep(
                 .windowInsetsPadding(WindowInsets.navigationBars),
         ) {
             when (variant) {
-                ReviewVariant.Scored -> ScoredPanel(player, capture.cards, roundNumber, onRetake, onFix, onConfirm)
-                ReviewVariant.Bust -> BustPanel(player, capture.cards, onFix, onConfirm)
+                ReviewVariant.Scored -> ScoredPanel(player, included, chips, roundNumber, onRetake, onFix, confirm, onToggleExclude)
+                ReviewVariant.Bust -> BustPanel(player, included, chips, onFix, confirm, onToggleExclude)
                 ReviewVariant.Empty -> EmptyPanel(player, capture.error, onRetake, onEnterManually)
             }
         }
@@ -147,10 +185,12 @@ internal fun ScanReviewStep(
 private fun ScoredPanel(
     player: PlayerUi,
     cards: List<Card>,
+    chips: List<ReviewChip>,
     roundNumber: Int?,
     onRetake: () -> Unit,
     onFix: () -> Unit,
-    onConfirm: (ScanOutcome) -> Unit,
+    onConfirm: () -> Unit,
+    onToggleExclude: (Int) -> Unit,
 ) {
     val colors = Scan7Theme.colors
     val split = splitCards(cards)
@@ -186,17 +226,24 @@ private fun ScoredPanel(
             }
         }
         Breakdown(split.scoring)
-        Chips(split.scoring, split.ignored, duplicates = emptyMap())
+        ReviewChips(chips, onToggleExclude)
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
             RetakeButton(onRetake)
             SecondaryButton("Fix", onFix, Modifier.width(96.dp))
-            PrimaryButton("✓ OK", { onConfirm(reviewOutcome(cards)) }, Modifier.weight(1f))
+            PrimaryButton("✓ OK", onConfirm, Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun BustPanel(player: PlayerUi, cards: List<Card>, onFix: () -> Unit, onConfirm: (ScanOutcome) -> Unit) {
+private fun BustPanel(
+    player: PlayerUi,
+    cards: List<Card>,
+    chips: List<ReviewChip>,
+    onFix: () -> Unit,
+    onConfirm: () -> Unit,
+    onToggleExclude: (Int) -> Unit,
+) {
     val colors = Scan7Theme.colors
     val split = splitCards(cards)
     val score = scoreRow(split.scoring)
@@ -225,7 +272,7 @@ private fun BustPanel(player: PlayerUi, cards: List<Card>, onFix: () -> Unit, on
         }
     }
     PanelContent {
-        Chips(split.scoring, split.ignored, duplicates)
+        ReviewChips(chips, onToggleExclude)
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
@@ -254,7 +301,7 @@ private fun BustPanel(player: PlayerUi, cards: List<Card>, onFix: () -> Unit, on
         )
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
             SecondaryButton("Fix", onFix, Modifier.width(120.dp))
-            PrimaryButton("Confirm bust", { onConfirm(reviewOutcome(cards)) }, Modifier.weight(1f), color = colors.bust)
+            PrimaryButton("Confirm bust", onConfirm, Modifier.weight(1f), color = colors.bust)
         }
     }
 }
@@ -320,16 +367,32 @@ internal fun Breakdown(cards: List<Card>, modifier: Modifier = Modifier) {
     )
 }
 
-/** Scoring chips (duplicates outlined magenta) followed by the ignored ones (greyed, info only). */
+/**
+ * Review chips: scoring (duplicates outlined magenta), ignored (greyed), excluded (struck through),
+ * each a toggle "leave out / include", plus the muted hint "Tap a card to leave it out".
+ */
 @Composable
-internal fun Chips(scoring: List<Card>, ignored: List<Card>, duplicates: Map<Int, Int>) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
-        verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        scoring.forEach { CardChip(it, if (isDuplicate(it, duplicates)) ChipLook.Duplicate else ChipLook.Normal) }
-        ignored.forEach { CardChip(it, ChipLook.Ignored) }
+private fun ReviewChips(chips: List<ReviewChip>, onToggleExclude: (Int) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
+            verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            chips.forEach { chip ->
+                val label = chip.card.spokenLabel()
+                val excluded = chip.look == ChipLook.Excluded
+                val action = if (excluded) "Include $label" else "Leave out $label"
+                CardChip(
+                    card = chip.card,
+                    look = chip.look,
+                    onClick = { onToggleExclude(chip.index) },
+                    clickLabel = action,
+                    actions = listOf(CustomAccessibilityAction(action) { onToggleExclude(chip.index); true }),
+                )
+            }
+        }
+        Text("Tap a card to leave it out", color = Scan7Theme.colors.textMuted, style = Scan7Type.text12, maxLines = 1)
     }
 }
 

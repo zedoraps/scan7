@@ -1,6 +1,9 @@
 package net.moesli.scan7.ui.home
 
+import android.os.SystemClock
+import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,7 +24,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.composed
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -45,7 +55,6 @@ import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.SectionLabel
-import net.moesli.scan7.ui.components.TextLinkButton
 import net.moesli.scan7.ui.components.TokenSize
 import net.moesli.scan7.ui.components.headerInsets
 import net.moesli.scan7.ui.components.openCardShadow
@@ -91,7 +100,8 @@ private val HeroToken = TokenSize(44.dp, 58.dp, 20.sp)
 
 /**
  * Home (1): wordmark, Resume card (round, player tokens, leader) when a game is unfinished,
- * Players (secondary) + New game (primary) at the bottom, small Debug entry, version footer.
+ * Players (secondary) + New game (primary) at the bottom, version footer. The debug menu is hidden:
+ * tap the wordmark [DEBUG_TAPS] times (TalkBack: custom action "Open debug menu").
  * Without a game: a short intro; without players it says New game starts by adding them.
  */
 @Composable
@@ -117,8 +127,7 @@ fun HomeScreen(
                 .fillMaxWidth()
                 .height(Scan7Spacing.headerHeight),
         ) {
-            Scan7Wordmark(fontSize = 32.sp, modifier = Modifier.weight(1f))
-            TextLinkButton("Debug", onDebug, color = colors.textMuted, textStyle = Scan7Type.text12)
+            Scan7Wordmark(fontSize = 32.sp, modifier = Modifier.debugTaps(onDebug))
         }
         Column(
             verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xl),
@@ -149,6 +158,37 @@ fun HomeScreen(
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(top = Scan7Spacing.m, bottom = Scan7Spacing.m),
         )
+    }
+}
+
+/**
+ * Hidden debug entry on the wordmark: [DEBUG_TAPS] taps within [DEBUG_TAP_WINDOW_MS] open it, with
+ * a countdown toast from the [DEBUG_TAPS_BEFORE_HINT]rd tap (like Android's "Build number"). No
+ * ripple and no click semantics (the wordmark stays a plain text for TalkBack), but a custom
+ * accessibility action "Open debug menu".
+ */
+private fun Modifier.debugTaps(onDebug: () -> Unit): Modifier = composed {
+    val context = LocalContext.current
+    val counter = remember { DebugTapCounter() }
+    val toast = remember { arrayOfNulls<Toast>(1) }
+    val open by rememberUpdatedState(onDebug)
+    DisposableEffect(Unit) { onDispose { toast[0]?.cancel() } }
+    pointerInput(Unit) {
+        detectTapGestures {
+            toast[0]?.cancel()
+            when (val r = counter.tap(SystemClock.uptimeMillis())) {
+                DebugTapResult.None -> Unit
+                is DebugTapResult.Countdown -> {
+                    toast[0] = Toast.makeText(context, r.message, Toast.LENGTH_SHORT).also { it.show() }
+                }
+                DebugTapResult.Open -> {
+                    toast[0] = null
+                    open()
+                }
+            }
+        }
+    }.semantics {
+        customActions = listOf(CustomAccessibilityAction("Open debug menu") { open(); true })
     }
 }
 

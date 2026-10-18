@@ -35,7 +35,8 @@ sealed interface ScanMode {
 private sealed interface Step {
     data object Camera : Step
 
-    data class Review(val capture: ScanCapture) : Step
+    /** [excluded]: detections the user left out (kept when coming back from Fix). */
+    data class Review(val capture: ScanCapture, val excluded: Set<Int> = emptySet()) : Step
 
     /** Manual entry starting from [start]; [back] is the step Cancel returns to (null = leave the flow). */
     data class Manual(val start: SplitCards, val back: Step?) : Step
@@ -156,10 +157,13 @@ internal fun ScanFlowContent(
                 capture = s.capture,
                 roundNumber = roundNumber,
                 onRetake = { step = Step.Camera },
-                onFix = { step = Step.Manual(manualStart(s.capture.cards), back = s) },
-                onEnterManually = { step = Step.Manual(manualStart(s.capture.cards), back = s) },
+                // Fix: left-out cards are not prefilled.
+                onFix = { step = Step.Manual(manualStart(includedCards(s.capture.detectedCards, s.excluded)), back = s) },
+                onEnterManually = { step = Step.Manual(manualStart(includedCards(s.capture.detectedCards, s.excluded)), back = s) },
                 onConfirm = { confirm(it, s.capture) },
                 modifier = modifier,
+                excluded = s.excluded,
+                onToggleExclude = { i -> step = s.copy(excluded = toggleExcluded(s.excluded, i)) },
             )
         }
         is Step.Manual -> {
@@ -169,7 +173,10 @@ internal fun ScanFlowContent(
                 player = player,
                 start = s.start,
                 // Fix after a scan: the capture is the review this manual step came from.
-                onSave = { confirm(it, (s.back as? Step.Review)?.capture) },
+                onSave = { outcome ->
+                    val review = s.back as? Step.Review
+                    confirm(if (review != null) outcome.withExcluded(review.excluded) else outcome, review?.capture)
+                },
                 onCancel = cancel,
                 modifier = modifier,
             )

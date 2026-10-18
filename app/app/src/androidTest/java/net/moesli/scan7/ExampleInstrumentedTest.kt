@@ -19,6 +19,6 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("net.moesli.scan7", appContext.packageName)
+        assertTrue(appContext.packageName.startsWith("net.moesli.scan7")) // debug builds may add an id suffix
     }
 }

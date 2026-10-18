@@ -65,7 +65,8 @@ data class PlayerSheetUi(
 /**
  * Player sheet (4a) as a bottom sheet in the card styling. Open player: Scan (cyan, tall), Enter
  * manually, Bust (magenta outline). Scored / bust: the result (points or BUST, the cards if any)
- * with Edit, Rescan and Reset to open.
+ * with Edit, Rescan and Reset to open ([onResetToOpen] `null` hides it, e.g. on the end-of-round
+ * view: a closed round has no open players).
  */
 @Composable
 fun PlayerSheet(
@@ -75,7 +76,7 @@ fun PlayerSheet(
     onBust: () -> Unit,
     onEdit: () -> Unit,
     onRescan: () -> Unit,
-    onResetToOpen: () -> Unit,
+    onResetToOpen: (() -> Unit)?,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -93,7 +94,7 @@ fun PlayerSheetContent(
     onBust: () -> Unit,
     onEdit: () -> Unit,
     onRescan: () -> Unit,
-    onResetToOpen: () -> Unit,
+    onResetToOpen: (() -> Unit)?,
 ) {
     val player = state.player
     Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.l)) {
@@ -106,15 +107,17 @@ fun PlayerSheetContent(
                 SecondaryButton("Edit", onEdit, Modifier.weight(1f), height = 56.dp, contentDescription = "Edit ${player.name}'s cards")
                 SecondaryButton("Rescan", onRescan, Modifier.weight(1f), height = 56.dp, contentDescription = "Rescan ${player.name}")
             }
-            SecondaryButton(
-                "Reset to open",
-                onResetToOpen,
-                Modifier.fillMaxWidth(),
-                height = Scan7Spacing.minTouch,
-                cornerRadius = Scan7Radii.iconButton,
-                textStyle = Scan7Type.button.copy(fontSize = 13.sp),
-                contentDescription = "Reset ${player.name} to not scored",
-            )
+            if (onResetToOpen != null) {
+                SecondaryButton(
+                    "Reset to open",
+                    onResetToOpen,
+                    Modifier.fillMaxWidth(),
+                    height = Scan7Spacing.minTouch,
+                    cornerRadius = Scan7Radii.iconButton,
+                    textStyle = Scan7Type.button.copy(fontSize = 13.sp),
+                    contentDescription = "Reset ${player.name} to not scored",
+                )
+            }
         }
     }
 }

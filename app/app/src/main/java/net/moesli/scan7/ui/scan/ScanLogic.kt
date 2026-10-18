@@ -22,7 +22,12 @@ sealed interface ScanOutcome {
      * The row was confirmed with [cards] (scoring cards only: numbers, +N, ×2). [ignored] are the
      * action cards / backs the scan saw (never scored; kept for stats).
      */
-    data class Scored(val cards: List<Card>, val ignored: List<Card>, val source: ScanSource) : ScanOutcome {
+    data class Scored(
+        val cards: List<Card>,
+        val ignored: List<Card>,
+        val source: ScanSource,
+        override val excluded: Set<Int> = emptySet(),
+    ) : ScanOutcome {
         val score: RowScore get() = scoreRow(cards)
     }
 
@@ -34,7 +39,21 @@ sealed interface ScanOutcome {
         val cards: List<Card>,
         val ignored: List<Card> = emptyList(),
         val source: ScanSource = ScanSource.SCAN,
+        override val excluded: Set<Int> = emptySet(),
     ) : ScanOutcome
+
+    /**
+     * Detections (indices into the capture's detection list) the user left out on the review
+     * (e.g. a neighbour's card in the frame). They are not part of [Scored.cards] / [Bust.cards] /
+     * the ignored cards; only the training sample records them.
+     */
+    val excluded: Set<Int>
+}
+
+/** This outcome with [excluded] detections (Fix after a review: the manual screen doesn't know them). */
+fun ScanOutcome.withExcluded(excluded: Set<Int>): ScanOutcome = when (this) {
+    is ScanOutcome.Scored -> copy(excluded = excluded)
+    is ScanOutcome.Bust -> copy(excluded = excluded)
 }
 
 /** Whether this card can score (numbers and modifiers); action cards and `back` never do. */
@@ -140,6 +159,58 @@ private fun countWord(count: Int): String = when (count) {
     else -> "$count×"
 }
 
+// ---- Leaving cards out on the review ---------------------------------------------------------
+
+/** A recognized card of a capture: [index] into the capture's detections (unknown labels are skipped). */
+data class DetectedCard(val index: Int, val card: Card)
+
+/** Tap on a box / chip: leaves detection [index] out, or includes it again. */
+fun toggleExcluded(excluded: Set<Int>, index: Int): Set<Int> = if (index in excluded) excluded - index else excluded + index
+
+/** The cards that still count for the review: everything not [excluded], in detection order. */
+fun includedCards(cards: List<DetectedCard>, excluded: Set<Int>): List<Card> =
+    cards.filter { it.index !in excluded }.map { it.card }
+
+/** One chip on the review panel ([ChipLook] is a plain enum). */
+data class ReviewChip(val index: Int, val card: Card, val look: ChipLook)
+
+/**
+ * Review chips in display order (scoring cards, then action cards / backs). Excluded cards stay
+ * in place (greyed, struck through) so a tap can include them again; duplicates are computed
+ * from the included cards only.
+ */
+fun reviewChips(cards: List<DetectedCard>, excluded: Set<Int>): List<ReviewChip> {
+    val dups = duplicateCounts(includedCards(cards, excluded))
+    return cards.sortedWith(compareBy({ !it.card.isScoring }, { it.card.sortKey() }, { it.index })).map { c ->
+        val look = when {
+            c.index in excluded -> ChipLook.Excluded
+            !c.card.isScoring -> ChipLook.Ignored
+            isDuplicate(c.card, dups) -> ChipLook.Duplicate
+            else -> ChipLook.Normal
+        }
+        ReviewChip(c.index, c.card, look)
+    }
+}
+
+/** A box in view pixels for [pickBox]. */
+data class HitBox(val index: Int, val left: Float, val top: Float, val right: Float, val bottom: Float) {
+    val area: Float get() = (right - left) * (bottom - top)
+}
+
+/**
+ * Hit test for a tap at [x], [y]: every box is inflated to at least [minSize] in each direction
+ * (generous touch target for small boxes); of the boxes containing the tap the smallest (by its
+ * real area) wins, so a card lying on a bigger one stays reachable. `null` if none.
+ */
+fun pickBox(boxes: List<HitBox>, x: Float, y: Float, minSize: Float): Int? = boxes
+    .filter { b ->
+        val padX = ((minSize - (b.right - b.left)) / 2f).coerceAtLeast(0f)
+        val padY = ((minSize - (b.bottom - b.top)) / 2f).coerceAtLeast(0f)
+        x >= b.left - padX && x <= b.right + padX && y >= b.top - padY && y <= b.bottom + padY
+    }
+    .minByOrNull { it.area }
+    ?.index
+
 /** Which Review panel to show for a scan. */
 enum class ReviewVariant {
     /** Nothing detected at all: "No cards found" + Retake / Enter manually. */
@@ -158,6 +229,16 @@ fun reviewVariant(cards: List<Card>): ReviewVariant = when {
     else -> ReviewVariant.Scored
 }
 
+/**
+ * Review panel with some detections [excluded]: they don't count for the bust check. Nothing
+ * detected → Empty; everything left out → Scored (0 points, the chips stay tappable).
+ */
+fun reviewVariant(cards: List<DetectedCard>, excluded: Set<Int>): ReviewVariant = when {
+    cards.isEmpty() -> ReviewVariant.Empty
+    duplicateCounts(includedCards(cards, excluded)).isNotEmpty() -> ReviewVariant.Bust
+    else -> ReviewVariant.Scored
+}
+
 /** Outcome of confirming a reviewed scan ("OK" or "Confirm bust"). */
 fun reviewOutcome(cards: List<Card>): ScanOutcome {
     val split = splitCards(cards)
@@ -167,6 +248,10 @@ fun reviewOutcome(cards: List<Card>): ScanOutcome {
         ScanOutcome.Scored(split.scoring, split.ignored, ScanSource.SCAN)
     }
 }
+
+/** Outcome of confirming a review with [excluded] detections left out (not part of the cards). */
+fun reviewOutcome(cards: List<DetectedCard>, excluded: Set<Int>): ScanOutcome =
+    reviewOutcome(includedCards(cards, excluded)).withExcluded(excluded.filterTo(mutableSetOf()) { i -> cards.any { it.index == i } })
 
 /** Manual grid: numbers 0–12. */
 val ManualNumbers: List<Card> = Card.entries.filter { it.kind == CardKind.NUMBER }

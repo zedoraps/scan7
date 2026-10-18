@@ -143,4 +143,75 @@ class ScanLogicTest {
         assertEquals(ScanOutcome.Bust(listOf(N7, N7), emptyList(), ScanSource.MANUAL), manualOutcome(listOf(N7, N7), emptyList()))
         assertEquals(ScanOutcome.Scored(emptyList(), emptyList(), ScanSource.MANUAL), manualOutcome(emptyList(), emptyList()))
     }
+
+    // ---- Leaving cards out on the review ----
+
+    private fun detected(vararg cards: Card) = cards.mapIndexed { i, c -> DetectedCard(i, c) }
+
+    @Test
+    fun toggleExcluded_addsAndRemoves() {
+        val once = toggleExcluded(emptySet(), 2)
+        assertEquals(setOf(2), once)
+        assertEquals(emptySet<Int>(), toggleExcluded(once, 2))
+    }
+
+    @Test
+    fun excludingNeighboursSeven_noBust() {
+        val cards = detected(N7, N5, N7, PLUS_4)
+        assertEquals(ReviewVariant.Bust, reviewVariant(cards, emptySet()))
+        assertEquals(ReviewVariant.Scored, reviewVariant(cards, setOf(2)))
+        val outcome = reviewOutcome(cards, setOf(2))
+        assertEquals(ScanOutcome.Scored(listOf(N5, N7, PLUS_4), emptyList(), ScanSource.SCAN, excluded = setOf(2)), outcome)
+        assertEquals(16, (outcome as ScanOutcome.Scored).score.total)
+    }
+
+    @Test
+    fun excludedCards_notInScoreOrCards() {
+        val cards = detected(N12, TIMES_2, FREEZE, N3)
+        assertEquals(listOf(N12, FREEZE, N3), includedCards(cards, setOf(1)))
+        val outcome = reviewOutcome(cards, setOf(1, 2)) as ScanOutcome.Scored
+        assertEquals(listOf(N3, N12), outcome.cards)
+        assertEquals(emptyList<Card>(), outcome.ignored)
+        assertEquals(15, outcome.score.total)
+        assertEquals(setOf(1, 2), outcome.excluded)
+    }
+
+    @Test
+    fun allExcluded_scoredZeroNotEmpty() {
+        val cards = detected(N7)
+        assertEquals(ReviewVariant.Scored, reviewVariant(cards, setOf(0)))
+        assertEquals(ReviewVariant.Empty, reviewVariant(emptyList(), emptySet()))
+        assertEquals(0, (reviewOutcome(cards, setOf(0)) as ScanOutcome.Scored).score.total)
+    }
+
+    @Test
+    fun reviewChips_looksAndOrder() {
+        val chips = reviewChips(detected(FREEZE, N7, N7, N2), setOf(2))
+        assertEquals(listOf(N2, N7, N7, FREEZE), chips.map { it.card })
+        assertEquals(listOf(ChipLook.Normal, ChipLook.Normal, ChipLook.Excluded, ChipLook.Ignored), chips.map { it.look })
+        val bust = reviewChips(detected(N7, N7), emptySet())
+        assertEquals(listOf(ChipLook.Duplicate, ChipLook.Duplicate), bust.map { it.look })
+    }
+
+    @Test
+    fun withExcluded_keepsCards() {
+        val manual = manualOutcome(listOf(N2), emptyList()).withExcluded(setOf(4))
+        assertEquals(ScanOutcome.Scored(listOf(N2), emptyList(), ScanSource.MANUAL, excluded = setOf(4)), manual)
+    }
+
+    @Test
+    fun pickBox_smallestContainingWins() {
+        val big = HitBox(0, 0f, 0f, 300f, 400f)
+        val small = HitBox(1, 100f, 100f, 200f, 250f)
+        assertEquals(1, pickBox(listOf(big, small), 150f, 150f, minSize = 48f))
+        assertEquals(0, pickBox(listOf(big, small), 20f, 20f, minSize = 48f))
+        assertEquals(null, pickBox(listOf(big, small), 500f, 500f, minSize = 48f))
+    }
+
+    @Test
+    fun pickBox_inflatesSmallBoxes() {
+        val tiny = HitBox(3, 100f, 100f, 110f, 110f) // 10 × 10 → 48 × 48 around its center
+        assertEquals(3, pickBox(listOf(tiny), 125f, 125f, minSize = 48f))
+        assertEquals(null, pickBox(listOf(tiny), 131f, 105f, minSize = 48f))
+    }
 }

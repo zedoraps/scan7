@@ -22,6 +22,8 @@ data class TrainingOutcome(
     /** Action cards / backs the user kept as ignored (detector labels). */
     val ignored: List<String>,
     val points: Int,
+    /** Detections the user left out on the review (e.g. a neighbour's card; detector labels). */
+    val excluded: List<String> = emptyList(),
 )
 
 /** How the best-frame shutter chose the frame: `"capture": {"best_of", "chosen_offset_ms", "selection_score", …}`. */
@@ -54,6 +56,8 @@ data class TrainingSample(
     val outcome: TrainingOutcome?,
     /** Best-frame shutter info; null for debug captures (photo file / synthetic). */
     val capture: TrainingCapture? = null,
+    /** Indices into [detections] the user left out on the review (`"excluded": true` per detection). */
+    val excludedDetections: Set<Int> = emptySet(),
 ) {
     /** File name without extension: `scan7_<yyyyMMdd_HHmmss_SSS>` in [zone]. */
     fun fileStem(zone: TimeZone = TimeZone.getDefault()): String = trainingFileStem(timestampMillis, zone)
@@ -85,11 +89,11 @@ data class TrainingSample(
             field("detections_from_tracking", detections.count { it.fromTracking }.toString())
             field(
                 "detections",
-                detections.joinToString(",\n    ", "[\n    ", "\n  ]") { d ->
+                detections.withIndex().joinToString(",\n    ", "[\n    ", "\n  ]") { (i, d) ->
                     "{\"label\": ${str(d.label)}, \"score\": ${num(d.score)}, \"box\": " +
                         "{\"left\": ${num(d.box.left)}, \"top\": ${num(d.box.top)}, " +
                         "\"right\": ${num(d.box.right)}, \"bottom\": ${num(d.box.bottom)}}, " +
-                        "\"from_tracking\": ${d.fromTracking}}"
+                        "\"from_tracking\": ${d.fromTracking}, \"excluded\": ${i in excludedDetections}}"
                 }.let { if (detections.isEmpty()) "[]" else it },
             )
             val o = outcome
@@ -97,7 +101,7 @@ data class TrainingSample(
                 "null"
             } else {
                 "{\"kind\": ${str(o.kind)}, \"source\": ${str(o.source)}, \"points\": ${o.points}, " +
-                    "\"cards\": ${strList(o.cards)}, \"ignored\": ${strList(o.ignored)}}"
+                    "\"cards\": ${strList(o.cards)}, \"ignored\": ${strList(o.ignored)}, \"excluded\": ${strList(o.excluded)}}"
             }
             field("outcome", outcomeJson, last = true)
             append("}\n")

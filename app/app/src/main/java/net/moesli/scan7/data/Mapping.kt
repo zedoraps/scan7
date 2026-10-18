@@ -41,6 +41,7 @@ internal fun GameWithDetails.toState(): GameState {
         startedAt = game.startedAt,
         finishedAt = game.finishedAt,
         abandoned = game.abandoned,
+        endedEarly = game.endedEarly,
         viewMode = game.viewMode,
     )
 }
@@ -50,6 +51,7 @@ internal fun GameState.toGameEntity() = GameEntity(
     startedAt = startedAt,
     finishedAt = finishedAt,
     abandoned = abandoned,
+    endedEarly = endedEarly,
     target = target,
     viewMode = viewMode,
 )

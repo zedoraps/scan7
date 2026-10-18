@@ -70,11 +70,31 @@ class GameRepositoryTest {
         val first = repo.startGame(listOf(a, b))
         repo.movePosition(first, a, 0.3f, 0.2f)
         repo.setViewMode(first, ViewMode.LIST)
-        val second = repo.startGame(listOf(a, b))
+        // The new game screen starts from the previous seating order (previousSeating), so every
+        // player gets their old spot back.
+        val previousOrder = repo.previousSeating(setOf(b, a))!!
+        val second = repo.startGame(previousOrder)
         val state = repo.loadGame(second)!!
         assertEquals(repo.loadGame(first)!!.seats, state.seats)
         assertTrue(repo.loadGame(first)!!.abandoned)
         assertEquals(ViewMode.LIST, repo.activeGame.first()!!.viewMode)
+    }
+
+    @Test
+    fun endGame_finishesWithLeaderNotAbandoned() = runBlocking {
+        val a = repo.addPlayer("A")
+        val b = repo.addPlayer("B")
+        val gameId = repo.startGame(listOf(a, b))
+        repo.scorePoints(gameId, a, 30)
+        repo.endGame(gameId)
+        val s = repo.loadGame(gameId)!!
+        assertTrue(s.isOver)
+        assertTrue(s.endedEarly)
+        assertEquals(false, s.abandoned)
+        assertNotNull(s.finishedAt)
+        assertEquals(ResultStatus.BUST, s.status(b))
+        assertEquals(listOf(a), s.winners)
+        assertNull(repo.activeGame.first())
     }
 
     @Test

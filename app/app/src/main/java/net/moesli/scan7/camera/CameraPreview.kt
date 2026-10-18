@@ -36,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,6 +81,8 @@ class ZoomControls(val presets: List<Float>, val selected: Float, val onSelect: 
  * [analyzer] can be hoisted (e.g. to [DetectionAnalyzer.capture] the current frame). [overlay]
  * replaces the default [DetectionOverlay] (drawn over the whole preview, Crop mapping) and
  * [zoomControls] the default zoom buttons (only called when there is more than one preset).
+ * [torchOn] switches the torch (CameraX `enableTorch`); [onFlashUnit] reports whether the bound
+ * camera has a flash unit at all (hide the toggle otherwise).
  *
  * Preview and analysis are both 4:3 with the same field of view; the preview is shown
  * FILL_CENTER-cropped ([ContentScale.Crop]), and [DetectionOverlay] maps the normalized analysis
@@ -92,6 +95,8 @@ fun CameraPreview(
     analyzer: DetectionAnalyzer? = null,
     overlay: (@Composable BoxScope.(FrameStats) -> Unit)? = null,
     zoomControls: (@Composable BoxScope.(ZoomControls) -> Unit)? = null,
+    torchOn: Boolean = false,
+    onFlashUnit: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -141,6 +146,15 @@ fun CameraPreview(
         } finally {
             provider.unbind(preview, analysis)
         }
+    }
+
+    // Torch (scan camera header toggle): only on cameras with a flash unit.
+    val flashCallback by rememberUpdatedState(onFlashUnit)
+    LaunchedEffect(camera, torchOn) {
+        val cam = camera ?: return@LaunchedEffect
+        val hasFlash = cam.cameraInfo.hasFlashUnit()
+        flashCallback(hasFlash)
+        if (hasFlash) cam.cameraControl.enableTorch(torchOn)
     }
 
     var zoomState by remember { mutableStateOf<ZoomState?>(null) }

@@ -54,8 +54,9 @@ object TrainingSaver {
             threshold = capture.meta.threshold,
             origin = capture.meta.origin,
             detections = capture.detections,
-            outcome = outcome?.toTrainingOutcome(),
+            outcome = outcome?.toTrainingOutcome(capture),
             capture = capture.meta.choice,
+            excludedDetections = outcome?.excluded.orEmpty(),
         )
 
     /**
@@ -156,9 +157,12 @@ object TrainingSaver {
     }.getOrNull()
 }
 
-private fun ScanOutcome.toTrainingOutcome(): TrainingOutcome = when (this) {
-    is ScanOutcome.Scored -> TrainingOutcome("scored", source.trainingName(), cards.labels(), ignored.labels(), score.total)
-    is ScanOutcome.Bust -> TrainingOutcome("bust", source.trainingName(), cards.labels(), ignored.labels(), 0)
+private fun ScanOutcome.toTrainingOutcome(capture: ScanCapture): TrainingOutcome {
+    val excludedLabels = excluded.sorted().mapNotNull { capture.detections.getOrNull(it)?.label }
+    return when (this) {
+        is ScanOutcome.Scored -> TrainingOutcome("scored", source.trainingName(), cards.labels(), ignored.labels(), score.total, excludedLabels)
+        is ScanOutcome.Bust -> TrainingOutcome("bust", source.trainingName(), cards.labels(), ignored.labels(), 0, excludedLabels)
+    }
 }
 
 private fun ScanSource.trainingName(): String = if (this == ScanSource.SCAN) "scan" else "manual_after_scan"

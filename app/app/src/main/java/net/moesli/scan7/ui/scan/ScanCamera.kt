@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -34,6 +35,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -57,6 +60,7 @@ import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.PressDim
 import net.moesli.scan7.ui.components.SecondaryButton
+import net.moesli.scan7.ui.components.TorchIcon
 import net.moesli.scan7.ui.components.scan7Clickable
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
@@ -85,13 +89,25 @@ internal fun ScanCameraStep(
     val scope = rememberCoroutineScope()
     var capturing by remember { mutableStateOf(false) }
     var notReady by remember { mutableStateOf(false) }
+    // Torch: off by default, toggle only shown once the bound camera reports a flash unit.
+    var torchOn by remember { mutableStateOf(false) }
+    var hasFlash by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
     LaunchedEffect(analyzer) { analyzer.clearStats() }
 
     val seen = stats?.tracks?.map { it.detection }?.toCards()?.count { it.first.isScoring } ?: 0
     val canShoot = permission.granted && stats != null && stats?.error == null && !capturing
 
     Column(modifier = modifier.fillMaxSize().background(colors.ground)) {
-        CameraHeader(player, mode, recording, onClose, onBackToTable)
+        CameraHeader(
+            player = player,
+            mode = mode,
+            recording = recording,
+            torch = if (hasFlash && permission.granted) torchOn else null,
+            onTorchChange = { torchOn = it },
+            onClose = onClose,
+            onBackToTable = onBackToTable,
+        )
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -116,6 +132,8 @@ internal fun ScanCameraStep(
                     zoomControls = { zoom ->
                         ZoomPills(zoom, Modifier.align(Alignment.BottomCenter).padding(bottom = Scan7Spacing.m))
                     },
+                    torchOn = torchOn,
+                    onFlashUnit = { hasFlash = it },
                 )
                 HintPill(
                     text = when {
@@ -135,6 +153,7 @@ internal fun ScanCameraStep(
             shutterEnabled = canShoot,
             onShutter = {
                 // Best-frame shutter: compares the frames around the press (see DetectionAnalyzer.capture).
+                haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
                 val pressedAt = SystemClock.elapsedRealtime()
                 scope.launch {
                     capturing = true
@@ -150,7 +169,15 @@ internal fun ScanCameraStep(
 }
 
 @Composable
-private fun CameraHeader(player: PlayerUi, mode: ScanMode, recording: Boolean, onClose: () -> Unit, onBackToTable: () -> Unit) {
+private fun CameraHeader(
+    player: PlayerUi,
+    mode: ScanMode,
+    recording: Boolean,
+    torch: Boolean?,
+    onTorchChange: (Boolean) -> Unit,
+    onClose: () -> Unit,
+    onBackToTable: () -> Unit,
+) {
     val colors = Scan7Theme.colors
     Row(
         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
@@ -167,10 +194,12 @@ private fun CameraHeader(player: PlayerUi, mode: ScanMode, recording: Boolean, o
                 IconButton(onClick = onClose, contentDescription = "Close camera") { CloseIcon(colors.text) }
                 PlayerHeading(player, "Scanning", Modifier.weight(1f))
                 if (recording) RecMarker()
+                if (torch != null) TorchToggle(torch, onTorchChange)
             }
             ScanMode.ScanNext -> {
                 PlayerHeading(player, "Next", Modifier.weight(1f))
                 if (recording) RecMarker()
+                if (torch != null) TorchToggle(torch, onTorchChange)
                 SecondaryButton(
                     text = "Back to table",
                     onClick = onBackToTable,
@@ -180,6 +209,29 @@ private fun CameraHeader(player: PlayerUi, mode: ScanMode, recording: Boolean, o
                 )
             }
         }
+    }
+}
+
+/** Torch toggle: 48 dp icon button, `surface` when off, cyan with the lit icon when on. */
+@Composable
+private fun TorchToggle(on: Boolean, onChange: (Boolean) -> Unit) {
+    val colors = Scan7Theme.colors
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(Scan7Spacing.minTouch)
+            .clip(RoundedCornerShape(Scan7Radii.iconButton))
+            .background(if (on) colors.accent else colors.surface)
+            .toggleable(
+                value = on,
+                interactionSource = null,
+                indication = PressDim,
+                role = Role.Switch,
+                onValueChange = onChange,
+            )
+            .semantics { contentDescription = "Torch" },
+    ) {
+        TorchIcon(if (on) colors.onAccent else colors.text, on = on)
     }
 }
 

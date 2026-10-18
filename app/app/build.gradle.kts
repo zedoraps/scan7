@@ -27,6 +27,8 @@ android {
             providers.gradleProperty("scan7.idSuffix").orNull?.let { applicationIdSuffix = it }
         }
         release {
+            // Same for testing a release build on the shared emulator (-Pscan7.idSuffix=.p assembleRelease).
+            providers.gradleProperty("scan7.idSuffix").orNull?.let { applicationIdSuffix = it }
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
@@ -79,3 +81,19 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
+// The detector model is not in git (~10 MB per version): fail early with a hint instead of
+// building an APK whose camera screens can't detect anything.
+val checkModelAsset by tasks.registering {
+    val modelAsset = layout.projectDirectory.file("src/main/assets/model.tflite").asFile
+    description = "Checks that the detector model (assets/model.tflite) is present."
+    inputs.property("modelPresent", modelAsset.exists())
+    doLast {
+        if (!modelAsset.exists()) {
+            throw GradleException(
+                "Missing app/src/main/assets/model.tflite (not in git). Export it first: " +
+                    "cd ml && uv run scripts/export.py runs/<run>/weights/best.pt  (run ml/scripts/export.py)",
+            )
+        }
+    }
+}
+tasks.named("preBuild") { dependsOn(checkModelAsset) }

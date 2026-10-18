@@ -1,6 +1,7 @@
 package net.moesli.scan7.data
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -15,8 +16,12 @@ import androidx.room.RoomDatabase
         ResultCardEntity::class,
         SettingEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
+    autoMigrations = [
+        // 2: games.endedEarly ("End game" from the round menu).
+        AutoMigration(from = 1, to = 2),
+    ],
 )
 abstract class Scan7Database : RoomDatabase() {
     abstract fun playerDao(): PlayerDao

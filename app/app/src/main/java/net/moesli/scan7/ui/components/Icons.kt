@@ -94,3 +94,10 @@ fun TableIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) {
         }
     }
 }
+
+/** Flashlight (torch toggle in the scan camera header); [on] adds light rays. */
+@Composable
+fun TorchIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp, on: Boolean = false) = PathIcon(
+    "M8 9h8l-2 4v8h-4v-8zM8 9V7h8v2M12 15v2" + if (on) "M12 2v2M6 3.5l1.2 1.6M18 3.5l-1.2 1.6" else "",
+    color, size, modifier, strokeWidth = 2f,
+)

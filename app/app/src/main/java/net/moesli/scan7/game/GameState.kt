@@ -8,7 +8,8 @@ import net.moesli.scan7.scoring.scoreRow
  *
  * Invariants: [rounds] is never empty, numbered 1..n; every round except the last is closed;
  * a closed round has no open results. The game is over only when the last round is closed and
- * someone's total reached [target] (see [isOver]); [finishedAt] follows that automatically.
+ * someone's total reached [target], or it was ended early from the menu ([endedEarly], see
+ * [isOver]); [finishedAt] follows that automatically.
  *
  * Mutations that record a time take `now` (epoch millis); this class never reads the clock.
  */
@@ -22,6 +23,11 @@ data class GameState(
     val finishedAt: Long? = null,
     /** Ended from the menu before anyone won; never set by the rules. */
     val abandoned: Boolean = false,
+    /**
+     * Ended early from the round menu ("End game", [endGame]): the game is over with the current
+     * leader(s) as winners although nobody reached [target]. Cleared by [reopenRound].
+     */
+    val endedEarly: Boolean = false,
     /** View chosen for this game; `null` = use the app preference / default. */
     val viewMode: ViewMode? = null,
 ) {
@@ -100,8 +106,11 @@ data class GameState(
         return (1..seats.size).map { playerIds[(start + it) % seats.size] }.first { it in open }
     }
 
-    /** Game over: the last round is closed and someone reached [target]. Never mid-round. */
-    val isOver: Boolean get() = currentRound.isClosed && totals.values.any { it >= target }
+    /**
+     * Game over: the last round is closed and someone reached [target] or the game was
+     * [endedEarly]. Never mid-round.
+     */
+    val isOver: Boolean get() = currentRound.isClosed && (endedEarly || totals.values.any { it >= target })
 
     /** Highest total once [isOver] (several on an exact tie = shared win), in seating order. */
     val winners: List<Long>
@@ -232,7 +241,20 @@ data class GameState(
         val results = r.results.mapValues { (_, res) ->
             if (res.source == ResultSource.CLOSE_ROUND) PlayerResult(updatedAt = now) else res
         }
-        return copy(rounds = rounds.replace(r.number, r.copy(results = results, closedAt = null))).settled(now)
+        return copy(rounds = rounds.replace(r.number, r.copy(results = results, closedAt = null)), endedEarly = false).settled(now)
+    }
+
+    /**
+     * "End game" from the round menu: the running round is closed as it is (open players become
+     * BUST, as in [closeRound]) and the game is over; the current leader(s) win (ties share the
+     * win, see [winners]). Also works on the end-of-round view (round already closed). A game that
+     * is already over stays as it is. Recorded as finished, not [abandoned].
+     */
+    fun endGame(now: Long): GameState {
+        check(!abandoned) { "Game was abandoned" }
+        if (isOver) return this
+        val closed = if (currentRound.isClosed) this else closeRound(now)
+        return closed.copy(endedEarly = true).settled(now)
     }
 
     /** Ends the game from the menu without a winner. */

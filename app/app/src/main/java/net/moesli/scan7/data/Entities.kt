@@ -1,5 +1,6 @@
 package net.moesli.scan7.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -30,6 +31,8 @@ data class GameEntity(
     /** Set when the game is over (or abandoned); `null` = unfinished, can be resumed. */
     val finishedAt: Long? = null,
     val abandoned: Boolean = false,
+    /** Ended early from the round menu ("End game"): over, current leader(s) win. Added in DB version 2. */
+    @ColumnInfo(defaultValue = "0") val endedEarly: Boolean = false,
     val target: Int,
     val viewMode: ViewMode? = null,
 )

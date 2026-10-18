@@ -475,9 +475,14 @@ fun NewGameRoute(
             onNewPlayer = { editor = EditorTarget.New },
             onFixColor = { editor = EditorTarget.Edit(it) },
             onNext = {
-                seating = seatingFor(liveSelected, seating)
-                error = null
-                step = 2
+                val picked = liveSelected
+                scope.launch {
+                    // Same players as a previous game: start from that game's order (old table spots).
+                    seating = if (seating.toSet() == picked.toSet()) seating
+                    else repository.previousSeating(picked) ?: seatingFor(picked, seating)
+                    error = null
+                    step = 2
+                }
             },
             onBack = onBack,
             modifier = modifier,

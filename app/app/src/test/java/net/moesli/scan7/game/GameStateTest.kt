@@ -418,6 +418,59 @@ class GameStateTest {
         assertEquals(listOf(2L, 3L, 1L), g.totals.keys.toList())
     }
 
+    // ---- End game early ----
+
+    @Test
+    fun endGame_closesRoundBustsOpenAndLeaderWins() {
+        val g = start.playRound(50, 30, 10).nextRound().scorePoints(2, 40, now = 2).endGame(now = 7)
+        assertTrue(g.isOver)
+        assertTrue(g.endedEarly)
+        assertFalse(g.abandoned)
+        assertEquals(7L, g.finishedAt)
+        assertTrue(g.currentRound.isClosed)
+        assertEquals(ResultStatus.BUST, g.status(1))
+        assertEquals(ResultSource.CLOSE_ROUND, g.result(3).source)
+        assertEquals(listOf(2L), g.winners) // Ben 70 > Anna 50 > Cleo 10
+    }
+
+    @Test
+    fun endGame_tieSharesWin() {
+        val g = start.playRound(40, 40, 10).endGame(now = 3)
+        assertEquals(listOf(1L, 2L), g.winners)
+    }
+
+    @Test
+    fun endGame_onEndOfRoundView_keepsRound() {
+        val closed = start.playRound(10, 20, 30, now = 2)
+        val g = closed.endGame(now = 3)
+        assertEquals(closed.rounds, g.rounds)
+        assertEquals(listOf(3L), g.winners)
+        assertEquals(3L, g.finishedAt)
+    }
+
+    @Test(expected = IllegalStateException::class)
+    fun endGame_noNextRound() {
+        start.playRound(10, 20, 30).endGame(now = 3).nextRound()
+    }
+
+    @Test
+    fun endGame_alreadyOver_unchanged() {
+        val over = start.playRound(210, 0, 0, now = 4)
+        assertEquals(over, over.endGame(now = 9))
+    }
+
+    @Test
+    fun endGame_editKeepsGameOver_reopenContinues() {
+        val g = start.playRound(10, 20, 30).endGame(now = 3)
+        val edited = g.scorePoints(1, 90, now = 4, round = 1)
+        assertTrue(edited.isOver)
+        assertEquals(listOf(1L), edited.winners)
+        val reopened = edited.reopenRound(now = 5)
+        assertFalse(reopened.isOver)
+        assertFalse(reopened.endedEarly)
+        assertNull(reopened.finishedAt)
+    }
+
     // ---- Misc ----
 
     @Test

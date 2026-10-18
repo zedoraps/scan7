@@ -35,11 +35,14 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.vector.PathParser
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
@@ -150,12 +153,14 @@ internal fun PlayerHeading(player: PlayerUi, label: String, modifier: Modifier =
 // Card chips.
 // ---------------------------------------------------------------------------------------------
 
-enum class ChipLook { Normal, Duplicate, Ignored }
+enum class ChipLook { Normal, Duplicate, Ignored, Excluded }
 
 /**
  * Card chip: dark tile with the card label (Unbounded) and an echo dot; modifiers in orange.
- * [ChipLook.Duplicate] = magenta outline (bust), [ChipLook.Ignored] = dashed grey "Freeze · ignored".
- * With [onClick] the chip is a button (manual screen: tap to remove).
+ * [ChipLook.Duplicate] = magenta outline (bust), [ChipLook.Ignored] = dashed grey "Freeze · ignored",
+ * [ChipLook.Excluded] = left out on the review: greyed, label struck through.
+ * With [onClick] the chip is a button (manual screen: tap to remove; review: leave out / include).
+ * [actions] adds TalkBack custom actions.
  */
 @Composable
 internal fun CardChip(
@@ -165,11 +170,12 @@ internal fun CardChip(
     height: Dp = 44.dp,
     onClick: (() -> Unit)? = null,
     clickLabel: String? = null,
+    actions: List<CustomAccessibilityAction> = emptyList(),
 ) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.actionRow)
     val ink = when {
-        look == ChipLook.Ignored -> colors.textMuted
+        look == ChipLook.Ignored || look == ChipLook.Excluded -> colors.textMuted
         look == ChipLook.Duplicate -> colors.bust
         card.isModifier -> ModifierInk
         else -> colors.text
@@ -178,6 +184,7 @@ internal fun CardChip(
         ChipLook.Normal -> card.spokenLabel()
         ChipLook.Duplicate -> "${card.spokenLabel()}, duplicate"
         ChipLook.Ignored -> "${card.chipLabel()}, ignored"
+        ChipLook.Excluded -> "${card.spokenLabel()}, left out"
     }
     Box(
         contentAlignment = Alignment.Center,
@@ -191,13 +198,24 @@ internal fun CardChip(
                     ChipLook.Normal -> Modifier.border(1.5.dp, if (card.isModifier) ModifierLine else colors.line, shape)
                     ChipLook.Duplicate -> Modifier.border(2.5.dp, colors.bust, shape)
                     ChipLook.Ignored -> Modifier.dashedBorder(1.5.dp, colors.openOutline, Scan7Radii.actionRow)
+                    ChipLook.Excluded -> Modifier.border(1.5.dp, colors.lineSubtle, shape)
                 },
             )
             .then(if (onClick != null) Modifier.scan7Clickable(onClick, onClickLabel = clickLabel) else Modifier)
-            .clearAndSetSemantics { contentDescription = description }
+            .clearAndSetSemantics {
+                contentDescription = description
+                if (actions.isNotEmpty()) customActions = actions
+            }
             .padding(horizontal = 10.dp),
     ) {
-        if (look != ChipLook.Ignored) {
+        if (look == ChipLook.Excluded) {
+            Text(
+                card.chipLabel(),
+                color = ink.copy(alpha = 0.7f),
+                style = ChipLabelStyle.copy(textDecoration = TextDecoration.LineThrough),
+                maxLines = 1,
+            )
+        } else if (look != ChipLook.Ignored) {
             Box(
                 Modifier
                     .align(Alignment.TopStart)
@@ -219,30 +237,40 @@ private val ChipLabelStyle = TextStyle(fontFamily = Unbounded, fontWeight = Font
 // ---------------------------------------------------------------------------------------------
 
 /** How a box is drawn. */
-enum class BoxLook { Scoring, Duplicate, Ignored }
+enum class BoxLook { Scoring, Duplicate, Ignored, Excluded }
 
 /**
  * One detected card for the overlay. [box] is normalized in upright image coordinates; [alpha] < 1
- * fades a live track that was missed in the latest frames.
+ * fades a live track that was missed in the latest frames. [index] is the detection's index (the
+ * review toggles exclusion by it).
  */
 @Immutable
-data class ScanBox(val card: Card, val box: DetectionBox, val look: BoxLook, val alpha: Float = 1f)
+data class ScanBox(val card: Card, val box: DetectionBox, val look: BoxLook, val alpha: Float = 1f, val index: Int = -1)
 
 /** Detections with a known card label (unknown labels are dropped). */
 fun List<Detection>.toCards(): List<Pair<Card, DetectionBox>> =
     mapNotNull { d -> Card.fromLabel(d.label)?.let { it to d.box } }
 
-/** Overlay boxes: scoring cards cyan, duplicated numbers magenta (if [markDuplicates]), others ignored. */
-fun scanBoxes(detections: List<Detection>, markDuplicates: Boolean, alphas: List<Float>? = null): List<ScanBox> {
-    val cards = detections.mapIndexedNotNull { i, d -> Card.fromLabel(d.label)?.let { Triple(it, d.box, alphas?.getOrNull(i) ?: 1f) } }
-    val dups = if (markDuplicates) duplicateCounts(cards.map { it.first }) else emptyMap()
-    return cards.map { (card, box, alpha) ->
+/**
+ * Overlay boxes: scoring cards cyan, duplicated numbers magenta (if [markDuplicates], counted over
+ * the cards not [excluded]), action cards / backs ignored, [excluded] detections (indices) left out.
+ */
+fun scanBoxes(
+    detections: List<Detection>,
+    markDuplicates: Boolean,
+    alphas: List<Float>? = null,
+    excluded: Set<Int> = emptySet(),
+): List<ScanBox> {
+    val cards = detections.mapIndexedNotNull { i, d -> Card.fromLabel(d.label)?.let { ScanBox(it, d.box, BoxLook.Scoring, alphas?.getOrNull(i) ?: 1f, i) } }
+    val dups = if (markDuplicates) duplicateCounts(cards.filter { it.index !in excluded }.map { it.card }) else emptyMap()
+    return cards.map { b ->
         val look = when {
-            !card.isScoring -> BoxLook.Ignored
-            isDuplicate(card, dups) -> BoxLook.Duplicate
+            b.index in excluded -> BoxLook.Excluded
+            !b.card.isScoring -> BoxLook.Ignored
+            isDuplicate(b.card, dups) -> BoxLook.Duplicate
             else -> BoxLook.Scoring
         }
-        ScanBox(card, box, look, alpha)
+        b.copy(look = look)
     }
 }
 
@@ -254,7 +282,8 @@ fun trackBoxes(tracks: List<TrackedDetection>): List<ScanBox> =
  * Draws [boxes] on an image of [imageWidth]×[imageHeight] shown centered in the same bounds,
  * cropped ([crop], camera preview) or fitted (frozen frame). Scoring: cyan 3 dp + 1.5 dp white
  * outline, radius 10, cyan label tag top-left. Duplicates: same in magenta. Ignored: dashed grey
- * with an "IGNORED" tag.
+ * with an "IGNORED" tag. Excluded (left out by the user): the card dimmed, short-dashed muted
+ * outline, crossed out, "EXCLUDED" tag in muted grey.
  */
 @Composable
 internal fun ScanBoxesOverlay(
@@ -272,8 +301,8 @@ internal fun ScanBoxesOverlay(
         if (imageWidth <= 0 || imageHeight <= 0) return@Canvas
         val mapping = DisplayMapping.of(imageWidth, imageHeight, size.width, size.height, crop)
         val radius = 10.dp.toPx()
-        // Ignored first so scoring boxes stay on top where they overlap.
-        for (b in boxes.sortedBy { it.look != BoxLook.Ignored }) {
+        // Excluded, then ignored first so scoring boxes stay on top where they overlap.
+        for (b in boxes.sortedBy { if (it.look == BoxLook.Excluded) 0 else if (it.look == BoxLook.Ignored) 1 else 2 }) {
             val fade = b.alpha < 1f
             if (fade) {
                 drawContext.canvas.saveLayer(Rect(Offset.Zero, size), Paint().apply { alpha = b.alpha.coerceIn(0f, 1f) })
@@ -284,7 +313,21 @@ internal fun ScanBoxesOverlay(
             val tagColor: Color
             val tagText: String
             val tagStyle: TextStyle
-            if (b.look == BoxLook.Ignored) {
+            if (b.look == BoxLook.Excluded) {
+                drawRoundRect(colors.ground.copy(alpha = 0.55f), topLeft, boxSize, CornerRadius(radius))
+                val dash = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 4.dp.toPx()))
+                drawRoundRect(colors.textMuted, topLeft, boxSize, CornerRadius(radius), style = Stroke(2.dp.toPx(), pathEffect = dash))
+                drawLine(
+                    colors.textMuted,
+                    Offset(v.left + radius, v.bottom - radius),
+                    Offset(v.right - radius, v.top + radius),
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
+                tagColor = colors.textMuted
+                tagText = "EXCLUDED"
+                tagStyle = BoxTagSmall
+            } else if (b.look == BoxLook.Ignored) {
                 drawRoundRect(
                     ignoredInk, topLeft, boxSize, CornerRadius(radius),
                     style = Stroke(2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))),
