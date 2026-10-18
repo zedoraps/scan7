@@ -1,0 +1,54 @@
+# scan7 card config.
+# Class ids are fixed: this order is the YOLO class order. Do not reorder.
+classes:
+  - "00"
+  - "01"
+  - "02"
+  - "03"
+  - "04"
+  - "05"
+  - "06"
+  - "07"
+  - "08"
+  - "09"
+  - "10"
+  - "11"
+  - "12"
+  - plus2
+  - plus4
+  - plus6
+  - plus8
+  - plus10
+  - x2
+  - freeze
+  - flip3
+  - second_chance
+  - back
+
+# Classes that carry the word banner (EINS, ZWEI, ...).
+number_classes: ["00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
+
+# Card geometry, measured from ml/data/cards_flat by scripts/make_cutouts.py --measure.
+geometry:
+  aspect: 0.721         # width / height; measured median 0.7210 over 24 photos (std 0.005)
+  corner_radius: 0.042  # fraction of card width; measured median 0.0422 (std 0.004)
+  cutout_width: 600     # output size of the cutout PNGs in px
+  cutout_height: 832    # = round(cutout_width / aspect); 0 = derive from aspect
+
+# Word banner on number cards as fractions of card width/height: [x0, y0, x1, y1].
+# Measured on the cutouts: the printed banner frame spans x 0.035-0.96, y 0.755-0.865;
+# the box adds ~0.5% margin. The big number ends at y <= 0.70.
+# The box contains the whole banner (any word length fits), not the big number.
+banner: [0.03, 0.75, 0.97, 0.87]
+
+cutouts:
+  # Pixels (at cutout size) trimmed from each edge after rectification so no mat remains
+  # (cards are slightly bent; the alpha is additionally clipped to the detected silhouette).
+  trim_px: 7
+  # Per-file rotation (degrees clockwise) that turns the card as seen in the photo upright.
+  # Keyed by file stem. Photos not listed are assumed upright. A card lying sideways in the
+  # photo (flip3) needs 90 or 270, otherwise the script stops with an error.
+  rotate:
+    flip3: 90
+    plus8: 180
+    second_chance: 180

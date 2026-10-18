@@ -43,10 +43,20 @@ Folders (file names matter for `cards_flat/`):
 ## Stages
 | # | Stage | Command | Status |
 |---|---|---|---|
-| 1 | Card cutouts | — | waiting for photos |
+| 1 | Card cutouts | `uv run python scripts/make_cutouts.py` | done |
 | 2 | Synthetic data | — | |
 | 3 | Real photo labeling | — | |
 | 4 | Training & evaluation | — | |
 | 5 | Export to LiteRT | — | |
 | 6 | Android app | — | |
 | 7 | Scoring logic | `cd app && ./gradlew testDebugUnitTest` | done (logic + tests; UI pending) |
+
+## Stage 1 – Card cutouts
+```sh
+cd ml
+uv run python scripts/make_cutouts.py            # add --measure to re-measure aspect / corner radius, --debug for detection overlays
+```
+- **Input:** `ml/data/cards_flat/*.jpg` — one photo per card on the dark mat. The file stem is the class (`<class>_<n>.jpg` = extra photo of the same class).
+- **Output:** `ml/out/cutouts/<stem>.png` — upright, perspective-corrected RGBA cutouts (600×832 px) with an anti-aliased rounded-corner alpha; a few px are trimmed off each edge so no mat remains. Colors are left as photographed. `ml/out/cutouts/contact_sheet.jpg` shows all cutouts on a checkerboard with the banner box outlined in magenta on number cards.
+- **How:** threshold the HSV brightness (Otsu) → convex hull of the largest blob → fit a line to the straight middle part of each edge → intersect them for the 4 sharp corners → homography.
+- **Config:** `ml/config/cards.yaml` — the fixed class list (ids 0–22 = YOLO class order), measured card geometry (aspect w/h 0.721, corner radius 0.042 × width), the word-banner box on number cards (`[x0, y0, x1, y1]` as fractions of card size), and per-photo rotation overrides for photos where the card isn't upright (`flip3: 90`, `plus8: 180`, `second_chance: 180`). Add an entry there when a new photo comes out rotated.
