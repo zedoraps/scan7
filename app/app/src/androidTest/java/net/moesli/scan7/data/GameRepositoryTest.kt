@@ -27,7 +27,7 @@ class GameRepositoryTest {
     @Before
     fun setUp() {
         db = Scan7Database.inMemory(InstrumentationRegistry.getInstrumentation().targetContext)
-        repo = GameRepository(db) { time++ }
+        repo = GameRepository(db, clock = { time++ })
     }
 
     @After
@@ -140,5 +140,61 @@ class GameRepositoryTest {
         // Deleting the game removes its adjustments too (cascade).
         repo.deleteGame(gameId)
         assertNull(repo.observeGame(gameId).first())
+    }
+
+    private fun count(table: String, where: String = "1"): Int =
+        db.openHelper.readableDatabase.query("SELECT COUNT(*) FROM $table WHERE $where").use { it.moveToFirst(); it.getInt(0) }
+
+    @Test
+    fun deleteGame_cascadesEverythingOfTheGame_keepsPlayersAndOtherGames() = runBlocking {
+        val a = repo.addPlayer("A")
+        val b = repo.addPlayer("B")
+        val c = repo.addPlayer("C")
+        // Kept game (finished), then the one to delete (running, with cards, an adjustment, a table spot).
+        val kept = repo.startGame(listOf(a, b), target = 10)
+        repo.scorePoints(kept, a, 12)
+        repo.scorePoints(kept, b, 3)
+        repo.closeRound(kept)
+        val gone = repo.startGame(listOf(a, b, c))
+        repo.scoreCards(gone, a, listOf(ConfirmedCard(Card.N12), ConfirmedCard(Card.N11)))
+        repo.bust(gone, b)
+        repo.closeRoundAndStartNext(gone)
+        repo.scoreCards(gone, c, listOf(ConfirmedCard(Card.N5)))
+        repo.adjustTotal(gone, a, -5, "penalty")
+        repo.movePosition(gone, a, 0.3f, 0.2f)
+        assertEquals(3, count("result_cards"))
+        assertEquals(1, count("score_adjustments"))
+        assertEquals(3, count("rounds"))
+
+        repo.deleteGame(gone)
+
+        assertNull(repo.observeGame(gone).first())
+        assertNull(repo.activeGame.first())
+        assertEquals(0, count("game_players", "gameId = $gone"))
+        assertEquals(0, count("rounds", "gameId = $gone"))
+        assertEquals(0, count("score_adjustments"))
+        // Only the kept game's round and its 2 results remain (it never had cards).
+        assertEquals(1, count("rounds"))
+        assertEquals(2, count("round_results"))
+        assertEquals(0, count("result_cards"))
+        assertEquals(listOf(a, b, c), repo.players.first().map { it.id }.sorted())
+        assertEquals(listOf(kept), repo.pastGames.first().map { it.state.id })
+        // "New game with same players": seating / positions fall back to the remaining games.
+        assertEquals(listOf(a, b), repo.previousSeating(setOf(a, b)))
+        assertNull(repo.previousSeating(setOf(a, b, c)))
+        assertNull(repo.previousPositions(setOf(a, b, c)))
+        repo.startGame(listOf(c, b, a))
+        assertEquals(listOf(c, b, a), repo.activeGame.first()!!.state.playerIds)
+    }
+
+    @Test
+    fun deleteGame_dropsArchivedPlayersNoGameShowsAnyMore() = runBlocking {
+        val a = repo.addPlayer("A")
+        val b = repo.addPlayer("B")
+        val g1 = repo.startGame(listOf(a, b))
+        repo.deletePlayer(b) // archived: g1 still shows them
+        repo.deleteGame(g1)
+        assertNull(db.playerDao().byId(b))
+        assertNotNull(db.playerDao().byId(a))
     }
 }

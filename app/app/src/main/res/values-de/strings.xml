@@ -9,4 +9,20 @@
     <string name="about_privacy">Datenschutzerklärung</string>
     <string name="about_third_party">Software von Dritten</string>
     <string name="about_show_license">Lizenz anzeigen</string>
+
+    <!-- Home: long-press a past game / the Resume card → menu; Delete game → confirmation. -->
+    <string name="home_game_open_scoreboard">Punktetabelle öffnen</string>
+    <string name="home_game_resume">Weiterspielen</string>
+    <string name="home_game_delete">Spiel löschen</string>
+    <!-- Summary of the running game in the delete confirmation ("Heute, 21:40 · Runde 4 · Mia führt"). -->
+    <string name="home_game_round">Runde&#160;%1$d</string>
+    <plurals name="home_game_rounds">
+        <item quantity="one">%1$d&#160;Runde</item>
+        <item quantity="other">%1$d&#160;Runden</item>
+    </plurals>
+    <string name="confirm_delete_game_title">Dieses Spiel löschen?</string>
+    <string name="confirm_delete_game_action">Löschen</string>
+    <string name="confirm_delete_game_cancel">Abbrechen</string>
+    <string name="confirm_delete_game_running">Das laufende Spiel geht verloren.</string>
+    <string name="confirm_delete_game_irreversible">Das kann nicht rückgängig gemacht werden.</string>
 </resources>

@@ -37,6 +37,10 @@ interface PlayerDao {
 
     @Query("SELECT COUNT(*) FROM game_players WHERE playerId = :id")
     suspend fun gameCount(id: Long): Int
+
+    /** Archived players no game references any more (their last game was deleted). */
+    @Query("DELETE FROM players WHERE archived = 1 AND id NOT IN (SELECT playerId FROM game_players)")
+    suspend fun deleteUnreferencedArchived()
 }
 
 @Dao
@@ -81,6 +85,7 @@ interface GameDao {
     @Update
     suspend fun updateGame(game: GameEntity)
 
+    /** Seats, rounds (→ results → cards) and adjustments go with it (foreign keys ON DELETE CASCADE). */
     @Query("DELETE FROM games WHERE id = :id")
     suspend fun deleteGame(id: Long)
 
