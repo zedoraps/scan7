@@ -8,6 +8,8 @@ around them are in [../RELEASE.md](../RELEASE.md).
 | [listing-en.md](listing-en.md) | Name, short + full description, category (English, default language) |
 | [listing-de.md](listing-de.md) | The same in German |
 | [icon-512.png](icon-512.png) | Play icon, 512 × 512, 32-bit PNG (copy of `brand/play_store_icon_512.png`; full-bleed square, Play rounds the corners) |
+| [feature-graphic-en.png](feature-graphic-en.png), [-de.png](feature-graphic-de.png) | Feature graphic 1024 × 500, 24-bit PNG, made by [make_feature_graphic.py](make_feature_graphic.py) |
+| `screenshots/<locale>/` | Phone screenshots 1080 × 1920 (not in git: rerun `scripts/store-screenshots.sh`), `captioned/` = with caption band ([caption_screenshots.py](caption_screenshots.py)) |
 | this file | Disclaimer, Data safety answers, content rating, screenshot shot list, feature graphic spec |
 
 ## Disclaimer (use everywhere: listing, GitHub README, F-Droid summary)
@@ -66,14 +68,22 @@ short side** (so 1080 × 2400 = 2.22 is too long; use **1080 × 1920**, 9:16). O
 tablet sets (1600 × 2560 profile). Same set per language (EN app language for the en-US listing,
 German for de-DE).
 
-Capture with the seeded demo data (fictional players, debug build on an emulator, never the
-user's phone):
+Capture with the seeded demo data (fictional players, debug build on one emulator, never the
+user's phone). The screenshots are **not in git** (the UI still changes); rerun before each
+listing update:
 
 ```sh
-DEVICES=localhost:5561 PROFILES='1080x1920@420x1.0' \
-  SCREENS='p6_round_table p6_review p6_round_list p6_sheet_open p6_scoreboard gameover_gameover history_home p10_newgame' \
-  scripts/screen-matrix.sh --install      # -> out/screens/1080x1920@420x1.0/*.png
+ANDROID_SERIAL=localhost:5561 scripts/store-screenshots.sh     # -> docs/store/screenshots/{en-US,de-DE}/<n>_<screen>.png
+uv run --project ml python -I docs/store/caption_screenshots.py   # optional -> …/<locale>/captioned/ (caption band on top)
 ```
+
+`store-screenshots.sh` builds and installs a `.store` debug build, sets 1080 × 1920 @ 420 dpi,
+the per-app locale (`cmd locale set-app-locales`) and status bar demo mode (12:00, full battery,
+no notifications), shoots shots 1, 2, 3, 5, 6, 7 below per locale (blank / wrong captures are
+retried), then resets size, density, locale, demo mode and uninstalls `.store`. Options:
+`--no-build`, `LOCALES='de-DE'`, `SHOTS='1:p6:round_table …'` (`<n>:<seed>:<open>`), `WAIT=…`.
+Shots 4 (sheet) and 8 (new game) can be taken with `scripts/screen-matrix.sh`
+(`DEVICES=localhost:5561 PROFILES='1080x1920@420x1.0' SCREENS='p6_sheet_open p10_newgame'`).
 
 | # | Screen (seed / open) | Caption EN | Caption DE |
 |---|---|---|---|
@@ -94,7 +104,17 @@ version line; that is fine. Check each shot for: no
 optional overlays (design them in the brand colors with DM Mono / Unbounded, never the game's
 fonts).
 
-## Feature graphic spec (required, 1024 × 500)
+## Feature graphic (required, 1024 × 500)
+Made: [feature-graphic-en.png](feature-graphic-en.png) / [feature-graphic-de.png](feature-graphic-de.png)
+(icon + wordmark, tagline "Scan your cards. Keep score." / "Karten scannen. Punkte zählen.", a
+tilted phone scanning plain numbered cards in brand scan boxes). Regenerate after changing the
+script:
+
+```sh
+uv run --project ml python -I docs/store/make_feature_graphic.py   # -> docs/store/feature-graphic-{en,de}.png
+```
+
+Spec:
 - Size **1024 × 500 px**, JPEG or 24-bit PNG **without alpha**, ≤ 15 MB.
 - Background: ground `#0A1220` with a soft surface `#15223A` panel; accent `#38D6F5`.
 - Left: the Scan7 icon (from `brand/scan7_icon_1024.png`, ~300 px) and the wordmark "scan" +
