@@ -45,6 +45,7 @@ Bottom: **Scan next · <next open player>** (primary) + **Close round**; when ev
 Used for **Enter manually**, **Fix** (prefilled with the scanned cards) and **Edit**.
 - Top: selected cards as chips; tap a chip to remove it.
 - Grid: `0`–`12`, `+2` `+4` `+6` `+8` `+10` `x2`. Tapping toggles a card on/off (each card counts at most once per player).
+- **At most 7 number cards** (duplicates count): once 7 are selected, the other number buttons are disabled ("7 number cards – the maximum"). The review blocks OK with a warning if a scan includes more than 7 (leave cards out or Fix).
 - Action cards and `back` are not in the grid (they never score). If the scan found them, they show as grey "ignored" chips.
 - Live score breakdown at the bottom, **Save**.
 
