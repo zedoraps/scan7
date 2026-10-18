@@ -1,10 +1,11 @@
 # Scan7 – App flow
 
-> Agreed 2026-10-18. This is the spec for the game screens; the current debug screens
-> (live camera, score tester, detect from photo) stay available for testing.
+> Agreed 2026-10-18. This is the spec for the game **flow**; look, layout and interaction are defined in
+> [../design/DESIGN_HANDOFF.md](../design/DESIGN_HANDOFF.md), which wins where they differ. The current debug
+> screens (live camera, score tester, detect from photo) stay available for testing.
 
 ## Players
-- Players are stored locally on the phone: name + color or emoji. Add, rename, delete any time.
+- Players are stored locally on the phone: name + a color from the fixed 10-color palette (shown as a token with their initial). Add, rename, delete any time. Max 10 players per game.
 - No groups.
 
 ## New game
@@ -22,7 +23,11 @@ Shown during the whole round: all players in seating order, each with
 
 Header: round number and current leader. Bottom: **Close round**.
 
-Tap a player → sheet with **Scan**, **Enter manually**, **Bust**. For an already scored or busted player also **Edit** and **Reset to open**.
+Views: **Table** (cards placed freely around the screen, arranged by long-press/drag) and **List** (rows in seating order); seating order is shared. Default Table for ≤ 6 players, List for 7+; choice remembered. Card positions are saved per game.
+
+Open cards have in-card **Scan** and **Bust** buttons: Bust marks the player busted immediately, with an "Undo" toast. Tap an open card → sheet with **Scan**, **Enter manually**, **Bust**. Tap a done card → its result with **Edit**, **Rescan**, **Reset to open**.
+
+Bottom: **Scan next · <next open player>** (primary) + **Close round**; when everyone is done, one full-width **Close round**.
 
 ## Scan
 1. Full-screen camera, player name at the top, live boxes on the cards.
@@ -30,7 +35,8 @@ Tap a player → sheet with **Scan**, **Enter manually**, **Bust**. For an alrea
 3. Review overlay on the frozen frame: boxes and labels stay on the cards; a bottom panel shows
    - detected cards as chips,
    - score breakdown (numbers, x2, plus cards, Flip 7 bonus) and the total,
-   - buttons **Retake** (back to camera), **Fix** (manual screen, prefilled), **✓ OK** (save, back to round screen).
+   - buttons **Retake** (back to camera), **Fix** (manual screen, prefilled), **✓ OK** (save).
+   After OK: if the scan was started via **Scan next**, go straight to the camera for the next open player ("Next: Ben", with "Back to table"); otherwise back to the round screen.
 4. If a number is detected twice, the panel shows **BUST · two 7s** (magenta + text) with **Confirm bust** and **Fix**.
 
 ## Manual screen
@@ -42,7 +48,7 @@ Used for **Enter manually**, **Fix** (prefilled with the scanned cards) and **Ed
 
 ## Close round
 1. Confirmation: "X and Y haven't been scored. They'll be marked BUST." → every open player becomes busted (0 points).
-2. Round summary: points this round and new totals.
+2. End of round: the same table/list layout showing each player's round points (or BUST), rank badges and advanced score rings; **Next round** (primary).
 3. If at least one player has reached the target (≥ 200) **after the full round is scored**, the game ends: the player with the most points wins (exact tie → shared win). Reaching 200 mid-round never ends the round early.
 4. Otherwise → next round, all players `open`.
 

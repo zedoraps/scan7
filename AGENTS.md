@@ -9,6 +9,7 @@ card on-device (YOLO → LiteRT), and computes the score. Players can correct ca
 score is saved. Personal / open-source project.
 
 - Plan and milestones: [docs/BRIEF.md](docs/BRIEF.md) (living document)
+- **Design (look, layout, tokens, components): [design/DESIGN_HANDOFF.md](design/DESIGN_HANDOFF.md)** + prototype `design/reference/RoundScreen.dc.html` (px in the handoff = dp in Compose).
 - App flow / game screens spec: [docs/APP_FLOW.md](docs/APP_FLOW.md); screen inventory for design: [docs/SCREENS.md](docs/SCREENS.md)
 - Setup, data layout and stage status: [README.md](README.md)
 - Brand kit: [brand/BRAND.md](brand/BRAND.md)
@@ -93,6 +94,7 @@ drive the phone at a time.
 | 2026-10-18 | The app scans **one player's row per scan**; neighbouring rows may be partly visible. |
 | 2026-10-18 | Android **minSdk 29**; Kotlin + Jetpack Compose + Material 3; CameraX; LiteRT. |
 | 2026-10-18 | **Dark brand theme always** (no light variant, no dynamic color); brand colors override Material defaults. |
+| 2026-10-18 | **Design handoff adopted** (design/DESIGN_HANDOFF.md): custom components, no Material default look; DM Mono for all text except Unbounded where specified; players = palette color + initial (max 10); table view with free card positions + list view; one-tap bust with undo; "Scan next" chains cameras; end of round reuses the table/list layout. Ask the user before deviating from the handoff. |
 | 2026-10-18 | **App flow agreed** — spec in [docs/APP_FLOW.md](docs/APP_FLOW.md): players stored locally (no groups), select who plays; scan with the **shutter button only** (no auto-capture); bust shown in magenta **plus** the word; the game ends only after a full round is scored, highest total wins. |
 
 ## Branding (summary; details in brand/BRAND.md)
