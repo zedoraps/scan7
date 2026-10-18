@@ -153,7 +153,7 @@ private fun Screen(route: Route, stack: BackStack, debug: DebugLaunch, modelInfo
             playerId = route.playerId,
             start = route.start,
             round = route.round,
-            onSaved = { state -> route.afterSave(state)?.let(stack::replaceTop) ?: stack.pop() },
+            onSaved = { state, choice -> route.afterSave(state, choice)?.let(stack::replaceTop) ?: stack.pop() },
             onLeave = back,
             bustToast = bustToast,
             debugCapture = debug.gamePhotoCapture,

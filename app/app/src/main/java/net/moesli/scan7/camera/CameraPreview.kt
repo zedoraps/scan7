@@ -80,7 +80,9 @@ class ZoomControls(val presets: List<Float>, val selected: Float, val onSelect: 
  *
  * [analyzer] can be hoisted (e.g. to [DetectionAnalyzer.capture] the current frame). [overlay]
  * replaces the default [DetectionOverlay] (drawn over the whole preview, Crop mapping) and
- * [zoomControls] the default zoom buttons (only called when there is more than one preset).
+ * [zoomControls] the default zoom buttons (only called when there is more than one preset);
+ * with [onZoomControls] the preview draws no zoom buttons and hands the controls (`null` with
+ * fewer than two presets) to the caller, which draws them outside the preview.
  * [torchOn] switches the torch (CameraX `enableTorch`); [onFlashUnit] reports whether the bound
  * camera has a flash unit at all (hide the toggle otherwise).
  *
@@ -97,6 +99,7 @@ fun CameraPreview(
     zoomControls: (@Composable BoxScope.(ZoomControls) -> Unit)? = null,
     torchOn: Boolean = false,
     onFlashUnit: (Boolean) -> Unit = {},
+    onZoomControls: ((ZoomControls?) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -167,6 +170,10 @@ fun CameraPreview(
         onDispose { live?.removeObservers(lifecycleOwner) }
     }
     val presets = zoomState?.let { zoomPresets(it.minZoomRatio, it.maxZoomRatio) }.orEmpty()
+    val zoomCallback by rememberUpdatedState(onZoomControls)
+    LaunchedEffect(zoom, presets) {
+        zoomCallback?.invoke(if (presets.size > 1) ZoomControls(presets, zoom) { zoom = it } else null)
+    }
     LaunchedEffect(camera, zoom, presets) {
         val cam = camera ?: return@LaunchedEffect
         if (presets.isNotEmpty()) cam.cameraControl.setZoomRatio(zoom.coerceIn(presets.first(), presets.last()))
@@ -211,9 +218,11 @@ fun CameraPreview(
                     )
             }
             ?: "Starting camera…"
-        if (presets.size > 1 && zoomControls != null) {
+        // With onZoomControls the caller draws them outside the preview (scan camera bottom bar).
+        val ownZoom = onZoomControls == null && presets.size > 1
+        if (ownZoom && zoomControls != null) {
             zoomControls(ZoomControls(presets, zoom) { zoom = it })
-        } else if (presets.size > 1) {
+        } else if (ownZoom) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier

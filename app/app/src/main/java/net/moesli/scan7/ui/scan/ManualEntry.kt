@@ -54,7 +54,6 @@ import net.moesli.scan7.scoring.scoreRow
 import net.moesli.scan7.scoring.secondChanceText
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.PressDim
-import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.StatusTag
 import net.moesli.scan7.ui.components.PlayerStatus
@@ -86,6 +85,7 @@ internal fun ManualEntryStep(
     onSave: (ScanOutcome) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    afterScan: AfterScanUi? = null,
 ) {
     val colors = Scan7Theme.colors
     var selected by rememberSaveable(start) { mutableStateOf(start.scoring) }
@@ -116,8 +116,11 @@ internal fun ManualEntryStep(
                 textStyle = Scan7Type.button.copy(fontSize = 13.sp),
             )
         }
+        // Chips at the top, the grids anchored at the bottom right above the panel: extra chip
+        // lines grow into the free space between them (and scroll when it runs out), so the grid
+        // buttons never move under the finger.
         Column(
-            verticalArrangement = Arrangement.spacedBy(Scan7Spacing.l),
+            verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
@@ -149,15 +152,26 @@ internal fun ManualEntryStep(
                 }
                 ignored.forEach { CardChip(it, ChipLook.Ignored, height = 48.dp) }
             }
+        }
+        Column(
+            verticalArrangement = Arrangement.spacedBy(Scan7Spacing.l),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = Scan7Spacing.screenMargin, end = Scan7Spacing.screenMargin, top = Scan7Spacing.s, bottom = Scan7Spacing.l),
+        ) {
             SectionLabel("Numbers")
             CardGrid(ManualNumbers, NUMBER_COLUMNS, selected, ignored, score.bust) { selected = toggleCard(selected, it, ignored) }
-            if (limitHint != null) {
-                Text(
-                    limitHint,
-                    color = if (overLimit) colors.accent else colors.textMuted,
-                    style = Scan7Type.text13,
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                )
+            // Reserved line, so the hint appearing at 7 numbers doesn't move the number grid.
+            Box(Modifier.fillMaxWidth().height(20.dp), contentAlignment = Alignment.CenterStart) {
+                if (limitHint != null) {
+                    Text(
+                        limitHint,
+                        color = if (overLimit) colors.accent else colors.textMuted,
+                        style = Scan7Type.text13,
+                        maxLines = 1,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                }
             }
             SectionLabel("Modifiers")
             CardGrid(ManualModifiers, MODIFIER_COLUMNS, selected, ignored, score.bust) { selected = toggleCard(selected, it, ignored) }
@@ -172,51 +186,64 @@ internal fun ManualEntryStep(
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(start = Scan7Spacing.screenMargin, end = Scan7Spacing.screenMargin, top = Scan7Spacing.l, bottom = Scan7Spacing.xl),
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (score.bust) {
-                    Text(
-                        "${duplicateSummary(duplicates)} – remove one, or confirm the bust.",
-                        color = colors.textMuted,
-                        style = Scan7Type.text13,
-                        modifier = Modifier.weight(1f),
-                    )
-                    StatusTag(PlayerStatus.Bust, height = 36.dp)
-                } else {
-                    Breakdown(row, Modifier.weight(1f))
-                    Text(
-                        score.total.toString(),
-                        color = colors.accent,
-                        style = ScoreNumberStyle.copy(fontSize = 40.sp, lineHeight = 44.sp),
-                        maxLines = 1,
-                        modifier = Modifier.semantics {
-                            contentDescription = "${score.total} points"
-                            liveRegion = LiveRegionMode.Polite
-                        },
-                    )
+            // Fixed height: adding / removing cards (bust ↔ not bust, Second Chance, the 7-card
+            // warning) never moves the Save button.
+            Column(Modifier.fillMaxWidth().height(ManualStatusHeight)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                ) {
+                    if (score.bust) {
+                        Text(
+                            "${duplicateSummary(duplicates)} – remove one, or confirm the bust.",
+                            color = colors.textMuted,
+                            style = Scan7Type.text13,
+                            maxLines = 2,
+                            modifier = Modifier.weight(1f),
+                        )
+                        StatusTag(PlayerStatus.Bust, height = 36.dp)
+                    } else {
+                        Breakdown(row, Modifier.weight(1f), maxLines = 2)
+                        Text(
+                            score.total.toString(),
+                            color = colors.accent,
+                            style = ScoreNumberStyle.copy(fontSize = 40.sp, lineHeight = 44.sp),
+                            maxLines = 1,
+                            modifier = Modifier.semantics {
+                                contentDescription = "${score.total} points"
+                                liveRegion = LiveRegionMode.Polite
+                            },
+                        )
+                    }
                 }
-            }
-            score.secondChanceText()?.let { SecondChanceInfo(it) }
-            if (overLimit) {
-                // Fix prefilled more than 7 numbers: no real row has that many, so saving waits.
-                Text(
-                    "More than $MAX_NUMBER_CARDS number cards – remove ${rowNumberCount(row) - MAX_NUMBER_CARDS} to save",
-                    color = colors.accent,
-                    style = Scan7Type.text13,
-                )
+                Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.CenterStart) {
+                    val secondChance = score.secondChanceText()
+                    if (overLimit) {
+                        // Fix prefilled more than 7 numbers: no real row has that many, so saving waits.
+                        Text(
+                            "More than $MAX_NUMBER_CARDS number cards – remove ${rowNumberCount(row) - MAX_NUMBER_CARDS} to save",
+                            color = colors.accent,
+                            style = Scan7Type.text12,
+                            maxLines = 2,
+                        )
+                    } else if (secondChance != null) {
+                        SecondChanceInfo(secondChance)
+                    }
+                }
             }
             val save = { onSave(manualOutcome(selected, ignored)) }
             if (score.bust) {
-                PrimaryButton("Confirm bust", save, Modifier.fillMaxWidth(), enabled = !overLimit, color = colors.bust)
+                ConfirmSplitButton("Confirm bust", save, afterScan, Modifier.fillMaxWidth(), enabled = !overLimit, color = colors.bust)
             } else {
-                PrimaryButton("Save", save, Modifier.fillMaxWidth(), enabled = !overLimit)
+                ConfirmSplitButton("Save", save, afterScan, Modifier.fillMaxWidth(), enabled = !overLimit)
             }
         }
     }
 }
+
+/** Status area above Save: breakdown + total (or the bust text) and one info line. */
+private val ManualStatusHeight = 88.dp
 
 @Composable
 private fun SectionLabel(text: String) {
