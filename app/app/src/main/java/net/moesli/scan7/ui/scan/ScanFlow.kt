@@ -18,6 +18,7 @@ import net.moesli.scan7.training.TrainingCapture
 import net.moesli.scan7.training.TrainingSaver
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.ui.components.PlayerUi
+import net.moesli.scan7.ui.round.BustToastState
 
 /** How the scan was started. */
 sealed interface ScanMode {
@@ -51,6 +52,10 @@ private sealed interface Step {
  * @param roundNumber shown in the review panel ("Round 4 · 96 → 198") when known.
  * @param onBackToTable [ScanMode.ScanNext] only: stop chaining and return to the round screen.
  * @param onCancel the player was not scored (close button, system back on the camera).
+ * @param onBust non-null shows **Bust** next to the shutter: the caller marks the player busted
+ *   (no cards, like the in-card Bust) and moves on. Not a scan result: no training outcome is saved.
+ * @param bustToast the shared "<name> marked bust · Undo" toast, shown on the camera when set
+ *   (Scan next: the previous player's bust); [onUndoBust] reopens that player (its player id).
  */
 @Composable
 fun ScanFlow(
@@ -62,6 +67,9 @@ fun ScanFlow(
     initialCards: List<Card>? = null,
     roundNumber: Int? = null,
     onBackToTable: () -> Unit = onCancel,
+    onBust: (() -> Unit)? = null,
+    bustToast: BustToastState? = null,
+    onUndoBust: (String) -> Unit = {},
 ) = ScanFlowContent(
     player = player,
     onResult = onResult,
@@ -72,6 +80,9 @@ fun ScanFlow(
     roundNumber = roundNumber,
     onBackToTable = onBackToTable,
     initialCapture = null,
+    onBust = onBust,
+    bustToast = bustToast,
+    onUndoBust = onUndoBust,
 )
 
 /** [ScanFlow] that can start in Review on a given capture (debug: review a photo file). */
@@ -86,6 +97,9 @@ internal fun ScanFlowContent(
     roundNumber: Int?,
     onBackToTable: () -> Unit,
     initialCapture: ScanCapture?,
+    onBust: (() -> Unit)? = null,
+    bustToast: BustToastState? = null,
+    onUndoBust: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     // One analyzer for the whole flow: it buffers the recent frames for the best-frame shutter.
@@ -147,6 +161,10 @@ internal fun ScanFlowContent(
                 onTypeInstead = { step = Step.Manual(SplitCards(emptyList(), emptyList()), back = Step.Camera) },
                 onClose = onCancel,
                 onBackToTable = onBackToTable,
+                // A bust tap is no scan: a frame saved before (Retake) keeps its outcome null.
+                onBust = onBust,
+                bustToast = bustToast,
+                onUndoBust = onUndoBust,
                 modifier = modifier,
             )
         }

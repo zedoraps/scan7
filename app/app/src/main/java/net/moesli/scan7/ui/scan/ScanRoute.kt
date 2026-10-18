@@ -19,9 +19,10 @@ import kotlinx.coroutines.launch
 import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.game.GameState
+import net.moesli.scan7.ui.components.PlayerStatus
 import net.moesli.scan7.ui.nav.ScanStart
 import net.moesli.scan7.ui.players.playerUis
-import net.moesli.scan7.ui.round.scanNextAfter
+import net.moesli.scan7.ui.round.BustToastState
 import net.moesli.scan7.ui.theme.Scan7Theme
 
 private const val TAG = "ScanRoute"
@@ -32,10 +33,12 @@ private const val TAG = "ScanRoute"
  *
  * @param round the round to score; `null` = the running round (editing a closed round recomputes
  *   totals and game over).
- * @param onSaved called after saving with the saved state; for [ScanStart.NEXT] the caller
- *   continues with [GameState.scanNextAfter].
+ * @param onSaved called after saving with the saved state (also after the camera's Bust tap); for
+ *   [ScanStart.NEXT] the caller continues with [net.moesli.scan7.ui.nav.afterSave].
  * @param onLeave cancel / "Back to table".
  * @param debugCapture DEBUG: start camera scans in Review on this capture (photo file hook).
+ * @param bustToast shared bust undo toast: the camera's Bust tap shows it (on the next player's
+ *   camera, or on the round screen after returning) and its Undo reopens the busted player.
  */
 @Composable
 fun ScanRoute(
@@ -48,6 +51,7 @@ fun ScanRoute(
     modifier: Modifier = Modifier,
     repository: GameRepository = AppGraph.repository(LocalContext.current),
     debugCapture: (suspend (Context) -> ScanCapture)? = null,
+    bustToast: BustToastState? = null,
 ) {
     val snapshot by remember(gameId) { repository.observeGame(gameId) }.collectAsStateWithLifecycle(initialValue = null)
     val scope = rememberCoroutineScope()
@@ -71,21 +75,24 @@ fun ScanRoute(
         ScanStart.EDIT -> state.result(playerId, roundNumber).cards.map { it.card }
         ScanStart.CAMERA, ScanStart.NEXT -> null
     }
+    val save = { what: String, block: suspend GameRepository.() -> GameState, then: (GameState) -> Unit ->
+        if (!saving) {
+            saving = true
+            scope.launch {
+                runCatching { repository.block() }.onSuccess(then).onFailure {
+                    Log.w(TAG, "$what failed", it)
+                    onLeave()
+                }
+                saving = false
+            }
+        }
+    }
+    // Bust tap on the camera: only for an open player of the running round (its undo resets to open).
+    val canBust = camera && round == null && player.status == PlayerStatus.Open
     ScanFlowContent(
         player = player,
         onResult = { outcome ->
-            if (!saving) {
-                saving = true
-                scope.launch {
-                    runCatching {
-                        repository.scoreCards(gameId, playerId, outcome.toConfirmedCards(), outcome.resultSource, round)
-                    }.onSuccess(onSaved).onFailure {
-                        Log.w(TAG, "saving the result failed", it)
-                        onLeave()
-                    }
-                    saving = false
-                }
-            }
+            save("saving the result", { scoreCards(gameId, playerId, outcome.toConfirmedCards(), outcome.resultSource, round) }, onSaved)
         },
         onCancel = onLeave,
         modifier = modifier,
@@ -94,5 +101,22 @@ fun ScanRoute(
         roundNumber = roundNumber,
         onBackToTable = onLeave,
         initialCapture = capture,
+        // Same bust / undo as the round screen (GameRepository.bust → BUST_TAP; undoBust).
+        onBust = if (canBust) {
+            {
+                save("bust", { bust(gameId, playerId) }) { saved ->
+                    bustToast?.show(playerId.toString(), player.name)
+                    onSaved(saved)
+                }
+            }
+        } else {
+            null
+        },
+        bustToast = bustToast,
+        onUndoBust = { id ->
+            scope.launch {
+                runCatching { repository.undoBust(gameId, id.toLong()) }.onFailure { Log.w(TAG, "undo bust failed", it) }
+            }
+        },
     )
 }

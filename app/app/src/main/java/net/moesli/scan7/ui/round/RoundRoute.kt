@@ -201,6 +201,8 @@ enum class SheetAction { Scan, Manual, Bust, Edit, Rescan, Reset }
 /**
  * The Round screen on a stored game: [RoundScreen] on [GameSnapshot.toRoundUiState], the player
  * sheet, the close-round dialog and the header menu (scoreboard, home).
+ *
+ * @param toast the bust undo toast; the nav host shares it with the scan camera (its Bust tap).
  */
 @Composable
 fun RoundRoute(
@@ -208,11 +210,11 @@ fun RoundRoute(
     navigator: RoundNavigator,
     modifier: Modifier = Modifier,
     repository: GameRepository = AppGraph.repository(LocalContext.current),
+    toast: BustToastState = rememberBustToastState(),
 ) {
     val snapshot by remember(gameId) { repository.observeGame(gameId) }.collectAsStateWithLifecycle(initialValue = null)
     val flags = rememberSaveable(saver = RoundFlags.Saver) { RoundFlags() }
     val scope = rememberCoroutineScope()
-    val toast = rememberBustToastState()
     val controller = remember(gameId, navigator) { RoundController(repository, gameId, scope, navigator, flags, toast) }
     val haptics = LocalHapticFeedback.current
     controller.snapshot = snapshot
