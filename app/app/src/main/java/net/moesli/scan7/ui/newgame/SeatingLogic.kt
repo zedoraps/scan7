@@ -1,7 +1,12 @@
 package net.moesli.scan7.ui.newgame
 
 import kotlin.math.roundToInt
+import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.MAX_PLAYERS
+import net.moesli.scan7.game.PlayerResult
+import net.moesli.scan7.game.RoundState
+import net.moesli.scan7.game.Seat
+import net.moesli.scan7.game.TablePosition
 
 /** Players needed to continue from "pick players" (a game of Flip 7 needs at least two). */
 const val MIN_PLAYERS = 2
@@ -10,25 +15,6 @@ const val MIN_PLAYERS = 2
 const val TARGET_STEP = 10
 const val MIN_TARGET = 50
 const val MAX_TARGET = 1000
-
-/** This list with the element at [from] moved to [to] (the others shift). */
-fun <T> List<T>.moved(from: Int, to: Int): List<T> {
-    require(from in indices && to in indices) { "Index out of range" }
-    if (from == to) return this
-    val out = toMutableList()
-    out.add(to, out.removeAt(from))
-    return out
-}
-
-/**
- * Index a dragged row lands on: the row started at [from] and has been dragged by [offset] px;
- * each row takes [span] px (height + gap). Clamped to 0 until [count].
- */
-fun dragTargetIndex(from: Int, offset: Float, span: Float, count: Int): Int {
-    if (count <= 0) return 0
-    if (span <= 0f) return from.coerceIn(0, count - 1)
-    return (from + (offset / span).roundToInt()).coerceIn(0, count - 1)
-}
 
 /**
  * Toggles [id] in the selection. The selection keeps the order players were picked in (that is the
@@ -40,7 +26,7 @@ fun toggleSelection(selected: List<Long>, id: Long, max: Int = MAX_PLAYERS): Lis
     else -> selected + id
 }
 
-/** Seating order for step 2: kept order of [previous] players still selected, then newly picked ones. */
+/** Seating order for the seating step: kept order of [previous] players still selected, then newly picked ones. */
 fun seatingFor(selected: List<Long>, previous: List<Long>): List<Long> =
     previous.filter { it in selected } + selected.filter { it !in previous }
 
@@ -63,34 +49,51 @@ fun targetFromProgress(value: Float): Int {
     return ((value / TARGET_STEP).roundToInt() * TARGET_STEP).coerceIn(MIN_TARGET, MAX_TARGET)
 }
 
-/** A TalkBack reorder action on a seat row: [label] moves the row to index [to]. */
-data class SeatMove(val label: String, val to: Int)
-
-/** Reorder actions for the row at [index] of [count]: up, down, and to first / last when that is further. */
-fun seatMoves(index: Int, count: Int): List<SeatMove> = buildList {
-    if (index !in 0 until count) return@buildList
-    if (index > 0) add(SeatMove("Move up", index - 1))
-    if (index < count - 1) add(SeatMove("Move down", index + 1))
-    if (index > 1) add(SeatMove("Move to first seat", 0))
-    if (index < count - 2) add(SeatMove("Move to last seat", count - 1))
-}
-
-/**
- * Auto-scroll step (px per frame) while a row is dragged: the row spans [top]..[bottom] in the
- * viewport [viewportStart]..[viewportEnd]. Inside the [edge] zone at either end it scrolls toward
- * that end, faster the deeper the row is in the zone (up to [maxStep]); otherwise 0.
- */
-fun autoScrollStep(top: Float, bottom: Float, viewportStart: Float, viewportEnd: Float, edge: Float, maxStep: Float): Float {
-    if (edge <= 0f || maxStep <= 0f || viewportEnd - viewportStart <= 2 * edge) return 0f
-    val intoTop = viewportStart + edge - top
-    val intoBottom = bottom - (viewportEnd - edge)
-    return when {
-        intoTop > 0f && intoBottom <= 0f -> -maxStep * (intoTop / edge).coerceAtMost(1f)
-        intoBottom > 0f && intoTop <= 0f -> maxStep * (intoBottom / edge).coerceAtMost(1f)
-        else -> 0f
-    }
-}
-
 /** "Next" is enabled with [MIN_PLAYERS]..[MAX_PLAYERS] players (avatar colors may repeat). */
 fun canContinue(selectedCount: Int): Boolean =
     selectedCount in MIN_PLAYERS..MAX_PLAYERS
+
+/**
+ * The seating step's seats before the game exists: player ids in seating order with their table
+ * positions. Moves follow the game's own rules ([GameState.movePosition]: order re-derived
+ * clockwise; [GameState.swapSeats]: list drop swaps), so the arranged table is exactly what the
+ * game starts with.
+ */
+data class SeatingDraft(val seats: List<Seat>) {
+    val ids: List<Long> get() = seats.map { it.playerId }
+    val positions: List<TablePosition> get() = seats.map { it.position }
+
+    /** Table view drop of [playerId] at [position]. */
+    fun moveCard(playerId: Long, position: TablePosition): SeatingDraft =
+        if (playerId in ids) SeatingDraft(asGame().movePosition(playerId, position).seats) else this
+
+    /** List view drop: the players at seats [from] and [to] swap. */
+    fun swapRows(from: Int, to: Int): SeatingDraft =
+        if (from in seats.indices && to in seats.indices) SeatingDraft(asGame().swapSeats(from, to).seats) else this
+
+    /** Without players that no longer exist (deleted meanwhile); the others keep their spots. */
+    fun retain(existing: Set<Long>): SeatingDraft =
+        if (ids.all { it in existing }) this else SeatingDraft(seats.filter { it.playerId in existing })
+
+    private fun asGame() = GameState(seats = seats, rounds = listOf(RoundState(1, ids.associateWith { PlayerResult.OPEN })))
+
+    companion object {
+        /**
+         * [order] on the spots of [previousPositions] (same player set only, as at game start),
+         * else on the default ring ("Skip seats": tick order, default ring).
+         */
+        fun of(order: List<Long>, previousPositions: Map<Long, TablePosition>? = null) =
+            SeatingDraft(GameState.initialSeats(order, previousPositions))
+
+        /** Flat form for `rememberSaveable`: ids, then x / y per seat. */
+        fun save(d: SeatingDraft): LongArray = d.seats.flatMap { s ->
+            listOf(s.playerId, s.position.x.toRawBits().toLong(), s.position.y.toRawBits().toLong())
+        }.toLongArray()
+
+        fun restore(a: LongArray): SeatingDraft = SeatingDraft(
+            a.toList().chunked(3).filter { it.size == 3 }.map { (id, x, y) ->
+                Seat(id, TablePosition(Float.fromBits(x.toInt()), Float.fromBits(y.toInt())))
+            },
+        )
+    }
+}

@@ -35,13 +35,13 @@ ALL_PROFILES=(
   720x1600@320x1.3 1080x2400@420x1.3 1440x3120@560x1.3
   720x1600@320x2.0 1080x2400@420x2.0
 )
-# <scenario>_<screen>: scenario = debug_seed (p3/p6/p10/gameover), screen = debug_open.
+# <scenario>_<screen>: scenario = debug_seed (p3/p6/p10/gameover/history), screen = debug_open.
 ALL_SCREENS=(
   p3_home p3_round_table p3_round_list
   p6_home p6_seating p6_round_table p6_round_list p6_sheet_open p6_sheet_done p6_adjust_dialog
   p6_manual p6_review p6_camera p6_scoreboard
   p10_players p10_newgame p10_seating p10_round_table p10_round_list p10_scoreboard
-  gameover_gameover
+  gameover_gameover history_home
 )
 read -r -a PROFILE_LIST <<<"${PROFILES:-${ALL_PROFILES[*]}}"
 read -r -a SCREEN_LIST <<<"${SCREENS:-${ALL_SCREENS[*]}}"

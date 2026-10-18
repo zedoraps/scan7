@@ -34,7 +34,8 @@ import net.moesli.scan7.ui.theme.Scan7Type
 /**
  * Player row for the list view. Columns: ring | name (+ leader badge) | total (right-aligned) |
  * Scan + Bust (open players in normal mode) or the status tag. Same states as [PlayerCard].
- * Fills the available width; the height comes from [size].
+ * Fills the available width; the height comes from [size]. [showScore] = false (new game's
+ * seating step): only avatar + name — no ring, total, leader badge or tag.
  */
 @Composable
 fun PlayerRow(
@@ -47,6 +48,7 @@ fun PlayerRow(
     onLongClick: (() -> Unit)? = null,
     onScan: () -> Unit = {},
     onBust: () -> Unit = {},
+    showScore: Boolean = true,
 ) {
     val done = player.status.isDone
     val look = cardLook(player.status, mode)
@@ -62,6 +64,7 @@ fun PlayerRow(
             PlayerRowContent(
                 player, size, look, shape, radius, rotation, mode, showActions,
                 narrow = maxWidth < NarrowRowWidth,
+                showScore = showScore,
                 modifier = modifier,
                 onClick = onClick,
                 onLongClick = onLongClick,
@@ -91,6 +94,7 @@ private fun PlayerRowContent(
     mode: CardMode,
     showActions: Boolean,
     narrow: Boolean,
+    showScore: Boolean,
     modifier: Modifier,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)?,
@@ -124,8 +128,8 @@ private fun PlayerRowContent(
                 .clearAndSetSemantics {},
         ) {
             Box {
-                PlayerScoreRing(player, if (narrow) size.ring - 8.dp else size.ring, size.token)
-                if (narrow && player.isLeader) {
+                PlayerScoreRing(player, if (narrow) size.ring - 8.dp else size.ring, size.token, showRing = showScore)
+                if (narrow && player.isLeader && showScore) {
                     LeaderBadge(Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp), size = 20.dp)
                 }
             }
@@ -142,9 +146,9 @@ private fun PlayerRowContent(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                if (player.isLeader && !narrow) LeaderBadge(size = 20.dp)
+                if (player.isLeader && !narrow && showScore) LeaderBadge(size = 20.dp)
             }
-            Text(
+            if (showScore) Text(
                 text = player.total.toString(),
                 color = look.ink,
                 style = if (size == RowSize.Regular) Scan7Type.total24 else Scan7Type.total18,
@@ -155,7 +159,7 @@ private fun PlayerRowContent(
                 modifier = Modifier.widthIn(min = if (narrow) 0.dp else size.totalWidth),
             )
         }
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.width(if (narrow) size.actionsWidth - 12.dp else size.actionsWidth)) {
+        if (showScore) Box(contentAlignment = Alignment.Center, modifier = Modifier.width(if (narrow) size.actionsWidth - 12.dp else size.actionsWidth)) {
             if (showActions) {
                 ScanBustActions(
                     playerName = player.name,

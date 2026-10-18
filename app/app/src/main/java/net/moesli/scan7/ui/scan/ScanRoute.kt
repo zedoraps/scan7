@@ -16,11 +16,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.data.GameRepository
+import net.moesli.scan7.data.outlivingUi
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.ui.components.PlayerStatus
 import net.moesli.scan7.ui.nav.AfterScan
@@ -40,7 +45,7 @@ private const val BUST_OVERLAY_MS = 1_000L
 private const val LOADING = "\u0000"
 
 /**
- * [ScanFlow] for one player of a stored game. The confirmed outcome is saved as the player's
+ * [ScanFlowContent] for one player of a stored game. The confirmed outcome is saved as the player's
  * result (cards incl. action cards, source SCAN / MANUAL; duplicates → bust with its cards).
  *
  * @param round the round to score; `null` = the running round (editing a closed round recomputes
@@ -111,7 +116,10 @@ fun ScanRoute(
         if (!saving) {
             saving = true
             scope.launch {
-                runCatching { repository.block() }.onSuccess(then).onFailure {
+                // outlivingUi: leaving the screen must not roll the write back; a cancelled wait
+                // (the route is gone) must not call onLeave, which would pop a second time.
+                runCatching { outlivingUi { repository.block() } }.onSuccess(then).onFailure {
+                    if (it is CancellationException) throw it
                     Log.w(TAG, "$what failed", it)
                     onLeave()
                 }
@@ -146,17 +154,26 @@ fun ScanRoute(
                     val tappedAt = SystemClock.elapsedRealtime()
                     val name = player.name
                     scope.launch {
-                        val saved = runCatching { repository.bust(gameId, playerId) }.getOrElse {
+                        val saved = runCatching {
+                            bustWithOverlay(
+                                bust = { outlivingUi { repository.bust(gameId, playerId) } },
+                                undoBust = {
+                                    runCatching { outlivingUi { repository.undoBust(gameId, playerId) } }
+                                        .onFailure { if (it !is CancellationException) Log.w(TAG, "undo bust failed", it) }
+                                },
+                                undo = undo,
+                                overlayMs = { BUST_OVERLAY_MS - (SystemClock.elapsedRealtime() - tappedAt) },
+                                // Back during the overlay: the bust stays, so its Undo toast must show.
+                                onLeftBusted = { bustToast?.show(playerId.toString(), name) },
+                            )
+                        }.getOrElse {
+                            if (it is CancellationException) throw it
                             Log.w(TAG, "bust failed", it)
                             bustShown = null
                             saving = false
                             return@launch
                         }
-                        val left = BUST_OVERLAY_MS - (SystemClock.elapsedRealtime() - tappedAt)
-                        val undone = undo.isCompleted || withTimeoutOrNull(left.coerceAtLeast(1)) { undo.await() } != null
-                        if (undone) {
-                            runCatching { repository.undoBust(gameId, playerId) }.onFailure { Log.w(TAG, "undo bust failed", it) }
-                        } else {
+                        if (saved != null) {
                             bustToast?.show(playerId.toString(), name)
                             onSaved(saved, picked ?: choice)
                         }
@@ -172,11 +189,40 @@ fun ScanRoute(
         bustToast = bustToast,
         onUndoBust = { id ->
             scope.launch {
-                runCatching { repository.undoBust(gameId, id.toLong()) }.onFailure { Log.w(TAG, "undo bust failed", it) }
+                runCatching { outlivingUi { repository.undoBust(gameId, id.toLong()) } }.onFailure { Log.w(TAG, "undo bust failed", it) }
             }
         },
         afterScan = afterScan,
         bustOverlay = player.name.takeIf { bustShown == playerId },
         onUndoBustOverlay = { bustUndo?.complete(Unit) },
     )
+}
+
+/**
+ * The camera Bust tap: [bust], then the overlay for [overlayMs] (read after the write) unless
+ * [undo] completes first, which runs [undoBust].
+ *
+ * @return the saved state if the bust stays, `null` if it was undone.
+ * @param onLeftBusted the caller was cancelled (Back during the overlay) while the bust stays:
+ *   show its Undo toast. An Undo tapped just before still runs [undoBust].
+ */
+internal suspend fun <T : Any> bustWithOverlay(
+    bust: suspend () -> T,
+    undoBust: suspend () -> Unit,
+    undo: Deferred<Unit>,
+    overlayMs: () -> Long,
+    onLeftBusted: () -> Unit,
+): T? {
+    var undoing = false
+    try {
+        val saved = bust()
+        val undone = undo.isCompleted || withTimeoutOrNull(overlayMs().coerceAtLeast(1)) { undo.await() } != null
+        if (!undone) return saved
+        undoing = true
+        undoBust()
+        return null
+    } catch (e: CancellationException) {
+        if (!undo.isCompleted) onLeftBusted() else if (!undoing) withContext(NonCancellable) { undoBust() }
+        throw e
+    }
 }

@@ -14,7 +14,7 @@ Screen inventory. Behaviour is specified in [APP_FLOW.md](APP_FLOW.md); brand ru
           ▼                               │
    3 New game: pick players               │
           ▼                               │
-   3b Seating order + target              │
+   3b Seats (table / list arrange)        │
           ▼                               ▼
    ┌──────────────────────────────────────────┐
    │ 4 Round screen                           │◄────────────┐
@@ -31,7 +31,7 @@ Screen inventory. Behaviour is specified in [APP_FLOW.md](APP_FLOW.md); brand ru
                    ▲            │ OK ──► (back to 4)
                    └─ Retake ───┘
 
-   11 Scoreboard / history (from 4 and 10) ──► edit a past round ──► 7 Manual
+   11 Scoreboard / history (from 1, 4 and 10) ──► edit a past round ──► 7 Manual
    D  Debug screens (from 1, hidden or in a menu)
 ```
 
@@ -49,12 +49,13 @@ Screen inventory. Behaviour is specified in [APP_FLOW.md](APP_FLOW.md); brand ru
 **Purpose:** entry point.
 - Scan7 wordmark.
 - **Resume game** (if one is unfinished): round number, players' avatars, leader.
+- **Past games** (game history): finished / ended-early / abandoned games, newest first — date, avatars, winner + points, rounds. Tap → 11 Scoreboard of that game (abandoned: read-only).
 - **New game** (primary).
 - **Players** (manage list).
 - **Debug** is hidden: tap the wordmark 5 times.
 - Footer: app version, model version.
 
-States: no unfinished game (only New game + Players); no players yet (New game leads to adding players first).
+States: no unfinished game (history only, or the intro when there is no game at all); no players yet (New game leads to adding players first).
 
 ## 2 Players
 **Purpose:** manage the stored players.
@@ -73,12 +74,13 @@ Note: player colors must stay distinguishable from accent cyan and bust magenta.
 ## 3 New game – pick players
 - All stored players with checkboxes (avatar + name).
 - **+ New player** inline (opens 2a, new player is auto-selected).
-- **Next** (enabled with ≥ 1 player; probably ≥ 2).
+- Compact **target** row (default **200**, − / + in steps of 10), pinned above the buttons.
+- **Skip seats** (secondary: start now, tick order on the default ring) + **Next** (primary), both enabled with 2–10 players.
 
-### 3b Seating order + target
-- Selected players as a draggable list (drag handles), in the order they sit.
-- Target score, default **200** (stepper or field).
-- **Start game** (primary).
+### 3b Seats
+- The round screen's table / list (same cards and rows) in arrange mode, seat number badges 1…n.
+- Header: ← · "Seats" · Table | List toggle. Table: drag cards to where people sit; list: drop a row on another to swap.
+- Bottom: drag hint + **Start game** (primary). Positions carry over into the game's table view.
 
 ## 4 Round screen  ★ main screen
 **Purpose:** what's shown during the whole round.

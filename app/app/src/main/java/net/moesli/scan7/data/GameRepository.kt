@@ -4,7 +4,9 @@ import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import net.moesli.scan7.BuildConfig
 import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.ConfirmedCard
 import net.moesli.scan7.game.DEFAULT_TARGET
@@ -44,6 +46,8 @@ class GameRepository(
     /** Random face + pattern of new players without an explicit avatar. */
     private val random: Random = Random.Default,
     private val clock: () -> Long = System::currentTimeMillis,
+    /** Whether "Save scans for training" can be on at all: debug builds only. */
+    private val trainingScansAllowed: Boolean = BuildConfig.DEBUG,
 ) {
     private val playerDao = db.playerDao()
     private val gameDao = db.gameDao()
@@ -60,12 +64,19 @@ class GameRepository(
         .distinctUntilChanged()
 
     /**
-     * Setting "Save scans for training": every shutter photo + JSON. Default on (also for installs
-     * that never touched the toggle); off only once the user switched it off.
+     * Setting "Save scans for training": every shutter photo + JSON to the public Pictures /
+     * Documents folders. Debug builds: default on (also for installs that never touched the
+     * toggle), off once the user switched it off. Release builds: always off, whatever is stored
+     * (the toggle lives in the debug menu, which release builds don't have, so a value restored
+     * from a debug install's backup could never be switched off again).
      */
-    val saveScansForTraining: Flow<Boolean> = settingsDao.observe(KEY_SAVE_SCANS)
-        .map { it != "false" }
-        .distinctUntilChanged()
+    val saveScansForTraining: Flow<Boolean> = if (!trainingScansAllowed) {
+        flowOf(false)
+    } else {
+        settingsDao.observe(KEY_SAVE_SCANS)
+            .map { it != "false" }
+            .distinctUntilChanged()
+    }
 
     suspend fun setSaveScansForTraining(on: Boolean) = settingsDao.put(SettingEntity(KEY_SAVE_SCANS, on.toString()))
 
@@ -86,6 +97,12 @@ class GameRepository(
 
     /** The unfinished game to resume (most recent), or `null`. */
     val activeGame: Flow<GameSnapshot?> = snapshots(gameDao.observeActive())
+
+    /** Finished and abandoned games (Home history), most recently finished first. */
+    val pastGames: Flow<List<GameSnapshot>> =
+        combine(gameDao.observePast(), allPlayers, preferredViewMode) { games, players, pref ->
+            games.map { GameSnapshot(it.toState(), players, pref) }
+        }.distinctUntilChanged()
 
     /** Any game by id (e.g. game over / history after it finished). */
     fun observeGame(gameId: Long): Flow<GameSnapshot?> = snapshots(gameDao.observe(gameId))
@@ -134,11 +151,6 @@ class GameRepository(
     // ---- Games ---------------------------------------------------------------------------
 
     /**
-     * Starts a game with [seating] (player ids in seating order). Table positions come from the
-     * last game with exactly the same players, else the default ring. Any other unfinished game
-     * is abandoned (there is only one game to resume). Returns the new game id.
-     */
-    /**
      * Seating order of the last game played with exactly [players] (in any order), or null. The new
      * game screen starts from it, so everyone gets their old table spot back (spots are handed out in
      * seating order, see GameState.newGame).
@@ -150,17 +162,32 @@ class GameRepository(
         return gameDao.seats(gameId).map { it.playerId }
     }
 
-    suspend fun startGame(seating: List<Long>, target: Int = DEFAULT_TARGET): Long = db.withTransaction {
+    /** Table spots of the last game played with exactly [players], or null (see [previousSeating]). */
+    suspend fun previousPositions(players: Collection<Long>): Map<Long, TablePosition>? {
+        val ids = players.distinct()
+        if (ids.isEmpty()) return null
+        val gameId = gameDao.lastGameWithPlayers(ids, ids.size) ?: return null
+        return gameDao.seats(gameId)
+            .filter { it.tableX != null && it.tableY != null }
+            .associate { it.playerId to TablePosition(it.tableX!!, it.tableY!!) }
+    }
+
+    /**
+     * Starts a game with [seating] (player ids in seating order). Table positions: [positions] (one
+     * per player in seating order, arranged on the seating step) if given, else those of the last
+     * game with exactly the same players, else the default ring. Any other unfinished game is
+     * abandoned (there is only one game to resume). Returns the new game id.
+     */
+    suspend fun startGame(
+        seating: List<Long>,
+        target: Int = DEFAULT_TARGET,
+        positions: List<TablePosition>? = null,
+    ): Long = db.withTransaction {
         val now = clock()
         val byId = playerDao.byIds(seating).associateBy { it.id }
         val players = seating.map { checkNotNull(byId[it]) { "No player $it" }.toPlayer() }
-        val previous = if (seating.isEmpty()) null else gameDao.lastGameWithPlayers(seating.distinct(), seating.distinct().size)
-        val previousPositions = previous?.let { gameId ->
-            gameDao.seats(gameId)
-                .filter { it.tableX != null && it.tableY != null }
-                .associate { it.playerId to TablePosition(it.tableX!!, it.tableY!!) }
-        }
-        val state = GameState.newGame(players, target, now, previousPositions)
+        val previousPositions = if (positions == null) previousPositions(seating) else null
+        val state = GameState.newGame(players, target, now, previousPositions, positions = positions)
         for (gameId in gameDao.unfinishedIds()) {
             val other = gameDao.load(gameId) ?: continue
             persist(other, other.toState(), other.toState().abandon(now))
@@ -243,9 +270,6 @@ class GameRepository(
      * finishes the game with the current leader(s) as winners (recorded as finished, not abandoned).
      */
     suspend fun endGame(gameId: Long): GameState = mutate(gameId) { s, now -> s.endGame(now) }
-
-    /** Ends the game without a winner (another game was started). */
-    suspend fun abandonGame(gameId: Long): GameState = mutate(gameId) { s, now -> s.abandon(now) }
 
     suspend fun deleteGame(gameId: Long) = gameDao.deleteGame(gameId)
 

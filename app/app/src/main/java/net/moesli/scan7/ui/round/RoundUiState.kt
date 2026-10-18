@@ -35,6 +35,9 @@ data class RoundPlayer(
  * @param arranging arrange mode (seat drag, wiggle, actions hidden).
  * @param nextOpenId the player "Scan next" goes to (in the chosen scan direction); defaults to the
  *   first open player in seating order.
+ * @param seating the new game's seating step: seat number badges (1 = first in seating order) on
+ *   the cards / rows, and no round info (no "ROUND n", totals, status tags or score rings), so a
+ *   card shows only avatar, name and seat number.
  */
 @Immutable
 data class RoundUiState(
@@ -44,6 +47,7 @@ data class RoundUiState(
     val view: RoundView = RoundView.Table,
     val arranging: Boolean = false,
     val nextOpenId: String? = firstOpenId(players),
+    val seating: Boolean = false,
 ) {
     /** The player for "Scan next", or null when nobody is open. */
     val nextOpen: RoundPlayer?

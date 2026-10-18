@@ -59,42 +59,8 @@ private sealed interface Step {
  * @param afterScan the split OK / Save button: remembered "next player" / "back to table" choice.
  * @param bustOverlay the busted player's name while the camera shows the full-screen bust overlay
  *   (after a Bust tap, ~1 s); its Undo calls [onUndoBustOverlay].
+ * @param initialCapture non-null starts in Review on this capture (debug: review a photo file).
  */
-@Composable
-fun ScanFlow(
-    player: PlayerUi,
-    onResult: (ScanOutcome) -> Unit,
-    onCancel: () -> Unit,
-    modifier: Modifier = Modifier,
-    mode: ScanMode = ScanMode.Normal,
-    initialCards: List<Card>? = null,
-    roundNumber: Int? = null,
-    onBackToTable: () -> Unit = onCancel,
-    onBust: (() -> Unit)? = null,
-    bustToast: BustToastState? = null,
-    onUndoBust: (String) -> Unit = {},
-    afterScan: AfterScanUi? = null,
-    bustOverlay: String? = null,
-    onUndoBustOverlay: () -> Unit = {},
-) = ScanFlowContent(
-    player = player,
-    onResult = onResult,
-    onCancel = onCancel,
-    modifier = modifier,
-    mode = mode,
-    initialCards = initialCards,
-    roundNumber = roundNumber,
-    onBackToTable = onBackToTable,
-    initialCapture = null,
-    onBust = onBust,
-    bustToast = bustToast,
-    onUndoBust = onUndoBust,
-    afterScan = afterScan,
-    bustOverlay = bustOverlay,
-    onUndoBustOverlay = onUndoBustOverlay,
-)
-
-/** [ScanFlow] that can start in Review on a given capture (debug: review a photo file). */
 @Composable
 internal fun ScanFlowContent(
     player: PlayerUi,

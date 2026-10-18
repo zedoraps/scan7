@@ -60,6 +60,10 @@ data class ScoreboardUi(
     val isOver: Boolean,
     val players: List<PlayerUi>,
     val table: ScoreTable,
+    /** Another game was started before this one ended (opened from the Home history): read-only. */
+    val abandoned: Boolean = false,
+    /** Closed rounds (the subtitle of an abandoned game). */
+    val closedRounds: Int = table.rows.size,
 )
 
 /** Scoreboard data for any game. */
@@ -69,7 +73,19 @@ fun GameSnapshot.toScoreboardUi(): ScoreboardUi = ScoreboardUi(
     isOver = state.isOver,
     players = state.playerUis(players),
     table = scoreTable(state),
+    abandoned = state.abandoned,
+    closedRounds = state.rounds.count { it.isClosed },
 )
+
+/** Header subtitle: "Final · 6 rounds · to 200", "Not finished · 3 rounds · to 200" or "Round 4 · to 200 · tap to edit". */
+fun ScoreboardUi.subtitle(): String {
+    fun n(count: Int) = "$count ${if (count == 1) "round" else "rounds"}"
+    return when {
+        isOver -> "Final · ${n(table.rows.size)} · to $target"
+        abandoned -> "Not finished · ${n(closedRounds)} · to $target"
+        else -> "Round ${table.rows.size} · to $target · tap to edit"
+    }
+}
 
 private val RoundColumn = 44.dp
 private const val NAMES_UP_TO = 6
@@ -99,7 +115,7 @@ fun ScoreboardScreen(
     ) {
         ScreenHeader(
             title = "Scoreboard",
-            subtitle = if (state.isOver) "Final · $rounds ${if (rounds == 1) "round" else "rounds"} · to ${state.target}" else "Round $rounds · to ${state.target} · tap to edit",
+            subtitle = state.subtitle(),
             onBack = onBack,
             modifier = Modifier.headerInsets(),
         )
@@ -126,7 +142,7 @@ fun ScoreboardScreen(
                 ) {
                     table.rows.forEachIndexed { i, row ->
                         if (i > 0) Divider()
-                        RoundRow(row, i + 1, state.players, table.playerIds, onEditResult)
+                        RoundRow(row, i + 1, state.players, table.playerIds, onEditResult.takeUnless { state.abandoned })
                     }
                 }
                 Box(
@@ -205,7 +221,8 @@ private fun RoundRow(
     rowIndex: Int,
     players: List<PlayerUi>,
     ids: List<Long>,
-    onEditResult: (round: Int, playerId: Long) -> Unit,
+    /** `null` = read-only (abandoned game). */
+    onEditResult: ((round: Int, playerId: Long) -> Unit)?,
 ) {
     val colors = Scan7Theme.colors
     Row(
@@ -229,7 +246,7 @@ private fun RoundRow(
             Cell(
                 cell = cell,
                 description = cell.describe(row.round, players[i].name),
-                onClick = { onEditResult(row.round, ids[i]) },
+                onClick = onEditResult?.let { edit -> { edit(row.round, ids[i]) } },
                 compact = players.size > NAMES_UP_TO,
                 modifier = Modifier
                     .weight(1f)
@@ -240,13 +257,13 @@ private fun RoundRow(
 }
 
 @Composable
-private fun Cell(cell: ScoreCell, description: String, onClick: () -> Unit, compact: Boolean, modifier: Modifier) {
+private fun Cell(cell: ScoreCell, description: String, onClick: (() -> Unit)?, compact: Boolean, modifier: Modifier) {
     val colors = Scan7Theme.colors
     Box(
         contentAlignment = if (cell.status == ResultStatus.SCORED) Alignment.CenterEnd else Alignment.Center,
         modifier = modifier
             .fillMaxHeight()
-            .scan7Clickable(onClick, onClickLabel = "Edit")
+            .then(if (onClick != null) Modifier.scan7Clickable(onClick, onClickLabel = "Edit") else Modifier)
             .clearAndSetSemantics { contentDescription = description }
             .padding(horizontal = if (compact) 1.dp else 3.dp, vertical = Scan7Spacing.xs),
     ) {

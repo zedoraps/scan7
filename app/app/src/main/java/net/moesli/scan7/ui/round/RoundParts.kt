@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.moesli.scan7.ui.components.CappedFontScale
 import net.moesli.scan7.ui.components.IconButton
 import net.moesli.scan7.ui.components.MenuIcon
 import net.moesli.scan7.ui.components.PrimaryButton
@@ -148,6 +149,27 @@ internal fun RoundHeader(
             IconButton(onClick = actions::onMenu, contentDescription = "Menu") {
                 MenuIcon(colors.text)
             }
+        }
+    }
+}
+
+/**
+ * Seat number badge (seating step): cyan circle with the dark number, overlapping a card's /
+ * row's top-left corner like the leader badge on the right. TalkBack reads "Seat n".
+ */
+@Composable
+internal fun SeatBadge(seat: Int, modifier: Modifier = Modifier) {
+    val colors = Scan7Theme.colors
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(24.dp)
+            .background(colors.accent, CircleShape)
+            .border(1.5.dp, colors.ground, CircleShape)
+            .clearAndSetSemantics { contentDescription = "Seat $seat" },
+    ) {
+        CappedFontScale {
+            Text(seat.toString(), color = colors.onAccent, style = Scan7Type.tag11, maxLines = 1, softWrap = false)
         }
     }
 }

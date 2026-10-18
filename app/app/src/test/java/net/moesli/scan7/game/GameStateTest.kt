@@ -39,6 +39,35 @@ class GameStateTest {
     }
 
     @Test
+    fun newGame_explicitPositionsWinOverPreviousOnes() {
+        val spots = listOf(TablePosition(0.5f, 0f), TablePosition(1f, 0.6f), TablePosition(0f, 0.7f))
+        val previous = mapOf(1L to TablePosition(0.1f, 0.1f), 2L to TablePosition(0.2f, 0.2f), 3L to TablePosition(0.3f, 0.3f))
+        val g = GameState.newGame(listOf(anna, ben, cleo), previousPositions = previous, positions = spots)
+        assertEquals(listOf(1L, 2L, 3L), g.playerIds)
+        assertEquals(spots, g.seats.map { it.position })
+        // Out-of-range spots are clamped like a dropped card.
+        val clamped = GameState.newGame(listOf(anna, ben), positions = listOf(TablePosition(-1f, 2f), TablePosition(0.5f, 0.5f)))
+        assertEquals(TablePosition(0f, 1f), clamped.seats[0].position)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun newGame_positionCountMustMatch() {
+        GameState.newGame(listOf(anna, ben), positions = listOf(TablePosition(0.5f, 0f)))
+    }
+
+    @Test
+    fun initialSeats_previousSpotsOnlyForTheSamePlayers() {
+        val previous = mapOf(1L to TablePosition(0.9f, 0.5f), 2L to TablePosition(0.5f, 0f))
+        // Spots handed out clockwise from the top in the given order.
+        assertEquals(
+            listOf(Seat(2, TablePosition(0.5f, 0f)), Seat(1, TablePosition(0.9f, 0.5f))),
+            GameState.initialSeats(listOf(2, 1), previous),
+        )
+        assertEquals(defaultPositions(3), GameState.initialSeats(listOf(1, 2, 3), previous).map { it.position })
+        assertEquals(defaultPositions(2), GameState.initialSeats(listOf(1, 2)).map { it.position })
+    }
+
+    @Test
     fun newGame_duplicateAvatarColorsAllowed() {
         val g = GameState.newGame(listOf(anna, ben.copy(avatar = anna.avatar)))
         assertEquals(listOf(1L, 2L), g.playerIds)

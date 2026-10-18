@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import net.moesli.scan7.BuildConfig
 import net.moesli.scan7.camera.CameraScreen
 import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.debug.AvatarGalleryScreen
@@ -29,6 +30,9 @@ import net.moesli.scan7.debug.rememberDebugHomeState
 import net.moesli.scan7.debug.PhotoDetectScreen
 import net.moesli.scan7.debug.ScanDemoLaunch
 import net.moesli.scan7.debug.ScanFlowDemoScreen
+import net.moesli.scan7.ui.about.AboutScreen
+import net.moesli.scan7.ui.about.LicenseText
+import net.moesli.scan7.ui.about.LicenseTextScreen
 import net.moesli.scan7.ui.gameover.GameOverScreen
 import net.moesli.scan7.ui.gameover.toGameOverUi
 import net.moesli.scan7.ui.history.ScoreboardScreen
@@ -137,6 +141,8 @@ private fun Screen(route: Route, stack: BackStack, debug: DebugLaunch, modelInfo
             onNewGame = { stack.push(Route.NewGame()) },
             onPlayers = { stack.push(Route.Players) },
             onDebug = { stack.push(Route.Debug(DebugScreen.HOME)) },
+            onAbout = { stack.push(Route.About()) },
+            onPastGame = { stack.push(Route.Scoreboard(it)) },
             modelInfo = modelInfo,
         )
         Route.Players -> PlayersRoute(onBack = back)
@@ -162,7 +168,12 @@ private fun Screen(route: Route, stack: BackStack, debug: DebugLaunch, modelInfo
         )
         is Route.Scoreboard -> ScoreboardRoute(route.gameId, stack)
         is Route.GameOver -> GameOverRoute(route.gameId, stack)
-        is Route.Debug -> DebugRoute(route.screen, stack, debug)
+        is Route.About -> when (val license = LicenseText.fromId(route.license)) {
+            null -> AboutScreen(modelInfo = modelInfo, onBack = back, onLicense = { stack.push(Route.About(it.id)) })
+            else -> LicenseTextScreen(license, onBack = back)
+        }
+        // Release builds have no debug menu (nothing pushes a debug route there; just in case: Home).
+        is Route.Debug -> if (BuildConfig.DEBUG) DebugRoute(route.screen, stack, debug) else LaunchedEffect(Unit) { stack.reset(Route.Home) }
     }
 }
 

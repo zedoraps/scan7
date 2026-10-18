@@ -47,6 +47,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -68,6 +69,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.moesli.scan7.game.TablePosition
+import net.moesli.scan7.ui.components.bottomButtonsOffset
 import net.moesli.scan7.ui.components.BottomButtons
 import net.moesli.scan7.ui.components.CardMode
 import net.moesli.scan7.ui.components.CardSize
@@ -112,7 +114,7 @@ private val RowOvershoot = 20.dp
 private class RoundMetrics(val width: Dp, height: Dp, statusTop: Dp, navBottom: Dp) {
     val headerTop: Dp = max(Scan7Spacing.headerTop, statusTop)
     val areaTop: Dp = headerTop + Scan7Spacing.headerHeight + Scan7Spacing.l
-    val buttonsTop: Dp = height - max(Scan7Spacing.bottomButtonsBottom, navBottom) - Scan7Spacing.bottomButtonsHeight
+    val buttonsTop: Dp = height - bottomButtonsOffset(navBottom) - Scan7Spacing.bottomButtonsHeight
     val stripTop: Dp = buttonsTop - 36.dp
     val areaBottom: Dp = stripTop - Scan7Spacing.l
     val toastTop: Dp = buttonsTop - Scan7Spacing.s - Scan7Spacing.minTouch
@@ -126,6 +128,10 @@ private val BadgeRoom = 8.dp
  * progress strip and bottom buttons; arrange mode.
  * Stateless apart from transient UI (drag in progress); the bust undo toast lives in [toast] so the
  * caller can show it for other bust paths too (player sheet). In-card Bust shows it here.
+ *
+ * The new game's seating step reuses this screen in arrange mode with two slots: [header] replaces
+ * the round header (placed at the header row), [bottomBar] replaces the progress strip and bottom
+ * buttons (it gets the band from the strip to the bottom buttons' bottom, not dimmed).
  */
 @Composable
 fun RoundScreen(
@@ -133,6 +139,8 @@ fun RoundScreen(
     actions: RoundActions,
     modifier: Modifier = Modifier,
     toast: BustToastState = rememberBustToastState(),
+    header: (@Composable (Modifier) -> Unit)? = null,
+    bottomBar: (@Composable (Modifier) -> Unit)? = null,
 ) {
     val colors = Scan7Theme.colors
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -157,14 +165,26 @@ fun RoundScreen(
                 RoundView.List -> ListView(state, actions, m, onBust)
             }
 
-            RoundHeader(
-                view = state.view,
-                arranging = state.arranging,
-                actions = actions,
-                modifier = Modifier.offset(y = m.headerTop),
-            )
+            if (header != null) {
+                header(Modifier.offset(y = m.headerTop))
+            } else {
+                RoundHeader(
+                    view = state.view,
+                    arranging = state.arranging,
+                    actions = actions,
+                    modifier = Modifier.offset(y = m.headerTop),
+                )
+            }
 
-            ProgressStrip(
+            if (bottomBar != null) {
+                bottomBar(
+                    Modifier
+                        .offset(y = m.stripTop)
+                        .padding(horizontal = Scan7Spacing.screenMargin)
+                        .fillMaxWidth()
+                        .height(m.buttonsTop + Scan7Spacing.bottomButtonsHeight - m.stripTop),
+                )
+            } else ProgressStrip(
                 players = state.players.map { it.player },
                 target = state.target,
                 modifier = Modifier
@@ -173,7 +193,7 @@ fun RoundScreen(
                     .alpha(dim),
             )
 
-            Box(
+            if (bottomBar == null) Box(
                 modifier = Modifier
                     .offset(y = m.buttonsTop)
                     .padding(horizontal = Scan7Spacing.screenMargin)
@@ -241,8 +261,8 @@ private fun TableView(state: RoundUiState, actions: RoundActions, m: RoundMetric
     }
     val cardDensity = remember(density, scale) { Density(density.density * scale, density.fontScale) }
 
-    // Center: "ROUND" + number (72). No table graphic.
-    Box(
+    // Center: "ROUND" + number (72). No table graphic. None in the seating step (no round yet).
+    if (!state.seating) Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .offset(y = m.areaTop)
@@ -301,6 +321,7 @@ private fun TableSeat(
     val drag = remember { DragTracker() }
     val anchor = remember { DragAnchor() }
     val haptics = LocalHapticFeedback.current
+    val touchSlop = LocalViewConfiguration.current.touchSlop
     val arranging = rememberUpdatedState(state.arranging)
     val callbacks = rememberUpdatedState(
         object : ArrangeDragCallbacks {
@@ -311,6 +332,7 @@ private fun TableSeat(
                 // In arrange mode the drag starts on touch (no long press, so no system tick yet).
                 if (!afterLongPress) haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
                 drag.raw = anim.value
+                drag.start = drag.raw
                 dragging = true
             }
 
@@ -323,9 +345,12 @@ private fun TableSeat(
             override fun onDragEnd() {
                 val position = geometry.positionOf(drag.raw)
                 haptics.performHapticFeedback(HapticFeedbackType.GestureEnd)
-                pending = position
                 dragging = false
-                actions.onMoveCard(rp.id, position)
+                // A long press without moving (or back to the same spot) stores nothing.
+                if (isTableMove(drag.raw - drag.start, touchSlop, rp.position, position)) {
+                    pending = position
+                    actions.onMoveCard(rp.id, position)
+                }
             }
 
             override fun onDragCancel() {
@@ -359,14 +384,20 @@ private fun TableSeat(
                 onScan = { actions.onScan(rp.id) },
                 onBust = { onBust(rp) },
                 onDoubleClick = if (quickScan) ({ actions.onQuickScan(rp.id) }) else null,
+                showScore = !state.seating,
             )
         }
+        // Seat number at the card's top-left corner, at full size so it stays readable.
+        if (state.seating) SeatBadge(index + 1, Modifier.align(Alignment.TopStart).offset(x = (-6).dp, y = (-6).dp))
     }
 }
 
 /** Unclamped drag position (finger-relative), so a card follows again after hitting the clamp. */
 private class DragTracker {
     var raw: Offset = Offset.Zero
+
+    /** Table view: [raw] at the drag start. */
+    var start: Offset = Offset.Zero
     var rawY: Float = 0f
 
     /** List view: the slot the row is over (haptic tick on change) and the edge auto-scroll loop. */
@@ -382,6 +413,10 @@ private class ListViewport(val scroll: ScrollState, val height: Float)
 private val AutoScrollEdge = 56.dp
 private val AutoScrollMaxStep = 12.dp
 
+/** A table drag that ends [moved] away from its start is a real move from [from] to [to]. */
+internal fun isTableMove(moved: Offset, touchSlop: Float, from: TablePosition, to: TablePosition): Boolean =
+    moved.getDistance() >= touchSlop && to != from
+
 private fun Offset.round(): IntOffset = IntOffset(x.roundToInt(), y.roundToInt())
 
 // ---- List view ----------------------------------------------------------------------------
@@ -391,7 +426,8 @@ private fun ListView(state: RoundUiState, actions: RoundActions, m: RoundMetrics
     val size = RowSize.forPlayerCount(state.playerCount)
     val colors = Scan7Theme.colors
 
-    Row(
+    // No "ROUND n" in the seating step (no round yet); the rows keep their place.
+    if (!state.seating) Row(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier
             .offset(y = m.areaTop)
@@ -556,6 +592,7 @@ private fun ListSeat(
             onLongClick = actions::onEnterArrange,
             onScan = { actions.onScan(rp.id) },
             onBust = { onBust(rp) },
+            showScore = !state.seating,
             modifier = Modifier
                 .arrangeDrag(arranging, anchor, callbacks)
                 .semantics {
@@ -570,6 +607,7 @@ private fun ListSeat(
                     }
                 },
         )
+        if (state.seating) SeatBadge(index + 1, Modifier.offset(x = (-6).dp, y = (-6).dp))
     }
 }
 

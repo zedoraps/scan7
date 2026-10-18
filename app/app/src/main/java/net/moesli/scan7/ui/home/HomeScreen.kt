@@ -1,6 +1,7 @@
 package net.moesli.scan7.ui.home
 
 import net.moesli.scan7.game.AvatarCatalog
+import net.moesli.scan7.ui.components.ContentWithBottomBar
 import net.moesli.scan7.ui.components.avatarSizeForHeight
 import net.moesli.scan7.ui.components.PlayerAvatar
 import android.os.SystemClock
@@ -22,9 +23,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.coroutines.flow.map
+import net.moesli.scan7.ui.components.scan7Clickable
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -48,7 +61,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
 import net.moesli.scan7.BuildConfig
+import net.moesli.scan7.R
 import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.data.GameSnapshot
@@ -76,11 +91,16 @@ data class ResumeGameUi(
     val leaders: List<PlayerUi>,
 )
 
-/** Home (1) state. [footer] e.g. "v1.0 (1) · model.tflite ep15 (9.9 MB)". */
+/**
+ * Home (1) state. [past] = finished / abandoned games, newest first; [now] for their relative
+ * dates. [footer] e.g. "v1.0 (1) · model.tflite ep15 (9.9 MB)".
+ */
 data class HomeUiState(
     val resume: ResumeGameUi?,
     val playerCount: Int,
     val footer: String,
+    val past: List<PastGameUi> = emptyList(),
+    val now: Long = 0,
 )
 
 /** Resume card data for the repository's active game. */
@@ -97,13 +117,20 @@ fun GameSnapshot.toResumeUi(): ResumeGameUi {
 
 /** Resume card avatars: 27 dp tall (kit: 24–36 dp in bars). */
 private val ResumeAvatar = avatarSizeForHeight(27.dp)
+
+/** History row avatars: 22 dp tall, so 10 players fit one line on a 360 dp phone. */
+private val PastAvatar = avatarSizeForHeight(22.dp)
 private val HeroAvatar = avatarSizeForHeight(58.dp)
 
 /**
- * Home (1): wordmark, Resume card (round, player tokens, leader) when a game is unfinished,
- * Players (secondary) + New game (primary) at the bottom, version footer. The debug menu is hidden:
- * tap the wordmark [DEBUG_TAPS] times (TalkBack: custom action "Open debug menu").
- * Without a game: a short intro; without players it says New game starts by adding them.
+ * Home (1) = game history: wordmark, Resume card (round, avatars, leader) when a game is
+ * unfinished, then "Past games" (finished / abandoned, newest first: date, avatars, winner +
+ * points, rounds; tap = [onPastGame], that game's scoreboard) in one `LazyColumn`. Players
+ * (secondary) + New game (primary) stay at the bottom, version footer below. The debug menu is
+ * hidden: tap the wordmark [DEBUG_TAPS] times (TalkBack: custom action "Open debug menu").
+ * Without any game: a short intro; without players it says New game starts by adding them.
+ * The debug menu exists in debug builds only. Tapping the version footer opens [onAbout]
+ * (About & licenses).
  */
 @Composable
 fun HomeScreen(
@@ -112,7 +139,9 @@ fun HomeScreen(
     onNewGame: () -> Unit,
     onPlayers: () -> Unit,
     onDebug: () -> Unit,
+    onPastGame: (gameId: Long) -> Unit,
     modifier: Modifier = Modifier,
+    onAbout: () -> Unit = {},
 ) {
     val colors = Scan7Theme.colors
     Column(
@@ -128,37 +157,66 @@ fun HomeScreen(
                 .fillMaxWidth()
                 .height(Scan7Spacing.headerHeight),
         ) {
-            Scan7Wordmark(fontSize = 32.sp, modifier = Modifier.debugTaps(onDebug))
+            Scan7Wordmark(fontSize = 32.sp, modifier = if (BuildConfig.DEBUG) Modifier.debugTaps(onDebug) else Modifier)
         }
-        Column(
-            verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xl),
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(vertical = Scan7Spacing.xl),
-        ) {
-            val resume = state.resume
-            if (resume != null) {
-                ResumeCard(resume, onResume = { onResume(resume.gameId) })
-            } else {
-                Intro(hasPlayers = state.playerCount > 0)
+        ContentWithBottomBar(
+            bottomBar = {
+                Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
+                    SecondaryButton("Players", onPlayers, Modifier.width(128.dp))
+                    PrimaryButton("New game", onNewGame, Modifier.weight(1f))
+                }
+                // Version footer = the entry to About & licenses (its second line names it).
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = Scan7Spacing.xs)
+                        .clip(RoundedCornerShape(Scan7Radii.card))
+                        .scan7Clickable(onAbout)
+                        .padding(vertical = Scan7Spacing.xs),
+                ) {
+                    Text(
+                        text = state.footer,
+                        color = colors.textMuted,
+                        style = Scan7Type.text10,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                    )
+                    Text(
+                        text = stringResource(R.string.about_title),
+                        color = colors.accent,
+                        style = Scan7Type.text10,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                    )
+                }
+            },
+        ) { bottomPadding ->
+            LazyColumn(
+                contentPadding = PaddingValues(top = Scan7Spacing.xl, bottom = Scan7Spacing.xl + bottomPadding),
+                verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                val resume = state.resume
+                when {
+                    resume != null -> item(key = "resume") { ResumeCard(resume, onResume = { onResume(resume.gameId) }) }
+                    state.past.isEmpty() -> item(key = "intro") { Intro(hasPlayers = state.playerCount > 0) }
+                }
+                if (state.past.isNotEmpty()) {
+                    item(key = "past-label") {
+                        SectionLabel(
+                            "Past games",
+                            Modifier
+                                .padding(top = if (resume != null) Scan7Spacing.l else 0.dp, bottom = Scan7Spacing.xxs)
+                                .semantics { heading() },
+                        )
+                    }
+                    items(state.past, key = { it.gameId }) { game ->
+                        PastGameRow(game, state.now, onClick = { onPastGame(game.gameId) })
+                    }
+                }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
-            SecondaryButton("Players", onPlayers, Modifier.width(128.dp))
-            PrimaryButton("New game", onNewGame, Modifier.weight(1f))
-        }
-        Text(
-            text = state.footer,
-            color = colors.textMuted,
-            style = Scan7Type.text10,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(top = Scan7Spacing.m, bottom = Scan7Spacing.m),
-        )
     }
 }
 
@@ -245,6 +303,69 @@ private fun ResumeCard(game: ResumeGameUi, onResume: () -> Unit) {
     }
 }
 
+/**
+ * One past game: an M3 `ListItem` on the done surface (outlined card, press dim): date over the
+ * winner headline with the leader badge, avatars + rounds below, the winning points on the right.
+ * Abandoned games are muted ("Mia led", no badge). TalkBack reads one sentence + "Open scoreboard".
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PastGameRow(game: PastGameUi, now: Long, onClick: () -> Unit) {
+    val colors = Scan7Theme.colors
+    val shape = RoundedCornerShape(Scan7Radii.card)
+    val won = game.outcome != PastOutcome.ABANDONED && game.winners.isNotEmpty()
+    val date = historyDate(game.finishedAt, now)
+    val description = buildString {
+        append(date).append(", ").append(game.headline)
+        if (game.winners.isNotEmpty()) append(" with ").append(game.points).append(" points")
+        append(", ").append(game.detail)
+        append(", ").append(game.players.size).append(" players: ").append(joinNames(game.players.map { it.name }))
+    }
+    ListItem(
+        overlineContent = { Text(date, style = Scan7Type.text12, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        headlineContent = {
+            Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), verticalAlignment = Alignment.CenterVertically) {
+                if (won) LeaderBadge(size = 20.dp)
+                Text(game.headline, style = Scan7Type.text15, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        },
+        supportingContent = {
+            Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xs), modifier = Modifier.padding(top = Scan7Spacing.xs)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    game.players.forEach { PlayerAvatar(it.avatar, PastAvatar) }
+                }
+                Text(game.detail, style = Scan7Type.text12, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        },
+        trailingContent = if (game.winners.isEmpty()) {
+            null
+        } else {
+            {
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(game.points.toString(), color = if (won) colors.text else colors.textMuted, style = Scan7Type.total18, maxLines = 1)
+                    Text("PTS", color = colors.textMuted, style = Scan7Type.tag10, maxLines = 1)
+                }
+            }
+        },
+        colors = ListItemDefaults.colors(
+            containerColor = colors.surfaceDone,
+            headlineColor = if (won) colors.text else colors.textMuted,
+            overlineColor = colors.textMuted,
+            supportingColor = colors.textMuted,
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .border(1.dp, colors.lineSubtle, shape)
+            .scan7Clickable(onClick, onClickLabel = "Open scoreboard")
+            .clearAndSetSemantics {
+                contentDescription = description
+                role = Role.Button
+                onClick(label = "Open scoreboard") { onClick(); true }
+            },
+    )
+}
+
 @Composable
 private fun Intro(hasPlayers: Boolean) {
     val colors = Scan7Theme.colors
@@ -292,23 +413,32 @@ fun HomeRoute(
     onNewGame: () -> Unit,
     onPlayers: () -> Unit,
     onDebug: () -> Unit,
+    onPastGame: (gameId: Long) -> Unit,
+    onAbout: () -> Unit,
     modelInfo: String,
     modifier: Modifier = Modifier,
     repository: GameRepository = AppGraph.repository(LocalContext.current),
 ) {
     val active by repository.activeGame.collectAsStateWithLifecycle(initialValue = null)
     val players by repository.players.collectAsStateWithLifecycle(initialValue = emptyList())
+    val pastFlow = remember(repository) { repository.pastGames.map { list -> list.map { it.toPastGameUi() } } }
+    val past by pastFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     HomeScreen(
         state = HomeUiState(
             resume = active?.toResumeUi(),
             playerCount = players.size,
             footer = "Scan7 v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · model $modelInfo",
+            past = past,
+            // Relative dates ("Today") only need to be right when Home is (re)composed.
+            now = System.currentTimeMillis(),
         ),
         onResume = onResume,
         onNewGame = onNewGame,
         onPlayers = onPlayers,
         onDebug = onDebug,
+        onPastGame = onPastGame,
         modifier = modifier,
+        onAbout = onAbout,
     )
 }
 
@@ -324,7 +454,26 @@ internal val SampleResume = ResumeGameUi(
 @Composable
 private fun HomeResumePreview() {
     Scan7Theme {
-        HomeScreen(HomeUiState(SampleResume, 4, "Scan7 v1.0 (1) · model model.tflite ep15 (9.9 MB)"), {}, {}, {}, {})
+        HomeScreen(HomeUiState(SampleResume, 4, "Scan7 v1.0 (1) · model model.tflite ep15 (9.9 MB)"), {}, {}, {}, {}, {})
+    }
+}
+
+private val SamplePast = run {
+    val p = net.moesli.scan7.ui.components.samplePlayers(4)
+    val day = 86_400_000L
+    listOf(
+        PastGameUi(5, 9 * day, p, emptyList(), 0, 0, 200, PastOutcome.ABANDONED),
+        PastGameUi(4, 7 * day, p, listOf(p[3]), 132, 4, 200, PastOutcome.ENDED_EARLY),
+        PastGameUi(3, 3 * day, p.take(3), listOf(p[0], p[2]), 205, 6, 200, PastOutcome.WON),
+        PastGameUi(2, 1 * day, p, listOf(p[1]), 214, 7, 200, PastOutcome.WON),
+    )
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+private fun HomeHistoryPreview() {
+    Scan7Theme {
+        HomeScreen(HomeUiState(SampleResume, 4, "Scan7 v1.0 (1) · model none", SamplePast, 10 * 86_400_000L), {}, {}, {}, {}, {})
     }
 }
 
@@ -332,6 +481,6 @@ private fun HomeResumePreview() {
 @Composable
 private fun HomeEmptyPreview() {
     Scan7Theme {
-        HomeScreen(HomeUiState(null, 0, "Scan7 v1.0 (1) · model none"), {}, {}, {}, {})
+        HomeScreen(HomeUiState(null, 0, "Scan7 v1.0 (1) · model none"), {}, {}, {}, {}, {})
     }
 }

@@ -6,7 +6,7 @@ import net.moesli.scan7.game.ResultStatus
 /** One cell of the scoreboard: a player's result in a round. */
 data class ScoreCell(val status: ResultStatus, val points: Int = 0)
 
-/** One round of the scoreboard; [isRunning] = the round is not closed yet. */
+/** One round of the scoreboard; [isRunning] = the round is not closed yet (never in an abandoned game). */
 data class ScoreTableRow(val round: Int, val cells: List<ScoreCell>, val isRunning: Boolean)
 
 /**
@@ -29,7 +29,7 @@ fun scoreTable(state: GameState): ScoreTable {
         ScoreTableRow(
             round = r.number,
             cells = ids.map { id -> r.result(id).let { ScoreCell(it.status, it.points) } },
-            isRunning = !r.isClosed,
+            isRunning = !r.isClosed && !state.abandoned,
         )
     }
     val totals = state.totals

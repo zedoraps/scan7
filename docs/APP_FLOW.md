@@ -13,10 +13,9 @@
 - No groups.
 
 ## New game
-1. Select who plays tonight from the stored players (checkboxes). A new player can be added right here and is saved to the list. Shared avatar colors don't block **Next** (no "Same color as …" check any more).
-2. Put the selected players in seating order (drag to reorder).
-3. Target score: 200 (default, changeable).
-4. Start → round 1.
+1. Select who plays tonight from the stored players (checkboxes; tick order = seating order). A new player can be added right here and is saved to the list. Shared avatar colors don't block **Next** (no "Same color as …" check any more). The **target** (200 default, steps of 10) is a compact row pinned above the buttons. Bottom: **[Skip seats]** (start now: tick order on the default ring) and **[Next]**.
+2. **Seats:** the round screen's own table / list in arrange mode (same cards, drag rules and Table | List toggle; seat numbers 1…n on the cards / rows), header ← · "Seats" · Table|List, bottom drag hint + **Start game**. Table: drop a card where the player sits (order re-derived clockwise); list: drop a row on another to swap. Same players as an earlier game → that game's order and spots. The positions set here are the game's table positions; the chosen view is remembered (app preference). Back / predictive back returns to step 1 with the arrangement kept (as long as the same players stay picked). "New game with same players" opens directly on this step.
+3. Start → round 1.
 
 Games, rounds and scores are persisted, so an unfinished game survives closing the app and can be resumed.
 
@@ -85,12 +84,15 @@ One pattern for every confirmation: `Scan7ConfirmDialog` (ui/components, on `Sca
 | Round → Close round | someone is open (nobody open: closes at once) | "Close round N?" + chips + "… marked BUST." · Close round | primary |
 | Close round, nobody scored | all players open | "Nobody has been scored yet – mark everyone BUST?" · Close round | destructive |
 | Round menu → End game | always | "End the game now?" · End game | destructive |
-| Seating → Start game | a game is unfinished | "Start a new game?" · Start (the unfinished game ends) | destructive |
+| New game → Skip seats / Seats → Start game | a game is unfinished | "Start a new game?" · Start (the unfinished game ends) | destructive |
 
 No confirmation, Undo instead: Bust (in-card, sheet, camera: Undo toast / overlay) and removing a total adjustment in the player sheet (inline "Removed +5 · Undo").
 
+## Home (game history)
+Home shows the **Resume card** of the unfinished game (round, avatars, leader, Resume) and below it **Past games**: every finished, ended-early and abandoned game, newest first (one `LazyColumn`). A row shows the date ("Today, 21:40" / "Yesterday, …" / "Sun 11 Oct" / "11 Oct 2025"), the winner(s) with the crown badge and their points, the players' avatars and the number of (closed) rounds, plus "ended early" / "not finished". Abandoned games are muted and say who led ("Lena led", or "Not finished" without points). Tap a row → that game's **Scoreboard**; finished games stay editable there, abandoned ones are read-only ("Not finished · 2 rounds · to 200", no running row). **Players** + **New game** stay pinned at the bottom; the intro text only shows when there is no game at all. The version footer (second line "About & licenses") opens **About & licenses**: version + model, the Flip 7 disclaimer, the AGPL-3.0 notice with the license text, links to the source code and the privacy policy, and the third-party notices (each opens its bundled license text). Later: stats.
+
 ## Debug menu
-Hidden in every build: tap the Scan7 wordmark on Home 5 times (a toast counts down after the 3rd tap; TalkBack action "Open debug menu"). "Save scans for training" lives there and is ON by default.
+**Debug builds only** (`BuildConfig.DEBUG`): tap the Scan7 wordmark on Home 5 times (a toast counts down after the 3rd tap; TalkBack action "Open debug menu"). "Save scans for training" lives there and is ON by default in debug builds; release builds have no debug menu and never save training scans.
 
 ## Camera
 Shutter only; best frame of the last second is used. Torch toggle next to the zoom pills (off by default; shows the camera's real torch state).
@@ -107,6 +109,4 @@ Store everything needed for statistics later (games, rounds, per-player round re
 - **Compact cards (7–10 players):** name on one line, total below; double-tap a compact card to scan.
 
 ## Queued (after the avatar merge)
-- **Home = game history:** running game card on top (round, avatars, leader, Resume) + New game; below all finished/abandoned games, newest first (date, avatars, winner + points, rounds) → tap = that game's scoreboard. Players reachable from Home. Later: stats.
-- **New game, step 1:** target (200) as a small row; bottom **[Skip seats]** (start now with tick order + default positions) and **[Next]**.
-- **Seating step:** same Table | List toggle and arrange mode as the round screen (cards on the ellipse, order numbers); positions carry over into the game. Fix: the target stepper was hidden under "Start game".
+- Done: Home = game history (see "Home (game history)"), New game step 1 + Seats step (see "New game").

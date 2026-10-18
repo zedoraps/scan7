@@ -14,6 +14,7 @@ score is saved. Personal / open-source project.
 - Setup, data layout and stage status: [README.md](README.md)
 - Brand kit: [brand/BRAND.md](brand/BRAND.md)
 - Labeling workflow: [ml/labeling/README.md](ml/labeling/README.md)
+- Release (Play / GitHub / F-Droid, signing, versioning, model download, store listing): [docs/RELEASE.md](docs/RELEASE.md), [docs/store/](docs/store/), privacy policy [docs/privacy.md](docs/privacy.md)
 
 ## Repo layout
 ```
@@ -35,8 +36,9 @@ app/                   Android Gradle root; module app/, package net.moesli.scan
     camera/ detection/ CameraX preview, detector, overlay
     ui/nav/            app navigation: Route sealed class + self-made back stack (AppNavHost; Home is the start screen)
     ui/round/          Round screen + RoundRoute/RoundController (snapshot → RoundUiState, actions → repository)
-    training/          "Save scans for training" (JPEG + JSON sidecar via MediaStore; setting, default on)
-    debug/             debug menu (Detector: live camera, detect from photo, model/backend info · Training data: save-scans toggle), hidden: tap the Home wordmark 5× (all builds; TalkBack action "Open debug menu"); the scan-flow demo has no menu entry (only the debug_scan_demo / debug_scan_photo hooks)
+    training/          "Save scans for training" (JPEG + JSON sidecar via MediaStore; setting, default on in debug builds, always off in release)
+    debug/             debug menu (Detector: live camera, detect from photo, model/backend info · Training data: save-scans toggle), hidden: tap the Home wordmark 5× (debug builds only, BuildConfig.DEBUG; TalkBack action "Open debug menu"); the scan-flow demo has no menu entry (only the debug_scan_demo / debug_scan_photo hooks)
+    ui/about/          About & licenses (Home: tap the version footer): version, AGPL + source link, privacy link, third-party notices (static list; texts from LICENSE + docs/third_party/ copied into assets at build time)
     ui/theme/          Scan7 theme, colors, fonts, wordmark
   app/schemas/         exported Room schemas (committed; bump the DB version + add a migration on change)
 ```
@@ -55,15 +57,15 @@ uv run python scripts/import_app_scans.py           # pull app training scans fr
 uv run python -m unittest discover -s tests         # Python unit tests (ml/tests)
 uv run scripts/export.py runs/synth_v1/weights/best.pt  # own PEP 723 env: NOT `uv run python`; installs into app assets
 ```
-The app's `model.tflite` is **not in git** (gitignored, ~10 MB per version): after a fresh clone, run the export once before building the app.
+The app's `model.tflite` is **not in git** (gitignored, ~10 MB per version): after a fresh clone, `cd app && ./gradlew downloadModel` (released model from `app/model.properties`, SHA-256 checked) or run the export once before building the app.
 Debug-only app hooks (debug builds): `adb shell am start -n net.moesli.scan7/.MainActivity --es debug_photo /data/data/net.moesli.scan7/files/x.jpg [--ez debug_cpu true]`
 (copy the photo in with `adb push x.jpg /data/local/tmp/ && adb shell run-as net.moesli.scan7 cp /data/local/tmp/x.jpg files/`).
 `--es debug_scan_demo camera|next|edit|bust|flip7|empty` / `--es debug_scan_photo <path>`: the scan flow with a fake player (demo screen, no menu entry).
 `--es debug_game_photo <path>`: every camera scan in the real game flow opens the review on that photo (emulator end-to-end tests).
-`--es debug_seed p3|p6|p10|gameover [--es debug_open home|players|newgame|seating|round_table|round_list|sheet_open|sheet_done|adjust_dialog|manual|review|camera|scoreboard|gameover]`: **wipes the app's DB**, stores 10 players + one deterministic game (round 6 running with scored/bust/open, leader, long name; or game over) and opens that screen (`debug/DebugSeed.kt`; sheet_*/adjust_dialog open the table, the matrix script taps; review scans `files/screen_review.jpg`).
+`--es debug_seed p3|p6|p10|gameover|history [--es debug_open home|players|newgame|seating|round_table|round_list|sheet_open|sheet_done|adjust_dialog|manual|review|camera|scoreboard|gameover]`: **wipes the app's DB**, stores 10 players + one deterministic game (round 6 running with scored/bust/open, leader, long name; or game over; `history` = p6 + five past games for the Home history) and opens that screen (`debug/DebugSeed.kt`; sheet_*/adjust_dialog open the table, the matrix script taps; review scans `files/screen_review.jpg`).
 **Screenshot matrix** (use a `.shots` install on emu-1 + emu-3 only): `scripts/screen-matrix.sh --install` → `out/screens/<WxH@dpi x font>/<scenario>_<screen>.png` + contact sheets `out/screens/sheet_<scenario>_<screen>.jpg` (14 profiles: phones 16:9…21:9, foldable inner, tablet, font 1.3/2.0; filter with `PROFILES=… SCREENS=… DEVICES=…`; resets wm size/density/font_scale at the end).
-Debug menu toggle "Save scans for training" (default **on**): every shutter photo → `/sdcard/Pictures/Scan7 Training/scan7_<ts>.jpg` + `/sdcard/Documents/Scan7 Training/scan7_<ts>.json`; outcome `null` until confirmed (`adb pull "/sdcard/Pictures/Scan7 Training"`); cards the user left out on the review are `"excluded": true` per detection and in `outcome.excluded`.
-Release: `./gradlew assembleRelease` (minified, unsigned; `-Pscan7.idSuffix=.p` works for release too). The build fails early (`checkModelAsset`, before preBuild) if `assets/model.tflite` is missing.
+Debug menu toggle "Save scans for training" (debug builds only, default **on**; release builds never save): every shutter photo → `/sdcard/Pictures/Scan7 Training/scan7_<ts>.jpg` + `/sdcard/Documents/Scan7 Training/scan7_<ts>.json`; outcome `null` until confirmed (`adb pull "/sdcard/Pictures/Scan7 Training"`); cards the user left out on the review are `"excluded": true` per detection and in `outcome.excluded`.
+Release: `./gradlew assembleRelease` / `bundleRelease` (minified; signed only when the upload key is set in `~/.gradle/gradle.properties` `scan7.upload.*` or `SCAN7_UPLOAD_*` env, else unsigned; `-Pscan7.idSuffix=.p` works for release too). versionCode = git commit count, versionName = `scan7.versionName` in app/gradle.properties (docs/RELEASE.md). The build fails early (`checkModelAsset`, before preBuild) if `assets/model.tflite` is missing.
 ```sh
 ```
 
@@ -128,7 +130,7 @@ The emulators run at nice 5 next to training; idle they cost ~1.5 cores in total
 - **Never stop or kill running training jobs** (or their python processes); don't touch `ml/runs/` of a running job.
 - The Mac has **16 GB RAM**: keep memory use modest (one Gradle build at a time, moderate `--workers`/`--batch`, stop daemons when done).
 - Android Studio may hold `.git/index.lock` briefly: **retry** the git command, never delete the lock.
-- Don't commit secrets. `ml/labeling/ls_data/` (DB, credentials) is private and gitignored.
+- Don't commit secrets. `ml/labeling/ls_data/` (DB, credentials) is private and gitignored. The release upload keystore and its passwords stay outside the repo (`~/.gradle/gradle.properties` or env).
 - Commits: the coordinating session commits each reviewed, finished step locally (approved by the user; no pushing without asking). Subagents working in parallel don't commit; they report their changed files.
 
 ## Decisions log
@@ -148,6 +150,7 @@ The emulators run at nice 5 next to training; idle they cost ~1.5 cores in total
 | 2026-10-18 | **App flow agreed** — spec in [docs/APP_FLOW.md](docs/APP_FLOW.md): players stored locally (no groups), select who plays; scan with the **shutter button only** (no auto-capture); bust shown in magenta **plus** the word; the game ends only after a full round is scored, highest total wins. |
 | 2026-10-18 | **Total adjustments** ("Adjust total" in the player sheet): own table `score_adjustments` (DB v3, AutoMigration 2→3, MigrationTest in androidTest), counted in `GameState.totals`; no scoreboard row, only a "±" mark on the total. |
 | 2026-10-18 | **Player avatars** (design/avatars/AVATARS.md): `Avatar(face, pattern, color)` ids on the player (DB v4, manual `MIGRATION_3_4` in data/Migrations.kt: old palette index → nearest catalog color, face + pattern seeded by player id; MigrationTest 3→4 and 1→4); `PlayerAvatar` replaces the initial token everywhere; colors may repeat within a game (editor dot hint, no New game blocking). Debug menu → Avatars shows the kit examples. |
+| 2026-10-18 | **Open source under AGPL-3.0** (LICENSE; because of Ultralytics YOLO). Release config: upload-key signing from `~/.gradle/gradle.properties`/env (never in git), versionCode = commit count, debug menu + training-scan saving debug-only, static About & licenses screen, model as a GitHub release asset (`downloadModel`, SHA-256 pinned in app/model.properties). Checklist: docs/RELEASE.md. |
 | 2026-10-18 | **Card-look variants without a photo** go to `ml/data/cards_extra/<class>_<desc>.png` (rectified RGBA 600×832; English `00_en_rainbow`, `back_en` cut from the render `paste_773e114e` by `scripts/extract_en_variants.py`); `make_cutouts.py` copies them to `out/cutouts/<class>_<n>` (map in `out/cutouts/sources.yaml`), pick rates + banner box in synth.yaml `variants`. Web test stems listed in **`ml/data/web_test/exclude.txt`** (the render and its small copy `paste_80304d69`) are training sources and must be skipped by every evaluation. |
 
 ## Branding (summary; details in brand/BRAND.md)

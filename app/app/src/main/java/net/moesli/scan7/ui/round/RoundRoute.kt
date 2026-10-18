@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.data.GameSnapshot
+import net.moesli.scan7.data.outlivingUi
 import net.moesli.scan7.game.ScanDirection
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.ui.components.RoundView
@@ -105,9 +106,13 @@ class RoundController(
     /** Latest snapshot (set by the route on every composition; read only by the event handlers). */
     var snapshot: GameSnapshot? = null
 
+    /**
+     * Repository writes run via [outlivingUi]: leaving the screen (e.g. Scan next right after an
+     * in-card Bust) cancels only the waiting, never the write.
+     */
     private fun run(what: String, block: suspend GameRepository.() -> Unit) {
         scope.launch {
-            runCatching { repository.block() }.onFailure { Log.w(TAG, "$what failed", it) }
+            runCatching { outlivingUi { repository.block() } }.onFailure { Log.w(TAG, "$what failed", it) }
         }
     }
 
@@ -183,7 +188,7 @@ class RoundController(
         if (finishing) return
         finishing = true
         scope.launch {
-            runCatching { repository.closeRoundAndStartNext(gameId) }
+            runCatching { outlivingUi { repository.closeRoundAndStartNext(gameId) } }
                 .onSuccess { s -> if (s.isOver) navigator.gameOver() else showResults(s.currentRound.number - 1) }
                 .onFailure { Log.w(TAG, "close round failed", it) }
             finishing = false
@@ -209,7 +214,7 @@ class RoundController(
         }
         finishing = true
         scope.launch {
-            runCatching { repository.nextRound(gameId) }
+            runCatching { outlivingUi { repository.nextRound(gameId) } }
                 .onSuccess { s -> showResults(s.currentRound.number - 1) }
                 .onFailure { Log.w(TAG, "next round failed", it) }
             finishing = false
@@ -237,7 +242,7 @@ class RoundController(
     fun endGame() {
         flags.confirmEnd = false
         scope.launch {
-            runCatching { repository.endGame(gameId) }
+            runCatching { outlivingUi { repository.endGame(gameId) } }
                 .onSuccess { navigator.gameOver() }
                 .onFailure { Log.w(TAG, "end game failed", it) }
         }

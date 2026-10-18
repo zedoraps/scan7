@@ -18,8 +18,6 @@ import net.moesli.scan7.ui.history.text
 import net.moesli.scan7.ui.newgame.MAX_TARGET
 import net.moesli.scan7.ui.newgame.MIN_TARGET
 import net.moesli.scan7.ui.newgame.canContinue
-import net.moesli.scan7.ui.newgame.dragTargetIndex
-import net.moesli.scan7.ui.newgame.moved
 import net.moesli.scan7.ui.newgame.seatingFor
 import net.moesli.scan7.ui.newgame.steppedTarget
 import net.moesli.scan7.ui.newgame.toggleSelection
@@ -89,24 +87,6 @@ class SetupLogicTest {
     fun seatingKeepsPreviousOrderAndAppendsNewPicks() {
         assertEquals(listOf(2L, 1L, 4L), seatingFor(selected = listOf(1, 2, 4), previous = listOf(2, 3, 1)))
         assertEquals(listOf(5L, 6L), seatingFor(listOf(5, 6), emptyList()))
-    }
-
-    @Test
-    fun movedShiftsTheOthers() {
-        val l = listOf("a", "b", "c", "d")
-        assertEquals(listOf("b", "c", "a", "d"), l.moved(0, 2))
-        assertEquals(listOf("d", "a", "b", "c"), l.moved(3, 0))
-        assertEquals(l, l.moved(1, 1))
-    }
-
-    @Test
-    fun dragTargetIndexRoundsAndClamps() {
-        assertEquals(1, dragTargetIndex(1, 30f, 80f, 4))
-        assertEquals(2, dragTargetIndex(1, 41f, 80f, 4))
-        assertEquals(0, dragTargetIndex(1, -50f, 80f, 4))
-        assertEquals(3, dragTargetIndex(1, 1000f, 80f, 4))
-        assertEquals(0, dragTargetIndex(2, -1000f, 80f, 4))
-        assertEquals(2, dragTargetIndex(2, 10f, 0f, 4))
     }
 
     @Test

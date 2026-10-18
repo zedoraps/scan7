@@ -36,6 +36,9 @@ enum class SeedScenario(val players: Int) {
 
     /** Finished game, 6 players, Philip won. */
     GAMEOVER(6),
+
+    /** Like [P6], plus a Home history: five past games (won, shared win, ended early, abandoned, last year). */
+    HISTORY(6),
 }
 
 enum class DebugOpen {
@@ -74,6 +77,7 @@ suspend fun seedAndOpen(context: Context, launch: DebugSeedLaunch): List<Route> 
     val repo = AppGraph.repository(context)
     repo.setSaveScansForTraining(false)
     val ids = Names.mapIndexed { i, name -> repo.addPlayer(name, AvatarCatalog.examples[i].second) }
+    if (launch.scenario == SeedScenario.HISTORY) seedHistory(context, ids)
     val seated = ids.take(launch.scenario.players)
     val gameId = repo.startGame(seated)
     val over = launch.scenario == SeedScenario.GAMEOVER
@@ -108,6 +112,46 @@ suspend fun seedAndOpen(context: Context, launch: DebugSeedLaunch): List<Route> 
         DebugOpen.REVIEW, DebugOpen.CAMERA -> listOf(Route.Home, Route.Round(gameId), Route.Scan(gameId, open, ScanStart.CAMERA))
         DebugOpen.SCOREBOARD -> listOf(Route.Home, Route.Round(gameId), Route.Scoreboard(gameId))
         DebugOpen.GAMEOVER -> listOf(Route.Home, Route.GameOver(gameId))
+    }
+}
+
+/**
+ * Past games for the Home history, written with a fake clock (dates relative to now). The last one
+ * (same 6 players as the running game, 2 rounds) is abandoned when [seedAndOpen] starts that game.
+ */
+private suspend fun seedHistory(context: Context, ids: List<Long>) {
+    val now = System.currentTimeMillis()
+    val day = 86_400_000L
+    var t = 0L
+    val repo = GameRepository(AppGraph.database(context), clock = { t })
+
+    /** [rounds] rounds; [winners] (indices into [players]) reach 200 in the last one (or lead when it is ended early). */
+    suspend fun play(players: List<Long>, start: Long, rounds: Int, winners: Set<Int>, endEarly: Boolean = false) {
+        t = start
+        val gameId = repo.startGame(players)
+        val win = if (endEarly) 40 else (200 + rounds - 1) / rounds
+        for (round in 1..rounds) {
+            t += 9 * 60_000L
+            players.forEachIndexed { i, id ->
+                when {
+                    i in winners -> repo.scorePoints(gameId, id, win)
+                    (i + round) % 5 == 0 -> repo.bust(gameId, id)
+                    else -> repo.scorePoints(gameId, id, (win - 4 - i * 3).coerceAtLeast(2))
+                }
+            }
+            if (endEarly && round == rounds) repo.endGame(gameId) else repo.closeRoundAndStartNext(gameId)
+        }
+    }
+    play(ids.take(4), now - 400 * day, rounds = 8, winners = setOf(3))
+    play(ids, now - 12 * day, rounds = 7, winners = setOf(9))
+    play(listOf(ids[1], ids[4], ids[6]), now - 5 * day, rounds = 6, winners = setOf(0, 2))
+    play(ids.take(5), now - day, rounds = 3, winners = setOf(1), endEarly = true)
+    // Unfinished: the running game (started below with the real clock) abandons it.
+    t = now - 3 * 3_600_000L
+    val abandoned = repo.startGame(ids.take(6))
+    repeat(2) {
+        ids.take(6).forEachIndexed { i, id -> repo.scorePoints(abandoned, id, 10 + i * 4) }
+        repo.closeRoundAndStartNext(abandoned)
     }
 }
 

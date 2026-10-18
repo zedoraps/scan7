@@ -107,7 +107,10 @@ internal fun ManualEntryStep(
     BoxWithConstraints(modifier.fillMaxSize().background(colors.ground), contentAlignment = Alignment.TopCenter) {
         val dense = manualDense(maxHeight, LocalDensity.current.fontScale)
         val gridGap = if (dense) Scan7Spacing.s else Scan7Spacing.l
-        val chipHeight = if (dense) 44.dp else 48.dp
+        // Dense: 40 dp chips (still above the 36 dp compact touch minimum) and a one-line info row,
+        // so a second chip line stays visible on 16:9 phones.
+        val chipHeight = if (dense) 40.dp else 48.dp
+        val statusHeight = if (dense) DenseStatusHeight else ManualStatusHeight
         Column(modifier = Modifier.fillMaxHeight().widthIn(max = Scan7Spacing.maxContentWidth).fillMaxWidth()) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
@@ -208,7 +211,7 @@ internal fun ManualEntryStep(
             ) {
                 // Fixed height: adding / removing cards (bust ↔ not bust, Second Chance, the 7-card
                 // warning) never moves the Save button.
-                Column(Modifier.fillMaxWidth().height(ManualStatusHeight)) {
+                Column(Modifier.fillMaxWidth().height(statusHeight)) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
                         verticalAlignment = Alignment.CenterVertically,
@@ -265,6 +268,7 @@ internal fun ManualEntryStep(
 
 /** Status area above Save: breakdown + total (or the bust text) and one info line. */
 private val ManualStatusHeight = 88.dp
+private val DenseStatusHeight = 72.dp
 
 /** Dense layout: number grid in 7 columns (two rows). */
 private const val DENSE_NUMBER_COLUMNS = 7
