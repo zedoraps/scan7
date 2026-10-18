@@ -10,7 +10,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
@@ -345,7 +349,8 @@ private fun OpenActions(name: String, onScan: () -> Unit, onEnterManually: () ->
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
             SecondaryButton(
-                "Enter manually",
+                // Large font scales: two lines (the button grows) instead of a tiny or cut label.
+                if (LocalDensity.current.fontScale > 1.4f) "Enter\nmanually" else "Enter manually",
                 onEnterManually,
                 Modifier.weight(1f),
                 height = 56.dp,
@@ -355,16 +360,25 @@ private fun OpenActions(name: String, onScan: () -> Unit, onEnterManually: () ->
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .weight(1f)
-                    .height(56.dp)
+                    .heightIn(min = 56.dp)
                     .clip(shape)
                     .border(1.5.dp, colors.bust, shape)
                     .scan7Clickable(onBust)
                     .clearAndSetSemantics {
                         contentDescription = "Mark $name as bust"
                         role = Role.Button
-                    },
+                    }
+                    .padding(horizontal = Scan7Spacing.s),
             ) {
-                Text("✕ BUST", color = colors.bust, style = Scan7Type.tag12.copy(fontSize = 14.sp))
+                // One line at any font scale: shrinks instead of wrapping into the clipped second line.
+                val style = Scan7Type.tag12.copy(fontSize = 14.sp, color = colors.bust)
+                BasicText(
+                    "✕ BUST",
+                    style = style,
+                    maxLines = 1,
+                    softWrap = false,
+                    autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = style.fontSize),
+                )
             }
         }
     }

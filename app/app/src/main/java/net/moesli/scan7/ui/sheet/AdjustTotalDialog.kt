@@ -5,13 +5,16 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
@@ -24,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
@@ -94,7 +98,13 @@ fun AdjustTotalContent(
         SignToggle(onClick = { input = flipSign(input) })
         DeltaField(input, onChange = { input = filterDeltaInput(it) }, onDone = apply, errorText = deltaError(input), modifier = Modifier.weight(1f))
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs)) {
+    // Large font scales: two rows of three instead of six narrow steps.
+    val perRow = if (LocalDensity.current.fontScale > LARGE_FONT_SCALE) AdjustSteps.size / 2 else AdjustSteps.size
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs),
+        verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xs),
+        maxItemsInEachRow = perRow,
+    ) {
         AdjustSteps.forEach { step ->
             StepButton(step, onClick = { input = deltaInput(stepDelta(delta ?: 0, step)) }, modifier = Modifier.weight(1f))
         }
@@ -194,9 +204,20 @@ private fun StepButton(step: Int, onClick: () -> Unit, modifier: Modifier = Modi
                 role = Role.Button
             },
     ) {
-        Text(stepLabel(step), color = colors.text, style = Scan7Type.tag12.copy(fontSize = 13.sp), maxLines = 1, softWrap = false)
+        val style = Scan7Type.tag12.copy(fontSize = 13.sp, color = colors.text)
+        BasicText(
+            stepLabel(step),
+            style = style,
+            maxLines = 1,
+            softWrap = false,
+            autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = style.fontSize),
+            modifier = Modifier.padding(horizontal = Scan7Spacing.xxs),
+        )
     }
 }
+
+/** Font scale from which the stepper wraps into two rows. */
+private const val LARGE_FONT_SCALE = 1.4f
 
 @Preview(widthDp = 390)
 @Composable

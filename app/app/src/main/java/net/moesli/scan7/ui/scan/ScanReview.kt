@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -54,6 +56,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import net.moesli.scan7.detection.Detection
 import net.moesli.scan7.detection.DisplayMapping
@@ -65,6 +68,7 @@ import net.moesli.scan7.ui.components.IconButton
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.SecondaryButton
+import net.moesli.scan7.ui.components.centeredMaxWidth
 import net.moesli.scan7.ui.components.scan7Clickable
 import net.moesli.scan7.ui.theme.ScoreNumberStyle
 import net.moesli.scan7.ui.theme.Scan7Radii
@@ -179,7 +183,7 @@ internal fun ScanReviewStep(
         val shape = RoundedCornerShape(topStart = Scan7Radii.cardLarge, topEnd = Scan7Radii.cardLarge)
         Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .centeredMaxWidth()
                 .clip(shape)
                 .background(colors.surface)
                 .windowInsetsPadding(WindowInsets.navigationBars),
@@ -275,12 +279,12 @@ private fun StatusSlot(player: PlayerUi, cards: List<Card>, roundNumber: Int?, b
                     CloseIcon(ink, size = 32.dp, strokeWidth = 3.2f)
                     Text("BUST", color = ink, style = Scan7Type.total24.copy(fontSize = 28.sp), maxLines = 1)
                 }
-                Text(player.name, color = ink, style = Scan7Type.tag12.copy(fontSize = 13.sp), maxLines = 1)
+                Text(player.name, color = ink, style = Scan7Type.tag12.copy(fontSize = 13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 PlayerAvatar(player.avatar, ReviewAvatar)
             } else {
                 PlayerAvatar(player.avatar, ReviewAvatar)
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
-                    Text(player.name, color = ink, style = Scan7Type.button.copy(fontSize = 17.sp), maxLines = 1)
+                    Text(player.name, color = ink, style = Scan7Type.button.copy(fontSize = 17.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val progress = "${player.total} → ${player.total + score.total}"
                     Text(
                         text = roundNumber?.let { "Round $it · $progress" } ?: progress,
@@ -372,7 +376,7 @@ private fun EmptyPanel(player: PlayerUi, error: String?, onRetake: () -> Unit, o
     PanelContent {
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m), verticalAlignment = Alignment.CenterVertically) {
             PlayerAvatar(player.avatar, ReviewAvatar)
-            Text(player.name, color = colors.text, style = Scan7Type.button.copy(fontSize = 17.sp), maxLines = 1)
+            Text(player.name, color = colors.text, style = Scan7Type.button.copy(fontSize = 17.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
             Text(
@@ -421,10 +425,13 @@ internal fun FormulaText(
     parts: List<FormulaPart>,
     modifier: Modifier = Modifier,
     maxLines: Int = Int.MAX_VALUE,
-    style: TextStyle = Scan7Type.text13.copy(lineHeight = 20.sp),
+    // Line height in em (= 20 sp at 13 sp), so it shrinks with the auto-sized font below.
+    style: TextStyle = Scan7Type.text13.copy(lineHeight = FormulaLineHeight),
 ) {
     val colors = Scan7Theme.colors
-    Text(
+    // A finite [maxLines] marks a fixed-height slot (two lines): large font scales / narrow phones
+    // shrink the formula until it fits the slot instead of wrapping into a cut third line.
+    BasicText(
         text = buildAnnotatedString {
             parts.filter { it.kind != FormulaKind.TOTAL }.forEach { p ->
                 val color = when (p.kind) {
@@ -442,13 +449,15 @@ internal fun FormulaText(
                 withStyle(SpanStyle(color = color)) { append(text) }
             }
         },
-        color = colors.text,
-        style = style,
-        maxLines = maxLines,
-        overflow = TextOverflow.Ellipsis,
+        style = style.copy(color = colors.text),
+        // Auto-sized by the slot's fixed height, not by a maxLines cut (a cut line doesn't shrink).
+        autoSize = if (maxLines == Int.MAX_VALUE) null else TextAutoSize.StepBased(minFontSize = 7.sp, maxFontSize = style.fontSize),
         modifier = modifier.semantics { contentDescription = spokenFormula(parts) },
     )
 }
+
+/** 20 sp at the formula's 13 sp. */
+private val FormulaLineHeight = (20f / 13f).em
 
 /**
  * Review chips: scoring (duplicates outlined magenta), action cards / backs (name only, dashed),

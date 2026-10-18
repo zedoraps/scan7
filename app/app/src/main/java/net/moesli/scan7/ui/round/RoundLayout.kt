@@ -4,6 +4,8 @@ import androidx.compose.ui.geometry.Offset
 import kotlin.math.roundToInt
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.clockwiseAngle
+import net.moesli.scan7.game.defaultPositions
+import kotlin.math.abs
 import net.moesli.scan7.ui.components.PlayerStatus
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.isDone
@@ -49,6 +51,42 @@ data class TableGeometry(
             y = if (rangeY > 0f) (c.y - top) / rangeY else 0.5f,
         ).clamped()
     }
+}
+
+/** Smallest table card scale [tableCardScale] goes down to (compact 72 × 96 → 54 × 72). */
+const val MIN_TABLE_CARD_SCALE = 0.75f
+
+/**
+ * Scale (1 or less) for table cards of [cardWidth] × [cardHeight] in an area of [width] × [height]
+ * so that [count] cards on their default seats (`game.defaultPositions`) don't overlap, at least
+ * [gap] apart in x or y. 1 on regular phones; short screens (16:9, 360 × 640 dp) get smaller cards
+ * instead of overlapping seats. Based on the default seats, so it doesn't change while dragging.
+ */
+fun tableCardScale(
+    count: Int,
+    width: Float,
+    height: Float,
+    cardWidth: Float,
+    cardHeight: Float,
+    gap: Float = 0f,
+): Float {
+    if (count < 2) return 1f
+    val seats = defaultPositions(count)
+    fun fits(scale: Float, minGap: Float): Boolean {
+        val g = TableGeometry(0f, 0f, width, height, cardWidth * scale, cardHeight * scale)
+        val tl = seats.map { g.topLeftOf(it) }
+        for (i in tl.indices) for (j in i + 1 until tl.size) {
+            val dx = abs(tl[i].x - tl[j].x)
+            val dy = abs(tl[i].y - tl[j].y)
+            if (dx < g.cardWidth + minGap && dy < g.cardHeight + minGap) return false
+        }
+        return true
+    }
+    // Cards that only touch keep their full size; [gap] applies once they have to shrink anyway.
+    if (fits(1f, 0f)) return 1f
+    var scale = 1f
+    while (scale > MIN_TABLE_CARD_SCALE && !fits(scale, gap)) scale -= 0.01f
+    return scale.coerceAtLeast(MIN_TABLE_CARD_SCALE)
 }
 
 /** Seating order re-derived from table positions: clockwise from 12 o'clock (stable for ties). */

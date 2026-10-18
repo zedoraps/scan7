@@ -44,6 +44,7 @@ import net.moesli.scan7.ui.components.CappedFontScale
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.ScreenHeader
 import net.moesli.scan7.ui.components.bottomButtonsInsets
+import net.moesli.scan7.ui.components.centeredMaxWidth
 import net.moesli.scan7.ui.components.headerInsets
 import net.moesli.scan7.ui.components.scan7Clickable
 import net.moesli.scan7.ui.players.playerUis
@@ -93,6 +94,7 @@ fun ScoreboardScreen(
         modifier = modifier
             .fillMaxSize()
             .background(colors.ground)
+            .centeredMaxWidth()
             .padding(horizontal = Scan7Spacing.screenMargin),
     ) {
         ScreenHeader(

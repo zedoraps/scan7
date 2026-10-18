@@ -127,6 +127,41 @@ class RoundLayoutTest {
         assertEquals(0f, autoScrollStep(50f, 900f, 1000f, 100f, 10f), 1e-4f)
     }
 
+    // ---- Table card scale ----
+
+    @Test
+    fun tableCardScaleIsOneOnRegularPhones() {
+        // 411 × 914 dp (1080 × 2400 @ 420): area 395 × 662 for every player count.
+        for (n in 1..10) {
+            val (w, h) = cardSizeFor(n)
+            assertEquals(1f, tableCardScale(n, 395f, 662f, w, h, gap = 4f), 0f)
+        }
+    }
+
+    @Test
+    fun tableCardScaleShrinksTenCompactCardsOnA16by9Phone() {
+        // 360 × 640 dp (720 × 1280 @ 320): area 344 × 388; 10 compact cards overlap at full size.
+        val s = tableCardScale(10, 344f, 388f, 72f, 96f, gap = 4f)
+        assertTrue(s < 1f && s >= MIN_TABLE_CARD_SCALE)
+        val g = TableGeometry(0f, 0f, 344f, 388f, 72f * s, 96f * s)
+        val tl = defaultPositions(10).map { g.topLeftOf(it) }
+        for (i in tl.indices) for (j in i + 1 until tl.size) {
+            val apart = kotlin.math.abs(tl[i].x - tl[j].x) >= g.cardWidth || kotlin.math.abs(tl[i].y - tl[j].y) >= g.cardHeight
+            assertTrue("seats $i and $j overlap", apart)
+        }
+    }
+
+    @Test
+    fun tableCardScaleNeverGoesBelowTheMinimum() {
+        assertEquals(MIN_TABLE_CARD_SCALE, tableCardScale(10, 200f, 200f, 72f, 96f), 0f)
+    }
+
+    private fun cardSizeFor(n: Int): Pair<Float, Float> = when {
+        n <= 4 -> 112f to 140f
+        n <= 6 -> 96f to 124f
+        else -> 72f to 96f
+    }
+
     private fun assertNear(expected: TablePosition, actual: TablePosition) {
         assertEquals(expected.x, actual.x, eps)
         assertEquals(expected.y, actual.y, eps)

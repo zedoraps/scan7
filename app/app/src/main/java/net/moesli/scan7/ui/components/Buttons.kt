@@ -165,6 +165,9 @@ private fun FitText(text: String, style: TextStyle) {
         text,
         style = style.copy(textAlign = TextAlign.Center),
         maxLines = text.count { it == '\n' } + 1,
+        // Only the explicit line breaks: a wrapped word ("Enter / manually") would be cut by maxLines
+        // instead of shrinking.
+        softWrap = false,
         autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = style.fontSize),
     )
 }

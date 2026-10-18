@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
@@ -149,7 +150,7 @@ internal fun PlayerHeading(player: PlayerUi, label: String, modifier: Modifier =
         PlayerAvatar(player.avatar, avatarSizeForHeight(35.dp))
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(label.uppercase(), color = colors.textMuted, style = Scan7Type.capsButton, maxLines = 1)
-            Text(player.name, color = colors.text, style = Scan7Type.button, maxLines = 1)
+            Text(player.name, color = colors.text, style = Scan7Type.button, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
