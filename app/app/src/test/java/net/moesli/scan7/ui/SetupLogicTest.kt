@@ -152,6 +152,9 @@ class SetupLogicTest {
         assertEquals("Anna and David haven't been scored. They'll be marked BUST.", unscoredWarning(listOf("Anna", "David")))
         assertEquals("Anna hasn't been scored. They'll be marked BUST.", unscoredWarning(listOf("Anna")))
         assertEquals("", unscoredWarning(emptyList()))
+        // Everyone still open: asks explicitly (likely an accident).
+        assertEquals("Nobody has been scored yet – mark everyone BUST?", unscoredWarning(listOf("Anna", "David"), nobodyScored = true))
+        assertEquals("", unscoredWarning(emptyList(), nobodyScored = true))
     }
 
     @Test

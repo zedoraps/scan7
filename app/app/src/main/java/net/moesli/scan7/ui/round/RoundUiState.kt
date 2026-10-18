@@ -35,8 +35,6 @@ data class RoundPlayer(
  * @param arranging arrange mode (seat drag, wiggle, actions hidden).
  * @param nextOpenId the player "Scan next" goes to (in the chosen scan direction); defaults to the
  *   first open player in seating order.
- * @param results the round results overlay of the round just closed, shown on top of the new
- *   round until dismissed; `null` = hidden.
  */
 @Immutable
 data class RoundUiState(
@@ -46,7 +44,6 @@ data class RoundUiState(
     val view: RoundView = RoundView.Table,
     val arranging: Boolean = false,
     val nextOpenId: String? = firstOpenId(players),
-    val results: RoundResultsUi? = null,
 ) {
     /** The player for "Scan next", or null when nobody is open. */
     val nextOpen: RoundPlayer?
@@ -59,19 +56,6 @@ data class RoundUiState(
 
     val playerCount: Int get() = players.size
 }
-
-/**
- * One line of the round results overlay: [player] with the closed round's status ([PlayerStatus.Scored]
- * points or [PlayerStatus.Bust]) and the current game total; [rank] by that round's points.
- */
-@Immutable
-data class RoundResultRow(val player: PlayerUi, val rank: Int) {
-    val id: String get() = player.id
-}
-
-/** Round results overlay ("Round N results"): [rows] sorted by rank (ties in seating order). */
-@Immutable
-data class RoundResultsUi(val round: Int, val rows: List<RoundResultRow>)
 
 /**
  * Everything the Round screen can ask for. All callbacks default to no-ops so previews and partial
@@ -123,18 +107,18 @@ interface RoundActions {
 
     /**
      * "Next round" when everyone is done: closes the round and starts the next one in one step
-     * (results overlay on top), or leads to Game over when someone reached the target.
+     * (a "Round N closed · Scoreboard" snackbar), or leads to Game over when someone reached the target.
      */
     fun onNextRound() {}
 
-    /** A player in the round results overlay → that player's result sheet for the closed round. */
-    fun onResultClick(playerId: String) {}
-
-    /** ✕ or a tap outside the round results overlay. */
-    fun onDismissResults() {}
-
     /** Double-tap on a compact card (or its TalkBack "Scan <name>" action) → camera, like [onScan]. */
     fun onQuickScan(playerId: String) = onScan(playerId)
+
+    /** "Scoreboard" in the "Round N closed" toast. */
+    fun onScoreboard(round: Int) {}
+
+    /** Logo in the header → Home (the game stays resumable). */
+    fun onHome() {}
 
     /** Header menu button. */
     fun onMenu() {}

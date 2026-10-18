@@ -116,14 +116,15 @@ class RoundLayoutTest {
     }
 
     @Test
-    fun ranksShareTiesAndPutBustBelowZero() {
-        val players = listOf(
-            PlayerUi("a", Color.Red, 0, PlayerStatus.Scored(20)),
-            PlayerUi("b", Color.Red, 0, PlayerStatus.Bust),
-            PlayerUi("c", Color.Red, 0, PlayerStatus.Scored(20)),
-            PlayerUi("d", Color.Red, 0, PlayerStatus.Scored(0)),
-        )
-        assertEquals(mapOf("a" to 1, "b" to 4, "c" to 1, "d" to 3), roundRanks(players))
+    fun autoScrollOnlyNearTheEdges() {
+        // Viewport 1000, edge 100, max 10 per frame, row 80 high.
+        assertEquals(0f, autoScrollStep(400f, 80f, 1000f, 100f, 10f), 1e-4f)
+        assertEquals(-5f, autoScrollStep(50f, 80f, 1000f, 100f, 10f), 1e-4f)
+        assertEquals(-10f, autoScrollStep(-200f, 80f, 1000f, 100f, 10f), 1e-4f)
+        assertEquals(5f, autoScrollStep(870f, 80f, 1000f, 100f, 10f), 1e-4f)
+        assertEquals(10f, autoScrollStep(1200f, 80f, 1000f, 100f, 10f), 1e-4f)
+        // Row taller than the space between both zones: no scrolling.
+        assertEquals(0f, autoScrollStep(50f, 900f, 1000f, 100f, 10f), 1e-4f)
     }
 
     private fun assertNear(expected: TablePosition, actual: TablePosition) {

@@ -49,7 +49,6 @@ class RoundMappingTest {
         assertEquals(PlayerStatus.Bust, ui.players[2].player.status)
         assertEquals(listOf(30, 0, 0, 0), ui.players.map { it.player.total })
         assertEquals(defaultPositions(4), ui.players.map { it.position })
-        assertNull(ui.results)
     }
 
     @Test
@@ -82,36 +81,14 @@ class RoundMappingTest {
     }
 
     @Test
-    fun nextRound_closesAndStarts_resultsOverlayOfTheClosedRound() {
+    fun nextRound_closesAndStartsTheNextRound() {
         val s = start.score(1, 30, 1).score(2, 50, 2).score(3, 30, 3).closeAndStartNext(now = 4) // Dan open → bust
         assertEquals(2, s.currentRound.number)
-        val ui = snap(s).toRoundUiState(resultsRound = 1)
+        val ui = snap(s).toRoundUiState()
         assertEquals(2, ui.round)
         assertTrue(ui.players.all { it.player.status == PlayerStatus.Open })
         assertEquals("1", ui.nextOpen?.id)
-        val results = checkNotNull(ui.results)
-        assertEquals(1, results.round)
-        // Sorted by rank, ties in seating order; the bust ranks last.
-        assertEquals(listOf("2", "1", "3", "4"), results.rows.map { it.id })
-        assertEquals(listOf(1, 2, 2, 4), results.rows.map { it.rank })
-        assertEquals(PlayerStatus.Scored(50), results.rows[0].player.status)
-        assertEquals(PlayerStatus.Bust, results.rows[3].player.status)
-        assertEquals(listOf(50, 30, 30, 0), results.rows.map { it.player.total })
-        // Hidden without a round, and never for the running round.
-        assertNull(snap(s).toRoundUiState().results)
-        assertNull(snap(s).roundResults(2))
-        assertNull(snap(s).roundResults(5))
-    }
-
-    @Test
-    fun resultsOverlay_editOfTheClosedRoundUpdatesPointsRanksAndTotals() {
-        val s = start.score(1, 30, 1).score(2, 50, 2).score(3, 30, 3).closeAndStartNext(now = 4)
-        val edited = s.scorePoints(4, 60, now = 5, round = 1).adjustTotal(3, 5, null, now = 6)
-        val results = checkNotNull(snap(edited).roundResults(1))
-        assertEquals(listOf("4", "2", "1", "3"), results.rows.map { it.id })
-        assertEquals(PlayerStatus.Scored(60), results.rows[0].player.status)
-        assertEquals(listOf(60, 50, 30, 35), results.rows.map { it.player.total })
-        assertFalse(edited.isOver)
+        assertEquals(listOf(30, 50, 30, 0), ui.players.map { it.player.total })
     }
 
     @Test

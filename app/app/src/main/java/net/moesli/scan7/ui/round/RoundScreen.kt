@@ -6,6 +6,8 @@ import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -24,8 +26,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.Stable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -34,13 +34,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -56,8 +57,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.moesli.scan7.game.TablePosition
@@ -80,9 +83,6 @@ private const val MOVE_MS = 220
 
 /** Opacity of the center label, progress strip and bottom buttons in arrange mode. */
 private const val ARRANGE_DIM = 0.25f
-
-/** How long the bust toast stays (before accessibility timeout adjustment). */
-private const val TOAST_MS = 4_000L
 
 /** How long a dropped card keeps its drop spot while the caller hasn't confirmed the move. */
 private const val PENDING_MOVE_MS = 1_000L
@@ -114,36 +114,9 @@ private class RoundMetrics(val width: Dp, height: Dp, statusTop: Dp, navBottom: 
 /** Room above the first list row for the rank badges (they overlap the row's top-left corner). */
 private val BadgeRoom = 8.dp
 
-/** One showing of the bust toast; [seq] makes every showing distinct (same player busted again). */
-@Immutable
-data class BustToastData(val playerId: String, val name: String, val seq: Long)
-
-/**
- * State of the "<name> marked bust · Undo" toast, hoisted out of [RoundScreen] so every bust path
- * (in-card Bust inside the screen, the player sheet's Bust in the route) shows the same toast.
- */
-@Stable
-class BustToastState {
-    var current: BustToastData? by mutableStateOf(null)
-        private set
-    private var seq = 0L
-
-    fun show(playerId: String, name: String) {
-        current = BustToastData(playerId, name, ++seq)
-    }
-
-    fun dismiss() {
-        current = null
-    }
-}
-
-@Composable
-fun rememberBustToastState(): BustToastState = remember { BustToastState() }
-
 /**
  * The Round screen (main screen, handoff §4): header, table or list of players in seating order,
- * progress strip and bottom buttons; arrange mode; the round results overlay of the round just
- * closed ([RoundUiState.results]) on top of the new round.
+ * progress strip and bottom buttons; arrange mode.
  * Stateless apart from transient UI (drag in progress); the bust undo toast lives in [toast] so the
  * caller can show it for other bust paths too (player sheet). In-card Bust shows it here.
  */
@@ -159,13 +132,14 @@ fun RoundScreen(
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val haptics = LocalHapticFeedback.current
     val onBust: (RoundPlayer) -> Unit = {
-        haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
         actions.onBust(it.id)
         toast.show(it.id, it.player.name)
     }
     BackHandler(enabled = state.arranging, onBack = actions::onDone)
 
-    BoxWithConstraints(modifier.fillMaxSize().background(colors.ground)) {
+    // Screen stays on during the game (the phone lies on the table between scans).
+    BoxWithConstraints(modifier.fillMaxSize().keepScreenOn().background(colors.ground)) {
         val m = RoundMetrics(maxWidth, maxHeight, statusTop, navBottom)
         val dim = if (state.arranging) ARRANGE_DIM else 1f
 
@@ -190,27 +164,12 @@ fun RoundScreen(
                 .alpha(dim),
         )
 
-        state.results?.let { results ->
-            if (!state.arranging) {
-                // Below the bottom buttons in z-order: "Scan next" / "Close round" stay usable.
-                RoundResultsOverlay(
-                    results = results,
-                    target = state.target,
-                    onPlayer = actions::onResultClick,
-                    onDismiss = actions::onDismissResults,
-                    top = m.areaTop - Scan7Spacing.s,
-                    bottom = m.buttonsTop - Scan7Spacing.s,
-                )
-            }
-        }
-
         Box(
             modifier = Modifier
                 .offset(y = m.buttonsTop)
                 .padding(horizontal = Scan7Spacing.screenMargin)
                 .fillMaxWidth()
                 .height(Scan7Spacing.bottomButtonsHeight)
-                .zIndex(7f) // above the results overlay's scrim
                 .alpha(dim)
                 .then(if (state.arranging) Modifier.clearAndSetSemantics {} else Modifier),
         ) {
@@ -231,30 +190,15 @@ fun RoundScreen(
             }
         }
 
-        toast.current?.let { t ->
-            val a11y = LocalAccessibilityManager.current
-            val timeout = a11y?.calculateRecommendedTimeoutMillis(
-                TOAST_MS,
-                containsIcons = false,
-                containsText = true,
-                containsControls = true,
-            ) ?: TOAST_MS
-            LaunchedEffect(t) {
-                delay(timeout)
-                if (toast.current == t) toast.dismiss()
-            }
-            BustToast(
-                name = t.name,
-                onUndo = {
-                    actions.onUndoBust(t.playerId)
-                    toast.dismiss()
-                },
-                modifier = Modifier
-                    .offset(y = m.toastTop)
-                    .padding(horizontal = Scan7Spacing.screenMargin)
-                    .zIndex(20f),
-            )
-        }
+        BustToastHost(
+            toast = toast,
+            onUndo = actions::onUndoBust,
+            onScoreboard = actions::onScoreboard,
+            modifier = Modifier
+                .offset(y = m.toastTop)
+                .padding(horizontal = Scan7Spacing.screenMargin)
+                .zIndex(20f),
+        )
     }
 }
 
@@ -340,7 +284,9 @@ private fun TableSeat(
             // Long-press haptic: the card's combinedClickable already ticks at the long press.
             override fun onEnterArrange() = actions.onEnterArrange()
 
-            override fun onDragStart() {
+            override fun onDragStart(afterLongPress: Boolean) {
+                // In arrange mode the drag starts on touch (no long press, so no system tick yet).
+                if (!afterLongPress) haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
                 drag.raw = anim.value
                 dragging = true
             }
@@ -396,7 +342,19 @@ private fun TableSeat(
 private class DragTracker {
     var raw: Offset = Offset.Zero
     var rawY: Float = 0f
+
+    /** List view: the slot the row is over (haptic tick on change) and the edge auto-scroll loop. */
+    var startY: Float = 0f
+    var slot: Int = -1
+    var autoScroll: Job? = null
 }
+
+/** The list view's scroll state and visible height (px), for the edge auto-scroll while dragging. */
+private class ListViewport(val scroll: ScrollState, val height: Float)
+
+/** Edge zone that auto-scrolls the list while a row is dragged, and the top speed per frame. */
+private val AutoScrollEdge = 56.dp
+private val AutoScrollMaxStep = 12.dp
 
 private fun Offset.round(): IntOffset = IntOffset(x.roundToInt(), y.roundToInt())
 
@@ -427,17 +385,20 @@ private fun ListView(state: RoundUiState, actions: RoundActions, m: RoundMetrics
     val rowsTop = m.areaTop + ListRowsOffset
     val count = state.playerCount
     val contentHeight = BadgeRoom + size.height * count + size.gap * (count - 1).coerceAtLeast(0)
+    val viewportHeight = (m.areaBottom - rowsTop + BadgeRoom).coerceAtLeast(size.height)
+    val scroll = rememberScrollState()
+    val viewport = ListViewport(scroll, with(LocalDensity.current) { viewportHeight.toPx() })
     Box(
         modifier = Modifier
             .offset(y = rowsTop - BadgeRoom)
             .fillMaxWidth()
-            .height((m.areaBottom - rowsTop + BadgeRoom).coerceAtLeast(size.height))
-            .verticalScroll(rememberScrollState()),
+            .height(viewportHeight)
+            .verticalScroll(scroll),
     ) {
         Box(Modifier.fillMaxWidth().height(contentHeight)) {
             state.players.forEachIndexed { index, rp ->
                 key(rp.id) {
-                    ListSeat(rp, index, size, BadgeRoom, state, actions, onBust)
+                    ListSeat(rp, index, size, BadgeRoom, viewport, state, actions, onBust)
                 }
             }
         }
@@ -450,6 +411,7 @@ private fun ListSeat(
     index: Int,
     size: RowSize,
     rowsTop: Dp,
+    viewport: ListViewport,
     state: RoundUiState,
     actions: RoundActions,
     onBust: (RoundPlayer) -> Unit,
@@ -458,7 +420,10 @@ private fun ListSeat(
     val count = state.playerCount
     val topPx = with(density) { rowsTop.toPx() }
     val pitchPx = with(density) { (size.height + size.gap).toPx() }
+    val rowHeightPx = with(density) { size.height.toPx() }
     val overshootPx = with(density) { RowOvershoot.toPx() }
+    val edgePx = with(density) { AutoScrollEdge.toPx() }
+    val maxStepPx = with(density) { AutoScrollMaxStep.toPx() }
 
     val scope = rememberCoroutineScope()
     var dragging by remember { mutableStateOf(false) }
@@ -485,18 +450,48 @@ private fun ListSeat(
             // Long-press haptic: the card's combinedClickable already ticks at the long press.
             override fun onEnterArrange() = actions.onEnterArrange()
 
-            override fun onDragStart() {
+            /** Shows the row at the drag position; a tick each time it crosses into another slot. */
+            fun follow() {
+                val shown = topPx + clampRowDrag(drag.rawY - topPx, pitchPx, count, overshootPx)
+                scope.launch(start = CoroutineStart.UNDISPATCHED) { anim.snapTo(shown) }
+                val slot = dropIndex(shown - topPx, pitchPx, count)
+                if (slot != drag.slot) {
+                    drag.slot = slot
+                    haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                }
+            }
+
+            override fun onDragStart(afterLongPress: Boolean) {
+                if (!afterLongPress) haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
                 drag.rawY = anim.value
+                drag.startY = anim.value
+                drag.slot = index
                 dragging = true
+                // Near the top / bottom edge the list scrolls under the held row (10 rows on a small
+                // phone); only once the row was moved, so picking up an edge row doesn't scroll.
+                drag.autoScroll?.cancel()
+                drag.autoScroll = scope.launch {
+                    while (true) {
+                        withFrameNanos {}
+                        if (abs(drag.rawY - drag.startY) < edgePx / 4) continue
+                        val step = autoScrollStep(anim.value - viewport.scroll.value, rowHeightPx, viewport.height, edgePx, maxStepPx)
+                        if (step == 0f) continue
+                        val scrolled = viewport.scroll.scrollBy(step)
+                        if (scrolled != 0f) {
+                            drag.rawY += scrolled
+                            follow()
+                        }
+                    }
+                }
             }
 
             override fun onDrag(delta: Offset) {
                 drag.rawY += delta.y
-                val shown = topPx + clampRowDrag(drag.rawY - topPx, pitchPx, count, overshootPx)
-                scope.launch(start = CoroutineStart.UNDISPATCHED) { anim.snapTo(shown) }
+                follow()
             }
 
             override fun onDragEnd() {
+                drag.autoScroll?.cancel()
                 val shown = clampRowDrag(drag.rawY - topPx, pitchPx, count, overshootPx)
                 val to = dropIndex(shown, pitchPx, count)
                 haptics.performHapticFeedback(HapticFeedbackType.GestureEnd)
@@ -508,6 +503,7 @@ private fun ListSeat(
             }
 
             override fun onDragCancel() {
+                drag.autoScroll?.cancel()
                 dragging = false
             }
         },
@@ -563,10 +559,4 @@ private fun RoundScreenTablePreview() {
 @Composable
 private fun RoundScreenListPreview() {
     Scan7Theme { RoundScreen(FakeRoundState(count = 10).state, NoRoundActions) }
-}
-
-@Preview(widthDp = 390, heightDp = 844)
-@Composable
-private fun RoundScreenResultsPreview() {
-    Scan7Theme { RoundScreen(FakeRoundState(count = 6, preset = FakeRoundState.Preset.Results).state, NoRoundActions) }
 }

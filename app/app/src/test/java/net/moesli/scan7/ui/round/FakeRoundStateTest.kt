@@ -54,7 +54,7 @@ class FakeRoundStateTest {
     }
 
     @Test
-    fun closeRoundBustsOpenPlayersAndStartsTheNextRoundWithResults() {
+    fun closeRoundBustsOpenPlayersAndStartsTheNextRound() {
         val f = fake(4)
         val total = f.state.players.first { it.id == "Philip" }.player.total
         f.onCloseRound()
@@ -62,13 +62,6 @@ class FakeRoundStateTest {
         assertEquals(5, s.round)
         assertTrue(s.players.all { it.player.status == PlayerStatus.Open })
         assertEquals(total, s.players.first { it.id == "Philip" }.player.total)
-        val results = checkNotNull(s.results)
-        assertEquals(4, results.round)
-        assertEquals("Philip", results.rows.first().id) // 46 is the best round
-        assertEquals(1, results.rows.first().rank)
-        assertEquals(PlayerStatus.Bust, results.rows.first { it.id == "Ben" }.player.status) // was open
-        f.onDismissResults()
-        assertNull(f.state.results)
     }
 
     @Test
@@ -81,9 +74,6 @@ class FakeRoundStateTest {
         f.onNextRound()
         assertEquals(5, f.state.round)
         assertFalse(f.state.allDone)
-        assertEquals(4, f.state.results?.round)
-        f.onScan("Anna") // a new scan dismisses the overlay
-        assertNull(f.state.results)
     }
 
     @Test

@@ -41,10 +41,9 @@ fun GameState.scanNextAfter(playerId: Long): Long? = nextOpenPlayer(after = play
 /**
  * Round screen state for this game: the running round, players in seating order with their stored
  * table positions, the game's view (else the preferred / default one), the next open player for
- * "Scan next" (after the last done player, in the scan direction) and, with [resultsRound], the
- * results overlay of that closed round.
+ * "Scan next" (after the last done player, in the scan direction).
  */
-fun GameSnapshot.toRoundUiState(arranging: Boolean = false, resultsRound: Int? = null): RoundUiState {
+fun GameSnapshot.toRoundUiState(arranging: Boolean = false): RoundUiState {
     val s = state
     val uis = s.playerUis(players)
     val rows = s.seats.mapIndexed { i, seat -> RoundPlayer(uis[i], seat.position) }
@@ -55,21 +54,7 @@ fun GameSnapshot.toRoundUiState(arranging: Boolean = false, resultsRound: Int? =
         view = viewMode.toRoundView(),
         arranging = arranging,
         nextOpenId = s.nextOpenPlayer(after = s.lastDonePlayer())?.toString(),
-        results = resultsRound?.let { roundResults(it) },
     )
-}
-
-/**
- * Round results overlay of the closed [round]: each player's points or BUST in that round, rank by
- * those points, and the current game total; sorted by rank, ties in seating order. `null` if
- * [round] doesn't exist or isn't closed.
- */
-fun GameSnapshot.roundResults(round: Int): RoundResultsUi? {
-    val s = state
-    if (round !in 1..s.rounds.size || !s.round(round).isClosed) return null
-    val ranks = s.roundRanks(round)
-    val rows = s.playerIds.zip(s.playerUis(players, round)).map { (id, ui) -> RoundResultRow(ui, ranks.getValue(id)) }
-    return RoundResultsUi(round, rows.sortedBy { it.rank })
 }
 
 /** Round menu label of the scan direction ("↻ clockwise" / "↺ counter-clockwise"). */

@@ -4,17 +4,28 @@ import android.util.Log
 import android.util.Size
 import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.core.Camera
-import androidx.core.content.edit
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.CameraState
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.SurfaceOrientedMeteringPointFactory
 import androidx.camera.core.SurfaceRequest
+import androidx.camera.core.TorchState
+import androidx.camera.core.ZoomState
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.lifecycle.awaitInstance
+import androidx.camera.viewfinder.compose.MutableCoordinateTransformer
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -24,32 +35,40 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.camera.core.ZoomState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.keepScreenOn
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.edit
+import androidx.lifecycle.Observer
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.util.Locale
+import kotlin.math.roundToInt
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
 import net.moesli.scan7.detection.DetectionOverlay
 import net.moesli.scan7.detection.DetectorHolder
 import net.moesli.scan7.ui.theme.Scan7Theme
@@ -71,8 +90,25 @@ private val previewResolution = ResolutionSelector.Builder()
     .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
     .build()
 
-/** Zoom presets of the bound camera and the selected one, for a custom [CameraPreview] zoom bar. */
-class ZoomControls(val presets: List<Float>, val selected: Float, val onSelect: (Float) -> Unit)
+/** Saving the zoom waits this long after the last change (pinch zoom changes it every frame). */
+private const val SAVE_ZOOM_DELAY_MS = 500L
+
+/** How long the focus ring stays after a tap before it fades out. */
+private const val FOCUS_RING_MS = 700L
+
+/**
+ * Zoom presets of the bound camera for a custom [CameraPreview] zoom bar: [ratio] is the camera's
+ * current zoom (CameraX `ZoomState`, also after a pinch), [selected] the preset whose range it is in
+ * ([activePreset]); [onSelect] jumps to a preset.
+ */
+class ZoomControls(val presets: List<Float>, val selected: Float?, val ratio: Float, val onSelect: (Float) -> Unit)
+
+/** Torch of the bound camera (only offered with a flash unit): [on] is CameraX's `torchState`. */
+class TorchControls(val on: Boolean, val onChange: (Boolean) -> Unit)
+
+/** A tap on the preview (focus ring position); [seq] restarts the ring on every tap. */
+@Immutable
+private data class FocusTap(val position: Offset, val seq: Int)
 
 /**
  * Full-screen back-camera preview running the card detector on every analysis frame, with boxes
@@ -83,8 +119,10 @@ class ZoomControls(val presets: List<Float>, val selected: Float, val onSelect: 
  * [zoomControls] the default zoom buttons (only called when there is more than one preset);
  * with [onZoomControls] the preview draws no zoom buttons and hands the controls (`null` with
  * fewer than two presets) to the caller, which draws them outside the preview.
- * [torchOn] switches the torch (CameraX `enableTorch`); [onFlashUnit] reports whether the bound
- * camera has a flash unit at all (hide the toggle otherwise).
+ * [onTorchControls] gets the torch state read from the camera (`null` without a flash unit), so a
+ * toggle stays right when the system turns the torch off (app in the background, overheating).
+ * The torch starts off. A tap on the preview focuses and meters there (with a short focus ring);
+ * pinch zooms (presets follow the camera's zoom). The screen stays on while the preview is shown.
  *
  * Preview and analysis are both 4:3 with the same field of view; the preview is shown
  * FILL_CENTER-cropped ([ContentScale.Crop]), and [DetectionOverlay] maps the normalized analysis
@@ -97,8 +135,7 @@ fun CameraPreview(
     analyzer: DetectionAnalyzer? = null,
     overlay: (@Composable BoxScope.(FrameStats) -> Unit)? = null,
     zoomControls: (@Composable BoxScope.(ZoomControls) -> Unit)? = null,
-    torchOn: Boolean = false,
-    onFlashUnit: (Boolean) -> Unit = {},
+    onTorchControls: ((TorchControls?) -> Unit)? = null,
     onZoomControls: ((ZoomControls?) -> Unit)? = null,
 ) {
     val context = LocalContext.current
@@ -151,41 +188,91 @@ fun CameraPreview(
         }
     }
 
-    // Torch (scan camera header toggle): only on cameras with a flash unit.
-    val flashCallback by rememberUpdatedState(onFlashUnit)
-    LaunchedEffect(camera, torchOn) {
-        val cam = camera ?: return@LaunchedEffect
-        val hasFlash = cam.cameraInfo.hasFlashUnit()
-        flashCallback(hasFlash)
-        if (hasFlash) cam.cameraControl.enableTorch(torchOn)
-    }
-
+    // Camera state read back from CameraX (LiveData, observed while the screen is started):
+    // zoom, torch, and every (re)open of the camera (after the app was in the background).
     var zoomState by remember { mutableStateOf<ZoomState?>(null) }
+    var torchOn by remember { mutableStateOf(false) }
+    var opened by remember { mutableIntStateOf(0) }
     DisposableEffect(camera, lifecycleOwner) {
-        val live = camera?.cameraInfo?.zoomState
-        live?.observe(lifecycleOwner) {
+        val info = camera?.cameraInfo ?: return@DisposableEffect onDispose {}
+        val zoomObserver = Observer<ZoomState> {
             zoomState = it
             frameAnalyzer.zoomRatio = it.zoomRatio
         }
-        onDispose { live?.removeObservers(lifecycleOwner) }
+        val torchObserver = Observer<Int> { torchOn = it == TorchState.ON }
+        val stateObserver = Observer<CameraState> { if (it.type == CameraState.Type.OPEN) opened++ }
+        info.zoomState.observe(lifecycleOwner, zoomObserver)
+        info.torchState.observe(lifecycleOwner, torchObserver)
+        info.cameraState.observe(lifecycleOwner, stateObserver)
+        onDispose {
+            info.zoomState.removeObserver(zoomObserver)
+            info.torchState.removeObserver(torchObserver)
+            info.cameraState.removeObserver(stateObserver)
+        }
     }
-    val presets = zoomState?.let { zoomPresets(it.minZoomRatio, it.maxZoomRatio) }.orEmpty()
-    val zoomCallback by rememberUpdatedState(onZoomControls)
-    LaunchedEffect(zoom, presets) {
-        zoomCallback?.invoke(if (presets.size > 1) ZoomControls(presets, zoom) { zoom = it } else null)
-    }
-    LaunchedEffect(camera, zoom, presets) {
+
+    // Torch: off by default (CameraX turns it off whenever the camera closes); the toggle only
+    // asks CameraX, the shown state comes back through torchState.
+    val torchCallback by rememberUpdatedState(onTorchControls)
+    LaunchedEffect(camera, torchOn) {
         val cam = camera ?: return@LaunchedEffect
-        if (presets.isNotEmpty()) cam.cameraControl.setZoomRatio(zoom.coerceIn(presets.first(), presets.last()))
+        val controls = if (cam.cameraInfo.hasFlashUnit()) TorchControls(torchOn) { cam.cameraControl.enableTorch(it) } else null
+        torchCallback?.invoke(controls)
+    }
+
+    val minZoom = zoomState?.minZoomRatio
+    val maxZoom = zoomState?.maxZoomRatio
+    val presets = if (minZoom != null && maxZoom != null) zoomPresets(minZoom, maxZoom) else emptyList()
+    val shownZoom = zoomState?.zoomRatio ?: zoom
+    val selectZoom = { preset: Float -> zoom = preset }
+    val zoomBar = ZoomControls(presets, activePreset(presets, shownZoom), shownZoom, selectZoom)
+    val zoomCallback by rememberUpdatedState(onZoomControls)
+    LaunchedEffect(presets, zoomBar.selected, shownZoom) {
+        zoomCallback?.invoke(if (presets.size > 1) zoomBar else null)
+    }
+    // Applied again on every camera open: CameraX resets the zoom when the camera closes.
+    LaunchedEffect(camera, zoom, minZoom, maxZoom, opened) {
+        val cam = camera ?: return@LaunchedEffect
+        if (minZoom != null && maxZoom != null) cam.cameraControl.setZoomRatio(zoom.coerceIn(minZoom, maxZoom))
+    }
+    LaunchedEffect(zoom) {
+        delay(SAVE_ZOOM_DELAY_MS)
         prefs.edit { putFloat(PREF_ZOOM, zoom) }
     }
 
-    // keepScreenOn: the screen stays on while the preview is visible (reference-counted per window).
+    // Pinch zoom on the preview, from the requested zoom (ZoomState lags a frame behind).
+    val pinch = rememberTransformableState { factor, _, _ ->
+        val lo = minZoom ?: return@rememberTransformableState
+        val hi = maxZoom ?: return@rememberTransformableState
+        zoom = pinchZoom(zoom, factor, lo, hi)
+    }
+    val transformer = remember { MutableCoordinateTransformer() }
+    var focusTap by remember { mutableStateOf<FocusTap?>(null) }
+
+    // Screen stays on while the preview is visible (reference-counted per window).
     Box(modifier = modifier.keepScreenOn().background(Color.Black)) {
         surfaceRequest?.let { request ->
+            val cam = camera
             CameraXViewfinder(
                 surfaceRequest = request,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (minZoom != null) Modifier.transformable(pinch, canPan = { false }) else Modifier)
+                    .pointerInput(request, cam) {
+                        if (cam == null) return@pointerInput
+                        // Tap to focus: viewfinder → surface coordinates → metering point on that surface.
+                        val factory = SurfaceOrientedMeteringPointFactory(
+                            request.resolution.width.toFloat(),
+                            request.resolution.height.toFloat(),
+                        )
+                        detectTapGestures { tap ->
+                            val surface = with(transformer) { tap.transform() }
+                            val action = FocusMeteringAction.Builder(factory.createPoint(surface.x, surface.y)).build()
+                            cam.cameraControl.startFocusAndMetering(action)
+                            focusTap = FocusTap(tap, (focusTap?.seq ?: 0) + 1)
+                        }
+                    },
+                coordinateTransformer = transformer,
                 contentScale = ContentScale.Crop,
             )
         }
@@ -202,6 +289,7 @@ fun CameraPreview(
                 )
             }
         }
+        focusTap?.let { FocusRing(it) }
         val info = error?.let { "Camera error: $it" }
             ?: stats?.let { s ->
                 val frame = "%d×%d · rot %d°".format(Locale.ROOT, s.width, s.height, s.rotationDegrees)
@@ -215,7 +303,7 @@ fun CameraPreview(
         // With onZoomControls the caller draws them outside the preview (scan camera bottom bar).
         val ownZoom = onZoomControls == null && presets.size > 1
         if (ownZoom && zoomControls != null) {
-            zoomControls(ZoomControls(presets, zoom) { zoom = it })
+            zoomControls(zoomBar)
         } else if (ownZoom) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -226,10 +314,10 @@ fun CameraPreview(
             ) {
                 for (preset in presets) {
                     val label = formatZoom(preset)
-                    if (preset == zoom) {
+                    if (preset == zoomBar.selected) {
                         Button(onClick = {}) { Text(label) }
                     } else {
-                        FilledTonalButton(onClick = { zoom = preset }) { Text(label) }
+                        FilledTonalButton(onClick = { selectZoom(preset) }) { Text(label) }
                     }
                 }
             }
@@ -259,3 +347,35 @@ internal fun zoomPresets(min: Float, max: Float): List<Float> =
 
 internal fun formatZoom(ratio: Float): String =
     if (ratio % 1f == 0f) "%.0f×".format(Locale.ROOT, ratio) else "%.1f×".format(Locale.ROOT, ratio)
+
+/** Small focus ring at a tap (scan box look: cyan on a white outline), shrinking in and fading out. */
+@Composable
+private fun FocusRing(tap: FocusTap) {
+    val colors = Scan7Theme.colors
+    val scale = remember(tap) { Animatable(1.3f) }
+    val alpha = remember(tap) { Animatable(1f) }
+    LaunchedEffect(tap) { scale.animateTo(1f, tween(200)) }
+    LaunchedEffect(tap) {
+        delay(FOCUS_RING_MS)
+        alpha.animateTo(0f, tween(250))
+    }
+    Canvas(Modifier.fillMaxSize()) {
+        val radius = 28.dp.toPx() * scale.value
+        drawCircle(colors.scanBoxOutline, radius, tap.position, alpha.value, Stroke(width = 4.dp.toPx()))
+        drawCircle(colors.scanBox, radius, tap.position, alpha.value, Stroke(width = 2.dp.toPx()))
+    }
+}
+
+/** Pinch: [current] zoom times the gesture's [factor], kept in the camera's range [min]..[max]. */
+internal fun pinchZoom(current: Float, factor: Float, min: Float, max: Float): Float =
+    (current * factor).coerceIn(min, max)
+
+/**
+ * The preset whose range [ratio] is in: the largest preset at or below it (with a little slack for
+ * float noise), or the smallest one when [ratio] is below all of them; `null` without presets.
+ */
+internal fun activePreset(presets: List<Float>, ratio: Float): Float? =
+    presets.lastOrNull { it <= ratio + 0.01f } ?: presets.firstOrNull()
+
+/** Label of the selected zoom pill: the current ratio to one decimal ("1.6×", "2×"). */
+internal fun zoomLabel(ratio: Float): String = formatZoom((ratio * 10f).roundToInt() / 10f)
