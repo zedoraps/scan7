@@ -47,6 +47,8 @@ import net.moesli.scan7.data.outlivingUi
 import net.moesli.scan7.game.PALETTE_SIZE
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.ui.components.BottomSheetPanel
+import net.moesli.scan7.ui.components.Confirmations
+import net.moesli.scan7.ui.components.Scan7ConfirmDialog
 import net.moesli.scan7.ui.components.PlayerToken
 import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.Scan7BottomSheet
@@ -92,7 +94,8 @@ private val PreviewToken = TokenSize(36.dp, 48.dp, 17.sp)
 /**
  * Player editor (2a) as a bottom sheet: name, color from the 10-color palette (colors other
  * stored players use are labelled with their names; still selectable, since colors only have to
- * be unique within a game), Save, and Delete for existing players (asks once more inline).
+ * be unique within a game), Save, and Delete for existing players (asks in a [Scan7ConfirmDialog];
+ * on confirm the host deletes, then slides the sheet down).
  *
  * Stateless apart from the text/color being edited; [onSave] gets the trimmed name and color.
  */
@@ -108,12 +111,25 @@ fun PlayerEditorSheet(
     busy: Boolean = false,
     sheetState: Scan7SheetState = rememberScan7SheetState(),
 ) {
+    // Delete asks in a centred Scan7ConfirmDialog over the sheet; the sheet's layout never changes.
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
     Scan7BottomSheet(onDismiss = onDismiss, modifier = modifier, state = sheetState) {
-        PlayerEditorContent(target, players, onSave, onDelete, error, busy)
+        PlayerEditorContent(target, players, onSave, onDelete?.let { { confirmDelete = true } }, error, busy)
+    }
+    val editing = (target as? EditorTarget.Edit)?.player
+    if (confirmDelete && onDelete != null && editing != null) {
+        Scan7ConfirmDialog(
+            Confirmations.deletePlayer(editing.name),
+            onConfirm = {
+                confirmDelete = false
+                onDelete()
+            },
+            onCancel = { confirmDelete = false },
+        )
     }
 }
 
-/** Content of [PlayerEditorSheet] (for previews and embedding). */
+/** Content of [PlayerEditorSheet] (previews, embedding); [onDelete] is the Delete tap (the sheet confirms). */
 @Composable
 fun PlayerEditorContent(
     target: EditorTarget,
@@ -127,7 +143,6 @@ fun PlayerEditorContent(
     val editing = (target as? EditorTarget.Edit)?.player
     var name by rememberSaveable { mutableStateOf(editing?.name ?: "") }
     var colorIndex by rememberSaveable { mutableIntStateOf(editing?.colorIndex ?: suggestedColor(players)) }
-    var confirmDelete by remember { mutableStateOf(false) }
     var nameMissing by rememberSaveable { mutableStateOf(false) }
     val owners = remember(players, editing) { colorOwners(players, editing?.id) }
     val canSave = name.isNotBlank() && !busy
@@ -179,23 +194,11 @@ fun PlayerEditorContent(
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
-        if (confirmDelete && onDelete != null) {
-            Text(
-                "Delete ${editing?.name ?: "player"}? Past games keep showing them.",
-                color = colors.text,
-                style = Scan7Type.text13,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
-                SecondaryButton("Cancel", { confirmDelete = false }, Modifier.weight(1f), height = 56.dp)
-                PrimaryButton("Delete", onDelete, Modifier.weight(1f), height = 56.dp, enabled = !busy)
+        Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
+            if (onDelete != null) {
+                SecondaryButton("Delete", onDelete, Modifier.width(112.dp), height = 56.dp, enabled = !busy)
             }
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
-                if (onDelete != null) {
-                    SecondaryButton("Delete", { confirmDelete = true }, Modifier.width(112.dp), height = 56.dp)
-                }
-                PrimaryButton("Save", { onSave(name.trim(), colorIndex) }, Modifier.weight(1f), height = 56.dp, enabled = canSave)
-            }
+            PrimaryButton("Save", { onSave(name.trim(), colorIndex) }, Modifier.weight(1f), height = 56.dp, enabled = canSave)
         }
     }
 }

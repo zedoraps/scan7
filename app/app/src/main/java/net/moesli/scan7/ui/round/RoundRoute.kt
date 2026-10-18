@@ -2,11 +2,8 @@ package net.moesli.scan7.ui.round
 
 import android.util.Log
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -28,21 +25,19 @@ import kotlinx.coroutines.launch
 import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.data.GameSnapshot
+import net.moesli.scan7.game.ScanDirection
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.ui.components.RoundView
 import net.moesli.scan7.ui.components.Scan7BottomSheet
-import net.moesli.scan7.ui.components.SecondaryButton
-import net.moesli.scan7.ui.components.SectionLabel
+import net.moesli.scan7.ui.components.Confirmations
+import net.moesli.scan7.ui.components.Scan7ConfirmDialog
 import net.moesli.scan7.ui.nav.ScanStart
 import net.moesli.scan7.ui.players.playerUis
 import net.moesli.scan7.ui.sheet.AdjustActions
 import net.moesli.scan7.ui.sheet.CloseRoundDialog
-import net.moesli.scan7.ui.sheet.EndGameDialog
 import net.moesli.scan7.ui.sheet.PlayerSheet
 import net.moesli.scan7.ui.sheet.PlayerSheetUi
-import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
-import net.moesli.scan7.ui.theme.Scan7Type
 
 private const val TAG = "RoundRoute"
 
@@ -221,10 +216,10 @@ class RoundController(
         }
     }
 
-    /** Round menu: toggles the "Scan next" direction (app setting). */
-    fun onToggleScanDirection() {
-        val current = snapshot?.state?.scanDirection ?: return
-        run("scan direction") { setScanDirection(current.toggled()) }
+    /** Round menu: the "Scan next" direction (app setting). */
+    fun onScanDirection(direction: ScanDirection) {
+        if (snapshot?.state?.scanDirection == direction) return
+        run("scan direction") { setScanDirection(direction) }
     }
 
     override fun onMenu() {
@@ -339,63 +334,28 @@ fun RoundRoute(
         CloseRoundDialog(
             round = snap.state.currentRound.number,
             openPlayers = snap.state.openPlayers().mapNotNull { uis[it] },
-            nobodyScored = snap.state.openPlayers().size == snap.state.playerIds.size,
+            playerCount = snap.state.playerIds.size,
             onCancel = { flags.confirmClose = false },
             onConfirm = controller::closeRound,
         )
     }
     if (flags.confirmEnd) {
-        EndGameDialog(onCancel = { flags.confirmEnd = false }, onConfirm = controller::endGame)
+        Scan7ConfirmDialog(Confirmations.endGame(), onConfirm = controller::endGame, onCancel = { flags.confirmEnd = false })
     }
     if (flags.menu) {
         val close = { flags.menu = false }
         // Items that leave the menu slide it down first (hideThen runs the item, then `close`).
         Scan7BottomSheet(onDismiss = close) { sheet ->
-            Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
-                SectionLabel("Round ${snap.state.currentRound.number} · to ${snap.state.target}")
-                SecondaryButton(
-                    "Arrange seats",
-                    { sheet.hideThen(controller::onEnterArrange) },
-                    Modifier.fillMaxWidth(),
-                    height = Scan7Spacing.minTouch,
-                    textStyle = Scan7Type.text13,
-                )
-                SecondaryButton(
-                    "Scoreboard",
-                    { sheet.hideThen(navigator::scoreboard) },
-                    Modifier.fillMaxWidth(),
-                    height = Scan7Spacing.minTouch,
-                    textStyle = Scan7Type.text13,
-                )
-                // Toggle item showing the current direction; only decides who "Scan next" is.
-                val direction = snap.state.scanDirection
-                SecondaryButton(
-                    "Scan direction: " + direction.label(),
-                    controller::onToggleScanDirection,
-                    Modifier.fillMaxWidth(),
-                    height = Scan7Spacing.minTouch,
-                    textStyle = Scan7Type.text13,
-                    contentDescription = "Scan direction: ${direction.spoken()}. Switch to ${direction.toggled().spoken()}",
-                )
-                if (!snap.state.isOver) {
-                    SecondaryButton(
-                        "End game",
-                        { sheet.hideThen(controller::onEndGame) },
-                        Modifier.fillMaxWidth(),
-                        height = Scan7Spacing.minTouch,
-                        textStyle = Scan7Type.text13,
-                        contentDescription = "End game now (the leader wins)",
-                    )
-                }
-                SecondaryButton(
-                    "Home",
-                    { sheet.hideThen(navigator::home) },
-                    Modifier.fillMaxWidth(),
-                    height = Scan7Spacing.minTouch,
-                    textStyle = Scan7Type.text13,
-                    contentDescription = "Home (the game stays resumable)",
-                )
-            }
+            RoundMenuContent(
+                round = snap.state.currentRound.number,
+                target = snap.state.target,
+                direction = snap.state.scanDirection,
+                onArrange = { sheet.hideThen(controller::onEnterArrange) },
+                onScoreboard = { sheet.hideThen(navigator::scoreboard) },
+                onDirection = controller::onScanDirection,
+                onEndGame = if (snap.state.isOver) null else ({ sheet.hideThen(controller::onEndGame) }),
+                onHome = { sheet.hideThen(navigator::home) },
+            )
         }
     }
 }

@@ -119,6 +119,39 @@ fun SecondaryButton(
     }
 }
 
+/**
+ * Warning (destructive) button, e.g. "Delete" in a confirm dialog: transparent with a 1.5 dp
+ * outline, a warning triangle and the label, all in `Scan7Theme.colors.warning` (the text colour).
+ * Deliberately neither cyan (primary / safe) nor bust magenta (bust only), and red-free.
+ */
+@Composable
+fun WarningButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    height: Dp = Scan7Spacing.bottomButtonsHeight,
+    cornerRadius: Dp = Scan7Radii.button,
+    textStyle: TextStyle = Scan7Type.button,
+) {
+    val colors = Scan7Theme.colors
+    val shape = RoundedCornerShape(cornerRadius)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .heightIn(min = height)
+            .alpha(if (enabled) 1f else DISABLED_ALPHA)
+            .clip(shape)
+            .border(1.5.dp, colors.warning, shape)
+            .scan7Clickable(onClick, enabled)
+            .padding(horizontal = Scan7Spacing.m),
+    ) {
+        WarningIcon(colors.warning, size = 18.dp)
+        Text(text, color = colors.warning, style = textStyle, textAlign = TextAlign.Center, maxLines = 1)
+    }
+}
+
 /** Square icon button on `surface` (48 dp, radius 12), e.g. Arrange and Menu in the header. */
 @Composable
 fun IconButton(

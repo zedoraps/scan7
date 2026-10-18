@@ -23,7 +23,7 @@ Shown during the whole round: all players in seating order, each with
 
 Header: round number and current leader. Bottom: **Close round**.
 
-Views: **Table** (cards placed freely around the screen, arranged by long-press/drag, or **Arrange seats** as the first item of the round menu ⋮; the header is logo · Table|List · ⋮) and **List** (rows in seating order); seating order is shared. Default Table for ≤ 6 players, List for 7+; choice remembered. Card positions are saved per game.
+Views: **Table** (cards placed freely around the screen, arranged by long-press/drag, or **Arrange seats** as the first item of the round menu ⋮; the header is logo · Table|List · ⋮) and **List** (rows in seating order); seating order is shared. Default Table for ≤ 6 players, List for 7+; choice remembered. Card positions are saved per game. The round menu is a bottom sheet with an M3 list (`ListItem` rows with icons): Arrange seats, Scoreboard, **Scan direction** (M3 segmented buttons ↻ Clockwise | ↺ Counter, the sheet stays open), End game (warning style), Home.
 
 Open cards have in-card **Scan** and **Bust** buttons: Bust marks the player busted immediately, with an "Undo" toast. Tap an open card → sheet with **Scan**, **Enter manually**, **Bust**. Tap a done card → its result with **Edit**, **Rescan**, **Reset to open**. Compact cards (7–10 players): name on one line, total below; **double-tap** an open card to scan (TalkBack action "Scan <name>").
 
@@ -52,7 +52,7 @@ Used for **Enter manually**, **Fix** (prefilled with the scanned cards) and **Ed
 - Live score breakdown at the bottom, **Save**.
 
 ## Close round
-1. Confirmation: "X and Y haven't been scored. They'll be marked BUST." → every open player becomes busted (0 points). If nobody has been scored at all: "Nobody has been scored yet – mark everyone BUST?" (likely an accident).
+1. Confirmation (only while someone is open): "X and Y haven't been scored. They'll be marked BUST." → every open player becomes busted (0 points). If nobody has been scored at all: "Nobody has been scored yet – mark everyone BUST?" (likely an accident; destructive style).
 2. The round is closed and the next one starts at once (one transaction); a snackbar "Round N closed" with **Scoreboard** shows for ~4 s (no overlay).
 3. If at least one player has reached the target (≥ 200) **after the full round is scored**, the game ends: the player with the most points wins (exact tie → shared win). Reaching 200 mid-round never ends the round early.
 4. Otherwise → next round, all players `open` (with the snackbar of step 2).
@@ -69,7 +69,21 @@ Player sheet (any state, also on the end-of-round view) → **Adjust total**: a 
 - Game over is unchanged: only checked once the round is closed (an adjustment mid-round never ends the game; on the end-of-round view totals are re-checked like any edit).
 
 ## End game early
-Round menu (⋮) → **End game** → confirm → the current round is closed as it is (open players BUST) → Game over; the current leader(s) win (tie → shared win).
+Round menu (⋮) → **End game** → confirm (see Confirmations) → the current round is closed as it is (open players BUST) → Game over; the current leader(s) win (tie → shared win).
+
+## Confirmations
+One pattern for every confirmation: `Scan7ConfirmDialog` (ui/components, on `Scan7Dialog` = M3 `BasicAlertDialog`), centred over a dim scrim, **never inline in a sheet** (the sheet underneath keeps its layout). Title "Delete Anna?", optional one-line body, fixed row **[Cancel] [Action]** (1 : 1.4). Back / scrim tap = Cancel. TalkBack: pane title = title, focus starts on the title. Confirm ignores taps for the first 400 ms (`CONFIRM_ARM_DELAY_MS`, longer than the 300 ms double-tap timeout), so the second tap of a double tap can't confirm; no press-and-hold (slow, hidden, awkward with TalkBack). Destructive actions use the **warning button** (outline + ⚠ in the text colour, never cyan, never bust magenta); safe ones the cyan primary. "BUST" in a body is always magenta. Texts and "when" live in `Confirmations` (JVM-tested).
+
+| Where | When it asks | Title · action | Style |
+|---|---|---|---|
+| Player editor → Delete | always | "Delete Anna?" · Delete → sheet slides down → list | destructive |
+| Player sheet → Reset to open | player is scored or bust | "Reset Anna to open?" · Reset (body: removes +46 / the BUST) | destructive |
+| Round → Close round | someone is open (nobody open: closes at once) | "Close round N?" + chips + "… marked BUST." · Close round | primary |
+| Close round, nobody scored | all players open | "Nobody has been scored yet – mark everyone BUST?" · Close round | destructive |
+| Round menu → End game | always | "End the game now?" · End game | destructive |
+| Seating → Start game | a game is unfinished | "Start a new game?" · Start (the unfinished game ends) | destructive |
+
+No confirmation, Undo instead: Bust (in-card, sheet, camera: Undo toast / overlay) and removing a total adjustment in the player sheet (inline "Removed +5 · Undo").
 
 ## Debug menu
 Hidden in every build: tap the Scan7 wordmark on Home 5 times (a toast counts down after the 3rd tap; TalkBack action "Open debug menu"). "Save scans for training" lives there and is ON by default.
