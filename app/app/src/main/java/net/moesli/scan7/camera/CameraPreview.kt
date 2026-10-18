@@ -235,6 +235,10 @@ fun CameraPreview(
     LaunchedEffect(presets, zoomBar.selected, shownZoom) {
         zoomCallback?.invoke(if (presets.size > 1) zoomBar else null)
     }
+    // A remembered zoom this camera can't do (other phone / lens): back to 1×.
+    LaunchedEffect(minZoom, maxZoom) {
+        if (minZoom != null && maxZoom != null) zoom = supportedZoom(zoom, minZoom, maxZoom)
+    }
     // Applied again on every camera open: CameraX resets the zoom when the camera closes.
     LaunchedEffect(camera, zoom, minZoom, maxZoom, opened) {
         val cam = camera ?: return@LaunchedEffect
@@ -343,12 +347,30 @@ fun CameraPreview(
     }
 }
 
+/** Below this max zoom the camera gets no pills at all (pinch still works). */
+internal const val MIN_ZOOM_FOR_PILLS = 1.5f
+
+/** A min zoom at or below this is an ultra-wide lens: it gets its own pill (e.g. "0.5×"). */
+internal const val ULTRA_WIDE_MAX = 0.6f
+
 /**
- * Zoom presets offered for a camera with zoom range [min]..[max]: the widest lens (if below 1×),
- * 1×, 2× and 5× where supported. On logical multi-cameras these switch the physical lens.
+ * Zoom presets offered for a camera with zoom range [min]..[max] (CameraX `ZoomState`): the
+ * ultra-wide (when [min] ≤ [ULTRA_WIDE_MAX]), 1×, 2× and 5×, each only if the camera supports it;
+ * none when [max] < [MIN_ZOOM_FOR_PILLS] (a single pill is hidden by the caller too). On logical
+ * multi-cameras these switch the physical lens.
  */
-internal fun zoomPresets(min: Float, max: Float): List<Float> =
-    (listOf(min) + listOf(1f, 2f, 5f)).filter { it in min..max }.distinct().sorted()
+internal fun zoomPresets(min: Float, max: Float): List<Float> {
+    if (max < MIN_ZOOM_FOR_PILLS) return emptyList()
+    val wide = listOfNotNull(min.takeIf { it <= ULTRA_WIDE_MAX })
+    return (wide + listOf(1f, 2f, 5f)).filter { it in min..max }.distinct().sorted()
+}
+
+/**
+ * The zoom to request on a camera with range [min]..[max]: [zoom] if supported, else 1× (kept in
+ * range), e.g. a remembered 5× after switching to a phone / camera without telephoto.
+ */
+internal fun supportedZoom(zoom: Float, min: Float, max: Float): Float =
+    if (zoom in min..max) zoom else 1f.coerceIn(min, max)
 
 internal fun formatZoom(ratio: Float): String =
     if (ratio % 1f == 0f) "%.0f×".format(Locale.ROOT, ratio) else "%.1f×".format(Locale.ROOT, ratio)

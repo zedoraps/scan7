@@ -79,7 +79,7 @@ class ScanNextBustTest {
         assertNull(next(1).afterSave(s, AfterScan.TABLE))
     }
 
-    // ---- Split OK: "OK · Next: Ben" / "OK · back to table" ------------------------------------
+    // ---- Split OK: "OK · Next: Ben" / "OK · Back to table" ------------------------------------
 
     @Test
     fun okNext_continuesWithTheNextOpenPlayer_fromEveryStart() {
@@ -100,7 +100,7 @@ class ScanNextBustTest {
     @Test
     fun okNext_withNobodyElseOpen_returnsToTheRound() {
         val s = start.scan(2, now = 1).scan(3, now = 2)
-        // Before the save there is no next player (the button just says "✓ OK") ...
+        // Before the save there is no next player (the button just says "OK") ...
         assertNull(Route.Scan(game, 1, ScanStart.CAMERA).nextPlayer(s))
         // ... and after it the route goes back to the table.
         assertNull(Route.Scan(game, 1, ScanStart.CAMERA).afterSave(s.scan(1, now = 3), AfterScan.NEXT))

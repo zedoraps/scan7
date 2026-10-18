@@ -23,6 +23,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -201,8 +202,15 @@ fun IconButton(
 }
 
 /**
+ * Entry mode Type (round menu "Entry"): the scan buttons open the manual entry, so they show the
+ * keypad / "Enter next" instead of the scan icon / "Scan next". Provided by the round screen.
+ */
+val LocalTypeEntry = compositionLocalOf { false }
+
+/**
  * In-card / in-row Scan + Bust pair: two equal columns, 6 dp apart. Scan is cyan with the scan
- * icon, Bust is a magenta outline with the word "BUST". Labelled "Scan Mia" / "Mark Mia as bust".
+ * icon (keypad in Type mode, [LocalTypeEntry]), Bust is a magenta outline with the word "BUST".
+ * Labelled "Scan Mia" ("Enter cards for Mia") / "Mark Mia as bust".
  */
 @Composable
 fun ScanBustActions(
@@ -215,7 +223,8 @@ fun ScanBustActions(
 ) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(cornerRadius)
-    val scanLabel = stringResource(R.string.action_scan_player, playerName)
+    val type = LocalTypeEntry.current
+    val scanLabel = stringResource(if (type) R.string.action_enter_player else R.string.action_scan_player, playerName)
     val bustLabel = stringResource(R.string.action_bust_player, playerName)
     // Touch areas reach 48 dp where the card allows: half the gap sideways (the two never overlap),
     // up to 48 dp tall (cut at the card edge by its clip). The press dim stays on the visible button.
@@ -238,7 +247,7 @@ fun ScanBustActions(
                 .background(colors.accent)
                 .indication(scanSource, PressDim),
         ) {
-            ScanIcon(colors.onAccent)
+            if (type) KeypadIcon(colors.onAccent) else ScanIcon(colors.onAccent)
         }
         Box(
             contentAlignment = Alignment.Center,
@@ -270,7 +279,8 @@ fun ScanNextButton(
 ) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.button)
-    val label = stringResource(R.string.action_scan_next_player, next.name)
+    val type = LocalTypeEntry.current
+    val label = stringResource(if (type) R.string.action_enter_next_player else R.string.action_scan_next_player, next.name)
     Row(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -292,7 +302,7 @@ fun ScanNextButton(
                 .weight(1f, fill = false)
                 .padding(end = Scan7Spacing.s),
         ) {
-            Text(stringResource(R.string.label_scan_next), color = colors.onAccent, style = Scan7Type.capsButton, maxLines = 1)
+            Text(stringResource(if (type) R.string.label_enter_next else R.string.label_scan_next), color = colors.onAccent, style = Scan7Type.capsButton, maxLines = 1)
             Text(next.name, color = colors.onAccent, style = Scan7Type.buttonName, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         AvatarBadge(next)

@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -28,10 +29,13 @@ import net.moesli.scan7.data.GameSnapshot
 import net.moesli.scan7.data.outlivingUi
 import net.moesli.scan7.game.ScanDirection
 import net.moesli.scan7.game.TablePosition
+import net.moesli.scan7.ui.components.LocalTypeEntry
 import net.moesli.scan7.ui.components.RoundView
 import net.moesli.scan7.ui.components.Scan7BottomSheet
 import net.moesli.scan7.ui.components.Confirmations
 import net.moesli.scan7.ui.components.Scan7ConfirmDialog
+import net.moesli.scan7.ui.nav.AfterScan
+import net.moesli.scan7.ui.nav.EntryMode
 import net.moesli.scan7.ui.nav.ScanStart
 import net.moesli.scan7.ui.players.playerUis
 import net.moesli.scan7.ui.sheet.AdjustActions
@@ -62,6 +66,7 @@ class RoundFlags(
     confirmClose: Boolean = false,
     menu: Boolean = false,
     confirmEnd: Boolean = false,
+    confirmTarget: Int? = null,
 ) {
     var arranging by mutableStateOf(arranging)
     var sheetPlayer by mutableStateOf(sheetPlayer)
@@ -71,10 +76,13 @@ class RoundFlags(
     /** "End game" confirmation (round menu). */
     var confirmEnd by mutableStateOf(confirmEnd)
 
+    /** "Lower the target to N?" confirmation (round menu; the new target), `null` = not asking. */
+    var confirmTarget by mutableStateOf(confirmTarget)
+
     companion object {
         val Saver = listSaver<RoundFlags, Any>(
             save = {
-                listOf(it.arranging, it.sheetPlayer ?: -1L, it.confirmClose, it.menu, it.confirmEnd)
+                listOf(it.arranging, it.sheetPlayer ?: -1L, it.confirmClose, it.menu, it.confirmEnd, it.confirmTarget ?: -1)
             },
             restore = {
                 RoundFlags(
@@ -83,6 +91,7 @@ class RoundFlags(
                     confirmClose = it[2] as Boolean,
                     menu = it[3] as Boolean,
                     confirmEnd = it[4] as Boolean,
+                    confirmTarget = (it[5] as Int).takeIf { t -> t > 0 },
                 )
             },
         )
@@ -100,11 +109,14 @@ class RoundController(
     private val scope: CoroutineScope,
     private val navigator: RoundNavigator,
     val flags: RoundFlags,
-    /** Shared toast: "<name> marked bust · Undo" (in-card Bust, the sheet's Bust), "Round N closed". */
+    /** Shared toast: "<name> marked bust · Undo" (in-card Bust, the sheet's Bust). */
     val toast: BustToastState,
 ) : RoundActions {
     /** Latest snapshot (set by the route on every composition; read only by the event handlers). */
     var snapshot: GameSnapshot? = null
+
+    /** Entry mode setting (set by the route like [snapshot]): Type turns every scan into manual entry. */
+    var entry: EntryMode = EntryMode.SCAN
 
     /**
      * Repository writes run via [outlivingUi]: leaving the screen (e.g. Scan next right after an
@@ -116,11 +128,8 @@ class RoundController(
         }
     }
 
-    /** A scan of the running round starts: a "Round N closed" toast goes away. */
-    private fun scanRunning(playerId: Long, start: ScanStart) {
-        if (toast.current is RoundClosedToast) toast.dismiss()
-        navigator.scan(playerId, start)
-    }
+    /** A scan of the running round starts (Type entry mode: the manual entry instead of the camera). */
+    private fun scanRunning(playerId: Long, start: ScanStart) = navigator.scan(playerId, entry.startFor(start))
 
     override fun onScan(playerId: String) = scanRunning(playerId.toLong(), ScanStart.CAMERA)
 
@@ -133,8 +142,6 @@ class RoundController(
         // Open card → scan / manual / bust; done card → its result.
         flags.sheetPlayer = playerId.toLong()
     }
-
-    override fun onScoreboard(round: Int) = navigator.scoreboard()
 
     override fun onHome() = navigator.home()
 
@@ -181,29 +188,30 @@ class RoundController(
     private var finishing = false
 
     /**
-     * Closes the running round and starts the next one (one transaction), then shows the
-     * "Round N closed · Scoreboard" toast, or Game over when someone reached the target.
+     * Closes the running round and starts the next one (one transaction), or Game over when
+     * someone reached the target. No toast: the new round's screen says enough.
      */
     private fun finishRound() {
         if (finishing) return
         finishing = true
         scope.launch {
             runCatching { outlivingUi { repository.closeRoundAndStartNext(gameId) } }
-                .onSuccess { s -> if (s.isOver) navigator.gameOver() else showResults(s.currentRound.number - 1) }
+                .onSuccess { s -> if (s.isOver) navigator.gameOver() else roundStarted() }
                 .onFailure { Log.w(TAG, "close round failed", it) }
             finishing = false
         }
     }
 
-    private fun showResults(round: Int) {
+    /** A new round runs: no sheet, and a bust toast of the closed round can't undo any more. */
+    private fun roundStarted() {
         flags.sheetPlayer = null
-        toast.showRoundClosed(round)
+        toast.dismiss()
     }
 
     /**
      * The stored game's running round is already closed (an older version's end-of-round step, or
      * a scoreboard edit took a finished game below the target again): Game over if it is over,
-     * else start the next round (with the "Round N closed" toast).
+     * else start the next round.
      */
     fun settleClosedRound() {
         val state = snapshot?.state ?: return
@@ -215,11 +223,37 @@ class RoundController(
         finishing = true
         scope.launch {
             runCatching { outlivingUi { repository.nextRound(gameId) } }
-                .onSuccess { s -> showResults(s.currentRound.number - 1) }
+                .onSuccess { roundStarted() }
                 .onFailure { Log.w(TAG, "next round failed", it) }
             finishing = false
         }
     }
+
+    /**
+     * Round menu: the game's target points. Lowering it to or below the leader's total asks first
+     * ("The game ends after this round", [crossesTarget]); otherwise it is stored at once.
+     */
+    fun onTarget(target: Int) {
+        val state = snapshot?.state ?: return
+        if (target == state.target) return
+        if (Confirmations.lowerTarget(target, crossesTarget(state, target)) != null) {
+            flags.confirmTarget = target
+        } else {
+            setTarget(target)
+        }
+    }
+
+    /** Stores [target] as the game's target (confirmed, or no confirmation needed). */
+    fun setTarget(target: Int) {
+        flags.confirmTarget = null
+        run("set target") { setTarget(gameId, target) }
+    }
+
+    /** Round menu: what a save does next (same setting as the review's split OK ▾). */
+    fun onAfterScan(choice: AfterScan) = run("after scan") { putSetting(AfterScan.SETTING_KEY, choice.name) }
+
+    /** Round menu: Scan | Type (app setting). */
+    fun onEntryMode(mode: EntryMode) = run("entry mode") { putSetting(EntryMode.SETTING_KEY, mode.name) }
 
     /** Round menu: the "Scan next" direction (app setting). */
     fun onScanDirection(direction: ScanDirection) {
@@ -291,11 +325,15 @@ fun RoundRoute(
     toast: BustToastState = rememberBustToastState(),
 ) {
     val snapshot by remember(gameId) { repository.observeGame(gameId) }.collectAsStateWithLifecycle(initialValue = null)
+    val afterScan by remember { repository.setting(AfterScan.SETTING_KEY) }.collectAsStateWithLifecycle(initialValue = null)
+    val entrySetting by remember { repository.setting(EntryMode.SETTING_KEY) }.collectAsStateWithLifecycle(initialValue = null)
+    val entry = EntryMode.fromSetting(entrySetting)
     val flags = rememberSaveable(saver = RoundFlags.Saver) { RoundFlags() }
     val scope = rememberCoroutineScope()
     val controller = remember(gameId, navigator) { RoundController(repository, gameId, scope, navigator, flags, toast) }
     val haptics = LocalHapticFeedback.current
     controller.snapshot = snapshot
+    controller.entry = entry
 
     val snap = snapshot
     if (snap == null) {
@@ -304,13 +342,17 @@ fun RoundRoute(
     }
     val roundClosed = snap.state.currentRound.isClosed
     LaunchedEffect(roundClosed) { if (roundClosed) controller.settleClosedRound() }
-    RoundScreen(
-        state = snap.toRoundUiState(flags.arranging),
-        actions = controller,
-        // The phone lies on the table during a game: keep the screen on.
-        modifier = modifier.keepScreenOn(),
-        toast = toast,
-    )
+    val typeEntry = entry == EntryMode.TYPE
+    // Type mode: the in-card / bottom scan buttons show the keypad / "Enter next".
+    CompositionLocalProvider(LocalTypeEntry provides typeEntry) {
+        RoundScreen(
+            state = snap.toRoundUiState(flags.arranging, typeEntry = typeEntry),
+            actions = controller,
+            // The phone lies on the table during a game: keep the screen on.
+            modifier = modifier.keepScreenOn(),
+            toast = toast,
+        )
+    }
 
     val uis = snap.state.playerIds.zip(snap.state.playerUis(snap.players)).toMap()
     flags.sheetPlayer?.let { id ->
@@ -332,6 +374,7 @@ fun RoundRoute(
                 onResetToOpen = if (closed) null else ({ controller.sheetAction(id, SheetAction.Reset) }),
                 onDismiss = { flags.sheetPlayer = null },
                 adjust = remember(id) { controller.adjustActions(id) },
+                typeEntry = entry == EntryMode.TYPE,
             )
         }
     }
@@ -344,6 +387,11 @@ fun RoundRoute(
             onConfirm = controller::closeRound,
         )
     }
+    flags.confirmTarget?.let { t ->
+        Confirmations.lowerTarget(t, reachesIt = true)?.let { spec ->
+            Scan7ConfirmDialog(spec, onConfirm = { controller.setTarget(t) }, onCancel = { flags.confirmTarget = null })
+        }
+    }
     if (flags.confirmEnd) {
         Scan7ConfirmDialog(Confirmations.endGame(), onConfirm = controller::endGame, onCancel = { flags.confirmEnd = false })
     }
@@ -352,14 +400,21 @@ fun RoundRoute(
         // Items that leave the menu slide it down first (hideThen runs the item, then `close`).
         Scan7BottomSheet(onDismiss = close) { sheet ->
             RoundMenuContent(
-                round = snap.state.currentRound.number,
-                target = snap.state.target,
-                direction = snap.state.scanDirection,
-                onArrange = { sheet.hideThen(controller::onEnterArrange) },
+                settings = RoundMenuSettings(
+                    // A finished game (end-of-round view) keeps its target: changing it would reopen / end it.
+                    target = snap.state.target.takeUnless { snap.state.isOver },
+                    direction = snap.state.scanDirection,
+                    afterScan = AfterScan.fromSetting(afterScan),
+                    entry = entry,
+                ),
                 onScoreboard = { sheet.hideThen(navigator::scoreboard) },
-                onDirection = controller::onScanDirection,
-                onEndGame = if (snap.state.isOver) null else ({ sheet.hideThen(controller::onEndGame) }),
+                onArrange = { sheet.hideThen(controller::onEnterArrange) },
                 onHome = { sheet.hideThen(navigator::home) },
+                onEndGame = if (snap.state.isOver) null else ({ sheet.hideThen(controller::onEndGame) }),
+                onTarget = controller::onTarget,
+                onDirection = controller::onScanDirection,
+                onAfterScan = controller::onAfterScan,
+                onEntry = controller::onEntryMode,
             )
         }
     }
