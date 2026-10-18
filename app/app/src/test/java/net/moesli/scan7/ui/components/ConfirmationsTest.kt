@@ -4,7 +4,11 @@ import net.moesli.scan7.ui.text.de
 import net.moesli.scan7.ui.text.en
 import androidx.compose.ui.graphics.Color
 import net.moesli.scan7.game.ScanDirection
+import net.moesli.scan7.ui.nav.AfterScan
+import net.moesli.scan7.ui.nav.EntryMode
+import net.moesli.scan7.ui.round.segmentLabel
 import net.moesli.scan7.ui.round.shortLabel
+import net.moesli.scan7.ui.round.spokenLabel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -26,13 +30,23 @@ class ConfirmationsTest {
     fun resetToOpenOnlyWhenThereIsAResult() {
         assertNull(Confirmations.resetToOpen("Ben", PlayerStatus.Open))
         val scored = Confirmations.resetToOpen("Ben", PlayerStatus.Scored(46))!!
-        assertEquals("Reset Ben to open?", scored.title.en)
+        assertEquals("Reset the last entry for Ben?", scored.title.en)
         assertEquals("Removes +46 from this round.", scored.body!!.en)
         assertEquals("Reset", scored.confirmLabel.en)
         assertTrue(scored.destructive)
         assertEquals("Removes 0 from this round.", Confirmations.resetToOpen("Ben", PlayerStatus.Scored(0))!!.body!!.en)
         assertEquals("Removes the BUST from this round.", Confirmations.resetToOpen("Ben", PlayerStatus.Bust)!!.body!!.en)
         assertEquals("Entfernt das RAUS aus dieser Runde.", Confirmations.resetToOpen("Ben", PlayerStatus.Bust)!!.body!!.de)
+    }
+
+    @Test
+    fun lowerTargetAsksOnlyWhenTheGameWouldEnd() {
+        assertNull(Confirmations.lowerTarget(150, reachesIt = false))
+        val spec = Confirmations.lowerTarget(150, reachesIt = true)!!
+        assertEquals("Lower the target to 150?", spec.title.en)
+        assertEquals("The game ends after this round.", spec.body!!.en)
+        assertEquals("Ziel auf 150 senken?", spec.title.de)
+        assertTrue(spec.destructive)
     }
 
     @Test
@@ -97,7 +111,17 @@ class ConfirmationsTest {
 
     @Test
     fun scanDirectionSegmentLabels() {
-        assertEquals("↻ Clockwise", ScanDirection.CLOCKWISE.shortLabel())
-        assertEquals("↺ Counter", ScanDirection.COUNTER_CLOCKWISE.shortLabel())
+        assertEquals("↻ Clockwise", ScanDirection.CLOCKWISE.shortLabel().en)
+        assertEquals("↺ Counter", ScanDirection.COUNTER_CLOCKWISE.shortLabel().en)
+        assertEquals("Scan clockwise", ScanDirection.CLOCKWISE.spokenLabel().en)
+    }
+
+    @Test
+    fun roundMenuSettingLabels() {
+        assertEquals(listOf("Next player", "Back to table"), AfterScan.entries.map { it.segmentLabel().en })
+        assertEquals(listOf("Nächster Spieler", "Zum Tisch"), AfterScan.entries.map { it.segmentLabel().de })
+        assertEquals(listOf("Scan", "Type"), EntryMode.entries.map { it.segmentLabel().en })
+        assertEquals(listOf("Scannen", "Tippen"), EntryMode.entries.map { it.segmentLabel().de })
+        assertEquals("Enter results by typing", EntryMode.TYPE.spokenLabel().en)
     }
 }

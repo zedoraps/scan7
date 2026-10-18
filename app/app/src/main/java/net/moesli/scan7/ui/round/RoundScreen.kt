@@ -213,7 +213,6 @@ fun RoundScreen(
         BustToastHost(
             toast = toast,
             onUndo = actions::onUndoBust,
-            onScoreboard = actions::onScoreboard,
             modifier = Modifier
                 .offset(y = m.toastTop)
                 .padding(horizontal = Scan7Spacing.screenMargin)

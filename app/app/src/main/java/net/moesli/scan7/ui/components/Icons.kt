@@ -58,6 +58,9 @@ private object Vectors {
     val crown by lazy { vector("Crown", "M3 18h18l-1.5-10-5 4L12 5l-2.5 7-5-4z", null) }
     val scan by lazy { vector("Scan", "M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3M4 12h16", 2.4f) }
     val list by lazy { vector("List", "M4 6h16M4 12h16M4 18h16", 2f) }
+    val keypad by lazy {
+        vector("Keypad", roundRect(3f, 6f, 18f, 12f, 1.5f) + "M7 10h0M10.5 10h0M14 10h0M17 10h0M8 14h8", 2.2f)
+    }
     val arrange by lazy {
         vector(
             "Arrange",
@@ -121,6 +124,10 @@ fun CrownIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 14.dp) = V
 /** Scan frame with a scan line (in-card / in-row Scan button). */
 @Composable
 fun ScanIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 18.dp) = VectorIcon(Vectors.scan, color, size, modifier)
+
+/** Keyboard (entry mode Type: the in-card button opens the manual entry). */
+@Composable
+fun KeypadIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 18.dp) = VectorIcon(Vectors.keypad, color, size, modifier)
 
 /** Three lines (list view). */
 @Composable

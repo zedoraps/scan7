@@ -70,7 +70,7 @@
     <!-- Confirmations -->
     <string name="confirm_delete_player_title">%1$s löschen?</string>
     <string name="confirm_delete_player_body">In alten Spielen bleibt der Name sichtbar.</string>
-    <string name="confirm_reset_title">%1$s auf offen setzen?</string>
+    <string name="confirm_reset_title">Letzten Eintrag von %1$s zurücksetzen?</string>
     <string name="confirm_reset_body_points">Entfernt %1$s aus dieser Runde.</string>
     <string name="confirm_reset_body_bust">Entfernt das RAUS aus dieser Runde.</string>
     <string name="confirm_close_round_title">Runde %1$d beenden?</string>
@@ -178,14 +178,13 @@
     <string name="newgame_min_players">Wähl mindestens %1$d Spieler.</string>
     <string name="newgame_max_players">Mehr als %1$d Spieler gehen nicht.</string>
     <string name="newgame_no_players">Noch keine Spieler. Leg alle am Tisch an – sie bleiben fürs nächste Mal gespeichert.</string>
-    <string name="newgame_skip_seats">Plätze überspringen</string>
     <string name="newgame_target">Ziel</string>
     <string name="newgame_target_description">Ziel, Punkte zum Sieg</string>
     <string name="newgame_target_lower">Ziel senken</string>
     <string name="newgame_target_raise">Ziel erhöhen</string>
     <string name="seats_title">Plätze</string>
-    <string name="seats_hint_table">Zieh alle an ihren Platz</string>
-    <string name="seats_hint_list">Zieh die Zeilen in Sitzreihenfolge</string>
+    <string name="seats_hint_table">Zieh alle an ihren Platz oder starte direkt</string>
+    <string name="seats_hint_list">Zieh die Zeilen in Sitzreihenfolge oder starte direkt</string>
     <string name="seats_start">Spiel starten</string>
     <string name="seats_error_start">Spielstart hat nicht geklappt</string>
 
@@ -233,8 +232,8 @@
     <string name="sheet_rescan">Neu scannen</string>
     <string name="sheet_edit_cards">Karten von %1$s bearbeiten</string>
     <string name="sheet_rescan_player">%1$s neu scannen</string>
-    <string name="sheet_reset">Auf offen setzen</string>
-    <string name="sheet_reset_description">%1$s auf nicht gewertet setzen</string>
+    <string name="sheet_reset">Letzten Eintrag zurücksetzen</string>
+    <string name="sheet_reset_description">Letzten Eintrag von %1$s zurücksetzen</string>
     <string name="sheet_card_ignored">%1$s · zählt nicht</string>
     <string name="sheet_card_ignored_description">%1$s, zählt nicht</string>
     <string name="sheet_card_duplicate_description">%1$s, doppelt</string>
@@ -265,8 +264,6 @@
 
     <!-- Toasts -->
     <string name="toast_bust">%1$s ist raus</string>
-    <string name="toast_round_closed">Runde %1$d beendet</string>
-    <string name="toast_open_scoreboard">Punktetabelle öffnen</string>
 
     <!-- Cards -->
     <string name="card_flip_three">Flip 3</string>
@@ -289,7 +286,7 @@
     <string name="review_back_to_camera">Zurück zur Kamera</string>
     <string name="review_fix">Ändern</string>
     <string name="review_confirm_bust">Raus bestätigen</string>
-    <string name="review_ok">✓ OK</string>
+    <string name="review_ok">OK</string>
     <string name="review_round_progress">Runde %1$d · %2$s</string>
     <string name="review_in_row">%1$s in der Reihe</string>
     <string name="review_round_points">Rundenpunkte</string>
@@ -320,8 +317,7 @@
     <string name="manual_count_state">%1$d ausgewählt, tippen nimmt eine weg</string>
     <string name="after_scan_title">NACH DEM SPEICHERN</string>
     <string name="after_scan_next">Weiter: %1$s</string>
-    <string name="after_scan_table">zurück zum Tisch</string>
-    <string name="after_scan_description">%1$s, dann %2$s</string>
+    <string name="after_scan_table">Zurück zum Tisch</string>
     <string name="after_scan_choose">Wählen, was nach „%1$s“ passiert</string>
     <string name="after_scan_label">%1$s · %2$s</string>
     <string name="bust_overlay_description">%1$s ist raus</string>
@@ -342,4 +338,32 @@
     <string name="about_third_party">Software von Dritten</string>
     <string name="about_show_license">Lizenz anzeigen</string>
     <string name="gameover_home">Übersicht</string>
+
+    <!-- Round menu (⋮): actions + settings -->
+    <string name="menu_settings">Einstellungen</string>
+    <string name="menu_target">Zielpunkte</string>
+    <string name="menu_target_description">Zielpunkte dieses Spiels</string>
+    <string name="menu_scan_direction">Scan-Richtung</string>
+    <string name="direction_clockwise_short">↻ Rechtsherum</string>
+    <string name="direction_counter_short">↺ Linksherum</string>
+    <string name="direction_clockwise_spoken">Im Uhrzeigersinn scannen</string>
+    <string name="direction_counter_spoken">Gegen den Uhrzeigersinn scannen</string>
+    <string name="menu_after_score">Nach einer Wertung</string>
+    <string name="after_score_next">Nächster Spieler</string>
+    <string name="after_score_table">Zum Tisch</string>
+    <string name="menu_entry">Eingabe</string>
+    <string name="entry_scan">Scannen</string>
+    <string name="entry_type">Tippen</string>
+    <string name="entry_scan_spoken">Ergebnisse scannen</string>
+    <string name="entry_type_spoken">Ergebnisse eintippen</string>
+    <string name="confirm_lower_target_title">Ziel auf %1$d senken?</string>
+    <string name="confirm_lower_target_body">Das Spiel endet nach dieser Runde.</string>
+    <string name="action_lower_target">Senken</string>
+    <!-- Entry mode Type: the scan buttons open the manual entry. -->
+    <string name="label_enter_next">WEITER TIPPEN</string>
+    <string name="action_enter_next_player">Als Nächstes eintippen: %1$s</string>
+    <string name="action_enter_player">Karten für %1$s eintippen</string>
+    <!-- Review / manual split OK: TalkBack label of the confirm part. -->
+    <string name="after_scan_description_next">%1$s, dann weiter: %2$s</string>
+    <string name="after_scan_description_table">%1$s, dann zurück zum Tisch</string>
 </resources>

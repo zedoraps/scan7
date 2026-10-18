@@ -80,7 +80,7 @@ data class SeatingDraft(val seats: List<Seat>) {
     companion object {
         /**
          * [order] on the spots of [previousPositions] (same player set only, as at game start),
-         * else on the default ring ("Skip seats": tick order, default ring).
+         * else on the default ring (tick order).
          */
         fun of(order: List<Long>, previousPositions: Map<Long, TablePosition>? = null) =
             SeatingDraft(GameState.initialSeats(order, previousPositions))

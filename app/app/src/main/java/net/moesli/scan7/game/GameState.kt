@@ -384,6 +384,20 @@ data class GameState(
 
     fun withViewMode(mode: ViewMode?): GameState = copy(viewMode = mode)
 
+    /**
+     * Changes the game's [target] (round menu "Target points"). Mid-round this only decides the
+     * game-over check at the next round close ([isOver]); on a closed last round [finishedAt]
+     * follows at once.
+     */
+    fun withTarget(target: Int, now: Long): GameState {
+        require(target > 0) { "Target must be positive" }
+        check(!abandoned) { "Game was abandoned" }
+        return copy(target = target).settled(now)
+    }
+
+    /** Someone's total (incl. adjustments) is at or above [target]: with that target the game ends at the round close. */
+    fun reachesTarget(target: Int): Boolean = totals.values.any { it >= target }
+
     companion object {
         /**
          * New game with [players] in seating order (avatar colors may repeat).
