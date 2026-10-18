@@ -60,7 +60,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
 import net.moesli.scan7.BuildConfig
+import net.moesli.scan7.R
 import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.data.GameSnapshot
@@ -126,6 +128,8 @@ private val HeroAvatar = avatarSizeForHeight(58.dp)
  * (secondary) + New game (primary) stay at the bottom, version footer below. The debug menu is
  * hidden: tap the wordmark [DEBUG_TAPS] times (TalkBack: custom action "Open debug menu").
  * Without any game: a short intro; without players it says New game starts by adding them.
+ * The debug menu exists in debug builds only. Tapping the version footer opens [onAbout]
+ * (About & licenses).
  */
 @Composable
 fun HomeScreen(
@@ -136,6 +140,7 @@ fun HomeScreen(
     onDebug: () -> Unit,
     onPastGame: (gameId: Long) -> Unit,
     modifier: Modifier = Modifier,
+    onAbout: () -> Unit = {},
 ) {
     val colors = Scan7Theme.colors
     Column(
@@ -151,7 +156,7 @@ fun HomeScreen(
                 .fillMaxWidth()
                 .height(Scan7Spacing.headerHeight),
         ) {
-            Scan7Wordmark(fontSize = 32.sp, modifier = Modifier.debugTaps(onDebug))
+            Scan7Wordmark(fontSize = 32.sp, modifier = if (BuildConfig.DEBUG) Modifier.debugTaps(onDebug) else Modifier)
         }
         LazyColumn(
             contentPadding = PaddingValues(vertical = Scan7Spacing.xl),
@@ -181,17 +186,32 @@ fun HomeScreen(
             SecondaryButton("Players", onPlayers, Modifier.width(128.dp))
             PrimaryButton("New game", onNewGame, Modifier.weight(1f))
         }
-        Text(
-            text = state.footer,
-            color = colors.textMuted,
-            style = Scan7Type.text10,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
+        // Version footer = the entry to About & licenses (its second line names it).
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(top = Scan7Spacing.m, bottom = Scan7Spacing.m),
-        )
+                .padding(top = Scan7Spacing.xs)
+                .clip(RoundedCornerShape(Scan7Radii.card))
+                .scan7Clickable(onAbout)
+                .padding(vertical = Scan7Spacing.xs),
+        ) {
+            Text(
+                text = state.footer,
+                color = colors.textMuted,
+                style = Scan7Type.text10,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+            )
+            Text(
+                text = stringResource(R.string.about_title),
+                color = colors.accent,
+                style = Scan7Type.text10,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
+        }
     }
 }
 
@@ -389,6 +409,7 @@ fun HomeRoute(
     onPlayers: () -> Unit,
     onDebug: () -> Unit,
     onPastGame: (gameId: Long) -> Unit,
+    onAbout: () -> Unit,
     modelInfo: String,
     modifier: Modifier = Modifier,
     repository: GameRepository = AppGraph.repository(LocalContext.current),
@@ -412,6 +433,7 @@ fun HomeRoute(
         onDebug = onDebug,
         onPastGame = onPastGame,
         modifier = modifier,
+        onAbout = onAbout,
     )
 }
 

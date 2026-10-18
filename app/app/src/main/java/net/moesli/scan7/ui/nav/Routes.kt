@@ -46,6 +46,9 @@ sealed interface Route {
 
     data class GameOver(val gameId: Long) : Route
 
+    /** About & licenses (version, AGPL source link, third-party notices); [license] = open notice. */
+    data class About(val license: String? = null) : Route
+
     data class Debug(val screen: DebugScreen) : Route
 }
 
@@ -102,6 +105,7 @@ fun Route.encode(): String = when (this) {
     is Route.Scan -> "scan:$gameId:$playerId:${start.name}:${round ?: ""}"
     is Route.Scoreboard -> "scoreboard:$gameId"
     is Route.GameOver -> "gameover:$gameId"
+    is Route.About -> "about:${license.orEmpty()}"
     is Route.Debug -> "debug:${screen.name}"
 }
 
@@ -120,6 +124,7 @@ fun decodeRoute(text: String): Route? = runCatching {
         "scan" -> Route.Scan(parts[1].toLong(), parts[2].toLong(), ScanStart.valueOf(parts[3]), parts[4].toIntOrNull())
         "scoreboard" -> Route.Scoreboard(parts[1].toLong())
         "gameover" -> Route.GameOver(parts[1].toLong())
+        "about" -> Route.About(parts.getOrNull(1)?.takeIf { it.isNotEmpty() })
         "debug" -> Route.Debug(DebugScreen.valueOf(parts[1]))
         else -> null
     }

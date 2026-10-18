@@ -18,6 +18,8 @@ class RoutesTest {
         Route.Scan(12, 4, ScanStart.MANUAL),
         Route.Scoreboard(12),
         Route.GameOver(12),
+        Route.About(),
+        Route.About("apache-2.0"),
         Route.Debug(DebugScreen.PHOTO),
     )
 
