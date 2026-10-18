@@ -5,6 +5,14 @@
 ## Goal
 An Android app that scans Flip 7 cards on the table with the phone camera, recognizes each card on-device, and calculates the player's score automatically. Players can correct mistakes before the score is saved.
 
+## Branding
+The brand kit is in `brand/` (see `brand/BRAND.md`).
+- App name: **Scan7** (original name and logo; never use Flip 7's artwork, fonts or logo in the app).
+- Launcher icon: adaptive icon from `brand/ic_launcher_foreground.svg`, background `#38D6F5`, monochrome layer `brand/ic_launcher_monochrome.svg`.
+- Colors (dark theme by default): ground `#0A1220`, surface `#15223A`, text `#EEF4FA`, muted text `#93A4BC`, accent cyan `#38D6F5`, bust magenta `#FF4F9A`. Resources in `brand/colors.xml`.
+- Bust is always magenta **plus** the word "Bust" or an icon (never color alone; never orange or red, which are card colors).
+- Fonts: Unbounded (Bold) for the wordmark and big score numbers; DM Mono or the system font for UI text.
+
 ## Setup
 - MacBook Pro M2 Pro, 16 GB RAM (all development and training happens locally)
 - Android phone connected over USB for testing (the emulator camera is not good enough)

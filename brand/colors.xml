@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Scan7 brand colors (palette "Deep Cyan"). Put in app/src/main/res/values/colors.xml -->
+<resources>
+    <color name="scan7_ground">#FF0A1220</color>      <!-- app background -->
+    <color name="scan7_surface">#FF15223A</color>     <!-- cards, sheets, panels -->
+    <color name="scan7_text">#FFEEF4FA</color>        <!-- primary text -->
+    <color name="scan7_text_muted">#FF93A4BC</color>  <!-- secondary text, labels -->
+    <color name="scan7_accent">#FF38D6F5</color>      <!-- brand cyan: scores, buttons, scan boxes -->
+    <color name="scan7_bust">#FFFF4F9A</color>        <!-- bust warning (magenta) -->
+
+    <!-- Adaptive launcher icon background -->
+    <color name="ic_launcher_background">#FF38D6F5</color>
+</resources>
