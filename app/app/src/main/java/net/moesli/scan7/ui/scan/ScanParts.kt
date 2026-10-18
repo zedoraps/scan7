@@ -262,7 +262,7 @@ fun scanBoxes(
     excluded: Set<Int> = emptySet(),
 ): List<ScanBox> {
     val cards = detections.mapIndexedNotNull { i, d -> Card.fromLabel(d.label)?.let { ScanBox(it, d.box, BoxLook.Scoring, alphas?.getOrNull(i) ?: 1f, i) } }
-    val dups = if (markDuplicates) duplicateCounts(cards.filter { it.index !in excluded }.map { it.card }) else emptyMap()
+    val dups = if (markDuplicates) bustDuplicates(cards.filter { it.index !in excluded }.map { it.card }) else emptyMap()
     return cards.map { b ->
         val look = when {
             b.index in excluded -> BoxLook.Excluded

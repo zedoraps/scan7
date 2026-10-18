@@ -32,11 +32,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -48,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.scoring.CardKind
 import net.moesli.scan7.scoring.scoreRow
+import net.moesli.scan7.scoring.secondChanceText
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.PressDim
 import net.moesli.scan7.ui.components.PrimaryButton
@@ -64,10 +68,16 @@ import net.moesli.scan7.ui.theme.Unbounded
 private const val NUMBER_COLUMNS = 5
 private const val MODIFIER_COLUMNS = 6
 
+/** Same dimming as disabled buttons (ui/components). */
+private const val DISABLED_TOGGLE_ALPHA = 0.4f
+
 /**
  * Manual entry: selected cards as chips (tap to remove), toggle grid 0–12 and +2 … +10, ×2 (each
  * at most once), ignored cards from the scan greyed (info only), live breakdown + total, Save.
- * If prefilled duplicates remain (Fix after a bust scan), Save becomes "Confirm bust".
+ * If prefilled duplicates remain (Fix after a bust scan), Save becomes "Confirm bust"; their grid
+ * toggle shows "×2" and removes one copy per tap (see [toggleCard]).
+ * At most [MAX_NUMBER_CARDS] number cards: at 7 the other number toggles are disabled; more than 7
+ * (prefilled by Fix) shows a warning and disables Save until enough are removed.
  */
 @Composable
 internal fun ManualEntryStep(
@@ -80,8 +90,12 @@ internal fun ManualEntryStep(
     val colors = Scan7Theme.colors
     var selected by rememberSaveable(start) { mutableStateOf(start.scoring) }
     val ignored = start.ignored
-    val score = scoreRow(selected)
-    val duplicates = duplicateCounts(selected)
+    // Ignored cards add nothing, but a Second Chance among them cancels a duplicate.
+    val row = selected + ignored
+    val score = scoreRow(row)
+    val duplicates = bustDuplicates(row)
+    val overLimit = overNumberLimit(row)
+    val limitHint = numberLimitHint(row)
 
     Column(modifier = modifier.fillMaxSize().background(colors.ground)) {
         Row(
@@ -136,9 +150,17 @@ internal fun ManualEntryStep(
                 ignored.forEach { CardChip(it, ChipLook.Ignored, height = 48.dp) }
             }
             SectionLabel("Numbers")
-            CardGrid(ManualNumbers, NUMBER_COLUMNS, selected) { selected = toggleCard(selected, it) }
+            CardGrid(ManualNumbers, NUMBER_COLUMNS, selected, ignored, score.bust) { selected = toggleCard(selected, it, ignored) }
+            if (limitHint != null) {
+                Text(
+                    limitHint,
+                    color = if (overLimit) colors.accent else colors.textMuted,
+                    style = Scan7Type.text13,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                )
+            }
             SectionLabel("Modifiers")
-            CardGrid(ManualModifiers, MODIFIER_COLUMNS, selected) { selected = toggleCard(selected, it) }
+            CardGrid(ManualModifiers, MODIFIER_COLUMNS, selected, ignored, score.bust) { selected = toggleCard(selected, it, ignored) }
         }
         val shape = RoundedCornerShape(topStart = Scan7Radii.cardLarge, topEnd = Scan7Radii.cardLarge)
         Column(
@@ -164,7 +186,7 @@ internal fun ManualEntryStep(
                     )
                     StatusTag(PlayerStatus.Bust, height = 36.dp)
                 } else {
-                    Breakdown(selected, Modifier.weight(1f))
+                    Breakdown(row, Modifier.weight(1f))
                     Text(
                         score.total.toString(),
                         color = colors.accent,
@@ -177,10 +199,20 @@ internal fun ManualEntryStep(
                     )
                 }
             }
+            score.secondChanceText()?.let { SecondChanceInfo(it) }
+            if (overLimit) {
+                // Fix prefilled more than 7 numbers: no real row has that many, so saving waits.
+                Text(
+                    "More than $MAX_NUMBER_CARDS number cards – remove ${rowNumberCount(row) - MAX_NUMBER_CARDS} to save",
+                    color = colors.accent,
+                    style = Scan7Type.text13,
+                )
+            }
+            val save = { onSave(manualOutcome(selected, ignored)) }
             if (score.bust) {
-                PrimaryButton("Confirm bust", { onSave(manualOutcome(selected, ignored)) }, Modifier.fillMaxWidth(), color = colors.bust)
+                PrimaryButton("Confirm bust", save, Modifier.fillMaxWidth(), enabled = !overLimit, color = colors.bust)
             } else {
-                PrimaryButton("Save", { onSave(manualOutcome(selected, ignored)) }, Modifier.fillMaxWidth())
+                PrimaryButton("Save", save, Modifier.fillMaxWidth(), enabled = !overLimit)
             }
         }
     }
@@ -198,12 +230,26 @@ private fun SectionLabel(text: String) {
 
 /** Toggle grid in rows of [columns]; a short last row keeps the column width. */
 @Composable
-private fun CardGrid(cards: List<Card>, columns: Int, selected: List<Card>, onToggle: (Card) -> Unit) {
+private fun CardGrid(
+    cards: List<Card>,
+    columns: Int,
+    selected: List<Card>,
+    ignored: List<Card>,
+    bust: Boolean,
+    onToggle: (Card) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
         cards.chunked(columns).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
                 row.forEach { card ->
-                    GridToggle(card, card in selected, { onToggle(card) }, Modifier.weight(1f))
+                    GridToggle(
+                        card = card,
+                        count = selectedCount(selected, card),
+                        bust = bust,
+                        enabled = isGridCardEnabled(selected, card, ignored),
+                        onToggle = { onToggle(card) },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
                 repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
             }
@@ -212,29 +258,64 @@ private fun CardGrid(cards: List<Card>, columns: Int, selected: List<Card>, onTo
 }
 
 /**
- * One grid toggle. Off: `surface` tile with a line border and the card's echo dot. On: cyan fill,
- * dark label and a check mark, so the state never relies on color alone.
+ * One grid toggle for [count] selected copies. Off: `surface` tile with a line border and the
+ * card's echo dot. On: cyan fill, dark label and a check mark, so the state never relies on color
+ * alone. Several copies (a duplicate from a scan): "×2" badge, and while the row is [bust] a
+ * magenta outline like the duplicate chips (a Second Chance that cancels it keeps the cyan look);
+ * a tap removes one copy. Disabled (7 number cards selected): dimmed, not tappable, TalkBack
+ * state "7 number cards selected" + disabled.
  */
 @Composable
-private fun GridToggle(card: Card, on: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
+private fun GridToggle(
+    card: Card,
+    count: Int,
+    bust: Boolean,
+    enabled: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.iconButton)
     val modifierCard = card.kind != CardKind.NUMBER
+    val on = count > 0
+    val several = count >= 2
+    val duplicate = several && bust
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .height(56.dp)
+            .alpha(if (enabled) 1f else DISABLED_TOGGLE_ALPHA)
             .clip(shape)
-            .background(if (on) colors.accent else colors.surface)
-            .then(if (on) Modifier else Modifier.border(1.5.dp, if (modifierCard) ModifierLine else colors.line, shape))
+            .background(
+                when {
+                    duplicate -> colors.bust.copy(alpha = 0.16f)
+                    on -> colors.accent
+                    else -> colors.surface
+                },
+            )
+            .then(
+                when {
+                    duplicate -> Modifier.border(2.5.dp, colors.bust, shape)
+                    on -> Modifier
+                    else -> Modifier.border(1.5.dp, if (modifierCard) ModifierLine else colors.line, shape)
+                },
+            )
             .toggleable(
                 value = on,
+                enabled = enabled,
                 interactionSource = null,
                 indication = PressDim,
                 role = Role.Checkbox,
                 onValueChange = { onToggle() },
             )
-            .clearAndSetSemantics { contentDescription = card.spokenLabel() },
+            .clearAndSetSemantics {
+                contentDescription = card.spokenLabel()
+                gridCountState(count)?.let { stateDescription = it }
+                if (!enabled) {
+                    stateDescription = NUMBER_LIMIT_STATE
+                    disabled()
+                }
+            },
     ) {
         Box(
             Modifier
@@ -245,12 +326,17 @@ private fun GridToggle(card: Card, on: Boolean, onToggle: () -> Unit, modifier: 
         )
         if (on) {
             Box(Modifier.align(Alignment.TopEnd).padding(top = 3.dp, end = 4.dp)) {
-                CheckMark(colors.onAccent)
+                if (several) {
+                    Text("×$count", color = if (duplicate) colors.bust else colors.onAccent, style = Scan7Type.tag12)
+                } else {
+                    CheckMark(colors.onAccent)
+                }
             }
         }
         Text(
             card.chipLabel(),
             color = when {
+                duplicate -> colors.bust
                 on -> colors.onAccent
                 modifierCard -> ModifierInk
                 else -> colors.text
@@ -259,6 +345,17 @@ private fun GridToggle(card: Card, on: Boolean, onToggle: () -> Unit, modifier: 
             maxLines = 1,
         )
     }
+}
+
+/** Accent (not magenta: no bust) info line "Second Chance used · 7 counted once". */
+@Composable
+internal fun SecondChanceInfo(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        color = Scan7Theme.colors.accent,
+        style = Scan7Type.text13,
+        modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
+    )
 }
 
 @Composable

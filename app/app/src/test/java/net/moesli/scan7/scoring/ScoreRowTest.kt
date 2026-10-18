@@ -13,6 +13,61 @@ class ScoreRowTest {
         assertEquals(RowScore(0, false, 0, 0, 0, false, emptyList()), s)
     }
 
+    // ---- Second Chance cancels a duplicate ----
+
+    @Test
+    fun secondChance_userRow_cancelsDuplicate() {
+        val s = scoreRow(listOf(N5, N10, N7, N7, N12, FREEZE, SECOND_CHANCE))
+        assertFalse(s.bust)
+        assertEquals(34, s.total)
+        assertEquals(34, s.numberSum)
+        assertEquals(1, s.secondChanceUsed)
+        assertEquals(listOf(7), s.cancelledDuplicates)
+        assertEquals(emptyList<Int>(), s.duplicatedNumbers)
+        assertEquals("Second Chance used · 7 counted once", s.secondChanceText())
+    }
+
+    @Test
+    fun secondChance_twoDuplicatesOneSecondChance_bust() {
+        val s = scoreRow(listOf(N7, N7, N12, N12, SECOND_CHANCE))
+        assertTrue(s.bust)
+        assertEquals(0, s.total)
+        assertEquals(listOf(7, 12), s.duplicatedNumbers)
+        assertEquals(0, s.secondChanceUsed)
+        assertEquals(null, s.secondChanceText())
+    }
+
+    @Test
+    fun secondChance_oneDuplicateTwoSecondChances_noBust() {
+        val s = scoreRow(listOf(N3, N7, N7, SECOND_CHANCE, SECOND_CHANCE))
+        assertFalse(s.bust)
+        assertEquals(10, s.total)
+        assertEquals(1, s.secondChanceUsed)
+    }
+
+    @Test
+    fun secondChance_tripleSevenOneSecondChance_bust() {
+        val s = scoreRow(listOf(N7, N7, N7, N2, SECOND_CHANCE))
+        assertTrue(s.bust)
+        assertEquals(listOf(7), s.duplicatedNumbers)
+    }
+
+    @Test
+    fun secondChance_leftOut_bust() {
+        // A left-out (excluded) Second Chance isn't passed to scoreRow.
+        val s = scoreRow(listOf(N5, N10, N7, N7, N12, FREEZE))
+        assertTrue(s.bust)
+    }
+
+    @Test
+    fun secondChance_flip7CountsDistinct() {
+        val s = scoreRow(listOf(N1, N2, N3, N4, N5, N6, N6, SECOND_CHANCE))
+        assertFalse(s.bust)
+        assertEquals(0, s.flip7Bonus) // 6 different numbers
+        assertEquals(21, s.total)
+        assertEquals(15, scoreRow(listOf(N1, N2, N3, N4, N5, N6, N7, N7, SECOND_CHANCE)).flip7Bonus)
+    }
+
     @Test
     fun plainSum() {
         val s = scoreRow(listOf(N3, N7, N12))

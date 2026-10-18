@@ -126,6 +126,16 @@ class GameStateTest {
     }
 
     @Test
+    fun scoreCards_secondChanceCancelsDuplicate() {
+        // As saved from a scan: scoring cards, then the action cards flagged ignored.
+        val cards = listOf(Card.N5, Card.N10, Card.N7, Card.N7, Card.N12).map { ConfirmedCard(it) } +
+            listOf(Card.FREEZE, Card.SECOND_CHANCE).map { ConfirmedCard(it, ignored = true) }
+        val g = start.scoreCards(1, cards, ResultSource.SCAN, 1)
+        assertEquals(ResultStatus.SCORED, g.status(1))
+        assertEquals(34, g.result(1).points)
+    }
+
+    @Test
     fun scorePoints_manual() {
         val g = start.scorePoints(3, 17, now = 2)
         assertEquals(ResultStatus.SCORED, g.status(3))

@@ -28,7 +28,8 @@ sealed interface ScanOutcome {
         val source: ScanSource,
         override val excluded: Set<Int> = emptySet(),
     ) : ScanOutcome {
-        val score: RowScore get() = scoreRow(cards)
+        /** Score incl. the ignored cards: a Second Chance among them cancels a duplicate. */
+        val score: RowScore get() = scoreRow(cards + ignored)
     }
 
     /**
@@ -105,12 +106,14 @@ fun Card.spokenLabel(): String = when (kind) {
 /**
  * Parts of the breakdown line, e.g. ["7 + 12 + 3 = 22", "×2 = 44", "+4", "Flip 7 +15"]
  * (joined with " · " by [breakdownText]). Plus modifiers count once each, as in [scoreRow].
- * Ignored cards are skipped. Empty when nothing scores.
+ * Ignored cards add nothing, but a Second Chance among them cancels a duplicate, which is then
+ * listed once. Empty when nothing scores.
  */
 fun breakdownParts(cards: List<Card>): List<String> {
     val scoring = cards.filter { it.isScoring }.sortedForDisplay()
-    val score = scoreRow(scoring)
-    val numbers = scoring.filter { it.kind == CardKind.NUMBER }.map { it.value!! }
+    val score = scoreRow(cards)
+    val allNumbers = scoring.filter { it.kind == CardKind.NUMBER }.map { it.value!! }
+    val numbers = if (score.cancelledDuplicates.isEmpty()) allNumbers else allNumbers.distinct()
     val parts = mutableListOf<String>()
     when {
         numbers.size == 1 -> parts += numbers.single().toString()
@@ -139,6 +142,13 @@ fun duplicateCounts(cards: List<Card>): Map<Int, Int> =
         .eachCount()
         .filterValues { it > 1 }
         .toSortedMap()
+
+/**
+ * Duplicates that make [cards] bust (with counts), empty if there are none or a Second Chance in
+ * [cards] cancels them all (see [scoreRow]).
+ */
+fun bustDuplicates(cards: List<Card>): Map<Int, Int> =
+    if (scoreRow(cards).bust) duplicateCounts(cards) else emptyMap()
 
 /** Whether [card] is one of the duplicated numbers that make the row bust. */
 fun isDuplicate(card: Card, duplicates: Map<Int, Int>): Boolean =
@@ -180,7 +190,7 @@ data class ReviewChip(val index: Int, val card: Card, val look: ChipLook)
  * from the included cards only.
  */
 fun reviewChips(cards: List<DetectedCard>, excluded: Set<Int>): List<ReviewChip> {
-    val dups = duplicateCounts(includedCards(cards, excluded))
+    val dups = bustDuplicates(includedCards(cards, excluded))
     return cards.sortedWith(compareBy({ !it.card.isScoring }, { it.card.sortKey() }, { it.index })).map { c ->
         val look = when {
             c.index in excluded -> ChipLook.Excluded
@@ -225,7 +235,7 @@ enum class ReviewVariant {
 
 fun reviewVariant(cards: List<Card>): ReviewVariant = when {
     cards.isEmpty() -> ReviewVariant.Empty
-    duplicateCounts(cards).isNotEmpty() -> ReviewVariant.Bust
+    scoreRow(cards).bust -> ReviewVariant.Bust
     else -> ReviewVariant.Scored
 }
 
@@ -235,14 +245,14 @@ fun reviewVariant(cards: List<Card>): ReviewVariant = when {
  */
 fun reviewVariant(cards: List<DetectedCard>, excluded: Set<Int>): ReviewVariant = when {
     cards.isEmpty() -> ReviewVariant.Empty
-    duplicateCounts(includedCards(cards, excluded)).isNotEmpty() -> ReviewVariant.Bust
+    scoreRow(includedCards(cards, excluded)).bust -> ReviewVariant.Bust
     else -> ReviewVariant.Scored
 }
 
-/** Outcome of confirming a reviewed scan ("OK" or "Confirm bust"). */
+/** Outcome of confirming a reviewed scan ("OK" or "Confirm bust"); a Second Chance can cancel a duplicate. */
 fun reviewOutcome(cards: List<Card>): ScanOutcome {
     val split = splitCards(cards)
-    return if (duplicateCounts(split.scoring).isNotEmpty()) {
+    return if (scoreRow(cards).bust) {
         ScanOutcome.Bust(split.scoring, split.ignored)
     } else {
         ScanOutcome.Scored(split.scoring, split.ignored, ScanSource.SCAN)
@@ -271,20 +281,93 @@ fun manualStart(cards: List<Card>): SplitCards {
     return SplitCards(scoring, split.ignored)
 }
 
+// ---- At most 7 number cards per row -----------------------------------------------------------
+
 /**
- * Grid tap: removes [card] (every copy) if it is selected, else adds it. Each card counts at most
- * once, so the grid never creates a duplicate. Returns the new selection in display order.
+ * A row holds at most 7 number cards, duplicates included: 7 different numbers end the round
+ * (Flip 7), and a bust happens on the 7th card at the latest (6 different + 1 duplicate).
  */
-fun toggleCard(selected: List<Card>, card: Card): List<Card> =
-    if (card in selected) selected.filter { it != card } else (selected + card).sortedForDisplay()
+const val MAX_NUMBER_CARDS = 7
+
+/** Number cards in [cards], duplicates counted; modifiers, action cards and backs don't count. */
+fun numberCardCount(cards: List<Card>): Int = cards.count { it.kind == CardKind.NUMBER }
+
+/**
+ * Number cards that count for the limit: [numberCardCount] minus the copies a Second Chance in
+ * [cards] cancelled (they are discarded in the game, even if still lying in the scanned row).
+ */
+fun rowNumberCount(cards: List<Card>): Int = numberCardCount(cards) - scoreRow(cards).secondChanceUsed
+
+/** Whether one more number card fits next to [selected]. */
+fun canAddNumber(selected: List<Card>): Boolean = rowNumberCount(selected) < MAX_NUMBER_CARDS
+
+/** More than [MAX_NUMBER_CARDS] number cards: impossible in a real row (misread or a neighbour's card). */
+fun overNumberLimit(cards: List<Card>): Boolean = rowNumberCount(cards) > MAX_NUMBER_CARDS
+
+/** Review: more than 7 number cards still included (left-out cards don't count). */
+fun reviewOverNumberLimit(cards: List<DetectedCard>, excluded: Set<Int>): Boolean =
+    overNumberLimit(includedCards(cards, excluded))
+
+/**
+ * Whether the grid toggle for [card] can be tapped: always to remove a selected card, and for
+ * modifiers; an unselected number only while [canAddNumber]. [ignored] are the scan's ignored
+ * cards (a Second Chance among them frees the slot of a cancelled duplicate).
+ */
+fun isGridCardEnabled(selected: List<Card>, card: Card, ignored: List<Card> = emptyList()): Boolean =
+    card.kind != CardKind.NUMBER || card in selected || canAddNumber(selected + ignored)
+
+/**
+ * Manual-screen hint at the number grid: "7 number cards – the maximum" at the limit, a warning
+ * above it (Fix prefilled from a scan with more than 7), null below.
+ */
+fun numberLimitHint(selected: List<Card>): String? {
+    val count = rowNumberCount(selected)
+    return when {
+        count > MAX_NUMBER_CARDS -> "$count number cards – at most $MAX_NUMBER_CARDS fit in a row"
+        count == MAX_NUMBER_CARDS -> "$MAX_NUMBER_CARDS number cards – the maximum"
+        else -> null
+    }
+}
+
+/**
+ * TalkBack state of a number toggle that is disabled by the limit; the node is also marked
+ * disabled, so TalkBack reads "7 number cards selected … disabled" (no doubled "disabled").
+ */
+const val NUMBER_LIMIT_STATE = "$MAX_NUMBER_CARDS number cards selected"
+
+/** Review panel warning while more than 7 number cards are included. */
+const val REVIEW_NUMBER_LIMIT_WARNING = "More than $MAX_NUMBER_CARDS number cards – tap cards to leave them out"
+
+/** How many copies of [card] are selected (the manual selection is a multiset). */
+fun selectedCount(selected: List<Card>, card: Card): Int = selected.count { it == card }
+
+/**
+ * Grid tap on the manual screen. The selection is a multiset:
+ * - count ≥ 1 → removes ONE copy (two 12s from a bust scan → one 12 → none);
+ * - count 0 → adds one copy, unless [MAX_NUMBER_CARDS] numbers are already selected.
+ * The grid never adds a second copy itself: duplicates only come from a scan (Fix prefill), so
+ * the user can keep exactly one 12 (e.g. a Second Chance) or confirm the bust.
+ * Returns the new selection in display order. [ignored]: see [isGridCardEnabled].
+ */
+fun toggleCard(selected: List<Card>, card: Card, ignored: List<Card> = emptyList()): List<Card> = when {
+    card in selected -> selected - card
+    !isGridCardEnabled(selected, card, ignored) -> selected
+    else -> (selected + card).sortedForDisplay()
+}
+
+/** TalkBack state of a grid toggle holding several copies: "2 selected, tap to remove one"; else null. */
+fun gridCountState(count: Int): String? = if (count >= 2) "$count selected, tap to remove one" else null
 
 /** Chip tap: removes the chip at [index] (only that copy of a duplicated number). */
 fun removeChipAt(selected: List<Card>, index: Int): List<Card> = selected.filterIndexed { i, _ -> i != index }
 
-/** Outcome of "Save" on the manual screen: bust if a (prefilled) duplicate is still there. */
+/**
+ * Outcome of "Save" on the manual screen: bust if a (prefilled) duplicate is still there and no
+ * Second Chance among [ignored] cancels it. The screen only offers it while ![overNumberLimit].
+ */
 fun manualOutcome(selected: List<Card>, ignored: List<Card>): ScanOutcome {
     val scoring = selected.filter { it.isScoring }.sortedForDisplay()
-    return if (duplicateCounts(scoring).isNotEmpty()) {
+    return if (scoreRow(scoring + ignored).bust) {
         ScanOutcome.Bust(scoring, ignored, ScanSource.MANUAL)
     } else {
         ScanOutcome.Scored(scoring, ignored, ScanSource.MANUAL)

@@ -70,8 +70,12 @@ data class PlayerResult(
     }
 }
 
-/** The cards that count for scoring. */
-fun List<ConfirmedCard>.countedCards(): List<Card> = filterNot { it.ignored }.map { it.card }
+/**
+ * The cards that count for scoring. A Second Chance is stored as an ignored card (it never adds
+ * points) but still counts: it cancels one duplicate in [scoreRow].
+ */
+fun List<ConfirmedCard>.countedCards(): List<Card> =
+    filter { !it.ignored || it.card == Card.SECOND_CHANCE }.map { it.card }
 
 /** Free card position in the table view, normalized to 0–1 within the arrangeable area. */
 data class TablePosition(val x: Float, val y: Float) {
