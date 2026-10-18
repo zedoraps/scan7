@@ -4,7 +4,8 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "labeling"))
-from app_scans import Box, reconcile, review_all_hint, test_hint  # noqa: E402
+import json, tempfile  # noqa: E402
+from app_scans import Box, load_sidecar, reconcile, review_all_hint, test_hint  # noqa: E402
 
 
 def box(label, score=0.9, x=0.1):
@@ -66,6 +67,15 @@ class ReconcileTest(unittest.TestCase):
         self.assertIn("Model saw: 01, 12", h)
         self.assertIn("may be wrong): 07, 12", h)
         self.assertIn("differs", h)
+
+    def test_excluded_cards_count_as_truth(self):
+        meta = {"detections": [{"label": "07", "score": 0.9, "box": {"left": 0, "top": 0, "right": .1, "bottom": .1}},
+                               {"label": "07", "score": 0.8, "box": {"left": .5, "top": 0, "right": .6, "bottom": .1}}],
+                "outcome": {"cards": ["07"], "ignored": [], "excluded": ["07"]}}
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(meta, f)
+        boxes, truth = load_sidecar(Path(f.name))
+        self.assertEqual(reconcile(boxes, truth).status, "match")
 
 
 if __name__ == "__main__":

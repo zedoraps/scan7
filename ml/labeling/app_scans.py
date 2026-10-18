@@ -1,7 +1,8 @@
 """Compare what the app's detector saw with what the user confirmed, and turn it into Label Studio work.
 
 Each app scan has a JSON sidecar (app/.../training/TrainingSample.kt) with the detector's boxes and the
-cards the user confirmed (outcome.cards + outcome.ignored). `reconcile()` compares the two label
+cards the user confirmed (outcome.cards + outcome.ignored + outcome.excluded — excluded cards are real
+cards the user only left out of the score). `reconcile()` compares the two label
 multisets:
 
 - match              -> the boxes are accepted as the final annotation (no human review needed)
@@ -51,7 +52,10 @@ def load_sidecar(path: Path) -> tuple[list[Box], list[str] | None]:
     boxes = [Box(x["label"], float(x["score"]), x["box"]["left"], x["box"]["top"], x["box"]["right"],
                  x["box"]["bottom"]) for x in d.get("detections") or []]
     o = d.get("outcome")
-    truth = None if o is None else list(o.get("cards") or []) + list(o.get("ignored") or [])
+    # Cards the user left out of the score (e.g. a neighbour's card) are still real cards in the photo,
+    # so for labeling they belong to the truth as well.
+    truth = None if o is None else (list(o.get("cards") or []) + list(o.get("ignored") or [])
+                                    + list(o.get("excluded") or []))
     return boxes, truth
 
 
