@@ -1,6 +1,7 @@
 package net.moesli.scan7.ui.home
 
 import net.moesli.scan7.game.AvatarCatalog
+import net.moesli.scan7.ui.components.ContentWithBottomBar
 import net.moesli.scan7.ui.components.avatarSizeForHeight
 import net.moesli.scan7.ui.components.PlayerAvatar
 import android.os.SystemClock
@@ -153,45 +154,49 @@ fun HomeScreen(
         ) {
             Scan7Wordmark(fontSize = 32.sp, modifier = Modifier.debugTaps(onDebug))
         }
-        LazyColumn(
-            contentPadding = PaddingValues(vertical = Scan7Spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
-            modifier = Modifier.weight(1f),
-        ) {
-            val resume = state.resume
-            when {
-                resume != null -> item(key = "resume") { ResumeCard(resume, onResume = { onResume(resume.gameId) }) }
-                state.past.isEmpty() -> item(key = "intro") { Intro(hasPlayers = state.playerCount > 0) }
-            }
-            if (state.past.isNotEmpty()) {
-                item(key = "past-label") {
-                    SectionLabel(
-                        "Past games",
-                        Modifier
-                            .padding(top = if (resume != null) Scan7Spacing.l else 0.dp, bottom = Scan7Spacing.xxs)
-                            .semantics { heading() },
-                    )
+        ContentWithBottomBar(
+            bottomBar = {
+                Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
+                    SecondaryButton("Players", onPlayers, Modifier.width(128.dp))
+                    PrimaryButton("New game", onNewGame, Modifier.weight(1f))
                 }
-                items(state.past, key = { it.gameId }) { game ->
-                    PastGameRow(game, state.now, onClick = { onPastGame(game.gameId) })
+                Text(
+                    text = state.footer,
+                    color = colors.textMuted,
+                    style = Scan7Type.text10,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = Scan7Spacing.m),
+                )
+            },
+        ) { bottomPadding ->
+            LazyColumn(
+                contentPadding = PaddingValues(top = Scan7Spacing.xl, bottom = Scan7Spacing.xl + bottomPadding),
+                verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                val resume = state.resume
+                when {
+                    resume != null -> item(key = "resume") { ResumeCard(resume, onResume = { onResume(resume.gameId) }) }
+                    state.past.isEmpty() -> item(key = "intro") { Intro(hasPlayers = state.playerCount > 0) }
+                }
+                if (state.past.isNotEmpty()) {
+                    item(key = "past-label") {
+                        SectionLabel(
+                            "Past games",
+                            Modifier
+                                .padding(top = if (resume != null) Scan7Spacing.l else 0.dp, bottom = Scan7Spacing.xxs)
+                                .semantics { heading() },
+                        )
+                    }
+                    items(state.past, key = { it.gameId }) { game ->
+                        PastGameRow(game, state.now, onClick = { onPastGame(game.gameId) })
+                    }
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
-            SecondaryButton("Players", onPlayers, Modifier.width(128.dp))
-            PrimaryButton("New game", onNewGame, Modifier.weight(1f))
-        }
-        Text(
-            text = state.footer,
-            color = colors.textMuted,
-            style = Scan7Type.text10,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(top = Scan7Spacing.m, bottom = Scan7Spacing.m),
-        )
     }
 }
 

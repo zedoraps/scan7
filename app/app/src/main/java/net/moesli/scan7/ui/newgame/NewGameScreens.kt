@@ -53,6 +53,7 @@ import net.moesli.scan7.game.MAX_PLAYERS
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.ViewMode
+import net.moesli.scan7.ui.components.ContentWithBottomBar
 import net.moesli.scan7.ui.components.CheckIcon
 import net.moesli.scan7.ui.components.Confirmations
 import net.moesli.scan7.ui.components.IconButton
@@ -132,50 +133,50 @@ fun PickPlayersScreen(
             onBack = onBack,
             modifier = Modifier.headerInsets(),
         )
-        Column(
-            verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(vertical = Scan7Spacing.l),
-        ) {
-            if (players.isEmpty()) {
-                Text(
-                    "No players yet. Add everyone who's at the table — they're saved for next time.",
-                    color = colors.textMuted,
-                    style = Scan7Type.text13,
-                    modifier = Modifier.padding(bottom = Scan7Spacing.s),
-                )
+        ContentWithBottomBar(
+            bottomBar = {
+                // Floats over the list end (the list scrolls clear of it, at any font scale).
+                if (hint != null) {
+                    Text(hint, color = colors.textMuted, style = Scan7Type.text12, modifier = Modifier.padding(bottom = Scan7Spacing.s))
+                }
+                TargetStepper(target = target, onChange = onTargetChange, modifier = Modifier.padding(bottom = Scan7Spacing.m))
+                Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
+                    SecondaryButton(text = "Skip seats", onClick = onSkipSeats, enabled = canGo, modifier = Modifier.weight(1f))
+                    PrimaryButton(text = "Next", onClick = onNext, enabled = canGo, modifier = Modifier.weight(1f))
+                }
+            },
+        ) { bottomPadding ->
+            Column(
+                verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = Scan7Spacing.l, bottom = Scan7Spacing.l + bottomPadding),
+            ) {
+                if (players.isEmpty()) {
+                    Text(
+                        "No players yet. Add everyone who's at the table — they're saved for next time.",
+                        color = colors.textMuted,
+                        style = Scan7Type.text13,
+                        modifier = Modifier.padding(bottom = Scan7Spacing.s),
+                    )
+                }
+                players.forEach { p ->
+                    val checked = p.id in selected
+                    SetupPlayerRow(
+                        player = p,
+                        active = checked,
+                        enabled = checked || !full,
+                        onClick = {
+                            haptics.performHapticFeedback(if (checked) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn)
+                            onToggle(p.id)
+                        },
+                        checked = checked,
+                        leading = { Checkbox(checked) },
+                    )
+                }
+                AddPlayerRow(onClick = onNewPlayer, text = if (players.isEmpty()) "Add your first player" else "New player")
             }
-            players.forEach { p ->
-                val checked = p.id in selected
-                SetupPlayerRow(
-                    player = p,
-                    active = checked,
-                    enabled = checked || !full,
-                    onClick = {
-                        haptics.performHapticFeedback(if (checked) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn)
-                        onToggle(p.id)
-                    },
-                    checked = checked,
-                    leading = { Checkbox(checked) },
-                )
-            }
-            AddPlayerRow(onClick = onNewPlayer, text = if (players.isEmpty()) "Add your first player" else "New player")
-        }
-        // Pinned below the scrolling list (never under the buttons, at any font scale).
-        if (hint != null) {
-            Text(hint, color = colors.textMuted, style = Scan7Type.text12, modifier = Modifier.padding(top = Scan7Spacing.s, bottom = Scan7Spacing.s))
-        }
-        TargetStepper(target = target, onChange = onTargetChange, modifier = Modifier.padding(bottom = Scan7Spacing.m))
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
-            modifier = Modifier
-                .fillMaxWidth()
-                .bottomButtonsInsets(),
-        ) {
-            SecondaryButton(text = "Skip seats", onClick = onSkipSeats, enabled = canGo, modifier = Modifier.weight(1f))
-            PrimaryButton(text = "Next", onClick = onNext, enabled = canGo, modifier = Modifier.weight(1f))
         }
     }
 }
