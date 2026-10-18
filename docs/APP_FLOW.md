@@ -58,7 +58,10 @@ Used for **Enter manually**, **Fix** (prefilled with the scanned cards) and **Ed
 
 Closed rounds can be reopened from the scoreboard and edited; totals and the game-over state are recomputed.
 
-On the end-of-round view, tapping a player card opens that player's result sheet (Edit / Rescan), not the editor directly.
+On the end-of-round view, tapping a player card opens that player's result sheet (Edit / Rescan), not the editor directly. A hint "Tap a player to edit" shows next to *Next round*.
+
+## Adjust total
+Player sheet → **Adjust total**: a signed number (e.g. +10 / −12) with an optional note, stored separately from round results. The sheet lists the player's adjustments (removable). All totals include them; no separate scoreboard row. Game over is still only checked when a round closes.
 
 ## End game early
 Round menu (⋮) → **End game** → confirm → the current round is closed as it is (open players BUST) → Game over; the current leader(s) win (tie → shared win).
