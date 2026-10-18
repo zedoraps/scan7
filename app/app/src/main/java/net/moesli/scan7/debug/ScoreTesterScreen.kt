@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -79,21 +80,27 @@ fun ScoreTesterScreen(onBack: () -> Unit, modifier: Modifier = Modifier, initial
 }
 
 @Composable
-private fun ScoreBreakdown(score: RowScore) {
+internal fun ScoreBreakdown(score: RowScore) {
     if (score.bust) {
         M3Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.errorContainer,
-                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                containerColor = Scan7Theme.colors.bust,
+                contentColor = Scan7Theme.colors.onBust,
             ),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(
-                "BUST – duplicated: ${score.duplicatedNumbers.joinToString(", ")}",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
+            Row(
                 modifier = Modifier.padding(12.dp),
-            )
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("⚠", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "BUST · duplicated: ${score.duplicatedNumbers.joinToString(", ")}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
         }
     }
     M3Card(modifier = Modifier.fillMaxWidth()) {

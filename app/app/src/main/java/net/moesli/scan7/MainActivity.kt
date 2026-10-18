@@ -1,5 +1,6 @@
 package net.moesli.scan7
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -7,23 +8,49 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import java.io.File
 import net.moesli.scan7.camera.CameraScreen
 import net.moesli.scan7.debug.HomeScreen
 import net.moesli.scan7.debug.PhotoDetectScreen
 import net.moesli.scan7.debug.ScoreTesterScreen
+import net.moesli.scan7.detection.readModelInfo
 import net.moesli.scan7.ui.theme.Scan7Theme
 
 private enum class Screen { HOME, CAMERA, SCORE_TESTER, PHOTO }
+
+/**
+ * DEBUG BUILDS ONLY: `adb shell am start -n net.moesli.scan7/.MainActivity --es debug_photo <path>`
+ * opens "Detect from photo" on that image file without going through the photo picker. The file must
+ * be readable by the app, e.g. in its internal files dir:
+ *   adb push x.jpg /data/local/tmp/ && adb shell run-as net.moesli.scan7 cp /data/local/tmp/x.jpg files/
+ *   ... --es debug_photo /data/data/net.moesli.scan7/files/x.jpg
+ */
+private const val EXTRA_DEBUG_PHOTO = "debug_photo"
+
+/** DEBUG BUILDS ONLY: `--ez debug_cpu true` runs the detector on CPU instead of GPU. */
+private const val EXTRA_DEBUG_CPU = "debug_cpu"
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (BuildConfig.DEBUG && intent.getBooleanExtra(EXTRA_DEBUG_CPU, false)) {
+            net.moesli.scan7.detection.DetectorHolder.forceCpu = true
+        }
+        val debugPhoto: Uri? = if (BuildConfig.DEBUG) {
+            intent.getStringExtra(EXTRA_DEBUG_PHOTO)?.let { Uri.fromFile(File(it)) }
+        } else {
+            null
+        }
         setContent {
             Scan7Theme {
-                var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
+                val context = LocalContext.current
+                val modelInfo = remember { readModelInfo(context) }
+                var screen by rememberSaveable { mutableStateOf(if (debugPhoto != null) Screen.PHOTO else Screen.HOME) }
                 val goHome = { screen = Screen.HOME }
                 BackHandler(enabled = screen != Screen.HOME, onBack = goHome)
                 when (screen) {
@@ -31,10 +58,11 @@ class MainActivity : ComponentActivity() {
                         onLiveCamera = { screen = Screen.CAMERA },
                         onScoreTester = { screen = Screen.SCORE_TESTER },
                         onDetectFromPhoto = { screen = Screen.PHOTO },
+                        modelInfo = modelInfo,
                     )
                     Screen.CAMERA -> CameraScreen(onBack = goHome)
                     Screen.SCORE_TESTER -> ScoreTesterScreen(onBack = goHome)
-                    Screen.PHOTO -> PhotoDetectScreen(onBack = goHome)
+                    Screen.PHOTO -> PhotoDetectScreen(onBack = goHome, initialUri = debugPhoto)
                 }
             }
         }

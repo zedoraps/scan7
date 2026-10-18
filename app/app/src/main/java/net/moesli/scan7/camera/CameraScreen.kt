@@ -96,7 +96,7 @@ private fun PermissionDenied(onRetry: () -> Unit, onOpenSettings: () -> Unit) {
         ) {
             Text("Camera access needed", style = MaterialTheme.typography.headlineSmall)
             Text(
-                "scan7 uses the camera to recognize the cards on the table. " +
+                "Scan7 uses the camera to recognize the cards on the table. " +
                     "Images are processed on the device only.",
                 textAlign = TextAlign.Center,
             )

@@ -53,8 +53,8 @@ Folders (file names matter for `cards_flat/`):
 | 2 | Synthetic data | `cd ml && uv run python scripts/gen_synth.py --count 5000` (preview: `scripts/preview_synth.py`) | done (generator; 200-image test run) |
 | 3 | Real photo labeling | `ml/labeling/start.sh` — see [ml/labeling/README.md](ml/labeling/README.md) | set up, waiting for photos |
 | 4 | Training & evaluation | — | |
-| 5 | Export to LiteRT | — | |
-| 6 | Android app | — | |
+| 5 | Export to LiteRT | `cd ml && uv run scripts/export.py <checkpoint>` (own env — not `uv run python`; installs into app assets, model not in git) | fp32 export + PyTorch↔LiteRT check done; int8 pending |
+| 6 | Android app | `cd app && ./gradlew installDebug` | debug screens + live detector on GPU; game flow pending (docs/APP_FLOW.md) |
 | 7 | Scoring logic | `cd app && ./gradlew testDebugUnitTest` | done (logic + tests; UI pending) |
 
 ## Stage 1 – Card cutouts

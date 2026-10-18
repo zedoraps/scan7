@@ -38,10 +38,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.util.Locale
-import java.util.concurrent.Executors
 import kotlinx.coroutines.awaitCancellation
-import net.moesli.scan7.detection.Detection
 import net.moesli.scan7.detection.DetectionOverlay
+import net.moesli.scan7.detection.DetectorHolder
+import net.moesli.scan7.ui.theme.Scan7Theme
 
 private const val TAG = "CameraPreview"
 
@@ -59,18 +59,21 @@ private val previewResolution = ResolutionSelector.Builder()
     .build()
 
 /**
- * Full-screen back-camera preview with a stub frame analyzer and a debug overlay.
- * Requires the CAMERA permission to be granted already.
+ * Full-screen back-camera preview running the card detector on every analysis frame, with boxes
+ * and a debug overlay. Requires the CAMERA permission to be granted already.
+ *
+ * Preview and analysis are both 4:3 with the same field of view; the preview is shown
+ * FILL_CENTER-cropped ([ContentScale.Crop]), and [DetectionOverlay] maps the normalized analysis
+ * boxes through the same crop so they line up with the preview.
  */
 @Composable
 fun CameraPreview(
     modifier: Modifier = Modifier,
-    detections: List<Detection> = emptyList(),
     showDebugInfo: Boolean = true,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val analyzer = remember { FrameStatsAnalyzer() }
+    val analyzer = remember { DetectionAnalyzer(context) }
     val stats by analyzer.stats.collectAsStateWithLifecycle()
     var surfaceRequest by remember { mutableStateOf<SurfaceRequest?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -88,14 +91,10 @@ fun CameraPreview(
             .build()
     }
 
-    // Analysis runs on its own background thread.
+    // Analysis runs on the detector's own thread (shared, never shut down).
     DisposableEffect(analysis, analyzer) {
-        val executor = Executors.newSingleThreadExecutor()
-        analysis.setAnalyzer(executor, analyzer)
-        onDispose {
-            analysis.clearAnalyzer()
-            executor.shutdown()
-        }
+        analysis.setAnalyzer(DetectorHolder.executor, analyzer)
+        onDispose { analysis.clearAnalyzer() }
     }
 
     LaunchedEffect(lifecycleOwner) {
@@ -131,7 +130,7 @@ fun CameraPreview(
         }
         stats?.let { s ->
             DetectionOverlay(
-                detections = detections,
+                detections = s.detections,
                 imageWidth = s.uprightWidth,
                 imageHeight = s.uprightHeight,
                 contentScale = ContentScale.Crop,
@@ -139,18 +138,24 @@ fun CameraPreview(
             )
         }
         val info = error?.let { "Camera error: $it" }
-            ?: stats?.let { "%.1f fps · %d×%d · rot %d°".format(Locale.ROOT, it.fps, it.width, it.height, it.rotationDegrees) }
+            ?: stats?.let { s ->
+                val frame = "%d×%d · rot %d°".format(Locale.ROOT, s.width, s.height, s.rotationDegrees)
+                s.error?.let { "%.1f fps · %s\nDetector error: %s".format(Locale.ROOT, s.fps, frame, it) }
+                    ?: "%.1f fps · inference %.1f ms (pre %.1f) · %s\n%d detections · %s".format(
+                        Locale.ROOT, s.fps, s.inferenceMs, s.preprocessMs, s.backend ?: "…", s.detections.size, frame,
+                    )
+            }
             ?: "Starting camera…"
         if (showDebugInfo || error != null) {
             Text(
                 text = info,
-                color = Color.White,
+                color = Scan7Theme.colors.text,
                 fontSize = 12.sp,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .windowInsetsPadding(WindowInsets.safeDrawing)
                     .padding(8.dp)
-                    .background(Color.Black.copy(alpha = 0.6f))
+                    .background(Scan7Theme.colors.scanLabelBackground)
                     .padding(horizontal = 6.dp, vertical = 2.dp),
             )
         }

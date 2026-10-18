@@ -5,6 +5,9 @@
     <uses-feature android:name="android.hardware.camera.any" />
 
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Merged in by LiteRT (only needed for its AI Pack model downloads, which scan7 doesn't use). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" tools:node="remove" />
 
     <application
         android:allowBackup="true"
@@ -18,7 +21,6 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:theme="@style/Theme.Scan7"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>

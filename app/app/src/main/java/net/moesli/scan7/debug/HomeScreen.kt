@@ -22,14 +22,15 @@ fun HomeScreen(
     onScoreTester: () -> Unit,
     onDetectFromPhoto: () -> Unit,
     modifier: Modifier = Modifier,
+    modelInfo: String = "none",
 ) {
     DebugScaffold(
-        title = "scan7 – debug",
+        title = "Scan7 – debug",
         onBack = null,
         modifier = modifier,
         bottomBar = {
             Text(
-                text = "v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · model: none",
+                text = "v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · model: $modelInfo",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
@@ -39,7 +40,7 @@ fun HomeScreen(
         },
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding)) {
-            Entry("Live camera", "Preview with FPS / resolution overlay", onLiveCamera)
+            Entry("Live camera", "Preview with live detections and FPS / inference overlay", onLiveCamera)
             HorizontalDivider()
             Entry("Score tester", "Build a row by hand and check scoreRow()", onScoreTester)
             HorizontalDivider()
@@ -64,6 +65,11 @@ private fun Entry(title: String, subtitle: String, onClick: () -> Unit) {
 @Composable
 fun HomeScreenPreview() {
     Scan7Theme {
-        HomeScreen(onLiveCamera = {}, onScoreTester = {}, onDetectFromPhoto = {})
+        HomeScreen(
+            onLiveCamera = {},
+            onScoreTester = {},
+            onDetectFromPhoto = {},
+            modelInfo = "model.tflite synth_v1/last · fp32 · 640px (9.9 MB)",
+        )
     }
 }

@@ -34,19 +34,31 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import net.moesli.scan7.detection.Detection
+import java.util.Locale
+import net.moesli.scan7.detection.DEFAULT_CONFIDENCE
 import net.moesli.scan7.detection.DetectionOverlay
+import net.moesli.scan7.detection.DetectionResult
+import net.moesli.scan7.detection.DetectorHolder
+import net.moesli.scan7.scoring.Card
+import net.moesli.scan7.scoring.scoreRow
 
 private const val TAG = "PhotoDetect"
 
 /** Longest edge of the decoded still; plenty for a 640 px detector and bounded in memory. */
 private const val MAX_DECODE_EDGE = 2048
 
+/** Result of decoding + detecting one photo. */
+private data class PhotoResult(val bitmap: Bitmap, val detection: Result<DetectionResult>)
+
+/**
+ * Picks a photo (system photo picker) and runs the card detector on it. [initialUri] opens a
+ * specific image directly (used by the debug-only launch hook in MainActivity).
+ */
 @Composable
-fun PhotoDetectScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun PhotoDetectScreen(onBack: () -> Unit, modifier: Modifier = Modifier, initialUri: Uri? = null) {
     val context = LocalContext.current
-    var uri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    var pickerLaunched by rememberSaveable { mutableStateOf(false) }
+    var uri by rememberSaveable { mutableStateOf(initialUri) }
+    var pickerLaunched by rememberSaveable { mutableStateOf(initialUri != null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { picked ->
         if (picked != null) uri = picked
     }
@@ -58,10 +70,25 @@ fun PhotoDetectScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
     }
 
-    val bitmap by produceState<Result<Bitmap>?>(initialValue = null, uri) {
-        value = uri?.let { u -> withContext(Dispatchers.IO) { runCatching { decodeUpright(context, u) } } }
+    val state by produceState<Result<PhotoResult>?>(initialValue = null, uri) {
+        value = null
+        val u = uri ?: return@produceState
+        value = runCatching {
+            val bitmap = withContext(Dispatchers.IO) { decodeUpright(context, u) }
+            val detection = DetectorHolder.get(context).mapCatching { detector ->
+                withContext(DetectorHolder.dispatcher) { detector.detect(bitmap) }
+            }
+            detection.onSuccess { r ->
+                Log.i(TAG, "${r.backend}: inference ${r.inferenceMs} ms, pre ${r.preprocessMs} ms, " +
+                    "${r.detections.size} detections: " +
+                    r.detections.joinToString { d -> "%s %.2f".format(Locale.ROOT, d.label, d.score) })
+            }
+            PhotoResult(bitmap, detection)
+        }
     }
-    val detections = emptyList<Detection>()
+    val result = state?.getOrNull()
+    val detection = result?.detection?.getOrNull()
+    val detections = detection?.detections.orEmpty()
 
     DebugScaffold(title = "Detect from photo", onBack = onBack, modifier = modifier) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
@@ -71,15 +98,18 @@ fun PhotoDetectScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Button(onClick = ::pick) { Text(if (uri == null) "Pick photo" else "Pick another") }
-                Text(
-                    "No model bundled yet · detections: ${detections.size}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                val info = when {
+                    detection != null -> "%s · %.1f ms (pre %.1f) · %d detections ≥ %.2f".format(
+                        Locale.ROOT, detection.backend, detection.inferenceMs, detection.preprocessMs,
+                        detections.size, DEFAULT_CONFIDENCE,
+                    )
+                    result != null -> "Detector error: ${result.detection.exceptionOrNull()?.message}"
+                    else -> ""
+                }
+                Text(info, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                val result = bitmap
-                val image = result?.getOrNull()
+            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                val image = result?.bitmap
                 when {
                     image != null -> {
                         Image(
@@ -96,9 +126,22 @@ fun PhotoDetectScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
-                    result != null -> Text("Could not load image: ${result.exceptionOrNull()?.message}")
+                    state != null -> Text("Could not load image: ${state?.exceptionOrNull()?.message}")
                     uri != null -> Text("Loading…")
                     else -> Text("No photo selected")
+                }
+            }
+            if (detection != null) {
+                val cards = detections.mapNotNull { Card.fromLabel(it.label) }
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        "Cards: " + cards.joinToString(" ") { it.label }.ifEmpty { "(none)" },
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    ScoreBreakdown(scoreRow(cards))
                 }
             }
         }

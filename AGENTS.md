@@ -46,6 +46,11 @@ uv run python scripts/train.py --data out/mix/dataset.yaml --model runs/synth_v1
 uv run python scripts/predict.py runs/synth_v1/weights/best.pt data/real_photos/train --out out/pred/v1/train
 uv run scripts/export.py runs/synth_v1/weights/best.pt  # own PEP 723 env: NOT `uv run python`; installs into app assets
 ```
+The app's `model.tflite` is **not in git** (gitignored, ~10 MB per version): after a fresh clone, run the export once before building the app.
+Debug-only app hooks (debug builds): `adb shell am start -n net.moesli.scan7/.MainActivity --es debug_photo /data/data/net.moesli.scan7/files/x.jpg [--ez debug_cpu true]`
+(copy the photo in with `adb push x.jpg /data/local/tmp/ && adb shell run-as net.moesli.scan7 cp /data/local/tmp/x.jpg files/`).
+```sh
+```
 
 ### Labeling (from the repo root; Label Studio is a separate `uv tool`)
 ```sh

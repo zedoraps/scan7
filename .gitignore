@@ -8,9 +8,12 @@ ml/out/
 ml/runs/
 *.pt
 *.tflite
+# The app's bundled detector (app/app/src/main/assets/model.tflite) is NOT tracked: recreate it with
+# `cd ml && uv run scripts/export.py <checkpoint>` (~10 MB per version would bloat git history).
 
 # Android
 app/.gradle/
+app/.kotlin/
 app/build/
 app/*/build/
 app/local.properties
