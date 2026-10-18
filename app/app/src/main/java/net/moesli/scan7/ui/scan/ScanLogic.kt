@@ -103,34 +103,69 @@ fun Card.spokenLabel(): String = when (kind) {
     else -> chipLabel()
 }
 
+/** What a piece of the [breakdownFormula] is (its color on screen). */
+enum class FormulaKind { NUMBER, MODIFIER, BONUS, OPERATOR, TOTAL }
+
+/** One piece of the formula: a value, or an operator / parenthesis with its spaces. */
+data class FormulaPart(val text: String, val kind: FormulaKind)
+
 /**
- * Parts of the breakdown line, e.g. ["7 + 12 + 3 = 22", "×2 = 44", "+4", "Flip 7 +15"]
- * (joined with " · " by [breakdownText]). Plus modifiers count once each, as in [scoreRow].
- * Ignored cards add nothing, but a Second Chance among them cancels a duplicate, which is then
- * listed once. Empty when nothing scores.
+ * The row's score as ONE expression with exactly one "=":
+ * - `6 + 7 + 8 + 11 + 12 + 4 + 6 = 54` (numbers, then plus modifiers),
+ * - `(6 + 7 + 8) × 2 + 4 = 46` with ×2 (parentheses only then, around several numbers),
+ * - `… + 15 = 61` with the Flip 7 bonus last,
+ * - `4 + 6 = 10` without number cards; `0` for nothing; a single value alone (`7`).
+ * A duplicate cancelled by a Second Chance counts once; plus modifiers count once each, as in
+ * [scoreRow]; action cards / backs add nothing. Empty for a bust row (the bust band says it).
  */
-fun breakdownParts(cards: List<Card>): List<String> {
-    val scoring = cards.filter { it.isScoring }.sortedForDisplay()
+fun breakdownFormula(cards: List<Card>): List<FormulaPart> {
     val score = scoreRow(cards)
+    if (score.bust) return emptyList()
+    val scoring = cards.filter { it.isScoring }.sortedForDisplay()
     val allNumbers = scoring.filter { it.kind == CardKind.NUMBER }.map { it.value!! }
     val numbers = if (score.cancelledDuplicates.isEmpty()) allNumbers else allNumbers.distinct()
-    val parts = mutableListOf<String>()
-    when {
-        numbers.size == 1 -> parts += numbers.single().toString()
-        numbers.size > 1 -> parts += numbers.joinToString(" + ") + " = ${score.numberSum}"
+    val plus = scoring.filter { it.kind == CardKind.MODIFIER_PLUS }.distinct().map { it.value!! }
+    val doubled = score.timesTwo && numbers.isNotEmpty()
+    val parts = mutableListOf<FormulaPart>()
+    fun op(text: String) {
+        parts += FormulaPart(text, FormulaKind.OPERATOR)
     }
-    if (score.timesTwo) parts += "×2 = ${score.numberSum * 2}"
-    val plus = scoring.filter { it.kind == CardKind.MODIFIER_PLUS }.distinct()
-    if (plus.isNotEmpty()) parts += plus.joinToString(" ") { it.chipLabel() }
-    if (score.flip7Bonus > 0) parts += "Flip 7 +${score.flip7Bonus}"
-    return parts
+    if (doubled && numbers.size > 1) op("(")
+    numbers.forEachIndexed { i, n ->
+        if (i > 0) op(" + ")
+        parts += FormulaPart(n.toString(), FormulaKind.NUMBER)
+    }
+    if (doubled) {
+        if (numbers.size > 1) op(")")
+        op(" × ")
+        parts += FormulaPart("2", FormulaKind.MODIFIER)
+    }
+    val extras = plus.map { FormulaPart(it.toString(), FormulaKind.MODIFIER) } +
+        listOfNotNull(score.flip7Bonus.takeIf { it > 0 }?.let { FormulaPart(it.toString(), FormulaKind.BONUS) })
+    extras.forEach {
+        if (parts.isNotEmpty()) op(" + ")
+        parts += it
+    }
+    return when {
+        parts.isEmpty() -> listOf(FormulaPart("0", FormulaKind.TOTAL))
+        parts.size == 1 -> parts
+        else -> parts + FormulaPart(" = ", FormulaKind.OPERATOR) + FormulaPart(score.total.toString(), FormulaKind.TOTAL)
+    }
 }
 
-/** "7 + 12 + 3 = 22 · ×2 = 44 · +4 · Flip 7 +15", or "No scoring cards". */
-fun breakdownText(cards: List<Card>): String =
-    breakdownParts(cards).joinToString(" · ").ifEmpty { NO_SCORING_CARDS }
+/** The formula as plain text, "(6 + 7 + 8) × 2 + 4 = 46"; empty for a bust row. */
+fun breakdownText(cards: List<Card>): String = breakdownFormula(cards).joinToString("") { it.text }
 
-const val NO_SCORING_CARDS = "No scoring cards"
+/** The formula for TalkBack: "6 plus 7 plus 8 times 2 plus 4 equals 46". */
+fun spokenFormula(parts: List<FormulaPart>): String = parts.joinToString("") { p ->
+    when (p.text) {
+        " + " -> " plus "
+        " × " -> " times "
+        " = " -> " equals "
+        "(", ")" -> ""
+        else -> p.text
+    }
+}
 
 /** What the row would score without the bust rule (shown struck through on the bust panel). */
 fun RowScore.totalIgnoringBust(): Int = (if (timesTwo) numberSum * 2 else numberSum) + plusSum + flip7Bonus

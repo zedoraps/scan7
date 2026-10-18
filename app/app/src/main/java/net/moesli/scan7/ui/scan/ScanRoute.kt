@@ -1,6 +1,7 @@
 package net.moesli.scan7.ui.scan
 
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -15,27 +16,39 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.ui.components.PlayerStatus
+import net.moesli.scan7.ui.nav.AfterScan
+import net.moesli.scan7.ui.nav.Route
 import net.moesli.scan7.ui.nav.ScanStart
+import net.moesli.scan7.ui.nav.nextPlayer
 import net.moesli.scan7.ui.players.playerUis
 import net.moesli.scan7.ui.round.BustToastState
 import net.moesli.scan7.ui.theme.Scan7Theme
 
 private const val TAG = "ScanRoute"
 
+/** How long the camera's full-screen bust overlay stays before the flow moves on. */
+private const val BUST_OVERLAY_MS = 1_000L
+
+/** Stand-in for "setting not loaded yet" (the stored value is never this). */
+private const val LOADING = "\u0000"
+
 /**
  * [ScanFlow] for one player of a stored game. The confirmed outcome is saved as the player's
- * result (cards incl. ignored ones, source SCAN / MANUAL; duplicates → bust with its cards).
+ * result (cards incl. action cards, source SCAN / MANUAL; duplicates → bust with its cards).
  *
  * @param round the round to score; `null` = the running round (editing a closed round recomputes
  *   totals and game over).
- * @param onSaved called after saving with the saved state (also after the camera's Bust tap); for
- *   [ScanStart.NEXT] the caller continues with [net.moesli.scan7.ui.nav.afterSave].
- * @param onLeave cancel / "Back to table".
+ * @param onSaved called after saving with the saved state and the "after scan" choice of the
+ *   split OK button (also after the camera's Bust tap); the caller continues with
+ *   [net.moesli.scan7.ui.nav.afterSave].
+ * @param onLeave cancel / ← back to the table.
  * @param debugCapture DEBUG: start camera scans in Review on this capture (photo file hook).
  * @param bustToast shared bust undo toast: the camera's Bust tap shows it (on the next player's
  *   camera, or on the round screen after returning) and its Undo reopens the busted player.
@@ -46,7 +59,7 @@ fun ScanRoute(
     playerId: Long,
     start: ScanStart,
     round: Int?,
-    onSaved: (GameState) -> Unit,
+    onSaved: (GameState, AfterScan) -> Unit,
     onLeave: () -> Unit,
     modifier: Modifier = Modifier,
     repository: GameRepository = AppGraph.repository(LocalContext.current),
@@ -54,8 +67,14 @@ fun ScanRoute(
     bustToast: BustToastState? = null,
 ) {
     val snapshot by remember(gameId) { repository.observeGame(gameId) }.collectAsStateWithLifecycle(initialValue = null)
+    val stored by remember { repository.setting(AfterScan.SETTING_KEY) }.collectAsStateWithLifecycle(initialValue = LOADING)
     val scope = rememberCoroutineScope()
     var saving by remember { mutableStateOf(false) }
+    // Picked from the ▾ menu in this flow: used right away (the stored value follows).
+    var picked by remember { mutableStateOf<AfterScan?>(null) }
+    // Full-screen bust overlay on the camera (player id while shown) and its Undo signal.
+    var bustShown by remember { mutableStateOf<Long?>(null) }
+    var bustUndo by remember { mutableStateOf<CompletableDeferred<Unit>?>(null) }
     val snap = snapshot
     val state = snap?.state
     val index = state?.playerIds?.indexOf(playerId) ?: -1
@@ -64,12 +83,23 @@ fun ScanRoute(
     val capture by produceState<ScanCapture?>(null, debugCapture, playerId) {
         if (camera && debugCapture != null) value = debugCapture(context)
     }
-    if (snap == null || state == null || index < 0 || (camera && debugCapture != null && capture == null)) {
+    if (snap == null || state == null || index < 0 || stored == LOADING || (camera && debugCapture != null && capture == null)) {
         Box(modifier.fillMaxSize().background(Scan7Theme.colors.ground))
         return
     }
+    val choice = picked ?: AfterScan.fromSetting(stored)
     val roundNumber = round ?: state.currentRound.number
-    val player = state.playerUis(snap.players, roundNumber)[index]
+    val players = state.playerUis(snap.players, roundNumber)
+    val player = players[index]
+    val nextName = Route.Scan(gameId, playerId, start, round).nextPlayer(state)
+        ?.let { state.playerIds.indexOf(it) }
+        ?.let { players.getOrNull(it)?.name }
+    val afterScan = AfterScanUi(choice, nextName) { c ->
+        picked = c
+        scope.launch {
+            runCatching { repository.putSetting(AfterScan.SETTING_KEY, c.name) }.onFailure { Log.w(TAG, "saving the choice failed", it) }
+        }
+    }
     val initialCards = when (start) {
         ScanStart.MANUAL -> emptyList()
         ScanStart.EDIT -> state.result(playerId, roundNumber).cards.map { it.card }
@@ -88,11 +118,13 @@ fun ScanRoute(
         }
     }
     // Bust tap on the camera: only for an open player of the running round (its undo resets to open).
-    val canBust = camera && round == null && player.status == PlayerStatus.Open
+    val canBust = camera && round == null && (player.status == PlayerStatus.Open || bustShown == playerId)
     ScanFlowContent(
         player = player,
         onResult = { outcome ->
-            save("saving the result", { scoreCards(gameId, playerId, outcome.toConfirmedCards(), outcome.resultSource, round) }, onSaved)
+            save("saving the result", { scoreCards(gameId, playerId, outcome.toConfirmedCards(), outcome.resultSource, round) }) {
+                onSaved(it, choice)
+            }
         },
         onCancel = onLeave,
         modifier = modifier,
@@ -101,12 +133,35 @@ fun ScanRoute(
         roundNumber = roundNumber,
         onBackToTable = onLeave,
         initialCapture = capture,
-        // Same bust / undo as the round screen (GameRepository.bust → BUST_TAP; undoBust).
+        // Same bust / undo as the round screen (GameRepository.bust → BUST_TAP; undoBust), with
+        // the full-screen overlay first: ~1 s with Undo, then the toast and on as after a save.
         onBust = if (canBust) {
             {
-                save("bust", { bust(gameId, playerId) }) { saved ->
-                    bustToast?.show(playerId.toString(), player.name)
-                    onSaved(saved)
+                if (!saving && bustShown == null) {
+                    saving = true
+                    bustShown = playerId
+                    val undo = CompletableDeferred<Unit>().also { bustUndo = it }
+                    val tappedAt = SystemClock.elapsedRealtime()
+                    val name = player.name
+                    scope.launch {
+                        val saved = runCatching { repository.bust(gameId, playerId) }.getOrElse {
+                            Log.w(TAG, "bust failed", it)
+                            bustShown = null
+                            saving = false
+                            return@launch
+                        }
+                        val left = BUST_OVERLAY_MS - (SystemClock.elapsedRealtime() - tappedAt)
+                        val undone = undo.isCompleted || withTimeoutOrNull(left.coerceAtLeast(1)) { undo.await() } != null
+                        if (undone) {
+                            runCatching { repository.undoBust(gameId, playerId) }.onFailure { Log.w(TAG, "undo bust failed", it) }
+                        } else {
+                            bustToast?.show(playerId.toString(), name)
+                            onSaved(saved, choice)
+                        }
+                        bustShown = null
+                        bustUndo = null
+                        saving = false
+                    }
                 }
             }
         } else {
@@ -118,5 +173,8 @@ fun ScanRoute(
                 runCatching { repository.undoBust(gameId, id.toLong()) }.onFailure { Log.w(TAG, "undo bust failed", it) }
             }
         },
+        afterScan = afterScan,
+        bustOverlay = player.name.takeIf { bustShown == playerId },
+        onUndoBustOverlay = { bustUndo?.complete(Unit) },
     )
 }

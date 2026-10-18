@@ -22,11 +22,11 @@ import net.moesli.scan7.ui.round.BustToastState
 
 /** How the scan was started. */
 sealed interface ScanMode {
-    /** From a card's Scan button / the player sheet: header "Scanning Mia", close button. */
+    /** From a card's Scan button / the player sheet: banner "SCANNING · Mia". */
     data object Normal : ScanMode
 
     /**
-     * Chained via "Scan next": header "Next: Ben" with a "Back to table" button. After OK the
+     * Chained via "Scan next" or after a save with "OK · Next": banner "NEXT · Ben". After OK the
      * caller opens the flow again for the next open player (or returns to the table).
      */
     data object ScanNext : ScanMode
@@ -51,11 +51,14 @@ private sealed interface Step {
  *   existing result; action cards / backs in it are shown as ignored). Cancel then calls [onCancel].
  * @param roundNumber shown in the review panel ("Round 4 · 96 → 198") when known.
  * @param onBackToTable [ScanMode.ScanNext] only: stop chaining and return to the round screen.
- * @param onCancel the player was not scored (close button, system back on the camera).
+ * @param onCancel the player was not scored (← on the camera, system back).
  * @param onBust non-null shows **Bust** next to the shutter: the caller marks the player busted
  *   (no cards, like the in-card Bust) and moves on. Not a scan result: no training outcome is saved.
  * @param bustToast the shared "<name> marked bust · Undo" toast, shown on the camera when set
  *   (Scan next: the previous player's bust); [onUndoBust] reopens that player (its player id).
+ * @param afterScan the split OK / Save button: remembered "next player" / "back to table" choice.
+ * @param bustOverlay the busted player's name while the camera shows the full-screen bust overlay
+ *   (after a Bust tap, ~1 s); its Undo calls [onUndoBustOverlay].
  */
 @Composable
 fun ScanFlow(
@@ -70,6 +73,9 @@ fun ScanFlow(
     onBust: (() -> Unit)? = null,
     bustToast: BustToastState? = null,
     onUndoBust: (String) -> Unit = {},
+    afterScan: AfterScanUi? = null,
+    bustOverlay: String? = null,
+    onUndoBustOverlay: () -> Unit = {},
 ) = ScanFlowContent(
     player = player,
     onResult = onResult,
@@ -83,6 +89,9 @@ fun ScanFlow(
     onBust = onBust,
     bustToast = bustToast,
     onUndoBust = onUndoBust,
+    afterScan = afterScan,
+    bustOverlay = bustOverlay,
+    onUndoBustOverlay = onUndoBustOverlay,
 )
 
 /** [ScanFlow] that can start in Review on a given capture (debug: review a photo file). */
@@ -100,6 +109,9 @@ internal fun ScanFlowContent(
     onBust: (() -> Unit)? = null,
     bustToast: BustToastState? = null,
     onUndoBust: (String) -> Unit = {},
+    afterScan: AfterScanUi? = null,
+    bustOverlay: String? = null,
+    onUndoBustOverlay: () -> Unit = {},
 ) {
     val context = LocalContext.current
     // One analyzer for the whole flow: it buffers the recent frames for the best-frame shutter.
@@ -135,7 +147,6 @@ internal fun ScanFlowContent(
                 player = player,
                 mode = mode,
                 analyzer = analyzer,
-                recording = saveScans,
                 onCaptured = { frame ->
                     val capture = ScanCapture(
                         bitmap = frame.bitmap,
@@ -159,12 +170,13 @@ internal fun ScanFlowContent(
                     step = Step.Review(capture)
                 },
                 onTypeInstead = { step = Step.Manual(SplitCards(emptyList(), emptyList()), back = Step.Camera) },
-                onClose = onCancel,
-                onBackToTable = onBackToTable,
+                onBack = leave,
                 // A bust tap is no scan: a frame saved before (Retake) keeps its outcome null.
                 onBust = onBust,
                 bustToast = bustToast,
                 onUndoBust = onUndoBust,
+                bustOverlay = bustOverlay,
+                onUndoBustOverlay = onUndoBustOverlay,
                 modifier = modifier,
             )
         }
@@ -182,6 +194,7 @@ internal fun ScanFlowContent(
                 modifier = modifier,
                 excluded = s.excluded,
                 onToggleExclude = { i -> step = s.copy(excluded = toggleExcluded(s.excluded, i)) },
+                afterScan = afterScan,
             )
         }
         is Step.Manual -> {
@@ -197,6 +210,7 @@ internal fun ScanFlowContent(
                 },
                 onCancel = cancel,
                 modifier = modifier,
+                afterScan = afterScan,
             )
         }
     }

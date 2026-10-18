@@ -123,6 +123,11 @@ internal fun CloseIcon(color: Color, size: Dp = 20.dp, strokeWidth: Float = 2.4f
 @Composable
 internal fun BackIcon(color: Color, size: Dp = 20.dp) = StrokeIcon("M19 12H5M11 6l-6 6 6 6", color, size, 2.2f)
 
+/** Keyboard (the camera's "Type" button: enter the cards by hand). */
+@Composable
+internal fun KeyboardIcon(color: Color, size: Dp = 20.dp) =
+    StrokeIcon("M4 6h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM7 10h0M10.5 10h0M14 10h0M17 10h0M8 14h8", color, size, 2f)
+
 @Composable
 internal fun RetakeIcon(color: Color, size: Dp = 22.dp) = StrokeIcon("M4 12a8 8 0 1 0 3-6.2M4 4v4h4", color, size, 2.2f)
 
@@ -157,7 +162,8 @@ enum class ChipLook { Normal, Duplicate, Ignored, Excluded }
 
 /**
  * Card chip: dark tile with the card label (Unbounded) and an echo dot; modifiers in orange.
- * [ChipLook.Duplicate] = magenta outline (bust), [ChipLook.Ignored] = dashed grey "Freeze · ignored",
+ * [ChipLook.Duplicate] = magenta outline (bust), [ChipLook.Ignored] = action card / back (also a
+ * Second Chance that cancelled a duplicate): only its name in a dashed muted outline,
  * [ChipLook.Excluded] = left out on the review: greyed, label struck through.
  * With [onClick] the chip is a button (manual screen: tap to remove; review: leave out / include).
  * [actions] adds TalkBack custom actions.
@@ -183,7 +189,7 @@ internal fun CardChip(
     val description = when (look) {
         ChipLook.Normal -> card.spokenLabel()
         ChipLook.Duplicate -> "${card.spokenLabel()}, duplicate"
-        ChipLook.Ignored -> "${card.chipLabel()}, ignored"
+        ChipLook.Ignored -> "${card.chipLabel()}, doesn't score"
         ChipLook.Excluded -> "${card.spokenLabel()}, left out"
     }
     Box(
@@ -225,7 +231,7 @@ internal fun CardChip(
             )
             Text(card.chipLabel(), color = ink, style = ChipLabelStyle, maxLines = 1)
         } else {
-            Text("${card.chipLabel()} · ignored", color = ink, style = Scan7Type.text12, maxLines = 1)
+            Text(card.chipLabel(), color = ink, style = Scan7Type.text12, maxLines = 1)
         }
     }
 }
@@ -281,8 +287,8 @@ fun trackBoxes(tracks: List<TrackedDetection>): List<ScanBox> =
 /**
  * Draws [boxes] on an image of [imageWidth]×[imageHeight] shown centered in the same bounds,
  * cropped ([crop], camera preview) or fitted (frozen frame). Scoring: cyan 3 dp + 1.5 dp white
- * outline, radius 10, cyan label tag top-left. Duplicates: same in magenta. Ignored: dashed grey
- * with an "IGNORED" tag. Excluded (left out by the user): the card dimmed, short-dashed muted
+ * outline, radius 10, cyan label tag top-left. Duplicates: same in magenta. Action cards / backs:
+ * dashed grey with the card's name in a grey tag. Excluded (left out by the user): the card dimmed, short-dashed muted
  * outline, crossed out, "EXCLUDED" tag in muted grey.
  */
 @Composable
@@ -333,7 +339,7 @@ internal fun ScanBoxesOverlay(
                     style = Stroke(2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))),
                 )
                 tagColor = ignoredInk
-                tagText = "IGNORED"
+                tagText = b.card.chipLabel()
                 tagStyle = BoxTagSmall
             } else {
                 drawScanBox(

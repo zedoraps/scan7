@@ -73,6 +73,11 @@ class GameRepository(
 
     suspend fun setScanDirection(direction: ScanDirection) = settingsDao.put(SettingEntity(KEY_SCAN_DIRECTION, direction.name))
 
+    /** A remembered plain setting value by [key] (`null` if never set), e.g. the review's "after scan" choice. */
+    fun setting(key: String): Flow<String?> = settingsDao.observe(key).distinctUntilChanged()
+
+    suspend fun putSetting(key: String, value: String) = settingsDao.put(SettingEntity(key, value))
+
     private val allPlayers: Flow<Map<Long, Player>> =
         playerDao.observeAll().map { list -> list.associate { it.id to it.toPlayer() } }
 

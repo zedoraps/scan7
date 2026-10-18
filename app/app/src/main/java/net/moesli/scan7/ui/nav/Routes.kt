@@ -9,7 +9,7 @@ enum class ScanStart {
     /** Camera for one player (card Scan, sheet Scan / Rescan). */
     CAMERA,
 
-    /** Camera in "Scan next" mode: after saving, continue with the next open player. */
+    /** Camera opened by "Scan next" or by continuing after a save ([afterSave]): header "Next: Ben". */
     NEXT,
 
     /** Manual screen, empty (sheet "Enter manually"). */
@@ -50,12 +50,39 @@ sealed interface Route {
 }
 
 /**
- * Where a scan route goes once its player's result is saved (scan, manual entry or the camera's
- * Bust tap): in a "Scan next" chain the next open player's camera, otherwise (or when nobody is
- * open any more) `null` = back to the round screen.
+ * What the review's OK (and Confirm bust, manual Save, the camera's Bust tap) does after saving:
+ * continue with the next open player's camera, or go back to the table. Chosen with the ▾ of the
+ * split OK button and remembered (settings key [AfterScan.SETTING_KEY]); default [NEXT].
  */
-fun Route.Scan.afterSave(state: GameState): Route.Scan? =
-    if (start == ScanStart.NEXT) state.scanNextAfter(playerId)?.let { copy(playerId = it) } else null
+enum class AfterScan {
+    NEXT,
+    TABLE,
+    ;
+
+    companion object {
+        const val SETTING_KEY = "after_scan"
+
+        /** The stored value, [NEXT] if never chosen (or unreadable). */
+        fun fromSetting(value: String?): AfterScan = entries.firstOrNull { it.name == value } ?: NEXT
+    }
+}
+
+/**
+ * The player a save on this scan route could continue with: the next open player of the running
+ * round after this one (in the game's scan direction, see scanNextAfter), whatever started the
+ * scan (card Scan, Scan next, manual entry). `null` when nobody else is open, and for edits (Edit,
+ * scoreboard cell, closed rounds): those always go back.
+ */
+fun Route.Scan.nextPlayer(state: GameState): Long? =
+    if (start == ScanStart.EDIT || round != null) null else state.scanNextAfter(playerId)
+
+/**
+ * Where a scan route goes once its player's result is saved (scan, manual entry or the camera's
+ * Bust tap), on the state after the save: with [AfterScan.NEXT] the next open player's camera (a
+ * "Scan next" chain), otherwise (or when nobody is open any more) `null` = back to the round screen.
+ */
+fun Route.Scan.afterSave(state: GameState, choice: AfterScan): Route.Scan? =
+    if (choice == AfterScan.TABLE) null else nextPlayer(state)?.let { Route.Scan(gameId, it, ScanStart.NEXT) }
 
 /**
  * Key for the screen's saved UI state. A "Scan next" chain keeps one key for all players, so the

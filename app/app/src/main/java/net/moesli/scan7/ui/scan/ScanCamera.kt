@@ -6,9 +6,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -28,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -78,25 +78,30 @@ import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
 
+/** Taps on Bust within this time after the previous one are ignored (double tap). */
+private const val BUST_DEBOUNCE_MS = 800L
+
 /**
- * Camera step: live preview with boxes under the header overlay (scrim, controls, the player
- * banner, hint), zoom presets, bottom bar with the "cards seen" count, Bust (when [onBust] is set),
- * the shutter and "Type instead". [bustToast] shows the shared bust undo toast over the preview.
+ * Camera step: live preview with boxes under the header overlay (scrim, ← back to the table and
+ * "Type", the player banner), bottom bar with the "cards seen" count and the row Bust (when
+ * [onBust] is set) · shutter · zoom pills + torch. [bustToast] shows the shared bust undo toast
+ * over the preview. [bustOverlay] (the busted player's name) covers everything with the
+ * full-screen bust confirmation; Bust and the shutter are disabled meanwhile.
  */
 @Composable
 internal fun ScanCameraStep(
     player: PlayerUi,
     mode: ScanMode,
     analyzer: DetectionAnalyzer,
-    recording: Boolean,
     onCaptured: (CapturedFrame) -> Unit,
     onTypeInstead: () -> Unit,
-    onClose: () -> Unit,
-    onBackToTable: () -> Unit,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
     onBust: (() -> Unit)? = null,
     bustToast: BustToastState? = null,
     onUndoBust: (String) -> Unit = {},
+    bustOverlay: String? = null,
+    onUndoBustOverlay: () -> Unit = {},
 ) {
     val colors = Scan7Theme.colors
     val permission = rememberCameraPermission()
@@ -107,99 +112,104 @@ internal fun ScanCameraStep(
     // Torch: off by default, toggle only shown once the bound camera reports a flash unit.
     var torchOn by remember { mutableStateOf(false) }
     var hasFlash by remember { mutableStateOf(false) }
+    var zoom by remember { mutableStateOf<ZoomControls?>(null) }
+    var lastBustAt by remember { mutableLongStateOf(0L) }
     val haptics = LocalHapticFeedback.current
     LaunchedEffect(analyzer) { analyzer.clearStats() }
 
+    val busting = bustOverlay != null
     val seen = stats?.tracks?.map { it.detection }?.toCards()?.count { it.first.isScoring } ?: 0
-    val canShoot = permission.granted && stats != null && stats?.error == null && !capturing
+    val canShoot = permission.granted && stats != null && stats?.error == null && !capturing && !busting
 
-    Column(modifier = modifier.fillMaxSize().background(colors.ground)) {
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .clipToBounds()
-                .background(colors.ground),
-        ) {
-            if (permission.granted) {
-                CameraPreview(
-                    modifier = Modifier.fillMaxSize(),
-                    showDebugInfo = false,
-                    analyzer = analyzer,
-                    overlay = { s ->
-                        ScanBoxesOverlay(
-                            boxes = trackBoxes(s.tracks),
-                            imageWidth = s.uprightWidth,
-                            imageHeight = s.uprightHeight,
-                            crop = true,
-                            modifier = Modifier.fillMaxSize(),
-                        )
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().background(colors.ground)) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .clipToBounds()
+                    .background(colors.ground),
+            ) {
+                if (permission.granted) {
+                    CameraPreview(
+                        modifier = Modifier.fillMaxSize(),
+                        showDebugInfo = false,
+                        analyzer = analyzer,
+                        overlay = { s ->
+                            ScanBoxesOverlay(
+                                boxes = trackBoxes(s.tracks),
+                                imageWidth = s.uprightWidth,
+                                imageHeight = s.uprightHeight,
+                                crop = true,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        },
+                        torchOn = torchOn,
+                        onFlashUnit = { hasFlash = it },
+                        onZoomControls = { zoom = it },
+                    )
+                } else if (permission.asked) {
+                    PermissionMissing(onAllow = permission.request, onOpenSettings = permission.openSettings)
+                }
+                CameraHeader(
+                    player = player,
+                    mode = mode,
+                    onBack = onBack,
+                    onType = onTypeInstead,
+                    hint = when {
+                        !permission.granted -> null
+                        capturing -> "Reading cards…"
+                        notReady -> "Camera is starting – try again"
+                        stats?.error != null -> "Card detector unavailable"
+                        else -> null
                     },
-                    zoomControls = { zoom ->
-                        ZoomPills(zoom, Modifier.align(Alignment.BottomCenter).padding(bottom = Scan7Spacing.m))
-                    },
-                    torchOn = torchOn,
-                    onFlashUnit = { hasFlash = it },
+                    modifier = Modifier.align(Alignment.TopCenter),
                 )
-            } else if (permission.asked) {
-                PermissionMissing(onAllow = permission.request, onOpenSettings = permission.openSettings)
+                if (bustToast != null) {
+                    CameraBustToast(
+                        toast = bustToast,
+                        onUndo = onUndoBust,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(horizontal = Scan7Spacing.screenMargin)
+                            .padding(bottom = Scan7Spacing.m),
+                    )
+                }
             }
-            CameraHeader(
-                player = player,
-                mode = mode,
-                recording = recording,
+            CameraBottomBar(
+                seen = seen,
+                showCount = permission.granted && stats != null,
+                shutterEnabled = canShoot,
+                onShutter = {
+                    // Best-frame shutter: compares the frames around the press (see DetectionAnalyzer.capture).
+                    haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+                    val pressedAt = SystemClock.elapsedRealtime()
+                    scope.launch {
+                        capturing = true
+                        notReady = false
+                        val frame = analyzer.capture(pressedAt)
+                        capturing = false
+                        if (frame == null) notReady = true else onCaptured(frame)
+                    }
+                },
+                onBust = onBust?.let { bust ->
+                    {
+                        val now = SystemClock.elapsedRealtime()
+                        if (!capturing && !busting && now - lastBustAt > BUST_DEBOUNCE_MS) {
+                            lastBustAt = now
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            bust()
+                        }
+                    }
+                },
+                bustEnabled = !busting && !capturing,
+                playerName = player.name,
+                zoom = zoom?.takeIf { permission.granted },
                 torch = if (hasFlash && permission.granted) torchOn else null,
                 onTorchChange = { torchOn = it },
-                onClose = onClose,
-                onBackToTable = onBackToTable,
-                hint = when {
-                    !permission.granted -> null
-                    capturing -> "Reading cards…"
-                    notReady -> "Camera is starting – try again"
-                    stats?.error != null -> "Card detector unavailable"
-                    else -> "Fit the whole row in the frame"
-                },
-                modifier = Modifier.align(Alignment.TopCenter),
             )
-            if (bustToast != null) {
-                CameraBustToast(
-                    toast = bustToast,
-                    onUndo = onUndoBust,
-                    // Above the zoom pills (48 dp tall, 12 dp from the bottom).
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(horizontal = Scan7Spacing.screenMargin)
-                        .padding(bottom = Scan7Spacing.m + 48.dp + Scan7Spacing.m),
-                )
-            }
         }
-        CameraBottomBar(
-            seen = seen,
-            showCount = permission.granted && stats != null,
-            shutterEnabled = canShoot,
-            onShutter = {
-                // Best-frame shutter: compares the frames around the press (see DetectionAnalyzer.capture).
-                haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
-                val pressedAt = SystemClock.elapsedRealtime()
-                scope.launch {
-                    capturing = true
-                    notReady = false
-                    val frame = analyzer.capture(pressedAt)
-                    capturing = false
-                    if (frame == null) notReady = true else onCaptured(frame)
-                }
-            },
-            onTypeInstead = onTypeInstead,
-            onBust = onBust?.let { bust ->
-                {
-                    if (!capturing) {
-                        haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
-                        bust()
-                    }
-                }
-            },
-            playerName = player.name,
-        )
+        if (bustOverlay != null) BustOverlay(bustOverlay, onUndoBustOverlay)
     }
 }
 
@@ -211,18 +221,16 @@ private val BannerToken = TokenSize(33.dp, 44.dp, 18.sp)
 
 /**
  * Header overlay on the preview: a ground-colored scrim fading out (readable over bright tables),
- * a control row (close or "Back to table", REC, torch) and below it the player banner: a large
- * token, "SCANNING" / "NEXT" with the total, the name big in Unbounded. Then the [hint] pill.
+ * a control row (← back to the table left, "Type" right) and below it the player banner: a large
+ * token, "SCANNING" / "NEXT" with the total, the name big in Unbounded. Then the [hint] pill
+ * (only while reading / on errors).
  */
 @Composable
 private fun CameraHeader(
     player: PlayerUi,
     mode: ScanMode,
-    recording: Boolean,
-    torch: Boolean?,
-    onTorchChange: (Boolean) -> Unit,
-    onClose: () -> Unit,
-    onBackToTable: () -> Unit,
+    onBack: () -> Unit,
+    onType: () -> Unit,
     hint: String?,
     modifier: Modifier = Modifier,
 ) {
@@ -246,22 +254,9 @@ private fun CameraHeader(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth().height(Scan7Spacing.headerHeight),
         ) {
-            if (mode == ScanMode.Normal) {
-                IconButton(onClick = onClose, contentDescription = "Close camera") { CloseIcon(colors.text) }
-            }
+            IconButton(onClick = onBack, contentDescription = "Back to table") { BackIcon(colors.text) }
             Spacer(Modifier.weight(1f))
-            if (recording) RecMarker()
-            if (torch != null) TorchToggle(torch, onTorchChange)
-            if (mode == ScanMode.ScanNext) {
-                SecondaryButton(
-                    text = "Back to table",
-                    onClick = onBackToTable,
-                    height = Scan7Spacing.minTouch,
-                    cornerRadius = Scan7Radii.iconButton,
-                    textStyle = Scan7Type.button.copy(fontSize = 13.sp),
-                    modifier = Modifier.background(colors.ground.copy(alpha = 0.6f), RoundedCornerShape(Scan7Radii.iconButton)),
-                )
-            }
+            TypeButton(onType)
         }
         PlayerBanner(
             player = player,
@@ -269,6 +264,31 @@ private fun CameraHeader(
             modifier = Modifier.padding(top = Scan7Spacing.m),
         )
         if (hint != null) HintPill(hint, Modifier.padding(top = Scan7Spacing.m))
+    }
+}
+
+/** "⌨ Type": secondary style (line border) on a ground backing, opens the manual entry. */
+@Composable
+private fun TypeButton(onClick: () -> Unit) {
+    val colors = Scan7Theme.colors
+    val shape = RoundedCornerShape(Scan7Radii.iconButton)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .height(Scan7Spacing.minTouch)
+            .clip(shape)
+            .background(colors.ground.copy(alpha = 0.6f))
+            .border(1.5.dp, colors.line, shape)
+            .scan7Clickable(onClick)
+            .clearAndSetSemantics {
+                contentDescription = "Type the cards instead"
+                role = Role.Button
+            }
+            .padding(horizontal = Scan7Spacing.l),
+    ) {
+        KeyboardIcon(colors.text)
+        Text("Type", color = colors.text, style = Scan7Type.button.copy(fontSize = 13.sp), maxLines = 1)
     }
 }
 
@@ -369,44 +389,52 @@ private fun HintPill(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** Zoom presets as a pill toggle (same look as the round screen's view toggle). */
+/**
+ * Zoom presets as a compact pill toggle (round screen's view toggle look), two per row so up to
+ * four lenses (0.5× 1× 2× 5×) fit next to the shutter.
+ */
 @Composable
 private fun ZoomPills(zoom: ZoomControls, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs),
+    Column(
+        verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs),
         modifier = modifier
-            .background(colors.ground.copy(alpha = 0.78f), RoundedCornerShape(Scan7Radii.toggleOuter))
+            .background(colors.surface, RoundedCornerShape(Scan7Radii.toggleOuter))
             .padding(Scan7Spacing.xxs)
             .selectableGroup(),
     ) {
-        for (preset in zoom.presets) {
-            val active = preset == zoom.selected
-            val label = formatZoom(preset)
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(48.dp, 40.dp)
-                    .clip(RoundedCornerShape(Scan7Radii.toggleInner))
-                    .background(if (active) colors.accent else colors.ground.copy(alpha = 0f))
-                    .selectable(
-                        selected = active,
-                        interactionSource = null,
-                        indication = PressDim,
-                        role = Role.RadioButton,
-                        onClick = { zoom.onSelect(preset) },
-                    )
-                    .semantics { contentDescription = "Zoom $label" },
-            ) {
-                Text(label, color = if (active) colors.onAccent else colors.text, style = Scan7Type.tag12)
+        for (row in zoom.presets.chunked(2)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs)) {
+                for (preset in row) {
+                    val active = preset == zoom.selected
+                    val label = formatZoom(preset)
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp, 34.dp)
+                            .clip(RoundedCornerShape(Scan7Radii.toggleInner))
+                            .background(if (active) colors.accent else colors.surface.copy(alpha = 0f))
+                            .selectable(
+                                selected = active,
+                                interactionSource = null,
+                                indication = PressDim,
+                                role = Role.RadioButton,
+                                onClick = { zoom.onSelect(preset) },
+                            )
+                            .semantics { contentDescription = "Zoom $label" },
+                    ) {
+                        Text(label, color = if (active) colors.onAccent else colors.text, style = Scan7Type.tag12)
+                    }
+                }
             }
         }
     }
 }
 
 /**
- * Bottom bar: "● 3 cards seen" above a row of Bust (left, when [onBust] is set), the shutter
- * (center) and "Type instead" (right). Bust sits a full column away from the shutter.
+ * Bottom bar: "● 3 cards seen" above the row Bust (left, when [onBust] is set) · shutter (center)
+ * · zoom pills with the torch toggle next to them (right). Bust sits a full column away from the
+ * shutter.
  */
 @Composable
 private fun CameraBottomBar(
@@ -414,9 +442,12 @@ private fun CameraBottomBar(
     showCount: Boolean,
     shutterEnabled: Boolean,
     onShutter: () -> Unit,
-    onTypeInstead: () -> Unit,
     onBust: (() -> Unit)?,
+    bustEnabled: Boolean,
     playerName: String,
+    zoom: ZoomControls?,
+    torch: Boolean?,
+    onTorchChange: (Boolean) -> Unit,
 ) {
     val colors = Scan7Theme.colors
     Column(
@@ -426,7 +457,7 @@ private fun CameraBottomBar(
             .fillMaxWidth()
             .background(colors.ground)
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = Scan7Spacing.xl)
+            .padding(horizontal = Scan7Spacing.l)
             .padding(top = Scan7Spacing.m, bottom = Scan7Spacing.xl),
     ) {
         Row(
@@ -441,46 +472,34 @@ private fun CameraBottomBar(
             Text(seen.toString(), color = colors.text, style = Scan7Type.total15)
             Text(if (seen == 1) "card seen" else "cards seen", color = colors.textMuted, style = Scan7Type.text12)
         }
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Box(Modifier.width(SideColumn), contentAlignment = Alignment.CenterStart) {
-                if (onBust != null) BustButton(playerName, onBust)
+        Box(Modifier.fillMaxWidth().height(84.dp)) {
+            if (onBust != null) BustButton(playerName, onBust, bustEnabled, Modifier.align(Alignment.CenterStart))
+            Shutter(enabled = shutterEnabled, onClick = onShutter, modifier = Modifier.align(Alignment.Center))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.align(Alignment.CenterEnd),
+            ) {
+                if (zoom != null) ZoomPills(zoom)
+                if (torch != null) TorchToggle(torch, onTorchChange)
             }
-            Shutter(enabled = shutterEnabled, onClick = onShutter)
-            Text(
-                text = "Type\ninstead",
-                color = colors.textMuted,
-                style = Scan7Type.text12,
-                textAlign = TextAlign.End,
-                modifier = Modifier
-                    .width(SideColumn)
-                    .clip(RoundedCornerShape(Scan7Radii.actionCard))
-                    .scan7Clickable(onTypeInstead)
-                    .semantics { contentDescription = "Type cards instead" }
-                    .padding(vertical = Scan7Spacing.m),
-            )
         }
     }
 }
 
-/** Width of the columns left and right of the shutter. */
-private val SideColumn = 80.dp
-
-/** Bust next to the shutter: magenta outline + the word (never color alone), 80 x 48 dp. */
+/** Bust left of the shutter: magenta outline + the word (never color alone), 72 x 48 dp. */
 @Composable
-private fun BustButton(playerName: String, onClick: () -> Unit) {
+private fun BustButton(playerName: String, onClick: () -> Unit, enabled: Boolean, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.iconButton)
     Box(
         contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .size(SideColumn, Scan7Spacing.minTouch)
+        modifier = modifier
+            .size(72.dp, Scan7Spacing.minTouch)
+            .alpha(if (enabled) 1f else 0.4f)
             .clip(shape)
             .border(1.5.dp, colors.bust, shape)
-            .scan7Clickable(onClick)
+            .scan7Clickable(onClick, enabled = enabled)
             .clearAndSetSemantics {
                 contentDescription = "Mark $playerName as bust"
                 role = Role.Button
@@ -492,11 +511,11 @@ private fun BustButton(playerName: String, onClick: () -> Unit) {
 
 /** Big shutter: 84 dp ring in the text color around a 64 dp cyan disc. */
 @Composable
-private fun Shutter(enabled: Boolean, onClick: () -> Unit) {
+private fun Shutter(enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
     Box(
         contentAlignment = Alignment.Center,
-        modifier = Modifier
+        modifier = modifier
             .size(84.dp)
             .clip(CircleShape)
             .border(4.dp, colors.text.copy(alpha = if (enabled) 1f else 0.4f), CircleShape)
@@ -514,7 +533,7 @@ private fun Shutter(enabled: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** Camera permission missing: explanation + allow / open settings ("Type instead" stays below). */
+/** Camera permission missing: explanation + allow / open settings ("Type" stays in the header). */
 @Composable
 private fun BoxScope.PermissionMissing(onAllow: () -> Unit, onOpenSettings: () -> Unit) {
     val colors = Scan7Theme.colors
@@ -536,15 +555,4 @@ private fun BoxScope.PermissionMissing(onAllow: () -> Unit, onOpenSettings: () -
         PrimaryButton("Allow camera", onAllow, Modifier.fillMaxWidth())
         SecondaryButton("Open app settings", onOpenSettings, Modifier.fillMaxWidth())
     }
-}
-
-/** "● REC": every shutter photo is saved for training ("Save scans for training" setting). Muted, never bust magenta. */
-@Composable
-private fun RecMarker() {
-    Text(
-        "● REC",
-        color = Scan7Theme.colors.textMuted,
-        style = Scan7Type.capsLabel,
-        modifier = Modifier.semantics { contentDescription = "Scans are saved for training" },
-    )
 }

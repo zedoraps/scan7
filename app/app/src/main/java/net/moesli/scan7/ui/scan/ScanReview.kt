@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -45,8 +46,10 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -115,6 +118,7 @@ internal fun ScanReviewStep(
     modifier: Modifier = Modifier,
     excluded: Set<Int> = emptySet(),
     onToggleExclude: (Int) -> Unit = {},
+    afterScan: AfterScanUi? = null,
 ) {
     val colors = Scan7Theme.colors
     val detected = capture.detectedCards
@@ -177,39 +181,102 @@ internal fun ScanReviewStep(
                 .windowInsetsPadding(WindowInsets.navigationBars),
         ) {
             when (variant) {
-                ReviewVariant.Scored -> ScoredPanel(player, included, chips, roundNumber, overLimit, onRetake, onFix, confirm, onToggleExclude)
-                ReviewVariant.Bust -> BustPanel(player, included, chips, overLimit, onFix, confirm, onToggleExclude)
+                ReviewVariant.Scored, ReviewVariant.Bust ->
+                    ResultPanel(player, included, chips, roundNumber, bust, overLimit, onRetake, onFix, confirm, onToggleExclude, afterScan)
                 ReviewVariant.Empty -> EmptyPanel(player, capture.error, onRetake, onEnterManually)
             }
         }
     }
 }
 
+/**
+ * Result panel for a scored or busted scan. Its height doesn't depend on the variant: a fixed
+ * [StatusSlot] (bust band or the normal header, plus one status line: the 7-card warning or the
+ * Second Chance line) and a fixed [PointsLine], so leaving cards out / including them again never
+ * moves the chips or buttons, also when the row flips between bust and not bust.
+ */
 @Composable
-private fun ScoredPanel(
+private fun ResultPanel(
     player: PlayerUi,
     cards: List<Card>,
     chips: List<ReviewChip>,
     roundNumber: Int?,
+    bust: Boolean,
     overLimit: Boolean,
     onRetake: () -> Unit,
     onFix: () -> Unit,
     onConfirm: () -> Unit,
     onToggleExclude: (Int) -> Unit,
+    afterScan: AfterScanUi?,
 ) {
     val colors = Scan7Theme.colors
-    val split = splitCards(cards)
-    val score = scoreRow(cards) // incl. ignored cards: a Second Chance cancels a duplicate
+    StatusSlot(player, cards, roundNumber, bust, overLimit)
     PanelContent {
-        Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f).padding(top = Scan7Spacing.xs),
-            ) {
+        PointsLine(cards, bust)
+        ReviewChips(chips, onToggleExclude)
+        Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
+            if (bust) {
+                SecondaryButton("Fix", onFix, Modifier.width(120.dp))
+                ConfirmSplitButton(
+                    "Confirm bust", onConfirm, afterScan, Modifier.weight(1f), enabled = !overLimit, color = colors.bust, stacked = true,
+                )
+            } else {
+                RetakeButton(onRetake)
+                SecondaryButton("Fix", onFix, Modifier.width(80.dp))
+                ConfirmSplitButton("✓ OK", onConfirm, afterScan, Modifier.weight(1f), enabled = !overLimit, stacked = true)
+            }
+        }
+    }
+}
+
+/** Height of the review's status slot (bust band / header + status line). */
+private val StatusSlotHeight = 112.dp
+
+/** Height of the status line inside the slot (7-card warning, Second Chance, duplicates). */
+private val StatusLineHeight = 40.dp
+
+/** Height of the line under the slot (breakdown, or the struck-through points of a bust). */
+private val PointsLineHeight = 44.dp
+
+/**
+ * The status slot, [StatusSlotHeight] high, edge to edge at the panel top. Bust: magenta band
+ * "✕ BUST" + "Two 7s in the row" and the player (never color alone). Otherwise: token, name,
+ * "Round 4 · 96 → 140", the total big in cyan (+ Flip 7 badge). The second line holds the 7-card
+ * warning or "Second Chance used · 7 counted once" (else stays empty).
+ */
+@Composable
+private fun StatusSlot(player: PlayerUi, cards: List<Card>, roundNumber: Int?, bust: Boolean, overLimit: Boolean) {
+    val colors = Scan7Theme.colors
+    val score = scoreRow(cards) // incl. action cards: a Second Chance cancels a duplicate
+    val ink = if (bust) colors.onBust else colors.text
+    Column(
+        verticalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(StatusSlotHeight)
+            .background(if (bust) colors.bust else Color.Transparent)
+            .padding(start = Scan7Spacing.screenMargin, end = Scan7Spacing.screenMargin, top = Scan7Spacing.l, bottom = Scan7Spacing.s),
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+        ) {
+            if (bust) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f).semantics(mergeDescendants = true) { heading() },
+                ) {
+                    CloseIcon(ink, size = 32.dp, strokeWidth = 3.2f)
+                    Text("BUST", color = ink, style = Scan7Type.total24.copy(fontSize = 28.sp), maxLines = 1)
+                }
+                Text(player.name, color = ink, style = Scan7Type.tag12.copy(fontSize = 13.sp), maxLines = 1)
+                PlayerToken(player.initial, player.color, TokenSize(30.dp, 40.dp, 14.sp), cornerRadius = 6.dp, outline = ink)
+            } else {
                 PlayerToken(player.initial, player.color, TokenSize(30.dp, 40.dp, 14.sp), cornerRadius = 6.dp)
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(player.name, color = colors.text, style = Scan7Type.button.copy(fontSize = 17.sp), maxLines = 1)
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
+                    Text(player.name, color = ink, style = Scan7Type.button.copy(fontSize = 17.sp), maxLines = 1)
                     val progress = "${player.total} → ${player.total + score.total}"
                     Text(
                         text = roundNumber?.let { "Round $it · $progress" } ?: progress,
@@ -218,99 +285,60 @@ private fun ScoredPanel(
                         maxLines = 1,
                     )
                 }
-            }
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xs)) {
                 if (score.flip7Bonus > 0) Flip7Badge(score.flip7Bonus)
                 Text(
                     text = score.total.toString(),
                     color = colors.accent,
-                    style = ScoreNumberStyle,
+                    style = ScoreNumberStyle.copy(fontSize = 40.sp, lineHeight = 48.sp),
                     maxLines = 1,
                     modifier = Modifier.semantics { contentDescription = "${score.total} points" },
                 )
             }
         }
-        Breakdown(cards)
-        score.secondChanceText()?.let { SecondChanceInfo(it) }
-        ReviewChips(chips, onToggleExclude)
-        if (overLimit) NumberLimitWarning()
-        Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
-            RetakeButton(onRetake)
-            SecondaryButton("Fix", onFix, Modifier.width(96.dp))
-            PrimaryButton("✓ OK", onConfirm, Modifier.weight(1f), enabled = !overLimit)
+        Box(Modifier.fillMaxWidth().height(StatusLineHeight), contentAlignment = Alignment.CenterStart) {
+            val secondChance = score.secondChanceText()
+            when {
+                overLimit -> NumberLimitWarning(if (bust) colors.onBust else colors.accent)
+                bust -> Text(
+                    "${duplicateSummary(duplicateCounts(splitCards(cards).scoring))} in the row",
+                    color = ink,
+                    style = Scan7Type.tag12.copy(fontSize = 14.sp),
+                    maxLines = 1,
+                )
+                secondChance != null -> SecondChanceInfo(secondChance)
+            }
         }
     }
 }
 
+/** Fixed-height line under the slot: the breakdown, or (bust) "Round points" with 52 struck through and 0. */
 @Composable
-private fun BustPanel(
-    player: PlayerUi,
-    cards: List<Card>,
-    chips: List<ReviewChip>,
-    overLimit: Boolean,
-    onFix: () -> Unit,
-    onConfirm: () -> Unit,
-    onToggleExclude: (Int) -> Unit,
-) {
+private fun PointsLine(cards: List<Card>, bust: Boolean) {
     val colors = Scan7Theme.colors
-    val split = splitCards(cards)
-    val score = scoreRow(split.scoring)
-    val duplicates = duplicateCounts(split.scoring)
-    val summary = duplicateSummary(duplicates)
-    // Magenta band: ✕ BUST + "Two 7s" (never color alone).
-    Row(
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(colors.bust)
-            .padding(horizontal = Scan7Spacing.screenMargin, vertical = Scan7Spacing.l)
-            .semantics(mergeDescendants = true) { heading() },
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m), verticalAlignment = Alignment.CenterVertically) {
-            CloseIcon(colors.onBust, size = 32.dp, strokeWidth = 3.2f)
-            Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs)) {
-                Text("BUST", color = colors.onBust, style = Scan7Type.total24.copy(fontSize = 28.sp), maxLines = 1)
-                Text("$summary in the row", color = colors.onBust, style = Scan7Type.tag12.copy(fontSize = 14.sp))
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), verticalAlignment = Alignment.CenterVertically) {
-            Text(player.name, color = colors.onBust, style = Scan7Type.tag12.copy(fontSize = 13.sp), maxLines = 1)
-            PlayerToken(player.initial, player.color, TokenSize(30.dp, 40.dp, 14.sp), cornerRadius = 6.dp, outline = colors.onBust)
-        }
-    }
-    PanelContent {
-        ReviewChips(chips, onToggleExclude)
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Round points", color = colors.textMuted, style = Scan7Type.text13)
+    Box(Modifier.fillMaxWidth().height(PointsLineHeight), contentAlignment = Alignment.CenterStart) {
+        if (bust) {
+            val score = scoreRow(splitCards(cards).scoring)
             Row(
-                horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clearAndSetSemantics { contentDescription = "0 points, bust" },
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(
-                    score.totalIgnoringBust().toString(),
-                    color = colors.textMuted,
-                    style = Scan7Type.text14.copy(textDecoration = TextDecoration.LineThrough),
-                )
-                Text("0", color = colors.bust, style = ScoreNumberStyle.copy(fontSize = 44.sp, lineHeight = 48.sp))
+                Text("Round points", color = colors.textMuted, style = Scan7Type.text13)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clearAndSetSemantics { contentDescription = "0 points, bust" },
+                ) {
+                    Text(
+                        score.totalIgnoringBust().toString(),
+                        color = colors.textMuted,
+                        style = Scan7Type.text14.copy(textDecoration = TextDecoration.LineThrough),
+                    )
+                    Text("0", color = colors.bust, style = ScoreNumberStyle.copy(fontSize = 36.sp, lineHeight = 44.sp))
+                }
             }
-        }
-        val dupValue = duplicates.keys.firstOrNull()
-        Text(
-            text = "Misread a card? Tap Fix to correct it." +
-                (dupValue?.let { " ${player.name} used a Second Chance? Fix and remove one $it." } ?: ""),
-            color = colors.textMuted,
-            style = Scan7Type.text13,
-        )
-        if (overLimit) NumberLimitWarning()
-        Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
-            SecondaryButton("Fix", onFix, Modifier.width(120.dp))
-            PrimaryButton("Confirm bust", onConfirm, Modifier.weight(1f), enabled = !overLimit, color = colors.bust)
+        } else {
+            Breakdown(cards, maxLines = 2)
         }
     }
 }
@@ -320,16 +348,16 @@ private fun BustPanel(
  * magenta (it isn't a bust). OK / Confirm bust wait until it fits; Fix stays available.
  */
 @Composable
-private fun NumberLimitWarning() {
-    val colors = Scan7Theme.colors
+private fun NumberLimitWarning(color: Color) {
     Text(
         REVIEW_NUMBER_LIMIT_WARNING,
-        color = colors.accent,
-        style = Scan7Type.text13,
+        color = color,
+        style = Scan7Type.text12,
+        maxLines = 2,
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.5.dp, colors.accent, RoundedCornerShape(Scan7Radii.iconButton))
-            .padding(horizontal = Scan7Spacing.m, vertical = Scan7Spacing.s)
+            .border(1.5.dp, color, RoundedCornerShape(Scan7Radii.iconButton))
+            .padding(horizontal = Scan7Spacing.m, vertical = Scan7Spacing.xs)
             .semantics { liveRegion = LiveRegionMode.Polite },
     )
 }
@@ -374,29 +402,49 @@ private fun PanelContent(content: @Composable ColumnScope.() -> Unit) {
     )
 }
 
-/** Breakdown line, separators muted: "7 + 12 + 3 = 22 · ×2 = 44 · +4 · Flip 7 +15". */
+/** The score formula of [cards] ([breakdownFormula]), e.g. "(6 + 7 + 8) × 2 + 4 = 46". */
 @Composable
-internal fun Breakdown(cards: List<Card>, modifier: Modifier = Modifier) {
+internal fun Breakdown(cards: List<Card>, modifier: Modifier = Modifier, maxLines: Int = Int.MAX_VALUE) =
+    FormulaText(breakdownFormula(cards), modifier, maxLines)
+
+/**
+ * A score formula: numbers in the text color, modifiers in the modifier orange, the Flip 7 bonus
+ * in cyan, operators muted. Wraps only at the operators (the "= 46" stays together); TalkBack
+ * reads the plain spoken version ([spokenFormula]).
+ */
+@Composable
+internal fun FormulaText(
+    parts: List<FormulaPart>,
+    modifier: Modifier = Modifier,
+    maxLines: Int = Int.MAX_VALUE,
+    style: TextStyle = Scan7Type.text13.copy(lineHeight = 20.sp),
+) {
     val colors = Scan7Theme.colors
-    val parts = breakdownParts(cards)
     Text(
         text = buildAnnotatedString {
-            if (parts.isEmpty()) {
-                withStyle(SpanStyle(color = colors.textMuted)) { append(NO_SCORING_CARDS) }
-            }
-            parts.forEachIndexed { i, part ->
-                if (i > 0) withStyle(SpanStyle(color = colors.textMuted)) { append(" · ") }
-                append(part)
+            parts.forEach { p ->
+                val color = when (p.kind) {
+                    FormulaKind.NUMBER, FormulaKind.TOTAL -> colors.text
+                    FormulaKind.MODIFIER -> ModifierInk
+                    FormulaKind.BONUS -> colors.accent
+                    FormulaKind.OPERATOR -> colors.textMuted
+                }
+                // Keep "= 46" (and "× 2") on one line: break only after the other operators.
+                val text = if (p.text == " = " || p.text == " × ") p.text.dropLast(1) + " " else p.text
+                withStyle(SpanStyle(color = color)) { append(text) }
             }
         },
         color = colors.text,
-        style = Scan7Type.text13.copy(lineHeight = 20.sp),
-        modifier = modifier,
+        style = style,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.semantics { contentDescription = spokenFormula(parts) },
     )
 }
 
 /**
- * Review chips: scoring (duplicates outlined magenta), ignored (greyed), excluded (struck through),
+ * Review chips: scoring (duplicates outlined magenta), action cards / backs (name only, dashed),
+ * excluded (struck through),
  * each a toggle "leave out / include", plus the muted hint "Tap a card to leave it out".
  */
 @Composable
