@@ -40,12 +40,13 @@ Bottom: **Scan next · <next open player>** (primary) + **Close round**; when ev
    - tapping a box or its chip **leaves that card out** (e.g. a neighbour's card in the frame): dashed grey "EXCLUDED", chip struck through; score, bust check and the saved cards ignore it; tap again to include it. Fix doesn't prefill left-out cards.
    After OK: if the scan was started via **Scan next**, go straight to the camera for the next open player ("Next: Ben", with "Back to table"); otherwise back to the round screen.
 4. If a number is detected twice, the panel shows **BUST · two 7s** (magenta + text) with **Confirm bust** and **Fix**.
+   **Second Chance rule** (in `scoreRow`): each `second_chance` card in the row (not left out) cancels one extra copy of a number; if every extra copy is covered, it is no bust, the duplicated number counts once (also for Flip 7), and review/manual show the cyan line "Second Chance used · 7 counted once".
 5. **Leave a card out:** tapping a box on the photo or its chip toggles it *excluded* (dashed grey, "EXCLUDED"), e.g. a neighbour's card. Excluded cards don't count for the score or the bust check and aren't prefilled in Fix. They are still saved as real cards for training.
 
 ## Manual screen
 Used for **Enter manually**, **Fix** (prefilled with the scanned cards) and **Edit**.
 - Top: selected cards as chips; tap a chip to remove it.
-- Grid: `0`–`12`, `+2` `+4` `+6` `+8` `+10` `x2`. Tapping toggles a card on/off (each card counts at most once per player).
+- Grid: `0`–`12`, `+2` `+4` `+6` `+8` `+10` `x2`. Tapping adds a card once or removes one copy: the grid never adds a second copy, but a duplicate prefilled by Fix shows "×2" (magenta while it busts) and each tap removes one copy, so the user can keep one 12.
 - **At most 7 number cards** (duplicates count): once 7 are selected, the other number buttons are disabled ("7 number cards – the maximum"). The review blocks OK with a warning if a scan includes more than 7 (leave cards out or Fix).
 - Action cards and `back` are not in the grid (they never score). If the scan found them, they show as grey "ignored" chips.
 - Live score breakdown at the bottom, **Save**.

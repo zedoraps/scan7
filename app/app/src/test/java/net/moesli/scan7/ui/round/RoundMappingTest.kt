@@ -198,7 +198,7 @@ class RoundMappingTest {
 
     @Test
     fun bustOutcome_isStoredAsBustWithItsCards() {
-        val outcome = ScanOutcome.Bust(listOf(Card.N7, Card.N7), listOf(Card.SECOND_CHANCE), ScanSource.MANUAL)
+        val outcome = ScanOutcome.Bust(listOf(Card.N7, Card.N7), listOf(Card.FREEZE), ScanSource.MANUAL)
         assertEquals(ResultSource.MANUAL, outcome.resultSource)
         val g = start.scoreCards(2, outcome.toConfirmedCards(), outcome.resultSource, now = 1)
         val ui = snap(g).toRoundUiState()

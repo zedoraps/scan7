@@ -40,6 +40,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
@@ -53,6 +55,7 @@ import net.moesli.scan7.detection.DisplayMapping
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.training.TrainingCapture
 import net.moesli.scan7.scoring.scoreRow
+import net.moesli.scan7.scoring.secondChanceText
 import net.moesli.scan7.ui.components.IconButton
 import net.moesli.scan7.ui.components.PlayerToken
 import net.moesli.scan7.ui.components.PlayerUi
@@ -120,7 +123,8 @@ internal fun ScanReviewStep(
     val boxes = remember(capture, excluded) { scanBoxes(capture.detections, markDuplicates = true, excluded = excluded) }
     val chips = remember(capture, excluded) { reviewChips(detected, excluded) }
     val included = remember(capture, excluded) { includedCards(detected, excluded) }
-    val confirm = { onConfirm(reviewOutcome(detected, excluded)) }
+    val overLimit = reviewOverNumberLimit(detected, excluded)
+    val confirm = { if (!overLimit) onConfirm(reviewOutcome(detected, excluded)) }
     val minTouchPx = with(LocalDensity.current) { Scan7Spacing.minTouch.toPx() }
     val toggle by rememberUpdatedState(onToggleExclude)
     val currentBoxes by rememberUpdatedState(boxes)
@@ -173,8 +177,8 @@ internal fun ScanReviewStep(
                 .windowInsetsPadding(WindowInsets.navigationBars),
         ) {
             when (variant) {
-                ReviewVariant.Scored -> ScoredPanel(player, included, chips, roundNumber, onRetake, onFix, confirm, onToggleExclude)
-                ReviewVariant.Bust -> BustPanel(player, included, chips, onFix, confirm, onToggleExclude)
+                ReviewVariant.Scored -> ScoredPanel(player, included, chips, roundNumber, overLimit, onRetake, onFix, confirm, onToggleExclude)
+                ReviewVariant.Bust -> BustPanel(player, included, chips, overLimit, onFix, confirm, onToggleExclude)
                 ReviewVariant.Empty -> EmptyPanel(player, capture.error, onRetake, onEnterManually)
             }
         }
@@ -187,6 +191,7 @@ private fun ScoredPanel(
     cards: List<Card>,
     chips: List<ReviewChip>,
     roundNumber: Int?,
+    overLimit: Boolean,
     onRetake: () -> Unit,
     onFix: () -> Unit,
     onConfirm: () -> Unit,
@@ -194,7 +199,7 @@ private fun ScoredPanel(
 ) {
     val colors = Scan7Theme.colors
     val split = splitCards(cards)
-    val score = scoreRow(split.scoring)
+    val score = scoreRow(cards) // incl. ignored cards: a Second Chance cancels a duplicate
     PanelContent {
         Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -225,12 +230,14 @@ private fun ScoredPanel(
                 )
             }
         }
-        Breakdown(split.scoring)
+        Breakdown(cards)
+        score.secondChanceText()?.let { SecondChanceInfo(it) }
         ReviewChips(chips, onToggleExclude)
+        if (overLimit) NumberLimitWarning()
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
             RetakeButton(onRetake)
             SecondaryButton("Fix", onFix, Modifier.width(96.dp))
-            PrimaryButton("✓ OK", onConfirm, Modifier.weight(1f))
+            PrimaryButton("✓ OK", onConfirm, Modifier.weight(1f), enabled = !overLimit)
         }
     }
 }
@@ -240,6 +247,7 @@ private fun BustPanel(
     player: PlayerUi,
     cards: List<Card>,
     chips: List<ReviewChip>,
+    overLimit: Boolean,
     onFix: () -> Unit,
     onConfirm: () -> Unit,
     onToggleExclude: (Int) -> Unit,
@@ -299,11 +307,31 @@ private fun BustPanel(
             color = colors.textMuted,
             style = Scan7Type.text13,
         )
+        if (overLimit) NumberLimitWarning()
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
             SecondaryButton("Fix", onFix, Modifier.width(120.dp))
-            PrimaryButton("Confirm bust", onConfirm, Modifier.weight(1f), color = colors.bust)
+            PrimaryButton("Confirm bust", onConfirm, Modifier.weight(1f), enabled = !overLimit, color = colors.bust)
         }
     }
+}
+
+/**
+ * More than 7 number cards included (a misread or a neighbour's card): accent outline + text, not
+ * magenta (it isn't a bust). OK / Confirm bust wait until it fits; Fix stays available.
+ */
+@Composable
+private fun NumberLimitWarning() {
+    val colors = Scan7Theme.colors
+    Text(
+        REVIEW_NUMBER_LIMIT_WARNING,
+        color = colors.accent,
+        style = Scan7Type.text13,
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.5.dp, colors.accent, RoundedCornerShape(Scan7Radii.iconButton))
+            .padding(horizontal = Scan7Spacing.m, vertical = Scan7Spacing.s)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+    )
 }
 
 @Composable
