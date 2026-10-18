@@ -37,9 +37,10 @@ import net.moesli.scan7.ui.history.toScoreboardUi
 import net.moesli.scan7.ui.home.HomeRoute
 import net.moesli.scan7.ui.newgame.NewGameRoute
 import net.moesli.scan7.ui.players.PlayersRoute
+import net.moesli.scan7.ui.round.BustToastState
 import net.moesli.scan7.ui.round.RoundNavigator
 import net.moesli.scan7.ui.round.RoundRoute
-import net.moesli.scan7.ui.round.scanNextAfter
+import net.moesli.scan7.ui.round.rememberBustToastState
 import net.moesli.scan7.ui.scan.ScanCapture
 import net.moesli.scan7.ui.scan.ScanRoute
 import net.moesli.scan7.ui.theme.Scan7Theme
@@ -115,14 +116,18 @@ fun AppNavHost(debug: DebugLaunch, modelInfo: String) {
     // Registered before the screens' own handlers, so those win while enabled.
     BackHandler(enabled = stack.entries.size > 1) { stack.pop() }
 
+    // One "<name> marked bust · Undo" toast for the round screen and the scan camera, so a camera
+    // Bust tap can show it on the next player's camera or after returning to the round screen.
+    val bustToast = rememberBustToastState()
+
     val route = stack.top
     holder.SaveableStateProvider(route.stateKey) {
-        Screen(route, stack, debug, modelInfo)
+        Screen(route, stack, debug, modelInfo, bustToast)
     }
 }
 
 @Composable
-private fun Screen(route: Route, stack: BackStack, debug: DebugLaunch, modelInfo: String) {
+private fun Screen(route: Route, stack: BackStack, debug: DebugLaunch, modelInfo: String, bustToast: BustToastState) {
     val back: () -> Unit = { stack.pop() }
     when (route) {
         Route.Home -> HomeRoute(
@@ -141,18 +146,16 @@ private fun Screen(route: Route, stack: BackStack, debug: DebugLaunch, modelInfo
         )
         is Route.Round -> {
             val navigator = remember(route.gameId, stack) { roundNavigator(route.gameId, stack) }
-            RoundRoute(gameId = route.gameId, navigator = navigator)
+            RoundRoute(gameId = route.gameId, navigator = navigator, toast = bustToast)
         }
         is Route.Scan -> ScanRoute(
             gameId = route.gameId,
             playerId = route.playerId,
             start = route.start,
             round = route.round,
-            onSaved = { state ->
-                val next = if (route.start == ScanStart.NEXT) state.scanNextAfter(route.playerId) else null
-                if (next != null) stack.replaceTop(route.copy(playerId = next)) else stack.pop()
-            },
+            onSaved = { state -> route.afterSave(state)?.let(stack::replaceTop) ?: stack.pop() },
             onLeave = back,
+            bustToast = bustToast,
             debugCapture = debug.gamePhotoCapture,
         )
         is Route.Scoreboard -> ScoreboardRoute(route.gameId, stack)

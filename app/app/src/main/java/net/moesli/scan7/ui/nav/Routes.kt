@@ -1,6 +1,8 @@
 package net.moesli.scan7.ui.nav
 
 import net.moesli.scan7.game.DEFAULT_TARGET
+import net.moesli.scan7.game.GameState
+import net.moesli.scan7.ui.round.scanNextAfter
 
 /** How a scan route opens [net.moesli.scan7.ui.scan.ScanFlow]. */
 enum class ScanStart {
@@ -46,6 +48,14 @@ sealed interface Route {
 
     data class Debug(val screen: DebugScreen) : Route
 }
+
+/**
+ * Where a scan route goes once its player's result is saved (scan, manual entry or the camera's
+ * Bust tap): in a "Scan next" chain the next open player's camera, otherwise (or when nobody is
+ * open any more) `null` = back to the round screen.
+ */
+fun Route.Scan.afterSave(state: GameState): Route.Scan? =
+    if (start == ScanStart.NEXT) state.scanNextAfter(playerId)?.let { copy(playerId = it) } else null
 
 /**
  * Key for the screen's saved UI state. A "Scan next" chain keeps one key for all players, so the
