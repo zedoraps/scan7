@@ -28,7 +28,7 @@ import net.moesli.scan7.ui.players.suggestedColor
 import net.moesli.scan7.ui.sheet.breakdownLine
 import net.moesli.scan7.ui.sheet.chipLabel
 import net.moesli.scan7.ui.sheet.duplicatedCards
-import net.moesli.scan7.ui.sheet.unscoredWarning
+import net.moesli.scan7.ui.components.unscoredWarning
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -88,6 +88,12 @@ data class Scan7Colors(
     val onAccent: Color = Scan7Ground,
     val bust: Color = Scan7Bust,
     val onBust: Color = Scan7Ground,
+    /**
+     * Destructive confirm button ([net.moesli.scan7.ui.components.WarningButton]): outline,
+     * warning icon and label in the text colour. Never cyan (= primary / safe) and never bust
+     * magenta (= bust only); no red either (card colours).
+     */
+    val warning: Color = Scan7Text,
     val scanBox: Color = Scan7Accent,
     val scanBoxOutline: Color = Color.White,
     /** Background behind labels drawn over the camera image. */

@@ -31,6 +31,7 @@ Reference prototype: `design/reference/RoundScreen.dc.html` — an HTML prototyp
 | accentTint | `#12384A` | Scored tag background |
 | bust | `#FF4F9A` | Bust tag fill, bust button outline/text |
 | onAccent | `#0A1220` | Text/icons on cyan or magenta |
+| warning | `#EEF4FA` (= text) | Destructive confirm button: 1.5 px outline + ⚠ icon + label (never cyan, never magenta, no red) |
 
 Player colors (fixed palette, never cyan/magenta): `#FFC24B` amber, `#B39BFF` violet, `#A8E55C` lime, `#F2E3C4` sand, `#7FA8FF` sky, `#4FE0A8` mint, `#C9B28A` khaki, `#FF9C8A` salmon, `#A9B8CC` steel, `#E2F06B` chartreuse.
 
@@ -56,6 +57,12 @@ Circle around the token showing progress to the target (total / 200). Track `lin
 - Open: dashed 1.5 px `#3A5075` outline, text "OPEN" muted (only shown in arrange mode / compact cards).
 - Scored: `accentTint` fill, `accent` text, "✓ +46".
 - Bust: `bust` fill, `onAccent` text, "✕ BUST". Never color alone.
+
+### Confirm dialog
+`Scan7ConfirmDialog`: the dialog card (surface, line border, radius 18, padding 24, max 360) centred over a dim scrim; title (Unbounded 600 17), optional one-line body (14, "BUST" magenta), then **[Cancel] [Action]** 56 high, weights 1 : 1.4, fixed. Action = cyan primary, or for destructive actions the **warning button**: transparent, 1.5 px `warning` outline, ⚠ icon + label in `warning`. Confirm is armed 400 ms after opening (double-tap guard). Never inline in a sheet. List: docs/APP_FLOW.md "Confirmations".
+
+### Menu sheet
+Bottom sheet with a list (M3 `ListItem`, no outlines, 20 px line icons, ≥ 56 px rows, press dim); settings inside are M3 controls (scan direction: segmented buttons, selected = accent). Leaving items slide the sheet down first; destructive items use the warning style.
 
 ### Leader badge
 24 px white circle with a dark crown icon, overlapping the card's top-right corner (table) or after the name (list).

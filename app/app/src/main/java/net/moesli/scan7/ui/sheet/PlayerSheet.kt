@@ -55,6 +55,8 @@ import net.moesli.scan7.ui.components.PlayerStatus
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.Scan7BottomSheet
 import net.moesli.scan7.ui.components.ScanIcon
+import net.moesli.scan7.ui.components.Confirmations
+import net.moesli.scan7.ui.components.Scan7ConfirmDialog
 import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.SectionLabel
 import net.moesli.scan7.ui.components.TextLinkButton
@@ -93,8 +95,8 @@ class AdjustActions(
 /**
  * Player sheet (4a) as a bottom sheet in the card styling. Open player: Scan (cyan, tall), Enter
  * manually, Bust (magenta outline). Scored / bust: the result (points or BUST, the cards if any)
- * with Edit, Rescan and Reset to open ([onResetToOpen] `null` hides it, e.g. on the end-of-round
- * view: a closed round has no open players). With [adjust]: "Adjust total" (signed delta + note,
+ * with Edit, Rescan and Reset to open (asks first, [Confirmations.resetToOpen]; [onResetToOpen]
+ * `null` hides it, e.g. on the end-of-round view: a closed round has no open players). With [adjust]: "Adjust total" (signed delta + note,
  * [AdjustTotalDialog]) and the player's adjustments, each removable with Undo.
  */
 @Composable
@@ -113,9 +115,12 @@ fun PlayerSheet(
     var adjusting by rememberSaveable { mutableStateOf(false) }
     // Last removed adjustment, for the inline Undo (cleared when the sheet closes).
     var removed by remember { mutableStateOf<ScoreAdjustment?>(null) }
+    // "Reset to open" asks first (Scan7ConfirmDialog over the sheet; the sheet's layout stays).
+    var confirmReset by rememberSaveable { mutableStateOf(false) }
     // Actions slide the sheet down first (hideThen); "Adjust total" swaps it for the dialog.
     if (!adjusting) Scan7BottomSheet(onDismiss = onDismiss, modifier = modifier) { sheet ->
         Column(Modifier.verticalScroll(rememberScrollState())) {
+            val resetSpec = Confirmations.resetToOpen(state.player.name, state.player.status)
             PlayerSheetContent(
                 state,
                 { sheet.hideThen(onScan) },
@@ -123,8 +128,18 @@ fun PlayerSheet(
                 { sheet.hideThen(onBust) },
                 { sheet.hideThen(onEdit) },
                 { sheet.hideThen(onRescan) },
-                onResetToOpen?.let { reset -> { sheet.hideThen(reset) } },
+                onResetToOpen?.let { reset -> { if (resetSpec == null) sheet.hideThen(reset) else confirmReset = true } },
             )
+            if (confirmReset && onResetToOpen != null && resetSpec != null) {
+                Scan7ConfirmDialog(
+                    resetSpec,
+                    onConfirm = {
+                        confirmReset = false
+                        sheet.hideThen(onResetToOpen)
+                    },
+                    onCancel = { confirmReset = false },
+                )
+            }
             if (adjust != null) {
                 Spacer(Modifier.height(Scan7Spacing.l))
                 AdjustSection(

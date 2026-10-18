@@ -77,6 +77,11 @@ private object Vectors {
         )
         vector("Table", seats.joinToString(""), 2f)
     }
+    val warning by lazy { vector("Warning", "M12 3.5L2.5 20h19zM12 10v4.5M12 17v0.6", 2f) }
+    val scoreboard by lazy { vector("Scoreboard", roundRect(4f, 5f, 16f, 14f, 2f) + "M4 10h16M10 5v14", 2f) }
+    val flag by lazy { vector("Flag", "M6 21V4M6 4h11l-2.5 4L17 12H6", 2f) }
+    val home by lazy { vector("Home", "M3.5 11.5L12 4l8.5 7.5M6 9.5V20h12V9.5", 2f) }
+    val rotate by lazy { vector("Rotate", "M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4v4h-4", 2f) }
     private const val TORCH = "M8 9h8l-2 4v8h-4v-8zM8 9V7h8v2M12 15v2"
     val torchOff by lazy { vector("TorchOff", TORCH, 2f) }
     val torchOn by lazy { vector("TorchOn", TORCH + "M12 2v2M6 3.5l1.2 1.6M18 3.5l-1.2 1.6", 2f) }
@@ -136,3 +141,23 @@ fun TableIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) = V
 @Composable
 fun TorchIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp, on: Boolean = false) =
     VectorIcon(if (on) Vectors.torchOn else Vectors.torchOff, color, size, modifier)
+
+/** Warning triangle with "!" (destructive confirm buttons). */
+@Composable
+fun WarningIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 18.dp) = VectorIcon(Vectors.warning, color, size, modifier)
+
+/** Scoreboard grid (round menu). */
+@Composable
+fun ScoreboardIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) = VectorIcon(Vectors.scoreboard, color, size, modifier)
+
+/** Finish flag (round menu "End game"). */
+@Composable
+fun FlagIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) = VectorIcon(Vectors.flag, color, size, modifier)
+
+/** House (round menu "Home"). */
+@Composable
+fun HomeIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) = VectorIcon(Vectors.home, color, size, modifier)
+
+/** Circular arrow (round menu "Scan direction"). */
+@Composable
+fun RotateIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) = VectorIcon(Vectors.rotate, color, size, modifier)

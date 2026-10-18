@@ -73,6 +73,8 @@ import net.moesli.scan7.game.DEFAULT_TARGET
 import net.moesli.scan7.game.MAX_PLAYERS
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.ui.components.CheckIcon
+import net.moesli.scan7.ui.components.Confirmations
+import net.moesli.scan7.ui.components.Scan7ConfirmDialog
 import net.moesli.scan7.ui.components.DragHandleIcon
 import net.moesli.scan7.ui.components.IconButton
 import net.moesli.scan7.ui.components.MinusIcon
@@ -229,7 +231,7 @@ private val SeatGlide = tween<IntOffset>(durationMillis = 220, easing = EaseOut)
 /**
  * New game, step 2 (3b): selected players in seating order (drag the handle, or long-press a row,
  * to reorder; TalkBack: "Move up" / "Move down" actions), target stepper (default 200), Start.
- * [note] e.g. warns that an unfinished game will be ended; [error] shows a failed start.
+ * [error] shows a failed start. Start asks first if a game is unfinished ([NewGameRoute]).
  */
 @Composable
 fun SeatingScreen(
@@ -240,7 +242,6 @@ fun SeatingScreen(
     onStart: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    note: String? = null,
     error: String? = null,
     starting: Boolean = false,
 ) {
@@ -378,7 +379,7 @@ fun SeatingScreen(
                 )
             }
         }
-        val message = error ?: note
+        val message = error
         if (message != null) {
             Text(message, color = colors.textMuted, style = Scan7Type.text12, modifier = Modifier.padding(bottom = Scan7Spacing.m))
         }
@@ -541,6 +542,31 @@ fun NewGameRoute(
     // Players deleted meanwhile drop out of the selection.
     val liveSelected = selected.filter { it in byId }
 
+    // Start while a game is unfinished asks first (starting ends that game for good).
+    var confirmStart by rememberSaveable { mutableStateOf(false) }
+    val startConfirm = Confirmations.startGame(active?.state?.currentRound?.number)
+    val start = {
+        starting = true
+        error = null
+        scope.launch {
+            // Outlives this screen: a started transaction isn't rolled back by Back.
+            runCatching { outlivingUi { repository.startGame(seating.filter { it in byId }, target) } }
+                .onSuccess(onGameStarted)
+                .onFailure { error = it.message ?: "Couldn't start the game" }
+            starting = false
+        }
+    }
+    if (confirmStart && startConfirm != null && step == 2) {
+        Scan7ConfirmDialog(
+            startConfirm,
+            onConfirm = {
+                confirmStart = false
+                start()
+            },
+            onCancel = { confirmStart = false },
+        )
+    }
+
     BackHandler(enabled = step == 2) { step = 1 }
     when (step) {
         1 -> PickPlayersScreen(
@@ -567,19 +593,8 @@ fun NewGameRoute(
             target = target,
             onMove = { from, to -> seating = seating.filter { it in byId }.moved(from, to) },
             onTargetChange = { target = it },
-            onStart = {
-                starting = true
-                error = null
-                scope.launch {
-                    // Outlives this screen: a started transaction isn't rolled back by Back.
-                    runCatching { outlivingUi { repository.startGame(seating.filter { it in byId }, target) } }
-                        .onSuccess(onGameStarted)
-                        .onFailure { error = it.message ?: "Couldn't start the game" }
-                    starting = false
-                }
-            },
+            onStart = { if (startConfirm == null) start() else confirmStart = true },
             onBack = { step = 1 },
-            note = active?.let { "Starting ends the unfinished game (round ${it.state.currentRound.number})." },
             error = error,
             starting = starting,
             modifier = modifier,
@@ -610,6 +625,6 @@ private fun PickPlayersPreview() {
 @Composable
 private fun SeatingPreview() {
     Scan7Theme {
-        SeatingScreen(SampleStoredPlayers.take(4), 200, { _, _ -> }, {}, {}, {}, note = "Starting ends the unfinished game (round 3).")
+        SeatingScreen(SampleStoredPlayers.take(4), 200, { _, _ -> }, {}, {}, {})
     }
 }
