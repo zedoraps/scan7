@@ -3,6 +3,8 @@ package net.moesli.scan7.camera
 import android.util.Log
 import android.util.Size
 import androidx.camera.compose.CameraXViewfinder
+import androidx.camera.core.Camera
+import androidx.core.content.edit
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
@@ -13,13 +15,20 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.lifecycle.awaitInstance
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.camera.core.ZoomState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +53,8 @@ import net.moesli.scan7.detection.DetectorHolder
 import net.moesli.scan7.ui.theme.Scan7Theme
 
 private const val TAG = "CameraPreview"
+private const val CAMERA_PREFS = "camera"
+private const val PREF_ZOOM = "zoom"
 
 /** Analysis target: 4:3, ~1280×960, enough headroom for a 640 px detector input. */
 private val analysisResolution = ResolutionSelector.Builder()
@@ -77,6 +88,10 @@ fun CameraPreview(
     val stats by analyzer.stats.collectAsStateWithLifecycle()
     var surfaceRequest by remember { mutableStateOf<SurfaceRequest?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var camera by remember { mutableStateOf<Camera?>(null) }
+    // Zoom picks the lens on multi-camera phones (e.g. Pixel: 0.5× = ultra-wide, 5× = telephoto).
+    val prefs = remember { context.getSharedPreferences(CAMERA_PREFS, android.content.Context.MODE_PRIVATE) }
+    var zoom by rememberSaveable { mutableFloatStateOf(prefs.getFloat(PREF_ZOOM, 1f)) }
 
     val preview = remember {
         Preview.Builder().setResolutionSelector(previewResolution).build().apply {
@@ -100,7 +115,11 @@ fun CameraPreview(
     LaunchedEffect(lifecycleOwner) {
         val provider = ProcessCameraProvider.awaitInstance(context)
         try {
-            provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
+            camera = provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
+                .also { cam ->
+                    val physical = runCatching { cam.cameraInfo.physicalCameraInfos.size }.getOrDefault(0)
+                    Log.i(TAG, "Back camera bound; zoom range ${cam.cameraInfo.zoomState.value}, $physical physical cameras")
+                }
             error = null
         } catch (e: Exception) {
             Log.e(TAG, "Binding camera use cases failed", e)
@@ -111,6 +130,19 @@ fun CameraPreview(
         } finally {
             provider.unbind(preview, analysis)
         }
+    }
+
+    var zoomState by remember { mutableStateOf<ZoomState?>(null) }
+    DisposableEffect(camera, lifecycleOwner) {
+        val live = camera?.cameraInfo?.zoomState
+        live?.observe(lifecycleOwner) { zoomState = it }
+        onDispose { live?.removeObservers(lifecycleOwner) }
+    }
+    val presets = zoomState?.let { zoomPresets(it.minZoomRatio, it.maxZoomRatio) }.orEmpty()
+    LaunchedEffect(camera, zoom, presets) {
+        val cam = camera ?: return@LaunchedEffect
+        if (presets.isNotEmpty()) cam.cameraControl.setZoomRatio(zoom.coerceIn(presets.first(), presets.last()))
+        prefs.edit { putFloat(PREF_ZOOM, zoom) }
     }
 
     // Keep the screen on while the preview is visible.
@@ -141,11 +173,30 @@ fun CameraPreview(
             ?: stats?.let { s ->
                 val frame = "%d×%d · rot %d°".format(Locale.ROOT, s.width, s.height, s.rotationDegrees)
                 s.error?.let { "%.1f fps · %s\nDetector error: %s".format(Locale.ROOT, s.fps, frame, it) }
-                    ?: "%.1f fps · inference %.1f ms (pre %.1f) · %s\n%d detections · %s".format(
+                    ?: "%.1f fps · inference %.1f ms (pre %.1f) · %s\n%d detections · %s · zoom %s".format(
                         Locale.ROOT, s.fps, s.inferenceMs, s.preprocessMs, s.backend ?: "…", s.detections.size, frame,
+                        zoomState?.let { formatZoom(it.zoomRatio) } ?: "…",
                     )
             }
             ?: "Starting camera…"
+        if (presets.size > 1) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    .padding(8.dp),
+            ) {
+                for (preset in presets) {
+                    val label = formatZoom(preset)
+                    if (preset == zoom) {
+                        Button(onClick = {}) { Text(label) }
+                    } else {
+                        FilledTonalButton(onClick = { zoom = preset }) { Text(label) }
+                    }
+                }
+            }
+        }
         if (showDebugInfo || error != null) {
             Text(
                 text = info,
@@ -161,3 +212,13 @@ fun CameraPreview(
         }
     }
 }
+
+/**
+ * Zoom presets offered for a camera with zoom range [min]..[max]: the widest lens (if below 1×),
+ * 1×, 2× and 5× where supported. On logical multi-cameras these switch the physical lens.
+ */
+internal fun zoomPresets(min: Float, max: Float): List<Float> =
+    (listOf(min) + listOf(1f, 2f, 5f)).filter { it in min..max }.distinct().sorted()
+
+internal fun formatZoom(ratio: Float): String =
+    if (ratio % 1f == 0f) "%.0f×".format(Locale.ROOT, ratio) else "%.1f×".format(Locale.ROOT, ratio)
