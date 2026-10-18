@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scan7 · Review, bust detected</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&amp;family=DM+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#38D6F5;text-decoration:none}a:hover{color:#8BE8FA}
+button{font:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #05090F; color: #EEF4FA; font-family: 'DM Mono', monospace; position: relative; overflow: hidden">
+
+<img src="/_blob/c8dffff817d67c3174be471229fabd5a" alt="Frozen photo of Anna's cards, dimmed" style="position: absolute; left: 0; top: 0; width: 390px; height: 605px; object-fit: cover; display: block; filter: brightness(0.35) saturate(0.6)">
+
+<div style="position: absolute; left: 16px; top: 44px">
+<a href="Camera.dc.html" aria-label="Back to camera" style="width: 48px; height: 48px; border-radius: 14px; background: rgba(10, 18, 32, 0.85); display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#EEF4FA" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg></a>
+</div>
+
+<div style="position: absolute; left: 0; right: 0; bottom: 0; background: #15223A; border-radius: 30px 30px 0 0; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 -20px 40px rgba(0,0,0,0.45)">
+<div style="background: #FF4F9A; color: #0A1220; padding: 22px 20px 18px; display: flex; align-items: center; justify-content: space-between; position: relative; overflow: hidden">
+<div style="position: absolute; left: -20px; right: -20px; top: 52px; height: 3px; background: #0A1220; opacity: 0.18; transform: rotate(-8deg)"></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#0A1220" stroke-width="3.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<div style="font-family: 'Unbounded', sans-serif; font-weight: 700; font-size: 30px; letter-spacing: 0.02em; line-height: 1">BUST</div>
+<div style="font-size: 14px; font-weight: 500">Two 7s in the row</div>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<div style="font-size: 13px; font-weight: 500">Anna</div>
+<div style="width: 30px; height: 40px; border-radius: 6px; background: #B39BFF; transform: rotate(-8deg); display: flex; align-items: center; justify-content: center; font-family: 'Unbounded', sans-serif; font-weight: 700; font-size: 14px; color: #0A1220; border: 2px solid #0A1220">A</div>
+</div>
+</div>
+
+<div style="padding: 18px 20px 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{cards}}" as="c" hint-placeholder-count="5">
+<div style="height: 48px; min-width: 42px; box-sizing: border-box; padding: 0 11px; border-radius: 10px; border: {{c.line}}; background: {{c.bg}}; display: flex; align-items: center; justify-content: center; position: relative; font-family: 'Unbounded', sans-serif; font-weight: 600; font-size: 16px; color: {{c.ink}}"><div style="position: absolute; left: 5px; top: 5px; width: 6px; height: 6px; border-radius: 3px; background: {{c.dot}}"></div>{{c.label}}</div>
+</sc-for>
+</div>
+
+<div style="display: flex; align-items: baseline; justify-content: space-between">
+<div style="font-size: 13px; color: #93A4BC">Round points</div>
+<div style="display: flex; align-items: baseline; gap: 12px">
+<div style="font-size: 14px; color: #93A4BC; text-decoration: line-through">58</div>
+<div style="font-family: 'Unbounded', sans-serif; font-weight: 700; font-size: 44px; color: #FF4F9A; line-height: 1">0</div>
+</div>
+</div>
+<div style="font-size: 13px; line-height: 1.5; color: #C6D1DF">Misread a card? Tap Fix to correct it. Anna used a Second Chance? Fix and remove one 7.</div>
+
+<div style="display: flex; gap: 10px">
+<a href="Manual.dc.html" style="height: 64px; flex: 0 0 120px; border-radius: 18px; border: 1.5px solid #2C4166; color: #EEF4FA; display: flex; align-items: center; justify-content: center; font-family: 'Unbounded', sans-serif; font-weight: 500; font-size: 15px">Fix</a>
+<a href="Round.dc.html" style="height: 64px; flex-grow: 1; border-radius: 18px; background: #FF4F9A; color: #0A1220; display: flex; align-items: center; justify-content: center; gap: 10px; font-family: 'Unbounded', sans-serif; font-weight: 600; font-size: 16px">Confirm bust</a>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const n = (label, dot, dup) => ({ label, dot, line: dup ? '2.5px solid #FF4F9A' : '1.5px solid #2C4166', bg: dup ? '#3A1A35' : '#0A1220', ink: dup ? '#FF8FC0' : '#EEF4FA' });
+return { cards: [n('3','#F08A8A'), n('7','#F2A0C0',true), n('12','#B8BFC9'), n('7','#F2A0C0',true), n('6','#C79BF2'), { label: '×2', dot: '#FFB561', line: '1.5px solid #6B4A1F', bg: '#0A1220', ink: '#FFB561' }] };
+}
+}
+</script>
+</body>
+</html>
