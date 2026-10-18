@@ -26,3 +26,6 @@ ml/data/**/*.png
 
 # Label Studio runtime state (database, media, credentials)
 ml/labeling/ls_data/
+
+# Training logs
+ml/*.log
