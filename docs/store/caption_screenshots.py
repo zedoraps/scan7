@@ -34,7 +34,7 @@ CAPTIONS = {
     "review": {"en-US": "Scan the cards, get the points", "de-DE": "Karten scannen, Punkte sehen"},
     "round_list": {"en-US": "Everyone's round at a glance", "de-DE": "Die Runde aller auf einen Blick"},
     "sheet_open": {"en-US": "Fix a card or enter it by hand", "de-DE": "Karte korrigieren oder von Hand eingeben"},
-    "scoreboard": {"en-US": "Every round on the scoreboard", "de-DE": "Alle Runden in der Punktetabelle"},
+    "scoreboard": {"en-US": "Every round on the scoreboard", "de-DE": "Alle Runden in der Tabelle"},
     "gameover": {"en-US": "Who won tonight", "de-DE": "Wer heute gewonnen hat"},
     "home": {"en-US": "Your past games", "de-DE": "Deine vergangenen Spiele"},
     "newgame": {"en-US": "Your regular players, ready to go", "de-DE": "Deine Mitspieler, sofort bereit"},

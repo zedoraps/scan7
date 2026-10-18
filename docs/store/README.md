@@ -91,7 +91,7 @@ Shots 4 (sheet) and 8 (new game) can be taken with `scripts/screen-matrix.sh`
 | 2 | `p6` / `review` – scan review with boxes | Scan the cards, get the points | Karten scannen, Punkte sehen |
 | 3 | `p6` / `round_list` – list view | Everyone's round at a glance | Die Runde aller auf einen Blick |
 | 4 | `p6` / `sheet_open` – player sheet | Fix a card or enter it by hand | Karte korrigieren oder von Hand eingeben |
-| 5 | `p6` / `scoreboard` | Every round on the scoreboard | Alle Runden in der Punktetabelle |
+| 5 | `p6` / `scoreboard` | Every round on the scoreboard | Alle Runden in der Tabelle |
 | 6 | `gameover` / `gameover` | Who won tonight | Wer heute gewonnen hat |
 | 7 | `history` / `home` – past games | Your past games | Deine vergangenen Spiele |
 | 8 | `p10` / `newgame` – pick players + avatars | Your regular players, ready to go | Deine Mitspieler, sofort bereit |

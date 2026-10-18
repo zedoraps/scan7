@@ -219,7 +219,8 @@ private fun <T> SettingToggle(
                     .fillMaxHeight()
                     .semantics { contentDescription = description },
             ) {
-                // Two lines at large font scales on narrow screens ("Nächster / Spieler") instead of cutting the label.
+                // Two lines at large font scales on narrow screens ("Nächster / Spieler") instead of cutting the label;
+                // a label too long for one word per line carries its own break ("↺ Gegen-\nuhrzeigersinn").
                 Text(text, style = Scan7Type.text13, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.clearAndSetSemantics {})
             }
         }

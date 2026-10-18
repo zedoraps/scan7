@@ -323,12 +323,16 @@ internal fun ScanBoxesOverlay(
     Canvas(modifier) {
         if (imageWidth <= 0 || imageHeight <= 0) return@Canvas
         val mapping = DisplayMapping.of(imageWidth, imageHeight, size.width, size.height, crop)
-        // Excluded, then ignored first so scoring boxes stay on top where they overlap (one pass
-        // per layer instead of sorting a copy of the list every frame).
-        for (layer in 0..2) {
-            for (i in boxes.indices) {
-                val b = boxes[i]
-                if (b.look.layer == layer) drawScanBoxItem(b, mapping, styles, colors, measurer, labels, excludedTag)
+        // All boxes first, then all tags, so a neighbouring box never covers a tag (long ones like
+        // "IGNORIERT" reach into the next card). Within each pass excluded, then ignored, then
+        // scoring, so scoring stays on top where they overlap (one loop per layer, no sorted copy).
+        for (pass in 0..1) {
+            val tags = pass == 1
+            for (layer in 0..2) {
+                for (i in boxes.indices) {
+                    val b = boxes[i]
+                    if (b.look.layer == layer) drawScanBoxItem(b, mapping, styles, colors, measurer, labels, excludedTag, tags)
+                }
             }
         }
     }
@@ -374,7 +378,7 @@ private class BoxDrawStyles(colors: Scan7Colors, density: Density) {
 }
 
 /**
- * One box with its tag. A fading live track ([ScanBox.alpha] < 1) gets the alpha on each draw
+ * One box ([tag] = false) or its tag ([tag] = true). A fading live track ([ScanBox.alpha] < 1) gets the alpha on each draw
  * call instead of an offscreen layer (a full-screen saveLayer per faded box and frame was costly).
  */
 private fun DrawScope.drawScanBoxItem(
@@ -385,6 +389,7 @@ private fun DrawScope.drawScanBoxItem(
     measurer: TextMeasurer,
     labels: Map<Card, String>,
     excludedTag: String,
+    tag: Boolean,
 ) {
     val alpha = b.alpha.coerceIn(0f, 1f)
     if (alpha <= 0f) return
@@ -397,43 +402,51 @@ private fun DrawScope.drawScanBoxItem(
     val tagStyle: TextStyle
     when (b.look) {
         BoxLook.Excluded -> {
-            drawRoundRect(colors.ground, topLeft, boxSize, corner, alpha = 0.55f * alpha)
-            drawRoundRect(colors.textMuted, topLeft, boxSize, corner, style = s.excludedStroke, alpha = alpha)
-            drawLine(
-                colors.textMuted,
-                Offset(v.left + s.radius, v.bottom - s.radius),
-                Offset(v.right - s.radius, v.top + s.radius),
-                strokeWidth = s.crossWidth,
-                cap = StrokeCap.Round,
-                alpha = alpha,
-            )
+            if (!tag) {
+                drawRoundRect(colors.ground, topLeft, boxSize, corner, alpha = 0.55f * alpha)
+                drawRoundRect(colors.textMuted, topLeft, boxSize, corner, style = s.excludedStroke, alpha = alpha)
+                drawLine(
+                    colors.textMuted,
+                    Offset(v.left + s.radius, v.bottom - s.radius),
+                    Offset(v.right - s.radius, v.top + s.radius),
+                    strokeWidth = s.crossWidth,
+                    cap = StrokeCap.Round,
+                    alpha = alpha,
+                )
+            }
             tagColor = colors.textMuted
             tagText = excludedTag
             tagStyle = s.tagStyleSmall
         }
         BoxLook.Ignored -> {
-            drawRoundRect(colors.text, topLeft, boxSize, corner, style = s.ignoredStroke, alpha = IgnoredInkAlpha * alpha)
+            if (!tag) drawRoundRect(colors.text, topLeft, boxSize, corner, style = s.ignoredStroke, alpha = IgnoredInkAlpha * alpha)
             tagColor = colors.text.copy(alpha = IgnoredInkAlpha)
             tagText = labels.getValue(b.card)
             tagStyle = s.tagStyleSmall
         }
         BoxLook.Scoring, BoxLook.Duplicate -> {
             val ink = if (b.look == BoxLook.Duplicate) colors.bust else colors.scanBox
-            drawScanBox(
-                colors, topLeft, boxSize, strokeWidth = s.scanWidth, outlineWidth = s.outlineWidth,
-                cornerRadius = s.radius, ink = ink, alpha = alpha,
-            )
+            if (!tag) {
+                drawScanBox(
+                    colors, topLeft, boxSize, strokeWidth = s.scanWidth, outlineWidth = s.outlineWidth,
+                    cornerRadius = s.radius, ink = ink, alpha = alpha,
+                )
+            }
             tagColor = ink
             tagText = labels.getValue(b.card)
             tagStyle = s.tagStyle
         }
     }
+    if (!tag) return
     // TextMeasurer caches the layouts of recent (text, style) pairs, so this is cheap per frame.
     val text = measurer.measure(tagText, tagStyle)
     val tagWidth = text.size.width + 2 * s.padX
     val tagHeight = text.size.height + 2 * s.padY
     val tagLeft = (v.left - s.tagInset).coerceIn(0f, (size.width - tagWidth).coerceAtLeast(0f))
-    val tagTop = (v.top - s.tagInset).coerceIn(0f, (size.height - tagHeight).coerceAtLeast(0f))
+    // Excluded: the tag sits on the bottom edge, clear of the neighbours' top-left tags (a long tag
+    // like "IGNORIERT" would otherwise run under the next card's tag).
+    val tagY = if (b.look == BoxLook.Excluded) v.bottom - tagHeight + s.tagInset else v.top - s.tagInset
+    val tagTop = tagY.coerceIn(0f, (size.height - tagHeight).coerceAtLeast(0f))
     s.tagPath.reset()
     s.tagPath.addRoundRect(
         RoundRect(

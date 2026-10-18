@@ -95,7 +95,7 @@
         <item quantity="one">Laufendes Spiel, Runde %2$d, %1$d Spieler, %3$s</item>
         <item quantity="other">Laufendes Spiel, Runde %2$d, %1$d Spieler, %3$s</item>
     </plurals>
-    <string name="home_open_scoreboard">Punktetabelle öffnen</string>
+    <string name="home_open_scoreboard">Tabelle öffnen</string>
     <string name="home_intro_title">Reihe scannen, fertig gezählt.</string>
     <string name="home_intro_players">Wähl aus, wer mitspielt, und halt die Kamera über die Kartenreihe jedes Spielers. Scan7 rechnet zusammen.</string>
     <string name="home_intro_no_players">Noch keine Spieler. Bei „Neues Spiel“ legst du alle am Tisch an – sie bleiben fürs nächste Mal gespeichert.</string>
@@ -195,7 +195,7 @@
     <string name="seats_error_start">Spielstart hat nicht geklappt</string>
 
     <!-- Scoreboard -->
-    <string name="scoreboard_title">Punktetabelle</string>
+    <string name="scoreboard_title">Tabelle</string>
     <string name="scoreboard_final">Endstand · %1$s · bis %2$d</string>
     <string name="scoreboard_abandoned">Nicht beendet · %1$s · bis %2$d</string>
     <string name="scoreboard_running">Runde %1$d · bis %2$d · tippen zum Ändern</string>
@@ -302,14 +302,14 @@
     <string name="review_no_cards_hint">Halt das Handy über die ganze Reihe, mit genug Licht, und versuch es noch mal.</string>
     <string name="review_retake">Neues Foto</string>
     <string name="review_include">%1$s mitzählen</string>
-    <string name="review_leave_out">%1$s weglassen</string>
-    <string name="review_tap_hint">Tipp eine Karte an, um sie wegzulassen</string>
+    <string name="review_leave_out">%1$s ignorieren</string>
+    <string name="review_tap_hint">Tipp eine Karte an, um sie zu ignorieren</string>
     <string name="review_flip7_description">Flip-7-Bonus, plus %1$d</string>
-    <string name="review_number_limit">Mehr als %1$d Zahlenkarten – tipp Karten an, um sie wegzulassen</string>
+    <string name="review_number_limit">Mehr als %1$d Zahlenkarten – tipp Karten an, um sie zu ignorieren</string>
     <string name="chip_duplicate">%1$s, doppelt</string>
     <string name="chip_ignored">%1$s, zählt nicht</string>
-    <string name="chip_excluded">%1$s, weggelassen</string>
-    <string name="box_excluded">WEG</string>
+    <string name="chip_excluded">%1$s, ignoriert</string>
+    <string name="box_excluded">IGNORIERT</string>
     <string name="manual_cards_for">Karten von</string>
     <string name="manual_in_row">In der Reihe</string>
     <string name="manual_empty">Tipp unten auf die Karten, um sie hinzuzufügen</string>
@@ -373,7 +373,7 @@
     <string name="seat_number">Platz %1$d</string>
     <string name="menu_direction">Scan-Richtung</string>
     <string name="direction_cw_short">↻ Uhrzeigersinn</string>
-    <string name="direction_ccw_short">↺ Gegenrichtung</string>
+    <string name="direction_ccw_short">↺ Gegen-\nuhrzeigersinn</string>
     <string name="direction_cw">↻ im Uhrzeigersinn</string>
     <string name="direction_ccw">↺ gegen den Uhrzeigersinn</string>
     <string name="direction_cw_spoken">Im Uhrzeigersinn scannen</string>
@@ -419,7 +419,7 @@
     <string name="home_more_options">Weitere Optionen</string>
 
     <!-- Home: long-press a past game / the Resume card → menu; Delete game → confirmation. -->
-    <string name="home_game_open_scoreboard">Punktetabelle öffnen</string>
+    <string name="home_game_open_scoreboard">Tabelle öffnen</string>
     <string name="home_game_resume">Weiterspielen</string>
     <string name="home_game_delete">Spiel löschen</string>
     <!-- Summary of the running game in the delete confirmation ("Heute, 21:40 · Runde 4 · Mia führt"). -->

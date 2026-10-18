@@ -3,17 +3,17 @@
 Every string id of `values/strings.xml` / `values-de/strings.xml`: where it is used (screen + role,
 found by grepping `R.string.*` / `R.plurals.*`), English, German and the review note. Each German text
 was read in its screen (screenshots `i18n2_<screen>_{en,de}.png`). Terms: **Runde**, **Spieler**,
-**Punkte / PKT**, **RAUS**, **Punktetabelle**, **Korrektur**; tone "du"; buttons are
+**Punkte / PKT**, **RAUS**, **Tabelle**, **Korrektur**; tone "du"; buttons are
 imperatives / verbs, headers nouns.
 
 ## Open questions for the user
 
 1. ✅ **Decided (user, 2026-10-18): "Startseite".** **Home**: "Startseite" (round menu, round logo, Game over button). Short alternative: "Start" (can read as "start a game" next to "Neues Spiel") or "Übersicht".
-2. **Scoreboard link / toast action**: "Tabelle" vs. the full title "Punktetabelle" (longer in the toast).
+2. ✅ **Decided: "Tabelle" everywhere (title, menu, links).** **Scoreboard link / toast action**: "Tabelle" vs. the full title "Punktetabelle" (longer in the toast).
 3. ✅ **Decided: "Spieler".** **Player**: the app says "Spieler" (generic masculine) everywhere. Gender-neutral "Spieler:in" would make headers and TalkBack longer. Keep "Spieler"?
-4. **Scan direction segments**: "↻ Uhrzeigersinn" / "↺ Gegenrichtung". OK, or "↺ Andersrum" (more casual)?
+4. ✅ **Decided: "↻ Uhrzeigersinn" / "↺ Gegenuhrzeigersinn".** **Scan direction segments**: "↻ Uhrzeigersinn" / "↺ Gegenrichtung". OK, or "↺ Andersrum" (more casual)?
 5. ✅ **Decided: "Bonuskarten".** **Modifier cards**: "Bonuskarten" for +2 … +10 and ×2. Some players say "Modifikatoren".
-6. **Excluded box tag**: "WEG" (very short). Alternative "RAUS" is taken by bust; "AUSGELASSEN" is long.
+6. ✅ **Decided: "IGNORIERT" (TalkBack "ignoriert", action "ignorieren").** **Excluded box tag**: "WEG" (very short). Alternative "RAUS" is taken by bust; "AUSGELASSEN" is long.
 
 ## Strings
 
@@ -36,7 +36,7 @@ imperatives / verbs, headers nouns.
 | `action_remove` | Manual entry (TalkBack) | Remove | Entfernen | |
 | `action_home` | Round (button); Round (text) | Home | Startseite | Changed "Start" → "Startseite": round ⋮ menu row and round logo; "Start" next to "Spiel beenden" read like "start". |
 | `action_menu` | Round (TalkBack) | Menu | Menü | |
-| `action_scoreboard` | Game over (button); Round (toast) | Scoreboard | Tabelle | "Tabelle" (short link / toast action); the screen title is "Punktetabelle". |
+| `action_scoreboard` | Game over (button); Round (toast) | Scoreboard | Tabelle | "Tabelle" everywhere (user). |
 | `action_new_game` | Game over (text); Home (button) | New game | Neues Spiel | |
 | `action_end_game` | Confirm dialogs (TalkBack); Round (button) | End game | Spiel beenden | |
 | `action_close_round` | Confirm dialogs (TalkBack); Shared component (TalkBack); Shared component (button) | Close round | Runde beenden | |
@@ -92,7 +92,7 @@ imperatives / verbs, headers nouns.
 | `home_leader_one` | Home (text) | %1$s leads · %2$d | %1$s führt · %2$d | |
 | `home_leader_many` | Home (text) | %1$s lead · %2$d | %1$s führen · %2$d | |
 | `home_resume_description` | Home (TalkBack) | one: Unfinished game, round %2$d, %1$d player, %3$s | other: Unfinished game, round %2$d, %1$d players, %3$s | one: Laufendes Spiel, Runde %2$d, %1$d Spieler, %3$s | other: Laufendes Spiel, Runde %2$d, %1$d Spieler, %3$s | |
-| `home_open_scoreboard` | (via UiText / plurals helper) | Open scoreboard | Punktetabelle öffnen | |
+| `home_open_scoreboard` | (via UiText / plurals helper) | Open scoreboard | Tabelle öffnen | |
 | `home_intro_title` | Home (text) | Scan a row, get the score. | Reihe scannen, fertig gezählt. | Changed: "Punkte haben" sounded odd → "fertig gezählt". |
 | `home_intro_players` | Home (text) | Pick who's playing, then point the camera at each player's row of cards. Scan7 adds it up. | Wähl aus, wer mitspielt, und halt die Kamera über die Kartenreihe jedes Spielers. Scan7 rechnet zusammen. | |
 | `home_intro_no_players` | Home (text) | No players yet. New game starts with adding everyone at the table — they're saved for next time. | Noch keine Spieler. Bei „Neues Spiel“ legst du alle am Tisch an – sie bleiben fürs nächste Mal gespeichert. | |
@@ -174,7 +174,7 @@ imperatives / verbs, headers nouns.
 | `seats_hint_list` | New game / Seats (text) | Drag rows into seating order, or just start | Zieh die Zeilen in Sitzreihenfolge oder starte direkt | |
 | `seats_start` | New game / Seats (button) | Start game | Spiel starten | |
 | `seats_error_start` | New game / Seats (text) | Couldn't start the game | Spielstart hat nicht geklappt | |
-| `scoreboard_title` | Round (button); Scoreboard (header) | Scoreboard | Punktetabelle | |
+| `scoreboard_title` | Round (button); Scoreboard (header) | Scoreboard | Tabelle | user: "Tabelle" |
 | `scoreboard_final` | Scoreboard (header) | Final · %1$s · to %2$d | Endstand · %1$s · bis %2$d | |
 | `scoreboard_abandoned` | Scoreboard (header) | Not finished · %1$s · to %2$d | Nicht beendet · %1$s · bis %2$d | Changed to "Nicht beendet". |
 | `scoreboard_running` | Scoreboard (text) | Round %1$d · to %2$d · tap to edit | Runde %1$d · bis %2$d · tippen zum Ändern | |
@@ -276,8 +276,8 @@ imperatives / verbs, headers nouns.
 | `review_number_limit` | Manual / review (hints) (text) | More than %1$d number cards – tap cards to leave them out | Mehr als %1$d Zahlenkarten – tipp Karten an, um sie wegzulassen | |
 | `chip_duplicate` | Review / camera (chips, boxes) (TalkBack) | %1$s, duplicate | %1$s, doppelt | |
 | `chip_ignored` | Review / camera (chips, boxes) (text) | %1$s, doesn't score | %1$s, zählt nicht | |
-| `chip_excluded` | Review / camera (chips, boxes) (text) | %1$s, left out | %1$s, weggelassen | |
-| `box_excluded` | Review / camera (chips, boxes) (text) | EXCLUDED | WEG | "WEG" (box tag, tiny); TalkBack says "weggelassen". |
+| `chip_excluded` | Review / camera (chips, boxes) (text) | %1$s, left out | %1$s, ignoriert | user: "ignoriert" |
+| `box_excluded` | Review / camera (chips, boxes) (text) | EXCLUDED | IGNORIERT | user: "IGNORIERT"; TalkBack "ignoriert". |
 | `manual_cards_for` | Manual entry (text) | Cards for | Karten von | |
 | `manual_in_row` | Manual entry (header) | In the row | In der Reihe | |
 | `manual_empty` | Manual entry (text) | Tap the cards below to add them | Tipp unten auf die Karten, um sie hinzuzufügen | |
@@ -317,7 +317,7 @@ imperatives / verbs, headers nouns.
 | `seat_number` | Round (TalkBack) | Seat %1$d | Platz %1$d | |
 | `menu_direction` | Round (button) | Scan direction | Scan-Richtung | |
 | `direction_cw_short` | Round (text) | ↻ Clockwise | ↻ Uhrzeigersinn | |
-| `direction_ccw_short` | Round (text) | ↺ Counter | ↺ Gegenrichtung | "↺ Gegenrichtung" fits the half-width segment ("Gegen den Uhrzeigersinn" does not). |
+| `direction_ccw_short` | Round (text) | ↺ Counter | ↺ Gegen-\nuhrzeigersinn | user: "Gegenuhrzeigersinn"; explicit break so it fits the half-width segment on 360 dp. |
 | `direction_cw` | Round (text) | ↻ clockwise | ↻ im Uhrzeigersinn | |
 | `direction_ccw` | Round (text) | ↺ counter-clockwise | ↺ gegen den Uhrzeigersinn | |
 | `direction_cw_spoken` | Round (text) | Scan clockwise | Im Uhrzeigersinn scannen | |
@@ -371,7 +371,7 @@ imperatives / verbs, headers nouns.
 | `about_tp_unbounded` | About (text) | Font · © 2022 The Unbounded Project Authors · SIL OFL 1.1 | Schrift · © 2022 The Unbounded Project Authors · SIL OFL 1.1 | |
 | `about_tp_dmmono` | About (text) | Font · © 2020 The DM Mono Project Authors · SIL OFL 1.1 | Schrift · © 2020 The DM Mono Project Authors · SIL OFL 1.1 | |
 | `home_more_options` | Home (TalkBack) | More options | Weitere Optionen | TalkBack of the Home ⋮ button. |
-| `home_game_open_scoreboard` | Home (TalkBack) | Open scoreboard | Punktetabelle öffnen | Long-press menu: "Punktetabelle öffnen" (same as the row tap label). |
+| `home_game_open_scoreboard` | Home (TalkBack) | Open scoreboard | Tabelle öffnen | Long-press menu: "Tabelle öffnen" (same as the row tap label). |
 | `home_game_resume` | Home (TalkBack) | Resume | Weiterspielen | |
 | `home_game_delete` | Home (TalkBack); Home (text) | Delete game | Spiel löschen | Long-press menu item + TalkBack action: "Spiel löschen". |
 | `home_game_round` | Home (text) | Round %1$d | Runde %1$d | Delete dialog summary; non-breaking space keeps "Runde 6" together. |
