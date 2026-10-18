@@ -17,11 +17,13 @@ import net.moesli.scan7.camera.CameraScreen
 import net.moesli.scan7.debug.ComponentGalleryScreen
 import net.moesli.scan7.debug.HomeScreen
 import net.moesli.scan7.debug.PhotoDetectScreen
+import net.moesli.scan7.debug.ScanDemoLaunch
+import net.moesli.scan7.debug.ScanFlowDemoScreen
 import net.moesli.scan7.debug.ScoreTesterScreen
 import net.moesli.scan7.detection.readModelInfo
 import net.moesli.scan7.ui.theme.Scan7Theme
 
-private enum class Screen { HOME, CAMERA, SCORE_TESTER, PHOTO, GALLERY }
+private enum class Screen { HOME, CAMERA, SCORE_TESTER, PHOTO, GALLERY, SCAN_DEMO }
 
 /**
  * DEBUG BUILDS ONLY: `adb shell am start -n net.moesli.scan7/.MainActivity --es debug_photo <path>`
@@ -47,11 +49,19 @@ class MainActivity : ComponentActivity() {
         } else {
             null
         }
+        // DEBUG: --es debug_scan_photo <path> / --es debug_scan_demo <variant> (see ScanFlowDemoScreen).
+        val scanDemo = if (BuildConfig.DEBUG) ScanDemoLaunch.from(intent) else null
         setContent {
             Scan7Theme {
                 val context = LocalContext.current
                 val modelInfo = remember { readModelInfo(context) }
-                var screen by rememberSaveable { mutableStateOf(if (debugPhoto != null) Screen.PHOTO else Screen.HOME) }
+                var screen by rememberSaveable { mutableStateOf(
+                    when {
+                        scanDemo != null -> Screen.SCAN_DEMO
+                        debugPhoto != null -> Screen.PHOTO
+                        else -> Screen.HOME
+                    },
+                ) }
                 val goHome = { screen = Screen.HOME }
                 BackHandler(enabled = screen != Screen.HOME, onBack = goHome)
                 when (screen) {
@@ -60,12 +70,14 @@ class MainActivity : ComponentActivity() {
                         onScoreTester = { screen = Screen.SCORE_TESTER },
                         onDetectFromPhoto = { screen = Screen.PHOTO },
                         onComponentGallery = { screen = Screen.GALLERY },
+                        onScanFlowDemo = { screen = Screen.SCAN_DEMO },
                         modelInfo = modelInfo,
                     )
                     Screen.CAMERA -> CameraScreen(onBack = goHome)
                     Screen.SCORE_TESTER -> ScoreTesterScreen(onBack = goHome)
                     Screen.PHOTO -> PhotoDetectScreen(onBack = goHome, initialUri = debugPhoto)
                     Screen.GALLERY -> ComponentGalleryScreen(onBack = goHome)
+                    Screen.SCAN_DEMO -> ScanFlowDemoScreen(onBack = goHome, launch = scanDemo)
                 }
             }
         }

@@ -2,6 +2,7 @@ package net.moesli.scan7.camera
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.os.SystemClock
 import android.util.Log
 import androidx.camera.core.ImageAnalysis
@@ -11,7 +12,9 @@ import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import net.moesli.scan7.detection.Detection
+import net.moesli.scan7.detection.DetectionResult
 import net.moesli.scan7.detection.DetectorHolder
 
 private const val TAG = "DetectionAnalyzer"
@@ -32,10 +35,16 @@ data class FrameStats(
     val uprightHeight: Int get() = if (rotationDegrees % 180 == 0) height else width
 }
 
+/** A frozen analysis frame (upright, own copy) and the detector result on it. */
+class CapturedFrame(val bitmap: Bitmap, val result: Result<DetectionResult>)
+
 /**
  * Runs the card detector on each RGBA_8888 analysis frame. Must be installed on
  * [DetectorHolder.executor]. The frame is copied into one reused bitmap (row padding included);
  * rotation and letterboxing happen in a single draw inside the detector.
+ *
+ * The latest frame stays available for [capture] (shutter button): it runs on the same detector
+ * thread, so it reads the frame between two [analyze] calls without extra per-frame copies.
  */
 class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
     private val appContext = context.applicationContext
@@ -43,6 +52,11 @@ class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
     private var fps = 0f
     private var frameBitmap: Bitmap? = null
     private var lastLog = 0L
+    // Latest frame, only touched on the detector thread.
+    private var lastFrame: Bitmap? = null
+    private var lastWidth = 0
+    private var lastHeight = 0
+    private var lastRotation = 0
     private val _stats = MutableStateFlow<FrameStats?>(null)
     val stats: StateFlow<FrameStats?> = _stats.asStateFlow()
 
@@ -55,7 +69,12 @@ class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
                 _stats.value = base.copy(error = e.message ?: e.javaClass.simpleName)
                 return
             }
-            val result = detector.detect(copyToBitmap(it), rotation, it.width, it.height)
+            val frame = copyToBitmap(it)
+            lastFrame = frame
+            lastWidth = it.width
+            lastHeight = it.height
+            lastRotation = rotation
+            val result = detector.detect(frame, rotation, it.width, it.height)
             val stats = base.copy(
                 detections = result.detections,
                 inferenceMs = result.inferenceMs,
@@ -72,6 +91,23 @@ class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
                 ))
             }
         }
+    }
+
+    /**
+     * Freezes the latest analysis frame: an upright copy (row padding cropped, rotation applied)
+     * plus one detector run on it, both on the detector thread. Null before the first frame.
+     */
+    suspend fun capture(): CapturedFrame? = withContext(DetectorHolder.dispatcher) {
+        val frame = lastFrame ?: return@withContext null
+        val rotate = Matrix().apply { postRotate(lastRotation.toFloat()) }
+        val upright = Bitmap.createBitmap(frame, 0, 0, lastWidth, lastHeight, rotate, true)
+        val result = DetectorHolder.getBlocking(appContext).mapCatching { detector -> detector.detect(upright) }
+        CapturedFrame(upright, result)
+    }
+
+    /** Forgets the last frame's stats, e.g. before the preview is shown again after a capture. */
+    fun clearStats() {
+        _stats.value = null
     }
 
     /** Copies the RGBA plane into a reused bitmap whose width covers the row stride. */
