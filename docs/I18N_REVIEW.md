@@ -8,11 +8,11 @@ imperatives / verbs, headers nouns.
 
 ## Open questions for the user
 
-1. **Home**: "Startseite" (round menu, round logo, Game over button). Short alternative: "Start" (can read as "start a game" next to "Neues Spiel") or "Übersicht".
+1. ✅ **Decided (user, 2026-10-18): "Startseite".** **Home**: "Startseite" (round menu, round logo, Game over button). Short alternative: "Start" (can read as "start a game" next to "Neues Spiel") or "Übersicht".
 2. **Scoreboard link / toast action**: "Tabelle" vs. the full title "Punktetabelle" (longer in the toast).
-3. **Player**: the app says "Spieler" (generic masculine) everywhere. Gender-neutral "Spieler:in" would make headers and TalkBack longer. Keep "Spieler"?
+3. ✅ **Decided: "Spieler".** **Player**: the app says "Spieler" (generic masculine) everywhere. Gender-neutral "Spieler:in" would make headers and TalkBack longer. Keep "Spieler"?
 4. **Scan direction segments**: "↻ Uhrzeigersinn" / "↺ Gegenrichtung". OK, or "↺ Andersrum" (more casual)?
-5. **Modifier cards**: "Bonuskarten" for +2 … +10 and ×2. Some players say "Modifikatoren".
+5. ✅ **Decided: "Bonuskarten".** **Modifier cards**: "Bonuskarten" for +2 … +10 and ×2. Some players say "Modifikatoren".
 6. **Excluded box tag**: "WEG" (very short). Alternative "RAUS" is taken by bust; "AUSGELASSEN" is long.
 
 ## Strings
