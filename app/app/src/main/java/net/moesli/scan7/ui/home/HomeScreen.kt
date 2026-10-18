@@ -61,6 +61,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -215,7 +216,15 @@ fun HomeScreen(
                 }
             },
         ) { bottomPadding ->
+            val listState = rememberLazyListState()
+            // The Resume card can arrive after the history (separate flows): LazyColumn would keep
+            // the first past game in place and open scrolled past the card, so go back to the top.
+            val hasResume = state.resume != null
+            LaunchedEffect(hasResume) {
+                if (hasResume && listState.firstVisibleItemIndex <= 2) listState.scrollToItem(0)
+            }
             LazyColumn(
+                state = listState,
                 contentPadding = PaddingValues(top = Scan7Spacing.xl, bottom = Scan7Spacing.xl + bottomPadding),
                 verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
                 modifier = Modifier.fillMaxSize(),
