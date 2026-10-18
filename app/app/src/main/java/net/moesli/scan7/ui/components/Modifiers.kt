@@ -1,6 +1,10 @@
 package net.moesli.scan7.ui.components
 
 import androidx.compose.foundation.border
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.dropShadow
@@ -43,3 +47,21 @@ internal fun Modifier.openCardShadow(shape: Shape): Modifier =
 /** Dragged card shadow: `0 18px 30px rgba(0,0,0,.55)`. */
 internal fun Modifier.draggingCardShadow(shape: Shape): Modifier =
     dropShadow(shape, Shadow(radius = 30.dp, color = Color.Black, offset = DpOffset(0.dp, 18.dp), alpha = 0.55f))
+
+/** Largest font scale for components with fixed geometry (table cards, list rows). */
+private const val MAX_FIXED_GEOMETRY_FONT_SCALE = 1.3f
+
+/**
+ * Caps the font scale for [content] whose size is fixed by the design (e.g. the 72×96 compact
+ * card), so large font settings shrink back to [maxScale] instead of clipping the text. Only for
+ * fixed geometry: everything else grows with the user's setting.
+ */
+@Composable
+internal fun CappedFontScale(maxScale: Float = MAX_FIXED_GEOMETRY_FONT_SCALE, content: @Composable () -> Unit) {
+    val density = LocalDensity.current
+    if (density.fontScale <= maxScale) {
+        content()
+    } else {
+        CompositionLocalProvider(LocalDensity provides Density(density.density, maxScale), content = content)
+    }
+}

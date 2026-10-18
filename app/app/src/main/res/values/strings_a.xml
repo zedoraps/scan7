@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Batch A strings: shared UI components (ui/components). -->
+<resources>
+    <string name="action_back">Back</string>
+    <string name="action_scan_player">Scan %1$s</string>
+    <string name="action_bust_player">Mark %1$s as bust</string>
+    <string name="label_bust">BUST</string>
+    <string name="label_scan_next">SCAN NEXT</string>
+    <string name="action_scan_next_player">Scan next: %1$s</string>
+    <string name="action_close_round">Close round</string>
+    <!-- Two-line label of the narrow "Close round" button next to "Scan next". -->
+    <string name="action_close_round_two_lines">Close\nround</string>
+    <string name="view_table">Table view</string>
+    <string name="view_list">List view</string>
+    <string name="status_open">Not scored yet</string>
+    <string name="status_scored">Scored %1$d</string>
+    <string name="status_bust">Bust</string>
+</resources>

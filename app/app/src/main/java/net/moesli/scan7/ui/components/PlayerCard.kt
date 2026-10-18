@@ -189,65 +189,68 @@ fun PlayerCard(
     val rotation = wiggleRotation(mode == CardMode.Arrange, index)
     val showActions = !done && mode == CardMode.Normal && size.actionHeight != null
 
-    Box(
-        modifier = modifier
-            .size(size.width, size.height)
-            .graphicsLayer {
-                rotationZ = rotation.value
-                val s = if (mode == CardMode.Dragging) DRAG_SCALE else 1f
-                scaleX = s
-                scaleY = s
-            },
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(if (compact) CompactTagGap else Scan7Spacing.xs),
-            modifier = Modifier
-                .matchParentSize()
-                .cardSurface(look, shape, radius)
-                .playerClickable(player, onClick, onLongClick, onDoubleClick, "Scan ${player.name}")
-                .padding(horizontal = size.padding, vertical = if (compact) CompactPaddingV else size.padding),
+    // Fixed card geometry (handoff size classes): cap the font scale instead of clipping.
+    CappedFontScale {
+        Box(
+            modifier = modifier
+                .size(size.width, size.height)
+                .graphicsLayer {
+                    rotationZ = rotation.value
+                    val s = if (mode == CardMode.Dragging) DRAG_SCALE else 1f
+                    scaleX = s
+                    scaleY = s
+                },
         ) {
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(if (compact) 1.dp else Scan7Spacing.xxs, Alignment.CenterVertically),
+                verticalArrangement = Arrangement.spacedBy(if (compact) CompactTagGap else Scan7Spacing.xs),
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .clearAndSetSemantics {},
+                    .matchParentSize()
+                    .cardSurface(look, shape, radius)
+                    .playerClickable(player, onClick, onLongClick, onDoubleClick, "Scan ${player.name}")
+                    .padding(horizontal = size.padding, vertical = if (compact) CompactPaddingV else size.padding),
             ) {
-                PlayerScoreRing(player, size.ring, size.token)
-                if (compact) {
-                    CompactNameAndTotal(player, look.ink)
-                } else {
-                    NameAndTotal(player, look.ink, size.nameStyle(), size.totalStyle())
-                }
-            }
-            if (showActions) {
-                ScanBustActions(
-                    playerName = player.name,
-                    onScan = onScan,
-                    onBust = onBust,
-                    height = size.actionHeight,
-                    cornerRadius = Scan7Radii.actionCard,
-                )
-            } else {
-                StatusTag(
-                    status = player.status,
-                    height = size.tagHeight,
-                    cornerRadius = Scan7Radii.tagCard,
-                    textStyle = if (size == CardSize.Large) Scan7Type.tag11 else Scan7Type.tag10,
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(if (compact) 1.dp else Scan7Spacing.xxs, Alignment.CenterVertically),
                     modifier = Modifier
+                        .weight(1f)
                         .fillMaxWidth()
                         .clearAndSetSemantics {},
+                ) {
+                    PlayerScoreRing(player, size.ring, size.token)
+                    if (compact) {
+                        CompactNameAndTotal(player, look.ink)
+                    } else {
+                        NameAndTotal(player, look.ink, size.nameStyle(), size.totalStyle())
+                    }
+                }
+                if (showActions) {
+                    ScanBustActions(
+                        playerName = player.name,
+                        onScan = onScan,
+                        onBust = onBust,
+                        height = size.actionHeight,
+                        cornerRadius = Scan7Radii.actionCard,
+                    )
+                } else {
+                    StatusTag(
+                        status = player.status,
+                        height = size.tagHeight,
+                        cornerRadius = Scan7Radii.tagCard,
+                        textStyle = if (size == CardSize.Large) Scan7Type.tag11 else Scan7Type.tag10,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clearAndSetSemantics {},
+                    )
+                }
+            }
+            if (player.isLeader) {
+                LeaderBadge(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 6.dp, y = (-6).dp),
                 )
             }
-        }
-        if (player.isLeader) {
-            LeaderBadge(
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = 6.dp, y = (-6).dp),
-            )
         }
     }
 }

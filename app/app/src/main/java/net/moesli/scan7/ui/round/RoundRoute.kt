@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -329,7 +330,8 @@ fun RoundRoute(
     RoundScreen(
         state = snap.toRoundUiState(flags.arranging, resultsRound = flags.resultsRound),
         actions = controller,
-        modifier = modifier,
+        // The phone lies on the table during a game: keep the screen on.
+        modifier = modifier.keepScreenOn(),
         toast = toast,
     )
 
@@ -374,15 +376,13 @@ fun RoundRoute(
     }
     if (flags.menu) {
         val close = { flags.menu = false }
-        Scan7BottomSheet(onDismiss = close) {
+        // Items that leave the menu slide it down first (hideThen runs the item, then `close`).
+        Scan7BottomSheet(onDismiss = close) { sheet ->
             Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
                 SectionLabel("Round ${snap.state.currentRound.number} · to ${snap.state.target}")
                 SecondaryButton(
                     "Scoreboard",
-                    {
-                        close()
-                        navigator.scoreboard()
-                    },
+                    { sheet.hideThen(navigator::scoreboard) },
                     Modifier.fillMaxWidth(),
                     height = Scan7Spacing.minTouch,
                     textStyle = Scan7Type.text13,
@@ -400,7 +400,7 @@ fun RoundRoute(
                 if (!snap.state.isOver) {
                     SecondaryButton(
                         "End game",
-                        controller::onEndGame,
+                        { sheet.hideThen(controller::onEndGame) },
                         Modifier.fillMaxWidth(),
                         height = Scan7Spacing.minTouch,
                         textStyle = Scan7Type.text13,
@@ -409,10 +409,7 @@ fun RoundRoute(
                 }
                 SecondaryButton(
                     "Home",
-                    {
-                        close()
-                        navigator.home()
-                    },
+                    { sheet.hideThen(navigator::home) },
                     Modifier.fillMaxWidth(),
                     height = Scan7Spacing.minTouch,
                     textStyle = Scan7Type.text13,

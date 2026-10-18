@@ -1,15 +1,16 @@
 package net.moesli.scan7.ui.theme
 
-import android.app.Activity
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowCompat
+import net.moesli.scan7.ui.components.PressDim
 
 /**
  * Material 3 roles mapped onto the Deep Cyan palette. Scan7 is always dark (people play in dim
@@ -54,26 +55,38 @@ private val Scan7ColorScheme = darkColorScheme(
     surfaceContainerHighest = Scan7SurfaceHighest,
 )
 
-/** Scan7 brand theme: always dark, no dynamic color. */
+/**
+ * Material 3 shapes on the handoff radii, for the M3 components we restyle (sheet, menus,
+ * snackbar, dialogs): tags 6, in-card actions 8, icon buttons 12, cards / sheets 18.
+ */
+private val Scan7Shapes = Shapes(
+    extraSmall = RoundedCornerShape(Scan7Radii.tagCard),
+    small = RoundedCornerShape(Scan7Radii.actionCard),
+    medium = RoundedCornerShape(Scan7Radii.iconButton),
+    large = RoundedCornerShape(Scan7Radii.cardLarge),
+    extraLarge = RoundedCornerShape(Scan7Radii.cardLarge),
+)
+
+/**
+ * Scan7 brand theme: always dark, no dynamic color. No Material ripple anywhere: M3 components
+ * get none (`LocalRippleConfiguration` null) and plain `clickable`s get the Scan7 [PressDim].
+ * System bar icons are set once in MainActivity (`enableEdgeToEdge` with dark bar styles).
+ */
 @Composable
 fun Scan7Theme(content: @Composable () -> Unit) {
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        SideEffect {
-            // Light system-bar icons on the dark ground, whatever the system theme is.
-            val window = (view.context as? Activity)?.window ?: return@SideEffect
-            WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = false
-                isAppearanceLightNavigationBars = false
-            }
-        }
-    }
     CompositionLocalProvider(LocalScan7Colors provides Scan7Colors()) {
         MaterialTheme(
             colorScheme = Scan7ColorScheme,
             typography = Scan7Typography,
-            content = content,
-        )
+            shapes = Scan7Shapes,
+        ) {
+            // Inside MaterialTheme: it provides its own ripple as LocalIndication.
+            CompositionLocalProvider(
+                LocalRippleConfiguration provides null,
+                LocalIndication provides PressDim,
+                content = content,
+            )
+        }
     }
 }
 

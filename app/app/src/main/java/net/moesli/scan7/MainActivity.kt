@@ -1,12 +1,15 @@
 package net.moesli.scan7
 
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import java.io.File
 import net.moesli.scan7.debug.ScanDemoLaunch
 import net.moesli.scan7.debug.photoCapture
@@ -36,8 +39,14 @@ private const val EXTRA_DEBUG_GAME_PHOTO = "debug_game_photo"
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Branded splash on every API level (Theme.Scan7.Starting → Theme.Scan7).
+        installSplashScreen()
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // Always dark: light bar icons whatever the system theme is.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+        )
         if (BuildConfig.DEBUG && intent.getBooleanExtra(EXTRA_DEBUG_CPU, false)) {
             net.moesli.scan7.detection.DetectorHolder.forceCpu = true
         }

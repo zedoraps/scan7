@@ -50,73 +50,76 @@ fun PlayerRow(
     val rotation = wiggleRotation(mode == CardMode.Arrange, index)
     val showActions = !done && mode == CardMode.Normal
 
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .fillMaxWidth()
-            .height(size.height)
-            .graphicsLayer {
-                rotationZ = rotation.value
-                val s = if (mode == CardMode.Dragging) 1.06f else 1f
-                scaleX = s
-                scaleY = s
-            }
-            .cardSurface(look, shape, radius)
-            .playerClickable(player, onClick, onLongClick)
-            .padding(end = Scan7Spacing.s),
-    ) {
+    // Fixed card geometry (handoff size classes): cap the font scale instead of clipping.
+    CappedFontScale {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
+            horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .padding(start = Scan7Spacing.m)
-                .clearAndSetSemantics {},
+            modifier = modifier
+                .fillMaxWidth()
+                .height(size.height)
+                .graphicsLayer {
+                    rotationZ = rotation.value
+                    val s = if (mode == CardMode.Dragging) 1.06f else 1f
+                    scaleX = s
+                    scaleY = s
+                }
+                .cardSurface(look, shape, radius)
+                .playerClickable(player, onClick, onLongClick)
+                .padding(end = Scan7Spacing.s),
         ) {
-            PlayerScoreRing(player, size.ring, size.token)
             Row(
-                horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
+                horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(start = Scan7Spacing.m)
+                    .clearAndSetSemantics {},
             ) {
+                PlayerScoreRing(player, size.ring, size.token)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        text = player.name,
+                        color = look.ink,
+                        style = if (size == RowSize.Regular) Scan7Type.text15 else Scan7Type.text14,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (player.isLeader) LeaderBadge(size = 20.dp)
+                }
                 Text(
-                    text = player.name,
+                    text = player.total.toString(),
                     color = look.ink,
-                    style = if (size == RowSize.Regular) Scan7Type.text15 else Scan7Type.text14,
+                    style = if (size == RowSize.Regular) Scan7Type.total24 else Scan7Type.total18,
+                    textAlign = TextAlign.End,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
+                    softWrap = false,
+                    modifier = Modifier.width(size.totalWidth),
                 )
-                if (player.isLeader) LeaderBadge(size = 20.dp)
             }
-            Text(
-                text = player.total.toString(),
-                color = look.ink,
-                style = if (size == RowSize.Regular) Scan7Type.total24 else Scan7Type.total18,
-                textAlign = TextAlign.End,
-                maxLines = 1,
-                softWrap = false,
-                modifier = Modifier.width(size.totalWidth),
-            )
-        }
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.width(size.actionsWidth)) {
-            if (showActions) {
-                ScanBustActions(
-                    playerName = player.name,
-                    onScan = onScan,
-                    onBust = onBust,
-                    height = size.actionHeight,
-                    cornerRadius = Scan7Radii.actionRow,
-                )
-            } else {
-                StatusTag(
-                    status = player.status,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clearAndSetSemantics {},
-                )
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.width(size.actionsWidth)) {
+                if (showActions) {
+                    ScanBustActions(
+                        playerName = player.name,
+                        onScan = onScan,
+                        onBust = onBust,
+                        height = size.actionHeight,
+                        cornerRadius = Scan7Radii.actionRow,
+                    )
+                } else {
+                    StatusTag(
+                        status = player.status,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clearAndSetSemantics {},
+                    )
+                }
             }
         }
     }

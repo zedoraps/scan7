@@ -113,15 +113,24 @@ fun PlayerSheet(
     var adjusting by rememberSaveable { mutableStateOf(false) }
     // Last removed adjustment, for the inline Undo (cleared when the sheet closes).
     var removed by remember { mutableStateOf<ScoreAdjustment?>(null) }
-    Scan7BottomSheet(onDismiss = onDismiss, modifier = modifier) {
+    // Actions slide the sheet down first (hideThen); "Adjust total" swaps it for the dialog.
+    if (!adjusting) Scan7BottomSheet(onDismiss = onDismiss, modifier = modifier) { sheet ->
         Column(Modifier.verticalScroll(rememberScrollState())) {
-            PlayerSheetContent(state, onScan, onEnterManually, onBust, onEdit, onRescan, onResetToOpen)
+            PlayerSheetContent(
+                state,
+                { sheet.hideThen(onScan) },
+                { sheet.hideThen(onEnterManually) },
+                { sheet.hideThen(onBust) },
+                { sheet.hideThen(onEdit) },
+                { sheet.hideThen(onRescan) },
+                onResetToOpen?.let { reset -> { sheet.hideThen(reset) } },
+            )
             if (adjust != null) {
                 Spacer(Modifier.height(Scan7Spacing.l))
                 AdjustSection(
                     state = state,
                     removed = removed,
-                    onAdjust = { adjusting = true },
+                    onAdjust = { sheet.hideThen({ adjusting = true }, dismiss = false) },
                     onRemove = {
                         removed = it
                         adjust.onRemove(it)

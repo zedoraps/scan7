@@ -5,11 +5,8 @@ import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,15 +16,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,18 +33,26 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.displayCutoutPadding
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.SheetState
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.vector.PathParser
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -60,10 +61,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.tooling.preview.PreviewFontScale
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import net.moesli.scan7.R
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
@@ -75,15 +76,17 @@ import net.moesli.scan7.ui.theme.Scan7Type
  * the handoff tokens (no Material containers).
  */
 
-/** Header position: 48 dp from the top of the screen, or below the status bar if that is taller. */
-fun Modifier.headerInsets(): Modifier = composed {
-    windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets(top = Scan7Spacing.headerTop)))
-}
+private val HeaderMinInsets = WindowInsets(top = Scan7Spacing.headerTop)
+private val BottomButtonsMinInsets = WindowInsets(bottom = Scan7Spacing.bottomButtonsBottom)
+
+/**
+ * Header position: 48 dp from the top of the screen, or below the status bar / cutout if that is
+ * taller (the fixed 48 dp only pads what the status bar padding before it hasn't consumed).
+ */
+fun Modifier.headerInsets(): Modifier = statusBarsPadding().displayCutoutPadding().windowInsetsPadding(HeaderMinInsets)
 
 /** Bottom buttons position: 24 dp from the bottom, or above the navigation bar if that is taller. */
-fun Modifier.bottomButtonsInsets(): Modifier = composed {
-    windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets(bottom = Scan7Spacing.bottomButtonsBottom)))
-}
+fun Modifier.bottomButtonsInsets(): Modifier = navigationBarsPadding().windowInsetsPadding(BottomButtonsMinInsets)
 
 /**
  * Screen header (height 48): optional back button (48 dp icon button), title in Unbounded 16 and
@@ -103,10 +106,10 @@ fun ScreenHeader(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .height(Scan7Spacing.headerHeight),
+            .heightIn(min = Scan7Spacing.headerHeight),
     ) {
         if (onBack != null) {
-            IconButton(onClick = onBack, contentDescription = "Back") { BackIcon(colors.text) }
+            IconButton(onClick = onBack, contentDescription = stringResource(R.string.action_back)) { BackIcon(colors.text) }
         }
         Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs), modifier = Modifier.weight(1f)) {
             Text(
@@ -143,7 +146,7 @@ fun TextLinkButton(
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .height(Scan7Spacing.minTouch)
+            .heightIn(min = Scan7Spacing.minTouch)
             .clip(RoundedCornerShape(Scan7Radii.iconButton))
             .scan7Clickable(onClick)
             .padding(horizontal = Scan7Spacing.m),
@@ -157,19 +160,27 @@ fun TextLinkButton(
  * handle and 16 dp padding. Built on Material 3's [ModalBottomSheet], restyled, so it behaves like
  * a platform sheet: swipe down (the grab handle's promise), tap the scrim, Back / predictive back
  * and TalkBack "dismiss" all call [onDismiss]; it opens fully expanded.
+ *
+ * Buttons that close the sheet call `sheet.hideThen(action)` on the [Scan7SheetState] passed to
+ * [content], so the sheet slides down first and the action runs after. Pass a hoisted [state]
+ * when the close happens outside the content (e.g. after a save succeeded).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Scan7BottomSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit,
+    state: Scan7SheetState = rememberScan7SheetState(),
+    content: @Composable ColumnScope.(sheet: Scan7SheetState) -> Unit,
 ) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(topStart = Scan7Radii.cardLarge, topEnd = Scan7Radii.cardLarge)
+    val scope = rememberCoroutineScope()
+    SideEffect { state.attach(scope, onDismiss) }
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        // While hideThen runs, its own dismiss follows the action (no early removal).
+        onDismissRequest = { if (!state.hider.hiding) onDismiss() },
+        sheetState = state.material,
         shape = shape,
         containerColor = colors.surface,
         contentColor = colors.text,
@@ -187,62 +198,110 @@ fun Scan7BottomSheet(
                 .padding(start = Scan7Spacing.l, end = Scan7Spacing.l, bottom = Scan7Spacing.l),
         ) {
             Spacer(Modifier.height(Scan7Spacing.s))
-            content()
+            content(state)
+        }
+    }
+}
+
+/** State of a [Scan7BottomSheet]: the Material sheet state plus "hide, then act". */
+@OptIn(ExperimentalMaterial3Api::class)
+@Stable
+class Scan7SheetState internal constructor(internal val material: SheetState) {
+    internal val hider = SheetHider { material.hide() }
+    private var scope: CoroutineScope? = null
+    private var onDismiss: () -> Unit = {}
+
+    /** Called by [Scan7BottomSheet] after each composition: its scope and latest `onDismiss`. */
+    internal fun attach(scope: CoroutineScope, onDismiss: () -> Unit) {
+        this.scope = scope
+        this.onDismiss = onDismiss
+    }
+
+    /**
+     * Slides the sheet down, then runs [action] and (with [dismiss]) the sheet's `onDismiss`.
+     * With `dismiss = false` the caller removes the sheet itself in [action] (e.g. to show a
+     * dialog in its place). Ignored while a hide is already running (double taps).
+     */
+    fun hideThen(action: () -> Unit = {}, dismiss: Boolean = true) {
+        val scope = scope ?: return action().also { if (dismiss) onDismiss() }
+        hider.hideThen(scope, action, if (dismiss) ({ onDismiss() }) else null)
+    }
+}
+
+/** A [Scan7SheetState] for [Scan7BottomSheet], hoisted when the close happens outside the sheet. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun rememberScan7SheetState(): Scan7SheetState {
+    val material = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    return remember(material) { Scan7SheetState(material) }
+}
+
+/**
+ * Hide → action → dismiss, one at a time (plain coroutines, JVM-tested). If the sheet leaves the
+ * composition while hiding (its scope is cancelled), nothing runs: the screen is gone.
+ */
+internal class SheetHider(private val hide: suspend () -> Unit) {
+    var hiding: Boolean = false
+        private set
+
+    fun hideThen(scope: CoroutineScope, action: () -> Unit, onDismiss: (() -> Unit)?) {
+        if (hiding) return
+        hiding = true
+        scope.launch { hide() }.invokeOnCompletion {
+            hiding = false
+            // A user drag can interrupt the hide; the tap still counts. A cancelled scope can't.
+            if (!scope.isActive) return@invokeOnCompletion
+            action()
+            onDismiss?.invoke()
         }
     }
 }
 
 /** The 36×4 grab bar at the top of a sheet. */
 @Composable
-private fun SheetGrabHandle() {
+private fun SheetGrabHandle(modifier: Modifier = Modifier) {
     Box(
-        Modifier
+        modifier
             .padding(vertical = Scan7Spacing.s)
             .size(36.dp, 4.dp)
             .background(Scan7Theme.colors.line, RoundedCornerShape(2.dp)),
     )
 }
 
-/** The sheet panel itself (also used directly in previews and the gallery). */
+/**
+ * Preview stand-in for [Scan7BottomSheet] (previews and the gallery only): the same panel look and
+ * grab handle in a plain column, without the modal window.
+ */
 @Composable
 fun BottomSheetPanel(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(topStart = Scan7Radii.cardLarge, topEnd = Scan7Radii.cardLarge)
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(colors.surface)
-            .border(1.5.dp, colors.line, shape)
-            // Swallow taps so they don't reach the dismiss area behind.
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {})
-            .imePadding()
-            .windowInsetsPadding(WindowInsets.navigationBars)
+            .background(Scan7Theme.colors.surface, shape)
             .padding(start = Scan7Spacing.l, end = Scan7Spacing.l, bottom = Scan7Spacing.l),
     ) {
-        Box(
-            Modifier
-                .padding(vertical = Scan7Spacing.s)
-                .size(36.dp, 4.dp)
-                .background(colors.line, RoundedCornerShape(2.dp))
-                .align(Alignment.CenterHorizontally),
-        )
+        SheetGrabHandle(Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.height(Scan7Spacing.s))
         content()
     }
 }
 
-/** Centered dialog card (`surface`, `line` border, radius 18, 24 dp padding), max 360 wide. */
+/**
+ * Centered dialog card (`surface`, `line` border, radius 18, 24 dp padding), max 360 wide. On
+ * M3's [BasicAlertDialog] (own window, focus, Back / outside tap, TalkBack "dialog" pane title).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Scan7Dialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    BasicAlertDialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         val visible = remember { MutableTransitionState(false).apply { targetState = true } }
         AnimatedVisibility(visibleState = visible, enter = scaleIn(tween(160), initialScale = 0.94f) + fadeIn(tween(160))) {
             DialogPanel(modifier.padding(horizontal = Scan7Spacing.xl), content)
@@ -273,8 +332,8 @@ fun DialogPanel(
 }
 
 /**
- * Single-line text field: `ground` fill, 1.5 dp `line` border (accent while focused is not
- * tracked; the cursor is cyan), radius 12, 56 high, DM Mono 15. [placeholder] in muted.
+ * Single-line text field: `ground` fill, 1.5 dp `line` border (`accent` while focused, cyan
+ * cursor), radius 12, at least 56 high, DM Mono 15. [placeholder] in muted.
  */
 @Composable
 fun Scan7TextField(
@@ -287,8 +346,11 @@ fun Scan7TextField(
 ) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.iconButton)
+    val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
     BasicTextField(
         value = value,
+        interactionSource = interactionSource,
         onValueChange = onValueChange,
         singleLine = true,
         textStyle = Scan7Type.text15.copy(color = colors.text),
@@ -302,10 +364,10 @@ fun Scan7TextField(
             Box(
                 contentAlignment = Alignment.CenterStart,
                 modifier = Modifier
-                    .height(56.dp)
+                    .heightIn(min = 56.dp)
                     .clip(shape)
                     .background(colors.ground)
-                    .border(1.5.dp, colors.line, shape)
+                    .border(1.5.dp, if (focused) colors.accent else colors.line, shape)
                     .padding(horizontal = Scan7Spacing.l),
             ) {
                 if (value.isEmpty()) Text(placeholder, color = colors.textMuted, style = Scan7Type.text15)
@@ -315,52 +377,8 @@ fun Scan7TextField(
     )
 }
 
-// ---- Icons (24×24 grid, decorative: the owning control carries the description) ---------------
-
-@Composable
-private fun LineIcon(d: String, color: Color, size: Dp, modifier: Modifier, strokeWidth: Float = 2f) {
-    val path = remember(d) { PathParser().parsePathString(d).toPath() }
-    Canvas(modifier.size(size)) {
-        scale(this.size.width / 24f, pivot = Offset.Zero) {
-            drawPath(path, color, style = Stroke(strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round))
-        }
-    }
-}
-
-@Composable
-fun BackIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) =
-    LineIcon("M15 5l-7 7 7 7", color, size, modifier, 2.4f)
-
-@Composable
-fun ChevronRightIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 18.dp) =
-    LineIcon("M9 5l7 7-7 7", color, size, modifier, 2.2f)
-
-@Composable
-fun PlusIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) =
-    LineIcon("M12 5v14M5 12h14", color, size, modifier, 2.4f)
-
-@Composable
-fun MinusIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) =
-    LineIcon("M5 12h14", color, size, modifier, 2.4f)
-
-@Composable
-fun CheckIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 16.dp) =
-    LineIcon("M5 12.5l4.5 4.5L19 7.5", color, size, modifier, 3f)
-
-/** Six-dot drag handle. */
-@Composable
-fun DragHandleIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) {
-    Canvas(modifier.size(size)) {
-        val u = this.size.width / 24f
-        for (x in listOf(9f, 15f)) for (y in listOf(6f, 12f, 18f)) drawCircle(color, radius = 1.8f * u, center = Offset(x * u, y * u))
-    }
-}
-
-@Composable
-fun PencilIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 18.dp) =
-    LineIcon("M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4", color, size, modifier, 2f)
-
 @Preview(widthDp = 390)
+@PreviewFontScale
 @Composable
 private fun SetupChromePreview() {
     Scan7Theme {

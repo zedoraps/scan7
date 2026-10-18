@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -22,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import net.moesli.scan7.R
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
@@ -34,10 +36,11 @@ fun PlayerStatus.tagText(): String = when (this) {
     PlayerStatus.Bust -> "✕ BUST"
 }
 
+@Composable
 private fun PlayerStatus.tagDescription(): String = when (this) {
-    PlayerStatus.Open -> "Not scored yet"
-    is PlayerStatus.Scored -> "Scored $points"
-    PlayerStatus.Bust -> "Bust"
+    PlayerStatus.Open -> stringResource(R.string.status_open)
+    is PlayerStatus.Scored -> stringResource(R.string.status_scored, points)
+    PlayerStatus.Bust -> stringResource(R.string.status_bust)
 }
 
 /**
@@ -55,6 +58,7 @@ fun StatusTag(
 ) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(cornerRadius)
+    val description = status.tagDescription()
     val (bg, ink) = when (status) {
         PlayerStatus.Open -> colors.ground.copy(alpha = 0f) to colors.textMuted
         is PlayerStatus.Scored -> colors.accentTint to colors.accent
@@ -63,13 +67,13 @@ fun StatusTag(
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .height(height)
+            .heightIn(min = height)
             .background(bg, shape)
             .then(
                 if (status == PlayerStatus.Open) Modifier.dashedBorder(1.5.dp, colors.openOutline, cornerRadius) else Modifier,
             )
             .padding(horizontal = Scan7Spacing.xs)
-            .semantics { contentDescription = status.tagDescription() },
+            .semantics { contentDescription = description },
     ) {
         Text(text = status.tagText(), color = ink, style = textStyle, maxLines = 1, softWrap = false, textAlign = TextAlign.Center)
     }

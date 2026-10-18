@@ -40,10 +40,10 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -180,14 +180,8 @@ fun CameraPreview(
         prefs.edit { putFloat(PREF_ZOOM, zoom) }
     }
 
-    // Keep the screen on while the preview is visible.
-    val view = LocalView.current
-    DisposableEffect(view) {
-        view.keepScreenOn = true
-        onDispose { view.keepScreenOn = false }
-    }
-
-    Box(modifier = modifier.background(Color.Black)) {
+    // keepScreenOn: the screen stays on while the preview is visible (reference-counted per window).
+    Box(modifier = modifier.keepScreenOn().background(Color.Black)) {
         surfaceRequest?.let { request ->
             CameraXViewfinder(
                 surfaceRequest = request,

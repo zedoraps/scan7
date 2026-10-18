@@ -47,6 +47,8 @@ import net.moesli.scan7.ui.components.BottomSheetPanel
 import net.moesli.scan7.ui.components.PlayerToken
 import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.Scan7BottomSheet
+import net.moesli.scan7.ui.components.Scan7SheetState
+import net.moesli.scan7.ui.components.rememberScan7SheetState
 import net.moesli.scan7.ui.components.Scan7TextField
 import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.SectionLabel
@@ -84,8 +86,9 @@ fun PlayerEditorSheet(
     onDelete: (() -> Unit)? = null,
     error: String? = null,
     busy: Boolean = false,
+    sheetState: Scan7SheetState = rememberScan7SheetState(),
 ) {
-    Scan7BottomSheet(onDismiss = onDismiss, modifier = modifier) {
+    Scan7BottomSheet(onDismiss = onDismiss, modifier = modifier, state = sheetState) {
         PlayerEditorContent(target, players, onSave, onDelete, error, busy)
     }
 }
@@ -240,6 +243,8 @@ fun PlayerEditorHost(
     onSaved: (Long) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
+    // Save / Delete close the sheet with its slide-down once the repository call succeeded.
+    val sheetState = rememberScan7SheetState()
     var error by remember(target) { mutableStateOf<String?>(null) }
     var busy by remember(target) { mutableStateOf(false) }
     val editing = (target as? EditorTarget.Edit)?.player
@@ -248,6 +253,7 @@ fun PlayerEditorHost(
         players = players,
         error = error,
         busy = busy,
+        sheetState = sheetState,
         onDismiss = onClose,
         onSave = { name, color ->
             busy = true
@@ -260,15 +266,15 @@ fun PlayerEditorHost(
                         editing.id
                     }
                 }.onSuccess { id ->
-                    onSaved(id)
-                    onClose()
+                    // Stays busy while the sheet slides down (no second save).
+                    sheetState.hideThen({ onSaved(id) })
                 }.onFailure {
                     error = when (it.message) {
                         "Color already used in the running game" -> "Another player in the unfinished game has this color. Pick a different one."
                         else -> it.message ?: "Couldn't save"
                     }
+                    busy = false
                 }
-                busy = false
             }
         },
         onDelete = editing?.let { p ->
@@ -276,9 +282,11 @@ fun PlayerEditorHost(
                 busy = true
                 scope.launch {
                     runCatching { repository.deletePlayer(p.id) }
-                        .onSuccess { onClose() }
-                        .onFailure { error = it.message ?: "Couldn't delete" }
-                    busy = false
+                        .onSuccess { sheetState.hideThen() }
+                        .onFailure {
+                            error = it.message ?: "Couldn't delete"
+                            busy = false
+                        }
                 }
             }
         },

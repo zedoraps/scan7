@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -35,28 +37,26 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewFontScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.moesli.scan7.R
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
 
-/** Clickable with the Scan7 press dim instead of a ripple. Clip to the shape before calling it. */
+/**
+ * Clickable with the theme's indication (the Scan7 press dim, see `Scan7Theme`) and the button
+ * role by default. Clip to the shape before calling it.
+ */
 internal fun Modifier.scan7Clickable(
     onClick: () -> Unit,
     enabled: Boolean = true,
     role: Role? = Role.Button,
     onClickLabel: String? = null,
-): Modifier = clickable(
-    interactionSource = null,
-    indication = PressDim,
-    enabled = enabled,
-    onClickLabel = onClickLabel,
-    role = role,
-    onClick = onClick,
-)
+): Modifier = clickable(enabled = enabled, onClickLabel = onClickLabel, role = role, onClick = onClick)
 
 /** "Close round" label in the 88 dp secondary button (Unbounded 600 12, line height 1.3). */
 private val SmallButtonStyle = Scan7Type.button.copy(fontSize = 12.sp, lineHeight = 15.6.sp)
@@ -80,7 +80,7 @@ fun PrimaryButton(
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .height(height)
+            .heightIn(min = height)
             .alpha(if (enabled) 1f else DISABLED_ALPHA)
             .clip(shape)
             .background(color)
@@ -107,7 +107,7 @@ fun SecondaryButton(
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .height(height)
+            .heightIn(min = height)
             .alpha(if (enabled) 1f else DISABLED_ALPHA)
             .clip(shape)
             .border(1.5.dp, Scan7Theme.colors.line, shape)
@@ -159,6 +159,8 @@ fun ScanBustActions(
 ) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(cornerRadius)
+    val scanLabel = stringResource(R.string.action_scan_player, playerName)
+    val bustLabel = stringResource(R.string.action_bust_player, playerName)
     Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs), modifier = modifier.fillMaxWidth()) {
         Box(
             contentAlignment = Alignment.Center,
@@ -168,7 +170,7 @@ fun ScanBustActions(
                 .clip(shape)
                 .background(colors.accent)
                 .scan7Clickable(onScan)
-                .semantics { contentDescription = "Scan $playerName" },
+                .semantics { contentDescription = scanLabel },
         ) {
             ScanIcon(colors.onAccent)
         }
@@ -181,11 +183,11 @@ fun ScanBustActions(
                 .border(1.5.dp, colors.bust, shape)
                 .scan7Clickable(onBust)
                 .clearAndSetSemantics {
-                    contentDescription = "Mark $playerName as bust"
+                    contentDescription = bustLabel
                     role = Role.Button
                 },
         ) {
-            Text("BUST", color = colors.bust, style = Scan7Type.tag10, maxLines = 1)
+            Text(stringResource(R.string.label_bust), color = colors.bust, style = Scan7Type.tag10, maxLines = 1)
         }
     }
 }
@@ -199,22 +201,23 @@ fun ScanNextButton(
 ) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.button)
+    val label = stringResource(R.string.action_scan_next_player, next.name)
     Row(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .height(Scan7Spacing.bottomButtonsHeight)
+            .heightIn(min = Scan7Spacing.bottomButtonsHeight)
             .clip(shape)
             .background(colors.accent)
             .scan7Clickable(onClick)
             .clearAndSetSemantics {
-                contentDescription = "Scan next: ${next.name}"
+                contentDescription = label
                 role = Role.Button
             }
             .padding(start = 20.dp, end = Scan7Spacing.l),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("SCAN NEXT", color = colors.onAccent, style = Scan7Type.capsButton, maxLines = 1)
+            Text(stringResource(R.string.label_scan_next), color = colors.onAccent, style = Scan7Type.capsButton, maxLines = 1)
             Text(next.name, color = colors.onAccent, style = Scan7Type.buttonName, maxLines = 1)
         }
         PlayerToken(
@@ -242,15 +245,15 @@ fun BottomButtons(
     Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = modifier.fillMaxWidth()) {
         if (next != null) {
             SecondaryButton(
-                text = "Close\nround",
+                text = stringResource(R.string.action_close_round_two_lines),
                 onClick = onCloseRound,
                 textStyle = SmallButtonStyle,
-                contentDescription = "Close round",
+                contentDescription = stringResource(R.string.action_close_round),
                 modifier = Modifier.width(88.dp),
             )
             ScanNextButton(next, onScanNext, Modifier.weight(1f))
         } else {
-            PrimaryButton("Close round", onCloseRound, Modifier.fillMaxWidth())
+            PrimaryButton(stringResource(R.string.action_close_round), onCloseRound, Modifier.fillMaxWidth())
         }
     }
 }
@@ -279,6 +282,7 @@ fun ViewToggle(
         RoundView.entries.forEach { view ->
             val active = view == selected
             val ink = if (active) colors.onAccent else colors.textMuted
+            val description = stringResource(if (view == RoundView.Table) R.string.view_table else R.string.view_list)
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -292,7 +296,7 @@ fun ViewToggle(
                         role = Role.Tab,
                         onClick = { onSelect(view) },
                     )
-                    .semantics { contentDescription = if (view == RoundView.Table) "Table view" else "List view" },
+                    .semantics { contentDescription = description },
             ) {
                 when (view) {
                     RoundView.Table -> TableIcon(ink)
@@ -306,6 +310,7 @@ fun ViewToggle(
 private const val DISABLED_ALPHA = 0.4f
 
 @Preview(widthDp = 390)
+@PreviewFontScale
 @Composable
 private fun ButtonsPreview() {
     Scan7Theme {

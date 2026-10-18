@@ -9,22 +9,26 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" tools:node="remove" />
 
+    <!-- enableOnBackInvokedCallback: predictive back (system back-to-home animation) on API 33+;
+         older versions ignore it. All back handling goes through Compose BackHandler. -->
     <application
         android:allowBackup="true"
+        android:enableOnBackInvokedCallback="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Scan7">
+        android:theme="@style/Theme.Scan7"
+        tools:targetApi="33">
         <!-- Portrait only: used one-handed over the table, the round layout and the camera framing are
              designed for portrait (Android 16+ ignores this on large screens, which is fine). -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.Scan7"
+            android:theme="@style/Theme.Scan7.Starting"
             android:windowSoftInputMode="adjustResize"
             tools:ignore="LockedOrientationActivity,DiscouragedApi">
             <intent-filter>

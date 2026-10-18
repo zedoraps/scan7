@@ -2,15 +2,20 @@
 <resources>
     <!--
         Window theme only; the UI is Compose (ui/theme/Theme.kt). Dark, with the brand ground as
-        window background so there is no white flash before the first Compose frame.
+        window background so there is no white flash before the first Compose frame. System bars:
+        edge-to-edge with light icons, set in MainActivity (enableEdgeToEdge with dark styles).
     -->
     <style name="Theme.Scan7" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/scan7_ground</item>
         <item name="android:colorBackground">@color/scan7_ground</item>
         <item name="android:colorAccent">@color/scan7_accent</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+    <!-- Launch theme (core-splashscreen, all API levels): the launcher icon on the brand ground. -->
+    <style name="Theme.Scan7.Starting" parent="Theme.SplashScreen.IconBackground">
+        <item name="windowSplashScreenBackground">@color/scan7_ground</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/ic_launcher_background</item>
+        <item name="postSplashScreenTheme">@style/Theme.Scan7</item>
     </style>
 </resources>
