@@ -33,7 +33,7 @@ object Confirmations {
         destructive = true,
     )
 
-    /** Player sheet → Reset to open: drops this round's result; nothing to reset while open. */
+    /** Player sheet → Reset last entry (back to open): drops this round's result; nothing to reset while open. */
     fun resetToOpen(name: String, status: PlayerStatus): ConfirmSpec? = when (status) {
         PlayerStatus.Open -> null
         is PlayerStatus.Scored -> ConfirmSpec(
@@ -71,6 +71,17 @@ object Confirmations {
         title = uiText(R.string.confirm_end_game_title),
         confirmLabel = uiText(R.string.action_end_game),
         body = uiText(R.string.confirm_end_game_body),
+        destructive = true,
+    )
+
+    /**
+     * Round menu → Target points, lowered to or below the leader's total ([reachesIt]): the game
+     * then ends when this round closes, so it asks first; `null` otherwise (stored at once).
+     */
+    fun lowerTarget(target: Int, reachesIt: Boolean): ConfirmSpec? = if (!reachesIt) null else ConfirmSpec(
+        title = uiText(R.string.confirm_lower_target_title, target),
+        confirmLabel = uiText(R.string.action_lower_target),
+        body = uiText(R.string.confirm_lower_target_body),
         destructive = true,
     )
 

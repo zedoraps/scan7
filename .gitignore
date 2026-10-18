@@ -48,3 +48,6 @@ ml/data/app_scans/
 *.keystore
 # downloadModel temp file
 *.tflite.part
+
+# Play screenshots (scripts/store-screenshots.sh): regenerated before each listing update
+docs/store/screenshots/

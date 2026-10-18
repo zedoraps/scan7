@@ -227,7 +227,13 @@ fun PlayerCard(
                 modifier = Modifier
                     .matchParentSize()
                     .cardSurface(look, shape, radius)
-                    .playerClickable(player, onClick, onLongClick, onDoubleClick, stringResource(R.string.action_scan_player, player.name))
+                    .playerClickable(
+                        player,
+                        onClick,
+                        onLongClick,
+                        onDoubleClick,
+                        stringResource(if (LocalTypeEntry.current) R.string.action_enter_player else R.string.action_scan_player, player.name),
+                    )
                     .padding(horizontal = size.padding, vertical = if (compact) CompactPaddingV else size.padding),
             ) {
                 Column(

@@ -283,6 +283,9 @@ class GameRepository(
         mutate(gameId) { s, _ -> s.withViewMode(mode) }
     }
 
+    /** Round menu "Target points": this game's target (game over is checked with it at the round close). */
+    suspend fun setTarget(gameId: Long, target: Int): GameState = mutate(gameId) { s, now -> s.withTarget(target, now) }
+
     suspend fun setPreferredViewMode(mode: ViewMode) = settingsDao.put(SettingEntity(KEY_VIEW_MODE, mode.name))
 
     /**

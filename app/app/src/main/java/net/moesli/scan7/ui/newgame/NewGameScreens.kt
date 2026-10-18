@@ -94,12 +94,12 @@ import net.moesli.scan7.ui.theme.Scan7Type
 /**
  * New game, step 1 (3): stored players with checkboxes (pick order = initial seating order),
  * "+ New player" inline, max [MAX_PLAYERS]. Pinned above the buttons: the compact target row.
- * Bottom: **Skip seats** (start now: pick order on the default ring) and **Next** (seating step).
+ * Bottom: full-width **Next** (seating step; arranging there is optional, Start game works as is).
  * Avatar colors may repeat within a game (the editor only marks the colors the selected players
  * already use). [error] shows a failed start.
  *
  * Also the round menu's "Players" step ([GamePlayersRoute]): there with its own [title] /
- * [subtitle], no target row ([onTargetChange] `null`), no Skip seats ([onSkipSeats] `null`), a
+ * [subtitle], no target row ([onTargetChange] `null`), a
  * [nextLabel] "Done" and a [supporting] line per row ("Joins in round 4" / "Leaves the game").
  */
 @Composable
@@ -110,7 +110,6 @@ fun PickPlayersScreen(
     onToggle: (Long) -> Unit,
     onNewPlayer: () -> Unit,
     onTargetChange: ((Int) -> Unit)?,
-    onSkipSeats: (() -> Unit)?,
     onNext: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -154,12 +153,7 @@ fun PickPlayersScreen(
                 if (onTargetChange != null) {
                     TargetStepper(target = target, onChange = onTargetChange, modifier = Modifier.padding(bottom = Scan7Spacing.m))
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
-                    if (onSkipSeats != null) {
-                        SecondaryButton(text = stringResource(R.string.newgame_skip_seats), onClick = onSkipSeats, enabled = canGo, modifier = Modifier.weight(1f))
-                    }
-                    PrimaryButton(text = nextLabel, onClick = onNext, enabled = canGo, modifier = Modifier.weight(1f))
-                }
+                PrimaryButton(text = nextLabel, onClick = onNext, enabled = canGo, modifier = Modifier.fillMaxWidth())
             },
         ) { bottomPadding ->
             Column(
@@ -223,8 +217,6 @@ private fun Checkbox(checked: Boolean) {
 @Composable
 fun TargetStepper(target: Int, onChange: (Int) -> Unit, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
-    val description = stringResource(R.string.newgame_target_description)
-    val state = pluralStringResource(R.plurals.points, target, target)
     Row(
         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs),
         verticalAlignment = Alignment.CenterVertically,
@@ -234,22 +226,41 @@ fun TargetStepper(target: Int, onChange: (Int) -> Unit, modifier: Modifier = Mod
             .clip(RoundedCornerShape(Scan7Radii.card))
             .background(colors.surface)
             .padding(start = Scan7Spacing.l, end = Scan7Spacing.xxs)
-            .clearAndSetSemantics {
-                contentDescription = description
-                stateDescription = state
-                progressBarRangeInfo = ProgressBarRangeInfo(
-                    current = target.toFloat(),
-                    range = MIN_TARGET.toFloat()..MAX_TARGET.toFloat(),
-                    steps = TARGET_STEPS,
-                )
-                setProgress { value ->
-                    val next = targetFromProgress(value)
-                    if (next != target) onChange(next)
-                    true
-                }
-            },
+            .targetAdjustable(target, stringResource(R.string.newgame_target_description), onChange),
     ) {
         SectionLabel(stringResource(R.string.newgame_target), Modifier.weight(1f))
+        TargetButtons(target, onChange)
+    }
+}
+
+/**
+ * The target as one adjustable TalkBack control ([description], "200 points"; range info + set
+ * progress: swipe up / down or volume keys) instead of three stops (New game row, round menu).
+ */
+@Composable
+fun Modifier.targetAdjustable(target: Int, description: String, onChange: (Int) -> Unit): Modifier {
+    val state = pluralStringResource(R.plurals.points, target, target)
+    return clearAndSetSemantics {
+        contentDescription = description
+        stateDescription = state
+        progressBarRangeInfo = ProgressBarRangeInfo(
+            current = target.toFloat(),
+            range = MIN_TARGET.toFloat()..MAX_TARGET.toFloat(),
+            steps = TARGET_STEPS,
+        )
+        setProgress { value ->
+            val next = targetFromProgress(value)
+            if (next != target) onChange(next)
+            true
+        }
+    }
+}
+
+/** [−] 200 [+] in steps of [TARGET_STEP] between [MIN_TARGET] and [MAX_TARGET]. */
+@Composable
+fun TargetButtons(target: Int, onChange: (Int) -> Unit) {
+    val colors = Scan7Theme.colors
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs)) {
         IconButton(
             onClick = { onChange(steppedTarget(target, -1)) },
             contentDescription = stringResource(R.string.newgame_target_lower),
@@ -346,7 +357,8 @@ fun SeatingScreen(
                         color = colors.textMuted,
                         style = Scan7Type.text12,
                         textAlign = TextAlign.Center,
-                        maxLines = 1,
+                        // "…, or just start" says arranging is optional: may wrap to a second line.
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -363,12 +375,12 @@ fun SeatingScreen(
 
 // ---- Wired flow ----------------------------------------------------------------------------
 
-/** Which step asked to confirm the start (a game is unfinished): none, Skip seats (1) or Seats (2). */
+/** Which step asked to confirm the start (a game is unfinished): none, or Seats (2). */
 private const val CONFIRM_NONE = 0
 
 /**
  * New game flow (3 → 3b) wired to the real [GameRepository]: pick players (+ new player / fix a
- * color in the editor) and the target; Skip seats → start with the pick order on the default ring;
+ * color in the editor) and the target;
  * Next → seats (table / list arrange, starting from the last game's spots when the same players
  * played before) → Start → `repository.startGame` with those positions → [onGameStarted].
  * With [initialSeating] ("New game with same players") it opens on the seats step, prefilled.
@@ -413,9 +425,8 @@ fun NewGameRoute(
     // Start while a game is unfinished asks first (starting ends that game for good).
     val startConfirm = Confirmations.startGame(active?.state?.currentRound?.number)
     val startError = stringResource(R.string.seats_error_start)
-    val seatsToStart: () -> SeatingDraft? = { if (step == 1) SeatingDraft.of(liveSelected) else liveDraft }
     fun start() {
-        val seats = seatsToStart() ?: return
+        val seats = liveDraft ?: return
         if (seats.ids.isEmpty()) return
         starting = true
         error = null
@@ -450,7 +461,6 @@ fun NewGameRoute(
             onToggle = { selected = toggleSelection(liveSelected, it) },
             onNewPlayer = { editorKey = EditorTarget.New.key },
             onTargetChange = { target = it },
-            onSkipSeats = { if (!starting) requestStart() },
             onNext = {
                 val picked = liveSelected
                 scope.launch {
@@ -522,7 +532,7 @@ private val DraftSaver = Saver<SeatingDraft?, LongArray>(
 @Composable
 private fun PickPlayersPreview() {
     Scan7Theme {
-        PickPlayersScreen(SampleStoredPlayers, listOf(2, 3, 6), 200, {}, {}, {}, {}, {}, {})
+        PickPlayersScreen(SampleStoredPlayers, listOf(2, 3, 6), 200, {}, {}, {}, {}, {})
     }
 }
 

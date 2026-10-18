@@ -8,11 +8,11 @@ imperatives / verbs, headers nouns.
 
 ## Open questions for the user
 
-1. **Home**: "Startseite" (round menu, round logo, Game over button). Short alternative: "Start" (can read as "start a game" next to "Neues Spiel") or "Übersicht".
+1. ✅ **Decided (user, 2026-10-18): "Startseite".** **Home**: "Startseite" (round menu, round logo, Game over button). Short alternative: "Start" (can read as "start a game" next to "Neues Spiel") or "Übersicht".
 2. **Scoreboard link / toast action**: "Tabelle" vs. the full title "Punktetabelle" (longer in the toast).
-3. **Player**: the app says "Spieler" (generic masculine) everywhere. Gender-neutral "Spieler:in" would make headers and TalkBack longer. Keep "Spieler"?
+3. ✅ **Decided: "Spieler".** **Player**: the app says "Spieler" (generic masculine) everywhere. Gender-neutral "Spieler:in" would make headers and TalkBack longer. Keep "Spieler"?
 4. **Scan direction segments**: "↻ Uhrzeigersinn" / "↺ Gegenrichtung". OK, or "↺ Andersrum" (more casual)?
-5. **Modifier cards**: "Bonuskarten" for +2 … +10 and ×2. Some players say "Modifikatoren".
+5. ✅ **Decided: "Bonuskarten".** **Modifier cards**: "Bonuskarten" for +2 … +10 and ×2. Some players say "Modifikatoren".
 6. **Excluded box tag**: "WEG" (very short). Alternative "RAUS" is taken by bust; "AUSGELASSEN" is long.
 
 ## Strings
@@ -72,7 +72,7 @@ imperatives / verbs, headers nouns.
 | `language_german` | Home ⋮ language (text) | Deutsch | = EN (not translated: proper name) | |
 | `confirm_delete_player_title` | Confirm dialogs (header) | Delete %1$s? | %1$s löschen? | |
 | `confirm_delete_player_body` | Confirm dialogs (TalkBack) | Past games keep showing them. | In alten Spielen bleibt der Name sichtbar. | |
-| `confirm_reset_title` | Confirm dialogs (header) | Reset %1$s to open? | %1$s auf offen setzen? | |
+| `confirm_reset_title` | Confirm dialogs (header) | Reset the last entry for %1$s? | Letzten Eintrag von %1$s zurücksetzen? | Renamed with the sheet button ("Reset last entry"). |
 | `confirm_reset_body_points` | Confirm dialogs (TalkBack) | Removes %1$s from this round. | Entfernt %1$s aus dieser Runde. | |
 | `confirm_reset_body_bust` | Confirm dialogs (TalkBack) | Removes the BUST from this round. | Entfernt das RAUS aus dieser Runde. | |
 | `confirm_close_round_title` | Confirm dialogs (header) | Close round %1$d? | Runde %1$d beenden? | |
@@ -165,14 +165,13 @@ imperatives / verbs, headers nouns.
 | `newgame_min_players` | New game / Seats (text) | Pick at least %1$d players. | Wähl mindestens %1$d Spieler aus. | Changed: "Wähl … aus". |
 | `newgame_max_players` | New game / Seats (text) | %1$d players is the maximum. | Höchstens %1$d Spieler. | Changed: short "Höchstens 10 Spieler." |
 | `newgame_no_players` | New game / Seats (text) | No players yet. Add everyone who's at the table — they're saved for next time. | Noch keine Spieler. Leg alle am Tisch an – sie bleiben fürs nächste Mal gespeichert. | |
-| `newgame_skip_seats` | New game / Seats (button) | Skip seats | Plätze überspringen | |
 | `newgame_target` | New game / Seats (header) | Target | Ziel | |
 | `newgame_target_description` | New game / Seats (TalkBack) | Target, points to win | Ziel, Punkte zum Sieg | |
 | `newgame_target_lower` | New game / Seats (TalkBack) | Lower target | Ziel senken | |
 | `newgame_target_raise` | New game / Seats (TalkBack) | Raise target | Ziel erhöhen | |
 | `seats_title` | New game / Seats (header) | Seats | Plätze | |
-| `seats_hint_table` | New game / Seats (text); Round (text) | Drag players to where they sit | Zieh alle an ihren Platz | |
-| `seats_hint_list` | New game / Seats (text); Round (text) | Drag rows into seating order | Zieh die Zeilen in Sitzreihenfolge | |
+| `seats_hint_table` | New game / Seats (text) | Drag players to where they sit, or just start | Zieh alle an ihren Platz oder starte direkt | Says arranging is optional (no "Skip seats" any more); up to two lines. |
+| `seats_hint_list` | New game / Seats (text) | Drag rows into seating order, or just start | Zieh die Zeilen in Sitzreihenfolge oder starte direkt | |
 | `seats_start` | New game / Seats (button) | Start game | Spiel starten | |
 | `seats_error_start` | New game / Seats (text) | Couldn't start the game | Spielstart hat nicht geklappt | |
 | `scoreboard_title` | Round (button); Scoreboard (header) | Scoreboard | Punktetabelle | |
@@ -211,8 +210,8 @@ imperatives / verbs, headers nouns.
 | `sheet_rescan` | Player sheet / adjust (button) | Rescan | Neu scannen | |
 | `sheet_edit_cards` | Player sheet / adjust (TalkBack) | Edit %1$s's cards | Karten von %1$s bearbeiten | |
 | `sheet_rescan_player` | Player sheet / adjust (TalkBack) | Rescan %1$s | %1$s neu scannen | |
-| `sheet_reset` | Player sheet / adjust (button) | Reset to open | Auf offen setzen | |
-| `sheet_reset_description` | Player sheet / adjust (TalkBack) | Reset %1$s to not scored | %1$s auf nicht gewertet setzen | |
+| `sheet_reset` | Player sheet / adjust (button) | Reset last entry | Letzten Eintrag zurücksetzen | Was "Reset to open"; fits the full-width sheet button (screenshot opts_sheet_reset_de). |
+| `sheet_reset_description` | Player sheet / adjust (TalkBack) | Reset the last entry for %1$s | Letzten Eintrag von %1$s zurücksetzen | |
 | `sheet_card_ignored` | Player sheet / adjust (text) | %1$s · ignored | %1$s · zählt nicht | |
 | `sheet_card_ignored_description` | Player sheet / adjust (TalkBack) | %1$s, ignored | %1$s, zählt nicht | |
 | `sheet_card_duplicate_description` | Player sheet / adjust (TalkBack) | %1$s, duplicate | %1$s, doppelt | |
@@ -241,8 +240,6 @@ imperatives / verbs, headers nouns.
 | `breakdown_bust` | Player sheet / adjust (text) | BUST · %1$s | RAUS · %1$s | |
 | `breakdown_flip7` | Player sheet / adjust (text) | Flip 7 +%1$d | Flip 7 +%1$d | |
 | `toast_bust` | Round (toast) | %1$s marked bust | %1$s ist raus | |
-| `toast_round_closed` | Round (toast) | Round %1$d closed | Runde %1$d beendet | |
-| `toast_open_scoreboard` | Round (toast) | Open the scoreboard | Punktetabelle öffnen | |
 | `card_freeze` | Cards / avatars (shared) (text) | Freeze | = EN (not translated: proper name) | |
 | `card_flip_three` | Cards / avatars (shared) (text) | Flip 3 | Flip 3 | Short chip label "Flip 3" (card says Flip Three). |
 | `card_second_chance` | Cards / avatars (shared) (text) | 2nd chance | 2nd Chance | Card name as printed: "2nd Chance". |
@@ -262,7 +259,7 @@ imperatives / verbs, headers nouns.
 | `review_back_to_camera` | Review (TalkBack) | Back to camera | Zurück zur Kamera | |
 | `review_fix` | Review (button) | Fix | Ändern | |
 | `review_confirm_bust` | Manual entry (button); Review (button) | Confirm bust | Raus bestätigen | |
-| `review_ok` | Review (button) | ✓ OK | ✓ OK | |
+| `review_ok` | Review (button) | OK | OK | No "✓" (the second line says where it goes). |
 | `review_round_progress` | Review (text) | Round %1$d · %2$s | Runde %1$d · %2$s | |
 | `review_in_row` | Review (text) | %1$s in the row | %1$s in der Reihe | |
 | `review_round_points` | Review (text) | Round points | Rundenpunkte | |
@@ -294,8 +291,7 @@ imperatives / verbs, headers nouns.
 | `manual_count_state` | Manual / review (hints) (text) | %1$d selected, tap to remove one | %1$d ausgewählt, tippen nimmt eine weg | |
 | `after_scan_title` | Review / manual (confirm button, bust overlay) (text) | AFTER SAVING | NACH DEM SPEICHERN | |
 | `after_scan_next` | Review / manual (confirm button, bust overlay) (text) | Next: %1$s | Weiter: %1$s | |
-| `after_scan_table` | Review / manual (confirm button, bust overlay) (text) | back to table | zurück zum Tisch | |
-| `after_scan_description` | Review / manual (confirm button, bust overlay) (TalkBack) | %1$s, then %2$s | %1$s, dann %2$s | |
+| `after_scan_table` | Review / manual (split OK, second line; ▾ menu option) | Back to table | Zurück zum Tisch | Capitalised: own line / menu item now. |
 | `after_scan_choose` | Review / manual (confirm button, bust overlay) (TalkBack) | Choose what happens after %1$s | Wähl, was nach „%1$s“ passiert | Changed: du-form "Wähl". |
 | `after_scan_label` | Review / manual (confirm button, bust overlay) (text) | %1$s · %2$s | %1$s · %2$s | |
 | `bust_overlay_description` | Review / manual (confirm button, bust overlay) (TalkBack) | %1$s bust | %1$s ist raus | |
@@ -319,17 +315,32 @@ imperatives / verbs, headers nouns.
 | `round_move_up` | Round (text) | Move %1$s up | %1$s nach oben schieben | |
 | `round_move_down` | Round (text) | Move %1$s down | %1$s nach unten schieben | |
 | `seat_number` | Round (TalkBack) | Seat %1$d | Platz %1$d | |
-| `menu_round_title` | Round (header) | Round %1$d · to %2$d | Runde %1$d · bis %2$d | |
 | `menu_direction` | Round (button) | Scan direction | Scan-Richtung | |
-| `menu_direction_hint` | Round (text) | Who "Scan next" picks after a player | Wen „Weiter scannen“ als Nächstes nimmt | |
-| `menu_end_game_hint` | Round (text) | The leader wins now | Wer vorne liegt, gewinnt jetzt | |
-| `menu_home_hint` | Round (button) | The game stays resumable | Du kannst das Spiel später fortsetzen | |
 | `direction_cw_short` | Round (text) | ↻ Clockwise | ↻ Uhrzeigersinn | |
 | `direction_ccw_short` | Round (text) | ↺ Counter | ↺ Gegenrichtung | "↺ Gegenrichtung" fits the half-width segment ("Gegen den Uhrzeigersinn" does not). |
 | `direction_cw` | Round (text) | ↻ clockwise | ↻ im Uhrzeigersinn | |
 | `direction_ccw` | Round (text) | ↺ counter-clockwise | ↺ gegen den Uhrzeigersinn | |
 | `direction_cw_spoken` | Round (text) | Scan clockwise | Im Uhrzeigersinn scannen | |
 | `direction_ccw_spoken` | Round (text) | Scan counter-clockwise | Gegen den Uhrzeigersinn scannen | |
+| `menu_settings` | Round ⋮ menu (section label) | Settings | Einstellungen | |
+| `menu_target` | Round ⋮ menu (setting) | Target points | Zielpunkte | |
+| `menu_target_description` | Round ⋮ menu (TalkBack, adjustable) | Target points of this game | Zielpunkte dieses Spiels | |
+| `menu_after_score` | Round ⋮ menu (setting) | After a score | Nach einer Wertung | |
+| `after_score_next` | Round ⋮ menu (segment) | Next player | Nächster Spieler | Wraps to two lines at 360 dp × font 1.3. |
+| `after_score_table` | Round ⋮ menu (segment) | Back to table | Zum Tisch | Short segment; the review's ▾ says "Zurück zum Tisch". |
+| `menu_entry` | Round ⋮ menu (setting) | Entry | Eingabe | |
+| `entry_scan` | Round ⋮ menu (segment) | Scan | Scannen | |
+| `entry_type` | Round ⋮ menu (segment) | Type | Eingeben | Not "Tippen" (also means "tap"); same as the camera's Type button. |
+| `entry_scan_spoken` | Round ⋮ menu (TalkBack) | Enter results by scanning | Ergebnisse scannen | |
+| `entry_type_spoken` | Round ⋮ menu (TalkBack) | Enter results by typing | Ergebnisse von Hand eingeben | |
+| `confirm_lower_target_title` | Confirm dialogs (header) | Lower the target to %1$d? | Ziel auf %1$d senken? | |
+| `confirm_lower_target_body` | Confirm dialogs (text) | The game ends after this round. | Das Spiel endet nach dieser Runde. | |
+| `action_lower_target` | Confirm dialogs (button) | Lower | Senken | |
+| `label_enter_next` | Round bottom button, entry Type (text) | ENTER NEXT | WEITER EINGEBEN | Parallel to "WEITER SCANNEN". |
+| `action_enter_next_player` | Round bottom button, entry Type (TalkBack) | Enter next: %1$s | Als Nächstes eingeben: %1$s | |
+| `action_enter_player` | Round card / sheet, entry Type (TalkBack) | Enter cards for %1$s | Karten von %1$s eingeben | |
+| `after_scan_description_next` | Review / manual split OK (TalkBack) | %1$s, then next: %2$s | %1$s, dann weiter: %2$s | "OK, then next: Ben". |
+| `after_scan_description_table` | Review / manual split OK (TalkBack) | %1$s, then back to table | %1$s, dann zurück zum Tisch | |
 | `camera_reading` | Camera (text) | Reading cards… | Karten werden gelesen … | |
 | `camera_starting` | Camera (text) | Camera is starting – try again | Kamera startet – versuch es gleich noch mal | |
 | `camera_detector_unavailable` | Camera (text) | Card detector unavailable | Kartenerkennung nicht verfügbar | |

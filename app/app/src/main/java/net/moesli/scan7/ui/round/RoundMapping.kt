@@ -46,7 +46,7 @@ fun GameState.scanNextAfter(playerId: Long): Long? = nextOpenPlayer(after = play
  * table positions, the game's view (else the preferred / default one), the next open player for
  * "Scan next" (after the last done player, in the scan direction).
  */
-fun GameSnapshot.toRoundUiState(arranging: Boolean = false): RoundUiState {
+fun GameSnapshot.toRoundUiState(arranging: Boolean = false, typeEntry: Boolean = false): RoundUiState {
     val s = state
     val uis = s.playerUis(players)
     val rows = s.seats.mapIndexed { i, seat -> RoundPlayer(uis[i], seat.position) }
@@ -57,6 +57,7 @@ fun GameSnapshot.toRoundUiState(arranging: Boolean = false): RoundUiState {
         view = viewMode.toRoundView(),
         arranging = arranging,
         nextOpenId = s.nextOpenPlayer(after = s.lastDonePlayer())?.toString(),
+        typeEntry = typeEntry,
     )
 }
 
@@ -65,6 +66,15 @@ fun ScanDirection.label(): UiText = when (this) {
     ScanDirection.CLOCKWISE -> uiText(R.string.direction_cw)
     ScanDirection.COUNTER_CLOCKWISE -> uiText(R.string.direction_ccw)
 }
+
+/**
+ * A target change that needs the "Lower the target?" confirmation: lowering to or below the
+ * leader's total, so the game would end at this round's close. Only when that is new: if the
+ * leader already reached the current target, further steps down change nothing and don't ask
+ * again (one dialog per − tap would be a nuisance).
+ */
+internal fun crossesTarget(state: GameState, target: Int): Boolean =
+    target < state.target && state.reachesTarget(target) && !state.reachesTarget(state.target)
 
 /** The direction segment for TalkBack (no arrow glyphs): "Scan clockwise". */
 fun ScanDirection.spoken(): UiText = when (this) {

@@ -25,6 +25,8 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -46,13 +48,14 @@ import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import net.moesli.scan7.ui.components.PressDim
+import net.moesli.scan7.ui.components.CheckIcon
 import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.scan7Clickable
 import net.moesli.scan7.ui.nav.AfterScan
@@ -65,7 +68,7 @@ import net.moesli.scan7.ui.theme.Unbounded
 /**
  * What the confirm buttons (review OK / Confirm bust, manual Save) do after saving: the remembered
  * [choice] and the next open player's name ([nextName], `null` = nobody else open: plain button,
- * back to the table). [onChoose] remembers a choice picked from the ▾ menu.
+ * back to the table). [onChoose] remembers a choice picked from the ▾ menu (select only, no save).
  */
 class AfterScanUi(
     val choice: AfterScan,
@@ -73,15 +76,24 @@ class AfterScanUi(
     val onChoose: (AfterScan) -> Unit,
 )
 
-/** "Next: Ben" / "back to table" (the second part of a confirm label). */
+/** "Next: Ben" / "Back to table" (the second part of a confirm label, and the ▾ menu options). */
 @Composable
 internal fun afterScanText(choice: AfterScan, nextName: String): String =
     if (choice == AfterScan.NEXT) stringResource(R.string.after_scan_next, nextName) else stringResource(R.string.after_scan_table)
 
+/** TalkBack label of the confirm part: "OK, then next: Ben" / "OK, then back to table". */
+@Composable
+private fun afterScanDescription(title: String, choice: AfterScan, nextName: String): String =
+    if (choice == AfterScan.NEXT) {
+        stringResource(R.string.after_scan_description_next, title, nextName)
+    } else {
+        stringResource(R.string.after_scan_description_table, title)
+    }
+
 /**
- * Confirm button that also says where it goes: "✓ OK · Next: Ben" or "✓ OK · back to table"
- * ([AfterScanUi.choice]); the small ▾ segment opens a menu with both options, and picking one
- * remembers it and confirms. Without a next player (or [afterScan] `null`) a plain [title] button.
+ * Confirm button that also says where it goes: "OK · Next: Ben" or "OK · Back to table"
+ * ([AfterScanUi.choice]); the small ▾ segment opens a menu with both options. Picking one only
+ * selects it (remembered, the label follows; the menu closes): the user then taps OK. Without a next player (or [afterScan] `null`) a plain [title] button.
  * [stacked] puts the destination on a second, smaller line (narrow buttons on the review).
  */
 @Composable
@@ -108,7 +120,7 @@ internal fun ConfirmSplitButton(
     var menu by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(Scan7Radii.button)
     val destination = afterScanText(afterScan.choice, next)
-    val description = stringResource(R.string.after_scan_description, title, destination)
+    val description = afterScanDescription(title, afterScan.choice, next)
     val chooseDescription = stringResource(R.string.after_scan_choose, title)
     Box(modifier) {
         Row(
@@ -170,14 +182,12 @@ internal fun ConfirmSplitButton(
                 // Anchored to the ▾ segment: opens above it at the bottom of the screen.
                 AfterScanMenu(
                     expanded = menu,
-                    title = title,
                     next = next,
                     current = afterScan.choice,
                     onDismiss = { menu = false },
                     onPick = { choice ->
                         menu = false
-                        afterScan.onChoose(choice)
-                        confirm()
+                        if (choice != afterScan.choice) afterScan.onChoose(choice)
                     },
                 )
             }
@@ -189,13 +199,13 @@ private val SplitArrowWidth = 48.dp
 
 /**
  * The ▾ menu of a split button (Material 3 [DropdownMenu], restyled: `surface`, line border,
- * radius 12, no shadow): "AFTER SAVING" and both options ("✓ OK · Next: Ben", "✓ OK · back to
- * table") as radio items, the remembered one marked with a filled dot. Tap outside / Back dismisses.
+ * radius 12, no shadow): "AFTER SAVING" and both options ("Next: Ben", "Back to table") as M3
+ * [DropdownMenuItem]s with radio semantics ("… selected"), the current one in cyan with a leading
+ * check. Picking only selects; tap outside / Back dismisses.
  */
 @Composable
 private fun AfterScanMenu(
     expanded: Boolean,
-    title: String,
     next: String,
     current: AfterScan,
     onDismiss: () -> Unit,
@@ -224,36 +234,28 @@ private fun AfterScanMenu(
         Column(Modifier.selectableGroup()) {
             for (choice in AfterScan.entries) {
                 val chosen = choice == current
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(Scan7Spacing.minTouch + Scan7Spacing.s)
-                        .selectable(
-                            selected = chosen,
-                            interactionSource = null,
-                            indication = PressDim,
-                            role = Role.RadioButton,
-                            onClick = { onPick(choice) },
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            afterScanText(choice, next),
+                            style = Scan7Type.button.copy(fontSize = 15.sp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
-                        .padding(horizontal = Scan7Spacing.l),
-                ) {
-                    Box(
-                        Modifier
-                            .size(12.dp)
-                            .border(1.5.dp, if (chosen) colors.accent else colors.line, CircleShape)
-                            .padding(3.dp)
-                            .background(if (chosen) colors.accent else Color.Transparent, CircleShape),
-                    )
-                    Text(
-                        stringResource(R.string.after_scan_label, title, afterScanText(choice, next)),
-                        color = if (chosen) colors.accent else colors.text,
-                        style = Scan7Type.button.copy(fontSize = 15.sp),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                    },
+                    onClick = { onPick(choice) },
+                    // A fixed slot keeps both labels aligned; only the chosen one shows the check.
+                    leadingIcon = { Box(Modifier.size(18.dp)) { if (chosen) CheckIcon(colors.accent, size = 18.dp) } },
+                    colors = MenuDefaults.itemColors(
+                        textColor = if (chosen) colors.accent else colors.text,
+                    ),
+                    modifier = Modifier
+                        .height(Scan7Spacing.minTouch + Scan7Spacing.s)
+                        .semantics {
+                            role = Role.RadioButton
+                            selected = chosen
+                        },
+                )
             }
         }
     }

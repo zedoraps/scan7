@@ -38,6 +38,8 @@ data class RoundPlayer(
  * @param seating the new game's seating step: seat number badges (1 = first in seating order) on
  *   the cards / rows, and no round info (no "ROUND n", totals, status tags or score rings), so a
  *   card shows only avatar, name and seat number.
+ * @param typeEntry entry mode Type: the scan actions open the manual entry (keypad icon on the
+ *   in-card button, "Enter next" on the bottom button).
  */
 @Immutable
 data class RoundUiState(
@@ -48,6 +50,7 @@ data class RoundUiState(
     val arranging: Boolean = false,
     val nextOpenId: String? = firstOpenId(players),
     val seating: Boolean = false,
+    val typeEntry: Boolean = false,
 ) {
     /** The player for "Scan next", or null when nobody is open. */
     val nextOpen: RoundPlayer?
@@ -111,15 +114,12 @@ interface RoundActions {
 
     /**
      * "Next round" when everyone is done: closes the round and starts the next one in one step
-     * (a "Round N closed · Scoreboard" snackbar), or leads to Game over when someone reached the target.
+     * (no toast), or leads to Game over when someone reached the target.
      */
     fun onNextRound() {}
 
     /** Double-tap on a compact card (or its TalkBack "Scan <name>" action) → camera, like [onScan]. */
     fun onQuickScan(playerId: String) = onScan(playerId)
-
-    /** "Scoreboard" in the "Round N closed" toast. */
-    fun onScoreboard(round: Int) {}
 
     /** Logo in the header → Home (the game stays resumable). */
     fun onHome() {}

@@ -210,4 +210,16 @@ class RoundMappingTest {
         assertEquals(3, g.result(2).cards.size)
         assertEquals(ResultSource.MANUAL, g.result(2).source)
     }
+
+    @Test
+    fun lowerTargetAsksOnlyWhenTheLeaderNewlyReachesIt() {
+        val s = GameState.newGame(listOf(Player(1, "Anna"), Player(2, "Ben")))
+            .scorePoints(1, 120, now = 1).scorePoints(2, 40, now = 1).closeRound(now = 1).nextRound()
+        assertEquals(false, crossesTarget(s, 150)) // still above Anna's 120
+        assertEquals(true, crossesTarget(s, 120)) // = leader: ends after this round
+        assertEquals(true, crossesTarget(s, 100))
+        assertEquals(false, crossesTarget(s, 250)) // raising never asks
+        val lowered = s.withTarget(110, now = 2)
+        assertEquals(false, crossesTarget(lowered, 100)) // already reached: no second dialog
+    }
 }

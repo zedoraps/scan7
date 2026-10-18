@@ -13,8 +13,8 @@
 - No groups.
 
 ## New game
-1. Select who plays tonight from the stored players (checkboxes; tick order = seating order). A new player can be added right here and is saved to the list. Shared avatar colors don't block **Next** (no "Same color as …" check any more). The **target** (200 default, steps of 10) is a compact row pinned above the buttons. Bottom: **[Skip seats]** (start now: tick order on the default ring) and **[Next]**.
-2. **Seats:** the round screen's own table / list in arrange mode (same cards, drag rules and Table | List toggle; seat numbers 1…n on the cards / rows), header ← · "Seats" · Table|List, bottom drag hint + **Start game**. Table: drop a card where the player sits (order re-derived clockwise); list: drop a row on another to swap. Same players as an earlier game → that game's order and spots. The positions set here are the game's table positions; the chosen view is remembered (app preference). Back / predictive back returns to step 1 with the arrangement kept (as long as the same players stay picked). "New game with same players" opens directly on this step.
+1. Select who plays tonight from the stored players (checkboxes; tick order = seating order). A new player can be added right here and is saved to the list. Shared avatar colors don't block **Next** (no "Same color as …" check any more). The **target** (200 default, steps of 10) is a compact row pinned above the button. Bottom: one full-width **[Next]** (no "Skip seats": arranging on the Seats step is optional).
+2. **Seats:** the round screen's own table / list in arrange mode (same cards, drag rules and Table | List toggle; seat numbers 1…n on the cards / rows), header ← · "Seats" · Table|List, bottom hint "Drag players to where they sit, or just start" (list: "Drag rows into seating order, or just start") + **Start game**, which works without moving anyone (tick order on the default ring, or the earlier game's spots). Table: drop a card where the player sits (order re-derived clockwise); list: drop a row on another to swap. Same players as an earlier game → that game's order and spots. The positions set here are the game's table positions; the chosen view is remembered (app preference). Back / predictive back returns to step 1 with the arrangement kept (as long as the same players stay picked). "New game with same players" opens directly on this step.
 3. Start → round 1.
 
 Games, rounds and scores are persisted, so an unfinished game survives closing the app and can be resumed.
@@ -26,9 +26,13 @@ Shown during the whole round: all players in seating order, each with
 
 Header: round number and current leader (the leader badge: a white circle with a bold three-point crown, rounded tips over a base band, glyph ≈ 84 % of the badge so it reads at 20 dp). Bottom: **Close round**.
 
-Views: **Table** (cards placed freely around the screen, arranged by long-press/drag, or **Rearrange seats / order** as the first item of the round menu ⋮; the header is logo · Table|List · ⋮) and **List** (rows in seating order); seating order is shared. Default Table for ≤ 6 players, List for 7+; choice remembered. Card positions are saved per game. The round menu is a bottom sheet with an M3 list (`ListItem` rows with icons): Rearrange seats / order, **Players** (see "Players during a game"), Scoreboard, **Scan direction** (M3 segmented buttons ↻ Clockwise | ↺ Counter, the sheet stays open), End game (warning style), Home.
+Views: **Table** (cards placed freely around the screen, arranged by long-press/drag, or **Rearrange seats / order** as the first item of the round menu ⋮; the header is logo · Table|List · ⋮) and **List** (rows in seating order); seating order is shared. Default Table for ≤ 6 players, List for 7+; choice remembered. Card positions are saved per game. The round menu is a bottom sheet (scrolls when it doesn't fit) with an M3 list, no header and no supporting texts. Actions, most used first (`ListItem` rows with icons): **Scoreboard**, **Rearrange seats / order**, **Players** (see "Players during a game"), **Home**, a divider, **End game** (warning style; its confirmation explains). Then **SETTINGS** (the sheet stays open): **Target points** (− value +, steps of 10, 50–1000, this game only), **Scan direction** (M3 segmented buttons ↻ Clockwise | ↺ Counter), **After a score** (Next player | Back to table, the same `after_scan` setting as the review's split OK ▾) and **Entry** (Scan | Type, app setting `entry_mode`).
 
-Open cards have in-card **Scan** and **Bust** buttons: Bust marks the player busted immediately, with an "Undo" toast. Tap an open card → sheet with **Scan**, **Enter manually**, **Bust**. Tap a done card → its result with **Edit**, **Rescan**, **Reset to open**. Compact cards (7–10 players): name on one line, total below; **double-tap** an open card to scan (TalkBack action "Scan <name>").
+**Target points** changes the running game's target at once (progress "to N", scoreboard subtitle, Home). Lowering it to or below the leader's total asks first ("Lower the target to N? The game ends after this round.", destructive); the game-over check at the round close uses the new target. Hidden once the game is over.
+
+**Entry: Type** (no camera): every scan entry point (in-card Scan, Scan next, sheet Scan, double-tap) opens the manual entry directly, no camera and no camera permission prompt; results are saved with source MANUAL. The in-card button shows a keypad icon, the bottom button says "ENTER NEXT · Ben" (DE "WEITER EINGEBEN"), the player sheet's big button is "Enter manually" (no Rescan on done players; Edit covers it). The Scan next chain continues with the next player's manual entry (following "After a score").
+
+Open cards have in-card **Scan** and **Bust** buttons: Bust marks the player busted immediately, with an "Undo" toast. Tap an open card → sheet with **Scan**, **Enter manually**, **Bust**. Tap a done card → its result with **Edit**, **Rescan**, **Reset last entry** (back to open). Compact cards (7–10 players): name on one line, total below; **double-tap** an open card to scan (TalkBack action "Scan <name>").
 
 Bottom: **Scan next · <next open player>** (primary) + **Close round**; when everyone is done, one full-width **Next round** (closes the round and starts the next one in one tap). "Scan next" follows the **scan direction** (round menu ⋮: ↻ clockwise / ↺ counter-clockwise, app setting `scan_direction`); seating and list order don't change.
 
@@ -42,11 +46,11 @@ Round menu (⋮) → **Players** (below Rearrange seats / order; hidden once the
 ## Scan
 1. Full-screen camera, player name at the top, live boxes on the cards.
 2. **Shutter button only** (no auto-capture). Pressing it freezes the current frame.
-   Left of the shutter: **Bust** (magenta outline + word) marks the player busted without scanning (Undo toast); in Scan next it continues straight to the next open player. Right of the shutter: **Type** (manual entry). The top row is ← back, then the player (avatar + "SCANNING" / "NEXT" · total over the name in Unbounded ~28 sp). Tap the preview to focus there; pinch to zoom (the zoom pills follow).
+   Left of the shutter: **Bust** (magenta outline + word) marks the player busted without scanning: the full-screen bust overlay (~1 s, with Undo) confirms it, then it continues like a save (no toast afterwards; only Back during the overlay leaves the bust with the Undo toast on the round screen). Right of the shutter: **Type** (manual entry). The top row is ← back, then the player (avatar + "SCANNING" / "NEXT" · total over the name in Unbounded ~28 sp). Tap the preview to focus there; pinch to zoom (the zoom pills follow). Zoom pills only for what the camera supports (CameraX `ZoomState`): 0.5× when the min zoom is ≤ 0.6 (ultra-wide), 1×, 2×, 5× up to the max zoom; no pill row when the max zoom is below 1.5× (or only one pill is left). A remembered zoom the camera can't do falls back to 1×.
 3. Review overlay on the frozen frame: boxes and labels stay on the cards; a bottom panel shows
    - detected cards as chips,
    - score breakdown (numbers, x2, plus cards, Flip 7 bonus) and the total,
-   - buttons **Retake** (back to camera), **Fix** (manual screen, prefilled), **✓ OK** (save).
+   - buttons **Retake** (back to camera), **Fix** (manual screen, prefilled), **OK** (save; split button, see below).
    - tapping a box or its chip **leaves that card out** (e.g. a neighbour's card in the frame): dashed grey "EXCLUDED", chip struck through; score, bust check and the saved cards ignore it; tap again to include it. Fix doesn't prefill left-out cards.
    After OK: if the scan was started via **Scan next**, go straight to the camera for the next open player ("Next: Ben", with "Back to table"); otherwise back to the round screen.
 4. If a number is detected twice, the panel shows **BUST · two 7s** (magenta + text) with **Confirm bust** and **Fix**.
@@ -63,9 +67,9 @@ Used for **Enter manually**, **Fix** (prefilled with the scanned cards) and **Ed
 
 ## Close round
 1. Confirmation (only while someone is open): "X and Y haven't been scored. They'll be marked BUST." → every open player becomes busted (0 points). If nobody has been scored at all: "Nobody has been scored yet – mark everyone BUST?" (likely an accident; destructive style).
-2. The round is closed and the next one starts at once (one transaction); a snackbar "Round N closed" with **Scoreboard** shows for ~4 s (no overlay).
+2. The round is closed and the next one starts at once (one transaction); no toast (the scoreboard is in the round menu).
 3. If at least one player has reached the target (≥ 200) **after the full round is scored**, the game ends: the player with the most points wins (exact tie → shared win). Reaching 200 mid-round never ends the round early.
-4. Otherwise → next round, all players `open` (with the snackbar of step 2).
+4. Otherwise → next round, all players `open`.
 
 Closed rounds can be reopened from the scoreboard and edited; totals and the game-over state are recomputed.
 
@@ -87,12 +91,13 @@ One pattern for every confirmation: `Scan7ConfirmDialog` (ui/components, on `Sca
 | Where | When it asks | Title · action | Style |
 |---|---|---|---|
 | Player editor → Delete | always | "Delete Anna?" · Delete → sheet slides down → list | destructive |
-| Player sheet → Reset to open | player is scored or bust | "Reset Anna to open?" · Reset (body: removes +46 / the BUST) | destructive |
+| Player sheet → Reset last entry | player is scored or bust | "Reset the last entry for Anna?" · Reset (body: removes +46 / the BUST) | destructive |
 | Round → Close round | someone is open (nobody open: closes at once) | "Close round N?" + chips + "… marked BUST." · Close round | primary |
 | Close round, nobody scored | all players open | "Nobody has been scored yet – mark everyone BUST?" · Close round | destructive |
 | Round menu → End game | always | "End the game now?" · End game | destructive |
 | Round menu → Players → untick a seated player | always | "Remove Anna from this game?" · Remove (body: "Their points from past rounds stay in the scoreboard." if they played a closed round, plus "Their +46 / BUST in this round is dropped." if they have a result) | destructive |
-| New game → Skip seats / Seats → Start game | a game is unfinished | "Start a new game?" · Start (the unfinished game ends) | destructive |
+| Round menu → Target points | lowering it to ≤ the leader's total (once: not again when the leader already reached the old target) | "Lower the target to 150?" · Lower (body: the game ends after this round) | destructive |
+| Seats → Start game | a game is unfinished | "Start a new game?" · Start (the unfinished game ends) | destructive |
 | Home → long-press a game → Delete game | always (no Undo) | "Delete this game?" · Delete (body: "Today, 21:40 · Mia won · 6 rounds", then "This can't be undone."; the running game adds "The game in progress will be lost.") | destructive |
 
 No confirmation, Undo instead: Bust (in-card, sheet, camera: Undo toast / overlay) and removing a total adjustment in the player sheet (inline "Removed +5 · Undo").
@@ -111,8 +116,8 @@ Shutter only; best frame of the last second is used. Torch toggle next to the zo
 Store everything needed for statistics later (games, rounds, per-player round results incl. bust, and the confirmed cards per row), but no stats UI for now.
 
 ## Changes 2026-10-18 (evening)
-- **Round end in one tap:** when everyone is done, **Next round** closes the round and starts the next one; a snackbar "Round N closed · Scoreboard" (~4 s) instead of a results overlay (the overlay was removed). Game over still goes to the Game over screen. (Replaces the separate end-of-round step.)
-- **Review OK is a split button:** "✓ OK · Next: Ben" / "✓ OK · back to table", chosen via ▾ and remembered (no setting). Applies to every scan (card Scan button or Scan next).
+- **Round end in one tap:** when everyone is done, **Next round** closes the round and starts the next one, without a toast (the results overlay and the later "Round N closed" snackbar were removed). Game over still goes to the Game over screen. (Replaces the separate end-of-round step.)
+- **Review OK is a split button:** "OK" with the second line "Next: Ben" / "Back to table" (TalkBack "OK, then next: Ben"); manual Save / Confirm bust the same. The ▾ menu only **selects** (radio items with a check on the current one, "… selected"): it stores the `after_scan` setting, the second line follows, nothing is saved until OK is tapped. Same setting as the round menu's "After a score". Applies to every scan (card Scan button or Scan next).
 - **Scan direction** ↻ clockwise / ↺ counter-clockwise in the round menu, remembered; only decides who "next" is.
 - **Camera:** top row: ← back (= back to table), then the player banner; bottom: BUST · shutter · Type, with the zoom pills + torch floating above. No REC marker, no hint text. Bust shows a full-screen magenta "✕ <name> BUST" overlay (~1 s, with Undo) and blocks a second tap.
 - **Review / manual chips:** no "ignored" text; action cards and backs only dashed outline. Stable panel height (no jump on bust), no "Misread a card…" text.

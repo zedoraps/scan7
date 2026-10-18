@@ -63,6 +63,7 @@ import net.moesli.scan7.ui.components.PlayerScoreRing
 import net.moesli.scan7.ui.components.PlayerStatus
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.Scan7BottomSheet
+import net.moesli.scan7.ui.components.KeypadIcon
 import net.moesli.scan7.ui.components.ScanIcon
 import net.moesli.scan7.ui.components.Confirmations
 import net.moesli.scan7.ui.components.Scan7ConfirmDialog
@@ -104,9 +105,11 @@ class AdjustActions(
 /**
  * Player sheet (4a) as a bottom sheet in the card styling. Open player: Scan (cyan, tall), Enter
  * manually, Bust (magenta outline). Scored / bust: the result (points or BUST, the cards if any)
- * with Edit, Rescan and Reset to open (asks first, [Confirmations.resetToOpen]; [onResetToOpen]
+ * with Edit, Rescan and Reset last entry (asks first, [Confirmations.resetToOpen]; [onResetToOpen]
  * `null` hides it, e.g. on the end-of-round view: a closed round has no open players). With [adjust]: "Adjust total" (signed delta + note,
- * [AdjustTotalDialog]) and the player's adjustments, each removable with Undo.
+ * [AdjustTotalDialog]) and the player's adjustments, each removable with Undo. [typeEntry]
+ * (entry mode Type): the big button is "Enter manually" with the keypad (no camera, no second
+ * manual button) and done players have no Rescan (Edit covers it).
  */
 @Composable
 fun PlayerSheet(
@@ -120,6 +123,7 @@ fun PlayerSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     adjust: AdjustActions? = null,
+    typeEntry: Boolean = false,
 ) {
     var adjusting by rememberSaveable { mutableStateOf(false) }
     // Last removed adjustment, for the inline Undo (cleared when the sheet closes).
@@ -138,6 +142,7 @@ fun PlayerSheet(
                 { sheet.hideThen(onEdit) },
                 { sheet.hideThen(onRescan) },
                 onResetToOpen?.let { reset -> { if (resetSpec == null) sheet.hideThen(reset) else confirmReset = true } },
+                typeEntry = typeEntry,
             )
             if (confirmReset && onResetToOpen != null && resetSpec != null) {
                 Scan7ConfirmDialog(
@@ -285,12 +290,13 @@ fun PlayerSheetContent(
     onEdit: () -> Unit,
     onRescan: () -> Unit,
     onResetToOpen: (() -> Unit)?,
+    typeEntry: Boolean = false,
 ) {
     val player = state.player
     Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.l)) {
         SheetHeader(state)
         if (!player.status.isDone) {
-            OpenActions(player.name, onScan, onEnterManually, onBust)
+            OpenActions(player.name, onScan, onEnterManually, onBust, typeEntry)
         } else {
             ResultPanel(state)
             Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
@@ -301,13 +307,15 @@ fun PlayerSheetContent(
                     height = 56.dp,
                     contentDescription = stringResource(R.string.sheet_edit_cards, player.name),
                 )
-                SecondaryButton(
-                    stringResource(R.string.sheet_rescan),
-                    onRescan,
-                    Modifier.weight(1f),
-                    height = 56.dp,
-                    contentDescription = stringResource(R.string.sheet_rescan_player, player.name),
-                )
+                if (!typeEntry) {
+                    SecondaryButton(
+                        stringResource(R.string.sheet_rescan),
+                        onRescan,
+                        Modifier.weight(1f),
+                        height = 56.dp,
+                        contentDescription = stringResource(R.string.sheet_rescan_player, player.name),
+                    )
+                }
             }
             if (onResetToOpen != null) {
                 SecondaryButton(
@@ -346,10 +354,10 @@ private fun SheetHeader(state: PlayerSheetUi) {
 }
 
 @Composable
-private fun OpenActions(name: String, onScan: () -> Unit, onEnterManually: () -> Unit, onBust: () -> Unit) {
+private fun OpenActions(name: String, onScan: () -> Unit, onEnterManually: () -> Unit, onBust: () -> Unit, typeEntry: Boolean) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.button)
-    val scanDescription = stringResource(R.string.action_scan_player, name)
+    val scanDescription = stringResource(if (typeEntry) R.string.action_enter_player else R.string.action_scan_player, name)
     val bustDescription = stringResource(R.string.action_bust_player, name)
     Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
         Row(
@@ -360,24 +368,30 @@ private fun OpenActions(name: String, onScan: () -> Unit, onEnterManually: () ->
                 .height(80.dp)
                 .clip(shape)
                 .background(colors.accent)
-                .scan7Clickable(onScan)
+                .scan7Clickable(if (typeEntry) onEnterManually else onScan)
                 .clearAndSetSemantics {
                     contentDescription = scanDescription
                     role = Role.Button
                 },
         ) {
-            ScanIcon(colors.onAccent, size = 28.dp)
-            Text(stringResource(R.string.action_scan), color = colors.onAccent, style = Scan7Type.button.copy(fontSize = 18.sp))
+            if (typeEntry) KeypadIcon(colors.onAccent, size = 28.dp) else ScanIcon(colors.onAccent, size = 28.dp)
+            Text(
+                stringResource(if (typeEntry) R.string.action_enter_manually else R.string.action_scan),
+                color = colors.onAccent,
+                style = Scan7Type.button.copy(fontSize = 18.sp),
+            )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
-            SecondaryButton(
-                // Large font scales: two lines (the button grows) instead of a tiny or cut label.
-                stringResource(if (LocalDensity.current.fontScale > 1.4f) R.string.action_enter_manually_two_lines else R.string.action_enter_manually),
-                onEnterManually,
-                Modifier.weight(1f),
-                height = 56.dp,
-                textStyle = Scan7Type.button.copy(fontSize = 14.sp),
-            )
+            if (!typeEntry) {
+                SecondaryButton(
+                    // Large font scales: two lines (the button grows) instead of a tiny or cut label.
+                    stringResource(if (LocalDensity.current.fontScale > 1.4f) R.string.action_enter_manually_two_lines else R.string.action_enter_manually),
+                    onEnterManually,
+                    Modifier.weight(1f),
+                    height = 56.dp,
+                    textStyle = Scan7Type.button.copy(fontSize = 14.sp),
+                )
+            }
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier

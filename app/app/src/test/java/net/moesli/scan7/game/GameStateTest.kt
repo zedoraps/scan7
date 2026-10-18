@@ -576,4 +576,47 @@ class GameStateTest {
         assertEquals(ViewMode.TABLE, ViewMode.defaultFor(6))
         assertEquals(ViewMode.LIST, ViewMode.defaultFor(7))
     }
+
+    // ---- Target change (round menu) ----
+
+    @Test
+    fun lowerTargetMidRound_gameEndsAtTheRoundClose() {
+        val r1 = start.playRound(120, 40, 30)
+        // Round 2 running: Anna 120, lowering to 100 doesn't end it mid-round.
+        val lowered = r1.nextRound().withTarget(100, now = 2)
+        assertEquals(100, lowered.target)
+        assertTrue(lowered.reachesTarget(100))
+        assertFalse(lowered.isOver)
+        assertNull(lowered.finishedAt)
+        val closed = lowered.scorePoints(1, 0, 3).closeAndStartNext(now = 4)
+        assertTrue(closed.isOver)
+        assertEquals(listOf(1L), closed.winners)
+        assertEquals(4L, closed.finishedAt)
+    }
+
+    @Test
+    fun raiseTargetMidRound_gameGoesOn() {
+        val running = start.playRound(150, 40, 30).nextRound().withTarget(300, now = 2)
+        // Anna 190 after this round: over the old 200? no; over 300? no → next round.
+        val next = running.scorePoints(1, 60, 3).closeAndStartNext(now = 4)
+        assertFalse(next.isOver)
+        assertEquals(3, next.currentRound.number)
+        assertFalse(next.reachesTarget(300))
+        assertTrue(next.reachesTarget(200))
+    }
+
+    @Test
+    fun raiseTargetOnAFinishedGame_reopensIt() {
+        val over = start.scorePoints(1, 210, 1).closeRound(now = 5)
+        assertTrue(over.isOver)
+        val raised = over.withTarget(250, now = 6)
+        assertFalse(raised.isOver)
+        assertNull(raised.finishedAt)
+        assertTrue(raised.withTarget(200, now = 7).isOver)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun targetMustBePositive() {
+        start.withTarget(0, now = 1)
+    }
 }

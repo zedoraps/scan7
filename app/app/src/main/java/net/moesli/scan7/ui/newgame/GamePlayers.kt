@@ -148,7 +148,6 @@ fun GamePlayersRoute(
             },
             onNewPlayer = { editorKey = EditorTarget.New.key },
             onTargetChange = null,
-            onSkipSeats = null,
             onNext = {
                 val lineup = pickedLineup(state, liveSelected)
                 if (lineup.toSet() == state.playerIds.toSet()) {

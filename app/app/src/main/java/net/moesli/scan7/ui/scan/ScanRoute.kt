@@ -29,6 +29,7 @@ import net.moesli.scan7.data.outlivingUi
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.ui.components.PlayerStatus
 import net.moesli.scan7.ui.nav.AfterScan
+import net.moesli.scan7.ui.nav.EntryMode
 import net.moesli.scan7.ui.nav.Route
 import net.moesli.scan7.ui.nav.ScanStart
 import net.moesli.scan7.ui.nav.nextPlayer
@@ -50,8 +51,8 @@ private const val LOADING = "\u0000"
  *
  * @param round the round to score; `null` = the running round (editing a closed round recomputes
  *   totals and game over).
- * @param onSaved called after saving with the saved state and the "after scan" choice of the
- *   split OK button (also after the camera's Bust tap); the caller continues with
+ * @param onSaved called after saving with the saved state, the "after scan" choice of the
+ *   split OK button (also after the camera's Bust tap) and the entry mode; the caller continues with
  *   [net.moesli.scan7.ui.nav.afterSave].
  * @param onLeave cancel / ← back to the table.
  * @param debugCapture DEBUG: start camera scans in Review on this capture (photo file hook).
@@ -64,7 +65,7 @@ fun ScanRoute(
     playerId: Long,
     start: ScanStart,
     round: Int?,
-    onSaved: (GameState, AfterScan) -> Unit,
+    onSaved: (GameState, AfterScan, EntryMode) -> Unit,
     onLeave: () -> Unit,
     modifier: Modifier = Modifier,
     repository: GameRepository = AppGraph.repository(LocalContext.current),
@@ -73,10 +74,9 @@ fun ScanRoute(
 ) {
     val snapshot by remember(gameId) { repository.observeGame(gameId) }.collectAsStateWithLifecycle(initialValue = null)
     val stored by remember { repository.setting(AfterScan.SETTING_KEY) }.collectAsStateWithLifecycle(initialValue = LOADING)
+    val storedEntry by remember { repository.setting(EntryMode.SETTING_KEY) }.collectAsStateWithLifecycle(initialValue = LOADING)
     val scope = rememberCoroutineScope()
     var saving by remember { mutableStateOf(false) }
-    // Picked from the ▾ menu in this flow: used right away (the stored value follows).
-    var picked by remember { mutableStateOf<AfterScan?>(null) }
     // Full-screen bust overlay on the camera (player id while shown) and its Undo signal.
     var bustShown by remember { mutableStateOf<Long?>(null) }
     var bustUndo by remember { mutableStateOf<CompletableDeferred<Unit>?>(null) }
@@ -89,13 +89,13 @@ fun ScanRoute(
     val capture by produceState<ScanCapture?>(null, debugCapture, playerId) {
         if (camera && debugCapture != null) value = debugCapture(context)
     }
-    if (snap == null || state == null || index < 0 || stored == LOADING || (camera && debugCapture != null && capture == null)) {
+    if (snap == null || state == null || index < 0 || stored == LOADING || storedEntry == LOADING || (camera && debugCapture != null && capture == null)) {
         Box(modifier.fillMaxSize().background(Scan7Theme.colors.ground))
         return
     }
-    // Read `picked` again when a save completes: the ▾ menu sets it and saves in the same tap, before
-    // this composition (and `choice`) catches up, so a captured `choice` would still be the old one.
-    val choice = picked ?: AfterScan.fromSetting(stored)
+    // The ▾ menu only selects (stores the setting); OK is a separate tap, so `choice` is current then.
+    val choice = AfterScan.fromSetting(stored)
+    val entry = EntryMode.fromSetting(storedEntry)
     val roundNumber = round ?: state.currentRound.number
     val players = state.playerUis(snap.players, roundNumber, state.everyoneIds)
     val player = players[index]
@@ -103,7 +103,6 @@ fun ScanRoute(
         ?.let { state.everyoneIds.indexOf(it) }
         ?.let { players.getOrNull(it)?.name }
     val afterScan = AfterScanUi(choice, nextName) { c ->
-        picked = c
         scope.launch {
             runCatching { repository.putSetting(AfterScan.SETTING_KEY, c.name) }.onFailure { Log.w(TAG, "saving the choice failed", it) }
         }
@@ -134,7 +133,7 @@ fun ScanRoute(
         player = player,
         onResult = { outcome ->
             save("saving the result", { scoreCards(gameId, playerId, outcome.toConfirmedCards(), outcome.resultSource, round) }) {
-                onSaved(it, picked ?: choice)
+                onSaved(it, choice, entry)
             }
         },
         onCancel = onLeave,
@@ -145,7 +144,8 @@ fun ScanRoute(
         onBackToTable = onLeave,
         initialCapture = capture,
         // Same bust / undo as the round screen (GameRepository.bust → BUST_TAP; undoBust), with
-        // the full-screen overlay first: ~1 s with Undo, then the toast and on as after a save.
+        // the full-screen overlay first: ~1 s with Undo, then on as after a save (no toast: the
+        // overlay was the confirmation; only Back during it shows the toast, see bustWithOverlay).
         onBust = if (canBust) {
             {
                 if (!saving && bustShown == null) {
@@ -174,10 +174,8 @@ fun ScanRoute(
                             saving = false
                             return@launch
                         }
-                        if (saved != null) {
-                            bustToast?.show(playerId.toString(), name)
-                            onSaved(saved, picked ?: choice)
-                        }
+                        // The full overlay (with its Undo) already confirmed the bust: no toast on top.
+                        if (saved != null) onSaved(saved, choice, entry)
                         bustShown = null
                         bustUndo = null
                         saving = false
