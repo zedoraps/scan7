@@ -25,9 +25,9 @@ Header: round number and current leader. Bottom: **Close round**.
 
 Views: **Table** (cards placed freely around the screen, arranged by long-press/drag) and **List** (rows in seating order); seating order is shared. Default Table for ≤ 6 players, List for 7+; choice remembered. Card positions are saved per game.
 
-Open cards have in-card **Scan** and **Bust** buttons: Bust marks the player busted immediately, with an "Undo" toast. Tap an open card → sheet with **Scan**, **Enter manually**, **Bust**. Tap a done card → its result with **Edit**, **Rescan**, **Reset to open**.
+Open cards have in-card **Scan** and **Bust** buttons: Bust marks the player busted immediately, with an "Undo" toast. Tap an open card → sheet with **Scan**, **Enter manually**, **Bust**. Tap a done card → its result with **Edit**, **Rescan**, **Reset to open**. Compact cards (7–10 players): name on one line, total below; **double-tap** an open card to scan (TalkBack action "Scan <name>").
 
-Bottom: **Scan next · <next open player>** (primary) + **Close round**; when everyone is done, one full-width **Close round**.
+Bottom: **Scan next · <next open player>** (primary) + **Close round**; when everyone is done, one full-width **Next round** (closes the round and starts the next one in one tap). "Scan next" follows the **scan direction** (round menu ⋮: ↻ clockwise / ↺ counter-clockwise, app setting `scan_direction`); seating and list order don't change.
 
 ## Scan
 1. Full-screen camera, player name at the top, live boxes on the cards.
@@ -53,13 +53,13 @@ Used for **Enter manually**, **Fix** (prefilled with the scanned cards) and **Ed
 
 ## Close round
 1. Confirmation: "X and Y haven't been scored. They'll be marked BUST." → every open player becomes busted (0 points).
-2. End of round: the same table/list layout showing each player's round points (or BUST), rank badges and advanced score rings; **Next round** (primary).
+2. The round is closed and the next one starts at once (one transaction); on top of the new round a dismissible **round results overlay** ("Round N results": rank badge, player, round points or BUST, total; ✕ / tap outside / starting a scan closes it).
 3. If at least one player has reached the target (≥ 200) **after the full round is scored**, the game ends: the player with the most points wins (exact tie → shared win). Reaching 200 mid-round never ends the round early.
-4. Otherwise → next round, all players `open`.
+4. Otherwise → next round, all players `open` (with the overlay of step 2).
 
 Closed rounds can be reopened from the scoreboard and edited; totals and the game-over state are recomputed.
 
-On the end-of-round view, tapping a player card opens that player's result sheet (Edit / Rescan), not the editor directly. A muted hint "Tap a player to edit" sits above **Next round**; edits there update totals, ranks and the game-over state.
+In the round results overlay ("Tap a player to edit"), tapping a player opens their result sheet for that closed round (Edit / Rescan, Adjust total); edits update the overlay's points, ranks and totals. The game-over check runs when the running round closes.
 
 ## Adjust total
 Player sheet (any state, also on the end-of-round view) → **Adjust total**: a small dialog with a signed number (stepper −10 −5 −1 +1 +5 +10, ± sign toggle, or typed: `+10`, `-12`; max ±999), an optional note ("penalty", "house rule") and a preview "Total 123 → 133".

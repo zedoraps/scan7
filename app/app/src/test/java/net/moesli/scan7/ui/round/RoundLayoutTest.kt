@@ -112,7 +112,7 @@ class RoundLayoutTest {
         assertEquals("b", nextOpenIdAfter(players, null))
         assertNull(firstOpenId(players.map { rp(it.id, PlayerStatus.Bust) }))
         assertEquals("b", RoundUiState(1, 200, players).nextOpen?.id)
-        assertNull(RoundUiState(1, 200, players, roundOver = true).nextOpen)
+        assertNull(RoundUiState(1, 200, players, nextOpenId = "a").nextOpen) // done players never
     }
 
     @Test

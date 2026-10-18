@@ -2,6 +2,7 @@ package net.moesli.scan7.ui.round
 
 import net.moesli.scan7.data.GameSnapshot
 import net.moesli.scan7.game.GameState
+import net.moesli.scan7.game.ScanDirection
 import net.moesli.scan7.game.ViewMode
 import net.moesli.scan7.ui.components.RoundView
 import net.moesli.scan7.ui.players.playerUis
@@ -31,30 +32,54 @@ fun GameState.lastDonePlayer(): Long? {
 }
 
 /**
- * Scan next chaining: after [playerId] was saved, the next open player in seating order (wrapping
- * around), or `null` when nobody is open anymore (or the round is closed) → back to the round screen.
+ * Scan next chaining: after [playerId] was saved, the next open player in the state's scan
+ * direction (wrapping around), or `null` when nobody is open anymore (or the round is closed) →
+ * back to the round screen.
  */
 fun GameState.scanNextAfter(playerId: Long): Long? = nextOpenPlayer(after = playerId)?.takeIf { it != playerId }
 
 /**
- * Round screen state for this game: the running round (or, once it is closed, the end-of-round view
- * with round points and ranks), players in seating order with their stored table positions, the
- * game's view (else the preferred / default one) and the next open player for "Scan next".
+ * Round screen state for this game: the running round, players in seating order with their stored
+ * table positions, the game's view (else the preferred / default one), the next open player for
+ * "Scan next" (after the last done player, in the scan direction) and, with [resultsRound], the
+ * results overlay of that closed round.
  */
-fun GameSnapshot.toRoundUiState(arranging: Boolean = false): RoundUiState {
+fun GameSnapshot.toRoundUiState(arranging: Boolean = false, resultsRound: Int? = null): RoundUiState {
     val s = state
-    val roundOver = s.currentRound.isClosed
     val uis = s.playerUis(players)
-    val ranks = if (roundOver) s.roundRanks() else emptyMap()
-    val rows = s.seats.mapIndexed { i, seat -> RoundPlayer(uis[i], seat.position, ranks[seat.playerId]) }
+    val rows = s.seats.mapIndexed { i, seat -> RoundPlayer(uis[i], seat.position) }
     return RoundUiState(
         round = s.currentRound.number,
         target = s.target,
         players = rows,
         view = viewMode.toRoundView(),
         arranging = arranging,
-        roundOver = roundOver,
         nextOpenId = s.nextOpenPlayer(after = s.lastDonePlayer())?.toString(),
-        gameOver = s.isOver,
+        results = resultsRound?.let { roundResults(it) },
     )
+}
+
+/**
+ * Round results overlay of the closed [round]: each player's points or BUST in that round, rank by
+ * those points, and the current game total; sorted by rank, ties in seating order. `null` if
+ * [round] doesn't exist or isn't closed.
+ */
+fun GameSnapshot.roundResults(round: Int): RoundResultsUi? {
+    val s = state
+    if (round !in 1..s.rounds.size || !s.round(round).isClosed) return null
+    val ranks = s.roundRanks(round)
+    val rows = s.playerIds.zip(s.playerUis(players, round)).map { (id, ui) -> RoundResultRow(ui, ranks.getValue(id)) }
+    return RoundResultsUi(round, rows.sortedBy { it.rank })
+}
+
+/** Round menu label of the scan direction ("↻ clockwise" / "↺ counter-clockwise"). */
+fun ScanDirection.label(): String = when (this) {
+    ScanDirection.CLOCKWISE -> "↻ clockwise"
+    ScanDirection.COUNTER_CLOCKWISE -> "↺ counter-clockwise"
+}
+
+/** The direction for TalkBack (no arrow glyphs). */
+fun ScanDirection.spoken(): String = when (this) {
+    ScanDirection.CLOCKWISE -> "clockwise"
+    ScanDirection.COUNTER_CLOCKWISE -> "counter-clockwise"
 }

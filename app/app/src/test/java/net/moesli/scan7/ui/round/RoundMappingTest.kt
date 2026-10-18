@@ -5,6 +5,7 @@ import net.moesli.scan7.game.ConfirmedCard
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.ResultSource
+import net.moesli.scan7.game.ScanDirection
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.ViewMode
 import net.moesli.scan7.game.defaultPositions
@@ -48,9 +49,7 @@ class RoundMappingTest {
         assertEquals(PlayerStatus.Bust, ui.players[2].player.status)
         assertEquals(listOf(30, 0, 0, 0), ui.players.map { it.player.total })
         assertEquals(defaultPositions(4), ui.players.map { it.position })
-        assertFalse(ui.roundOver)
-        assertFalse(ui.gameOver)
-        assertTrue(ui.players.all { it.rank == null })
+        assertNull(ui.results)
     }
 
     @Test
@@ -83,33 +82,58 @@ class RoundMappingTest {
     }
 
     @Test
-    fun closedRound_showsEndOfRoundWithRanks() {
-        val s = start.score(1, 30, 1).score(2, 50, 2).score(3, 30, 3).closeRound(now = 4) // Dan open → bust
-        val ui = snap(s).toRoundUiState()
-        assertTrue(ui.roundOver)
-        assertFalse(ui.gameOver)
-        assertNull(ui.nextOpen)
-        assertEquals(listOf(2, 1, 2, 4), ui.players.map { it.rank })
-        assertEquals(PlayerStatus.Bust, ui.players[3].player.status)
-    }
-
-    @Test
-    fun closedRound_overTarget_isGameOver() {
-        val s = start.score(1, 120, 1).score(2, 50, 2).closeRound(now = 4)
-        val ui = snap(s).toRoundUiState()
-        assertTrue(ui.roundOver)
-        assertTrue(ui.gameOver)
-    }
-
-    @Test
-    fun nextRound_backToRunningRound() {
-        val s = start.score(1, 30, 1).closeRound(2).nextRound()
-        val ui = snap(s).toRoundUiState()
+    fun nextRound_closesAndStarts_resultsOverlayOfTheClosedRound() {
+        val s = start.score(1, 30, 1).score(2, 50, 2).score(3, 30, 3).closeAndStartNext(now = 4) // Dan open → bust
+        assertEquals(2, s.currentRound.number)
+        val ui = snap(s).toRoundUiState(resultsRound = 1)
         assertEquals(2, ui.round)
-        assertFalse(ui.roundOver)
         assertTrue(ui.players.all { it.player.status == PlayerStatus.Open })
-        assertEquals(30, ui.players[0].player.total)
         assertEquals("1", ui.nextOpen?.id)
+        val results = checkNotNull(ui.results)
+        assertEquals(1, results.round)
+        // Sorted by rank, ties in seating order; the bust ranks last.
+        assertEquals(listOf("2", "1", "3", "4"), results.rows.map { it.id })
+        assertEquals(listOf(1, 2, 2, 4), results.rows.map { it.rank })
+        assertEquals(PlayerStatus.Scored(50), results.rows[0].player.status)
+        assertEquals(PlayerStatus.Bust, results.rows[3].player.status)
+        assertEquals(listOf(50, 30, 30, 0), results.rows.map { it.player.total })
+        // Hidden without a round, and never for the running round.
+        assertNull(snap(s).toRoundUiState().results)
+        assertNull(snap(s).roundResults(2))
+        assertNull(snap(s).roundResults(5))
+    }
+
+    @Test
+    fun resultsOverlay_editOfTheClosedRoundUpdatesPointsRanksAndTotals() {
+        val s = start.score(1, 30, 1).score(2, 50, 2).score(3, 30, 3).closeAndStartNext(now = 4)
+        val edited = s.scorePoints(4, 60, now = 5, round = 1).adjustTotal(3, 5, null, now = 6)
+        val results = checkNotNull(snap(edited).roundResults(1))
+        assertEquals(listOf("4", "2", "1", "3"), results.rows.map { it.id })
+        assertEquals(PlayerStatus.Scored(60), results.rows[0].player.status)
+        assertEquals(listOf(60, 50, 30, 35), results.rows.map { it.player.total })
+        assertFalse(edited.isOver)
+    }
+
+    @Test
+    fun nextRound_overTarget_isGameOverWithoutANewRound() {
+        val s = start.score(1, 120, 1).score(2, 50, 2).closeAndStartNext(now = 4)
+        assertTrue(s.isOver)
+        assertEquals(1, s.currentRound.number)
+    }
+
+    @Test
+    fun scanNext_counterClockwise_buttonAndChain() {
+        val ccw = start.copy(scanDirection = ScanDirection.COUNTER_CLOCKWISE)
+        // Nobody done → first seat; after Anna, the chain goes backwards: Dan, Cleo, Ben.
+        assertEquals("1", snap(ccw).toRoundUiState().nextOpen?.id)
+        val s = ccw.score(1, 5, now = 1)
+        assertEquals("4", snap(s).toRoundUiState().nextOpen?.id)
+        assertEquals(4L, s.scanNextAfter(1))
+        assertEquals(3L, s.score(4, 5, 2).scanNextAfter(4))
+        // List / seating order is unchanged.
+        assertEquals(listOf("1", "2", "3", "4"), snap(s).toRoundUiState().players.map { it.id })
+        assertEquals("↻ clockwise", ScanDirection.CLOCKWISE.label())
+        assertEquals("↺ counter-clockwise", ScanDirection.COUNTER_CLOCKWISE.label())
     }
 
     @Test

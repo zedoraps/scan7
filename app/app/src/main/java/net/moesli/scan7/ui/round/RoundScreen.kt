@@ -70,6 +70,7 @@ import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.ProgressStrip
 import net.moesli.scan7.ui.components.RoundView
 import net.moesli.scan7.ui.components.RowSize
+import net.moesli.scan7.ui.components.isDone
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
@@ -108,14 +109,7 @@ private class RoundMetrics(val width: Dp, height: Dp, statusTop: Dp, navBottom: 
     val stripTop: Dp = buttonsTop - 36.dp
     val areaBottom: Dp = stripTop - Scan7Spacing.l
     val toastTop: Dp = buttonsTop - Scan7Spacing.s - Scan7Spacing.minTouch
-
-    /** End of round: "Tap a player to edit" sits between strip and button; the strip moves up (area unchanged). */
-    val hintTop: Dp = buttonsTop - Scan7Spacing.xs - EditHintHeight
-    val stripTopRoundOver: Dp = hintTop - Scan7Spacing.xs - Scan7Spacing.xl
 }
-
-/** Height of the end-of-round "Tap a player to edit" line. */
-private val EditHintHeight = 14.dp
 
 /** Room above the first list row for the rank badges (they overlap the row's top-left corner). */
 private val BadgeRoom = 8.dp
@@ -148,7 +142,8 @@ fun rememberBustToastState(): BustToastState = remember { BustToastState() }
 
 /**
  * The Round screen (main screen, handoff §4): header, table or list of players in seating order,
- * progress strip and bottom buttons; arrange mode; end-of-round variant ([RoundUiState.roundOver]).
+ * progress strip and bottom buttons; arrange mode; the round results overlay of the round just
+ * closed ([RoundUiState.results]) on top of the new round.
  * Stateless apart from transient UI (drag in progress); the bust undo toast lives in [toast] so the
  * caller can show it for other bust paths too (player sheet). In-card Bust shows it here.
  */
@@ -190,25 +185,23 @@ fun RoundScreen(
             players = state.players.map { it.player },
             target = state.target,
             modifier = Modifier
-                .offset(y = if (state.roundOver) m.stripTopRoundOver else m.stripTop)
+                .offset(y = m.stripTop)
                 .padding(horizontal = Scan7Spacing.screenMargin)
                 .alpha(dim),
         )
 
-        if (state.roundOver) {
-            // Task 7: tapping a card on the end-of-round view opens its result sheet (Edit / Rescan / Adjust total).
-            Text(
-                "Tap a player to edit",
-                color = colors.textMuted,
-                style = Scan7Type.text12.copy(lineHeight = 14.sp),
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                modifier = Modifier
-                    .offset(y = m.hintTop)
-                    .fillMaxWidth()
-                    .height(EditHintHeight)
-                    .alpha(dim),
-            )
+        state.results?.let { results ->
+            if (!state.arranging) {
+                // Below the bottom buttons in z-order: "Scan next" / "Close round" stay usable.
+                RoundResultsOverlay(
+                    results = results,
+                    target = state.target,
+                    onPlayer = actions::onResultClick,
+                    onDismiss = actions::onDismissResults,
+                    top = m.areaTop - Scan7Spacing.s,
+                    bottom = m.buttonsTop - Scan7Spacing.s,
+                )
+            }
         }
 
         Box(
@@ -217,13 +210,15 @@ fun RoundScreen(
                 .padding(horizontal = Scan7Spacing.screenMargin)
                 .fillMaxWidth()
                 .height(Scan7Spacing.bottomButtonsHeight)
+                .zIndex(7f) // above the results overlay's scrim
                 .alpha(dim)
                 .then(if (state.arranging) Modifier.clearAndSetSemantics {} else Modifier),
         ) {
             val enabled = !state.arranging
-            if (state.roundOver) {
+            if (state.allDone) {
+                // Closes the round and starts the next one (or Game over) in one tap.
                 PrimaryButton(
-                    text = if (state.gameOver) "Final results" else "Next round",
+                    text = "Next round",
                     onClick = { if (enabled) actions.onNextRound() },
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -263,8 +258,6 @@ fun RoundScreen(
     }
 }
 
-private fun roundLabel(state: RoundUiState): String = if (state.roundOver) "END OF ROUND" else "ROUND"
-
 // ---- Table view ---------------------------------------------------------------------------
 
 @Composable
@@ -295,11 +288,11 @@ private fun TableView(state: RoundUiState, actions: RoundActions, m: RoundMetric
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
             modifier = Modifier.clearAndSetSemantics {
-                contentDescription = (if (state.roundOver) "End of round " else "Round ") + state.round
+                contentDescription = "Round ${state.round}"
                 heading()
             },
         ) {
-            Text(roundLabel(state), color = Scan7Theme.colors.textMuted, style = Scan7Type.capsLabel)
+            Text("ROUND", color = Scan7Theme.colors.textMuted, style = Scan7Type.capsLabel)
             Text(state.round.toString(), color = Scan7Theme.colors.text, style = Scan7Type.roundNumberTable)
         }
     }
@@ -377,6 +370,8 @@ private fun TableSeat(
         state.arranging -> CardMode.Arrange
         else -> CardMode.Normal
     }
+    // Compact cards have no in-card Scan: a double-tap on an open card scans (single tap = sheet).
+    val quickScan = size == CardSize.Compact && mode == CardMode.Normal && !rp.player.status.isDone
     Box(
         modifier = Modifier
             .offset { anim.value.round() }
@@ -392,10 +387,8 @@ private fun TableSeat(
             onLongClick = actions::onEnterArrange,
             onScan = { actions.onScan(rp.id) },
             onBust = { onBust(rp) },
+            onDoubleClick = if (quickScan) ({ actions.onQuickScan(rp.id) }) else null,
         )
-        if (state.roundOver && rp.rank != null) {
-            RankBadge(rp.rank, Modifier.offset((-6).dp, (-6).dp))
-        }
     }
 }
 
@@ -422,11 +415,11 @@ private fun ListView(state: RoundUiState, actions: RoundActions, m: RoundMetrics
             .height(40.dp)
             .alpha(if (state.arranging) ARRANGE_DIM else 1f)
             .clearAndSetSemantics {
-                contentDescription = (if (state.roundOver) "End of round " else "Round ") + state.round
+                contentDescription = "Round ${state.round}"
                 heading()
             },
     ) {
-        Text(roundLabel(state), color = colors.textMuted, style = Scan7Type.capsLabel, modifier = Modifier.alignByBaseline())
+        Text("ROUND", color = colors.textMuted, style = Scan7Type.capsLabel, modifier = Modifier.alignByBaseline())
         Text(state.round.toString(), color = colors.text, style = Scan7Type.roundNumberList, modifier = Modifier.alignByBaseline())
     }
 
@@ -555,9 +548,6 @@ private fun ListSeat(
                     }
                 },
         )
-        if (state.roundOver && rp.rank != null) {
-            RankBadge(rp.rank, Modifier.offset((-6).dp, (-6).dp))
-        }
     }
 }
 
@@ -577,6 +567,6 @@ private fun RoundScreenListPreview() {
 
 @Preview(widthDp = 390, heightDp = 844)
 @Composable
-private fun RoundScreenEndPreview() {
-    Scan7Theme { RoundScreen(FakeRoundState(count = 6, preset = FakeRoundState.Preset.EndOfRound).state, NoRoundActions) }
+private fun RoundScreenResultsPreview() {
+    Scan7Theme { RoundScreen(FakeRoundState(count = 6, preset = FakeRoundState.Preset.Results).state, NoRoundActions) }
 }
