@@ -86,6 +86,11 @@ Generates YOLO-format images + labels:
 - Train on synthetic data, then fine-tune with real photos.
 - Evaluate on the real test set: mAP, per-class precision/recall, confusion matrix. Report the weakest classes.
 - Check text-independence: test images where the banner is covered.
+  Plan (after the real photos are labeled, together with the fine-tune):
+  1. Synthetic language test: same test scenes with banners as German / English (ONE…TWELVE, never used in training) / blank; compare per-class precision/recall.
+  2. Real test photos with banners covered by paper (5–10, in real_photos/test).
+  3. English-edition photos if available.
+  If text matters: also randomize the small modifier text ("DIE SUMME DEINER ZAHLENKARTEN +2") and use foreign (non-English) words on banners in the generator, then fine-tune.
 
 ### 5. Export
 - Export to LiteRT (int8, plus fp16 for comparison). Verify the exported model gives the same detections as the PyTorch model on test images.
