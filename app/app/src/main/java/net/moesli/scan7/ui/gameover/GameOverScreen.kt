@@ -1,0 +1,284 @@
+package net.moesli.scan7.ui.gameover
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import net.moesli.scan7.data.GameSnapshot
+import net.moesli.scan7.ui.components.LeaderBadge
+import net.moesli.scan7.ui.components.PlayerToken
+import net.moesli.scan7.ui.components.PlayerUi
+import net.moesli.scan7.ui.components.ScoreRing
+import net.moesli.scan7.ui.components.SecondaryButton
+import net.moesli.scan7.ui.components.SectionLabel
+import net.moesli.scan7.ui.components.TextLinkButton
+import net.moesli.scan7.ui.components.TokenSize
+import net.moesli.scan7.ui.components.bottomButtonsInsets
+import net.moesli.scan7.ui.components.headerInsets
+import net.moesli.scan7.ui.components.openCardShadow
+import net.moesli.scan7.ui.components.scan7Clickable
+import net.moesli.scan7.ui.players.playerUis
+import net.moesli.scan7.ui.theme.PlayerColors
+import net.moesli.scan7.ui.theme.Scan7Radii
+import net.moesli.scan7.ui.theme.Scan7Spacing
+import net.moesli.scan7.ui.theme.Scan7Theme
+import net.moesli.scan7.ui.theme.Scan7Type
+
+/** One line of the final standings. */
+data class StandingUi(val playerId: Long, val rank: Int, val player: PlayerUi, val isWinner: Boolean)
+
+/** Game over (10) state: [standings] best first (shared ranks on ties). */
+data class GameOverUi(
+    val gameId: Long,
+    val rounds: Int,
+    val target: Int,
+    val standings: List<StandingUi>,
+) {
+    val winners: List<StandingUi> get() = standings.filter { it.isWinner }
+
+    val headline: String get() = winnerHeadline(winners.map { it.player.name })
+}
+
+/** Game over data for a finished game. */
+fun GameSnapshot.toGameOverUi(): GameOverUi {
+    val uis = state.playerIds.zip(state.playerUis(players)).toMap()
+    return GameOverUi(
+        gameId = state.id,
+        rounds = state.rounds.size,
+        target = state.target,
+        standings = standingsOf(state).map { s -> StandingUi(s.playerId, s.rank, uis.getValue(s.playerId).copy(isLeader = s.isWinner), s.isWinner) },
+    )
+}
+
+/**
+ * Game over (10): winner(s) big with their token (shared win on a tie), final standings, link to
+ * the scoreboard, Home (secondary) and New game with the same players (primary).
+ */
+@Composable
+fun GameOverScreen(
+    state: GameOverUi,
+    onNewGameSamePlayers: () -> Unit,
+    onHome: () -> Unit,
+    onScoreboard: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = Scan7Theme.colors
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(colors.ground)
+            .padding(horizontal = Scan7Spacing.screenMargin),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .headerInsets()
+                .fillMaxWidth()
+                .height(Scan7Spacing.headerHeight),
+        ) {
+            SectionLabel("Game over · ${state.rounds} ${if (state.rounds == 1) "round" else "rounds"}", Modifier.weight(1f))
+            TextLinkButton("Scoreboard", onScoreboard)
+        }
+        Column(
+            verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xl),
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = Scan7Spacing.l),
+        ) {
+            Winners(state)
+            Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
+                SectionLabel("Final standings", Modifier.padding(bottom = Scan7Spacing.xxs))
+                state.standings.forEach { StandingRow(it) }
+            }
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
+            modifier = Modifier
+                .fillMaxWidth()
+                .bottomButtonsInsets(),
+        ) {
+            SecondaryButton("Home", onHome, Modifier.width(88.dp), textStyle = Scan7Type.button.copy(fontSize = 13.sp))
+            NewGameButton(onNewGameSamePlayers, Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun Winners(state: GameOverUi) {
+    val colors = Scan7Theme.colors
+    val winners = state.winners
+    val shared = winners.size > 1
+    val ringSize: Dp = when (winners.size) {
+        1 -> 128.dp
+        2 -> 96.dp
+        else -> 72.dp
+    }
+    val token = when (winners.size) {
+        1 -> TokenSize(48.dp, 64.dp, 24.sp)
+        2 -> TokenSize(36.dp, 48.dp, 18.sp)
+        else -> TokenSize(26.dp, 35.dp, 13.sp)
+    }
+    val total = winners.firstOrNull()?.player?.total ?: 0
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clearAndSetSemantics { contentDescription = "${state.headline} with $total points" },
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
+            winners.take(5).forEach { w ->
+                Box {
+                    ScoreRing(1f, w.player.color, w.player.initial, ringSize, token)
+                    LeaderBadge(
+                        size = if (winners.size == 1) 32.dp else 24.dp,
+                        crownSize = if (winners.size == 1) 18.dp else 14.dp,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = 2.dp, y = (-2).dp),
+                    )
+                }
+            }
+        }
+        if (shared) SectionLabel("Shared win", color = colors.accent)
+        Text(
+            state.headline,
+            color = colors.text,
+            style = if (shared) Scan7Type.total24 else Scan7Type.roundNumberList,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.semantics { heading() },
+        )
+        Text(
+            if (shared) "$total points each" else "$total points",
+            color = colors.accent,
+            style = Scan7Type.total18,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun StandingRow(s: StandingUi) {
+    val colors = Scan7Theme.colors
+    val shape = RoundedCornerShape(Scan7Radii.card)
+    val ink = if (s.isWinner) colors.text else colors.textDone
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .background(if (s.isWinner) colors.surface else colors.surfaceDone, shape)
+            .border(1.5.dp, if (s.isWinner) colors.line else colors.lineSubtleDone, shape)
+            .padding(horizontal = Scan7Spacing.l)
+            .clearAndSetSemantics {
+                contentDescription = "${ordinal(s.rank)}, ${s.player.name}, ${s.player.total} points" + if (s.isWinner) ", winner" else ""
+            },
+    ) {
+        Text(ordinal(s.rank), color = colors.textMuted, style = Scan7Type.text13, modifier = Modifier.width(36.dp))
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(28.dp, 34.dp)) {
+            PlayerToken(s.player.initial, s.player.color, TokenSize(20.dp, 27.dp, 11.sp))
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f),
+        ) {
+            Text(s.player.name, color = ink, style = Scan7Type.text15, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            if (s.isWinner) LeaderBadge(size = 20.dp)
+        }
+        Text(s.player.total.toString(), color = ink, style = Scan7Type.total18, textAlign = TextAlign.End)
+    }
+}
+
+/** Primary "SAME PLAYERS / New game" (two lines like Scan next). */
+@Composable
+private fun NewGameButton(onClick: () -> Unit, modifier: Modifier) {
+    val colors = Scan7Theme.colors
+    val shape = RoundedCornerShape(Scan7Radii.button)
+    Column(
+        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
+        modifier = modifier
+            .height(Scan7Spacing.bottomButtonsHeight)
+            .clip(shape)
+            .background(colors.accent)
+            .scan7Clickable(onClick)
+            .clearAndSetSemantics {
+                contentDescription = "New game with the same players"
+                role = Role.Button
+            }
+            .padding(horizontal = 20.dp),
+    ) {
+        Text("SAME PLAYERS", color = colors.onAccent, style = Scan7Type.capsButton, maxLines = 1)
+        Text("New game", color = colors.onAccent, style = Scan7Type.buttonName, maxLines = 1)
+    }
+}
+
+/** Demo / preview data: 4 players, one winner or a shared win. */
+internal fun sampleGameOver(shared: Boolean = false): GameOverUi {
+    val names = listOf("Ben", "Philip", "Anna", "Mia")
+    val totals = if (shared) listOf(214, 214, 167, 140) else listOf(226, 205, 167, 140)
+    val ranks = if (shared) listOf(1, 1, 3, 4) else listOf(1, 2, 3, 4)
+    val colorIdx = listOf(2, 0, 1, 3)
+    return GameOverUi(
+        gameId = 1,
+        rounds = 9,
+        target = 200,
+        standings = names.indices.map { i ->
+            val win = ranks[i] == 1
+            StandingUi(i.toLong() + 1, ranks[i], PlayerUi(names[i], PlayerColors[colorIdx[i]], totals[i], isLeader = win), win)
+        },
+    )
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+private fun GameOverPreview() {
+    Scan7Theme { GameOverScreen(sampleGameOver(), {}, {}, {}) }
+}
+
+@Preview(widthDp = 390, heightDp = 844)
+@Composable
+private fun GameOverSharedPreview() {
+    Scan7Theme { GameOverScreen(sampleGameOver(shared = true), {}, {}, {}) }
+}
+
+@Preview(widthDp = 390)
+@Composable
+private fun StandingRowPreview() {
+    Scan7Theme {
+        Column(Modifier.background(Scan7Theme.colors.ground).padding(16.dp).openCardShadow(RoundedCornerShape(14.dp))) {
+            StandingRow(sampleGameOver().standings[0])
+        }
+    }
+}

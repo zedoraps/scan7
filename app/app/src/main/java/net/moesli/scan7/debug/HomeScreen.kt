@@ -25,6 +25,7 @@ fun HomeScreen(
     onComponentGallery: () -> Unit = {},
     onRoundDemo: () -> Unit = {},
     onScanFlowDemo: () -> Unit = {},
+    onSetupDemo: () -> Unit = {},
     modelInfo: String = "none",
 ) {
     DebugScaffold(
@@ -54,6 +55,8 @@ fun HomeScreen(
             Entry("Round screen (demo)", "Round screen with fake data: table/list, arrange, end of round", onRoundDemo)
             HorizontalDivider()
             Entry("Scan flow (demo)", "Camera → review → manual with a fake player", onScanFlowDemo)
+            HorizontalDivider()
+            Entry("Setup screens (demo)", "Home, players, new game (real data); sheet, dialog, game over, scoreboard (fake)", onSetupDemo)
             HorizontalDivider()
         }
     }

@@ -21,10 +21,11 @@ import net.moesli.scan7.debug.RoundDemoScreen
 import net.moesli.scan7.debug.ScanDemoLaunch
 import net.moesli.scan7.debug.ScanFlowDemoScreen
 import net.moesli.scan7.debug.ScoreTesterScreen
+import net.moesli.scan7.debug.SetupDemoScreen
 import net.moesli.scan7.detection.readModelInfo
 import net.moesli.scan7.ui.theme.Scan7Theme
 
-private enum class Screen { HOME, CAMERA, SCORE_TESTER, PHOTO, GALLERY, ROUND_DEMO, SCAN_DEMO }
+private enum class Screen { HOME, CAMERA, SCORE_TESTER, PHOTO, GALLERY, ROUND_DEMO, SCAN_DEMO, SETUP_DEMO }
 
 /**
  * DEBUG BUILDS ONLY: `adb shell am start -n net.moesli.scan7/.MainActivity --es debug_photo <path>`
@@ -73,6 +74,7 @@ class MainActivity : ComponentActivity() {
                         onComponentGallery = { screen = Screen.GALLERY },
                         onRoundDemo = { screen = Screen.ROUND_DEMO },
                         onScanFlowDemo = { screen = Screen.SCAN_DEMO },
+                        onSetupDemo = { screen = Screen.SETUP_DEMO },
                         modelInfo = modelInfo,
                     )
                     Screen.CAMERA -> CameraScreen(onBack = goHome)
@@ -81,6 +83,7 @@ class MainActivity : ComponentActivity() {
                     Screen.GALLERY -> ComponentGalleryScreen(onBack = goHome)
                     Screen.ROUND_DEMO -> RoundDemoScreen(onBack = goHome)
                     Screen.SCAN_DEMO -> ScanFlowDemoScreen(onBack = goHome, launch = scanDemo)
+                    Screen.SETUP_DEMO -> SetupDemoScreen(onExit = goHome, modelInfo = modelInfo)
                 }
             }
         }
