@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from xml.sax.saxutils import quoteattr
 
-from lsutil import FROM_NAME, LABEL_CONFIG, TO_NAME, load_classes
+from lsutil import HINT_NAME, FROM_NAME, LABEL_CONFIG, TO_NAME, load_classes
 
 # 23+ visually distinct colors (cycled if more classes are ever added).
 PALETTE = [
@@ -42,7 +42,15 @@ def build(classes: list[str]) -> str:
             used.add(hk)
             attrs += f' hotkey="{hk}"'
         lines.append(f"    <Label {attrs}/>  <!-- id {i} -->")
-    lines += ["  </RectangleLabels>", "</View>", ""]
+    lines += [
+        "  </RectangleLabels>",
+        # Hints from the app scan check (ml/labeling/app_scans.py): e.g. "missing: 07 - draw its box".
+        # Free text, ignored by export_yolo.py.
+        f'  <Header value="Hint" size="6"/>',
+        f'  <TextArea name="{HINT_NAME}" toName="{TO_NAME}" rows="2" editable="true" maxSubmissions="1"/>',
+        "</View>",
+        "",
+    ]
     return "\n".join(lines)
 
 

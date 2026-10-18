@@ -26,4 +26,6 @@
     <Label value="second_chance" background="#dc143c" hotkey="c"/>  <!-- id 21 -->
     <Label value="back" background="#2f4f4f" hotkey="n"/>  <!-- id 22 -->
   </RectangleLabels>
+  <Header value="Hint" size="6"/>
+  <TextArea name="hint" toName="image" rows="2" editable="true" maxSubmissions="1"/>
 </View>

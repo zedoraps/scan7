@@ -9,11 +9,15 @@ Steps:
 2. Split new scans deterministically (hash of the file name) ~80/20 into data/real_photos/train and
    data/real_photos/test as app_<name>.jpg, and append them to data/manifest.csv.
 3. Sync the Label Studio projects (Label Studio must be running: ml/labeling/start.sh).
-4. Pre-label only the NEW TRAIN images with the newest model and upload the predictions.
-   The test images are never pre-labeled.
+4. Compare the app's detections with the cards the user confirmed (ml/labeling/app_scans.py):
+   train: exact match -> accepted as the annotation automatically; otherwise a pre-label with
+   relabelled boxes and a hint ("Missing: 07 - draw the box(es)", "Remove: 12 ...").
+   test: never the model's boxes - only a hint listing the confirmed cards.
 """
 import argparse
 import csv
+import json
+from collections import Counter
 import hashlib
 import shutil
 import subprocess
@@ -48,12 +52,43 @@ def pull_from_phone(dest: Path) -> None:
             print(f"  warning: adb pull {remote}: {res.stderr.strip()}")
 
 
-def newest_weights() -> Path:
-    candidates = sorted((ML / "runs").glob("*/weights/best.pt"), key=lambda p: p.stat().st_mtime, reverse=True)
-    snapshots = sorted((ML / "out/snapshots").glob("*.pt"), key=lambda p: p.stat().st_mtime, reverse=True)
-    for p in candidates + snapshots:
-        return p
-    sys.exit("No trained weights found.")
+def upload_reviews(images: list[Path]) -> None:
+    """Annotations / pre-labels / hints in Label Studio for newly imported app scans."""
+    sys.path.insert(0, str(ML / "labeling"))
+    from app_scans import load_sidecar, reconcile, test_hint, to_ls_results
+    from lsutil import FROM_NAME, HINT_NAME, LS, PROJECTS, TO_NAME, task_image_relpath
+
+    ls = LS()
+    counts = Counter()
+    for split in ("train", "test"):
+        p = ls.project_by_title(PROJECTS[split][0])
+        tasks = {Path(task_image_relpath(t)).stem: t for t in ls.tasks(p["id"])}
+        for img in images:
+            if img.parent.name != split:
+                continue
+            task = tasks.get(img.stem)
+            sidecar = RAW / (img.stem.removeprefix("app_") + ".json")
+            if task is None or not sidecar.exists():
+                counts["no task/sidecar"] += 1
+                continue
+            meta = json.loads(sidecar.read_text())
+            w, h = meta["image"]["width"], meta["image"]["height"]
+            boxes, truth = load_sidecar(sidecar)
+            if split == "test":
+                res = to_ls_results([], test_hint(truth), w, h, FROM_NAME, TO_NAME, HINT_NAME)
+                ls.post("/api/predictions", {"task": task["id"], "result": res, "model_version": "app-hint"})
+                counts["test hint"] += 1
+                continue
+            review = reconcile(boxes, truth)
+            res = to_ls_results(review.boxes, review.hint, w, h, FROM_NAME, TO_NAME, HINT_NAME)
+            if review.auto_accept:
+                ls.post(f"/api/tasks/{task['id']}/annotations", {"result": res})
+            else:
+                ls.post("/api/predictions", {"task": task["id"], "result": res, "model_version": "app-scan"})
+            counts[review.status] += 1
+    print("Label Studio:", ", ".join(f"{k} {v}" for k, v in sorted(counts.items())) or "nothing to upload")
+    if counts["match"]:
+        print(f"  {counts['match']} train scans matched the confirmed cards and were accepted automatically.")
 
 
 def split_for(name: str) -> str:
@@ -64,8 +99,7 @@ def split_for(name: str) -> str:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--from-dir", type=Path, help="folder with scan7_*.jpg/.json instead of pulling via adb")
-    ap.add_argument("--no-prelabel", action="store_true")
-    ap.add_argument("--weights", type=Path, help="model for pre-labels (default: newest best.pt)")
+    ap.add_argument("--no-prelabel", action="store_true", help="only copy + sync, no annotations/hints")
     args = ap.parse_args()
 
     RAW.mkdir(parents=True, exist_ok=True)
@@ -110,22 +144,8 @@ def main():
 
     run = lambda *cmd: subprocess.run(cmd, cwd=ML.parent, check=True)
     run("uv", "run", "--project", "ml", "python", "ml/labeling/setup_projects.py")
-
-    if args.no_prelabel or not new_train:
-        return
-    weights = args.weights or newest_weights()
-    print(f"Pre-labeling {len(new_train)} new train images with {weights.relative_to(ML)}")
-    with tempfile.TemporaryDirectory() as tmp:
-        src = Path(tmp) / "src"
-        src.mkdir()
-        for p in new_train:
-            (src / p.name).symlink_to(p)
-        out = Path(tmp) / "pred"
-        run("uv", "run", "--project", "ml", "python", "ml/scripts/predict.py", str(weights), str(src),
-            "--out", str(out), "--device", "cpu")
-        run("uv", "run", "--project", "ml", "python", "ml/labeling/import_predictions.py", str(out / "labels"),
-            "--model-version", weights.parent.parent.name if weights.parent.name == "weights" else weights.stem)
-
+    if not args.no_prelabel:
+        upload_reviews([(DATA / r["path"]) for r in rows])
 
 if __name__ == "__main__":
     main()

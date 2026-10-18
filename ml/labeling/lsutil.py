@@ -25,6 +25,7 @@ IMAGE_REGEX = r".*\.(jpe?g|JPE?G|png|PNG)$"
 # Must match the name= attributes in label_config.xml.
 FROM_NAME = "label"
 TO_NAME = "image"
+HINT_NAME = "hint"  # TextArea with hints for the labeler (see app_scans.py)
 
 
 def load_classes() -> list[str]:
