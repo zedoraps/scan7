@@ -262,20 +262,30 @@ private fun TotalsRow(table: ScoreTable, players: List<PlayerUi>) {
         Text("TOTAL", color = colors.textMuted, style = Scan7Type.tag10.copy(fontSize = 9.sp), textAlign = TextAlign.Center, modifier = Modifier.width(RoundColumn))
         table.totals.forEachIndexed { i, total ->
             val leader = table.playerIds[i] in table.leaders
-            Text(
-                total.toString(),
-                color = if (leader) colors.accent else colors.text,
-                style = if (players.size <= NAMES_UP_TO) Scan7Type.total15 else Scan7Type.total13.copy(fontSize = 11.sp),
-                textAlign = TextAlign.End,
-                maxLines = 1,
-                softWrap = false,
+            val adjusted = table.playerIds[i] in table.adjusted
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(1.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .weight(1f)
                     .padding(end = Scan7Spacing.s - 1.dp)
                     .clearAndSetSemantics {
-                        contentDescription = "${players[i].name}, total $total" + if (leader) ", leading" else ""
+                        contentDescription = "${players[i].name}, total $total" +
+                            (if (adjusted) ", includes total adjustments" else "") +
+                            if (leader) ", leading" else ""
                     },
-            )
+            ) {
+                // Tiny "±": the total includes manual adjustments (no separate row, see ScoreTable.adjusted).
+                if (adjusted) Text("±", color = colors.textMuted, style = Scan7Type.tag10.copy(fontSize = 9.sp), maxLines = 1)
+                Text(
+                    total.toString(),
+                    color = if (leader) colors.accent else colors.text,
+                    style = if (players.size <= NAMES_UP_TO) Scan7Type.total15 else Scan7Type.total13.copy(fontSize = 11.sp),
+                    textAlign = TextAlign.End,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
         }
     }
 }

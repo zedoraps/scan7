@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalAccessibilityManager
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineStart
@@ -106,7 +108,14 @@ private class RoundMetrics(val width: Dp, height: Dp, statusTop: Dp, navBottom: 
     val stripTop: Dp = buttonsTop - 36.dp
     val areaBottom: Dp = stripTop - Scan7Spacing.l
     val toastTop: Dp = buttonsTop - Scan7Spacing.s - Scan7Spacing.minTouch
+
+    /** End of round: "Tap a player to edit" sits between strip and button; the strip moves up (area unchanged). */
+    val hintTop: Dp = buttonsTop - Scan7Spacing.xs - EditHintHeight
+    val stripTopRoundOver: Dp = hintTop - Scan7Spacing.xs - Scan7Spacing.xl
 }
+
+/** Height of the end-of-round "Tap a player to edit" line. */
+private val EditHintHeight = 14.dp
 
 /** Room above the first list row for the rank badges (they overlap the row's top-left corner). */
 private val BadgeRoom = 8.dp
@@ -181,10 +190,26 @@ fun RoundScreen(
             players = state.players.map { it.player },
             target = state.target,
             modifier = Modifier
-                .offset(y = m.stripTop)
+                .offset(y = if (state.roundOver) m.stripTopRoundOver else m.stripTop)
                 .padding(horizontal = Scan7Spacing.screenMargin)
                 .alpha(dim),
         )
+
+        if (state.roundOver) {
+            // Task 7: tapping a card on the end-of-round view opens its result sheet (Edit / Rescan / Adjust total).
+            Text(
+                "Tap a player to edit",
+                color = colors.textMuted,
+                style = Scan7Type.text12.copy(lineHeight = 14.sp),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                modifier = Modifier
+                    .offset(y = m.hintTop)
+                    .fillMaxWidth()
+                    .height(EditHintHeight)
+                    .alpha(dim),
+            )
+        }
 
         Box(
             modifier = Modifier

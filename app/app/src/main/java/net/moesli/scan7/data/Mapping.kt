@@ -5,6 +5,7 @@ import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.PlayerResult
 import net.moesli.scan7.game.RoundState
+import net.moesli.scan7.game.ScoreAdjustment
 import net.moesli.scan7.game.Seat
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.defaultPositions
@@ -43,8 +44,22 @@ internal fun GameWithDetails.toState(): GameState {
         abandoned = game.abandoned,
         endedEarly = game.endedEarly,
         viewMode = game.viewMode,
+        adjustments = adjustments.sortedWith(compareBy({ it.createdAt }, { it.id })).map { it.toAdjustment() },
     )
 }
+
+internal fun ScoreAdjustmentEntity.toAdjustment() =
+    ScoreAdjustment(id = id, playerId = playerId, delta = delta, note = note, round = roundNumber, createdAt = createdAt)
+
+internal fun ScoreAdjustment.toEntity(gameId: Long) = ScoreAdjustmentEntity(
+    id = id,
+    gameId = gameId,
+    playerId = playerId,
+    delta = delta,
+    note = note,
+    createdAt = createdAt,
+    roundNumber = round,
+)
 
 internal fun GameState.toGameEntity() = GameEntity(
     id = id,

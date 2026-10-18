@@ -14,6 +14,8 @@ litert = "2.3.0"
 room = "2.8.5"
 # KSP2 (independent versioning since 2.3.0), works with AGP 9 built-in Kotlin.
 ksp = "2.3.12"
+# room-testing (migration tests) needs >= 1.8 at runtime; lifecycle alone pulls 1.7.3.
+kotlinxSerialization = "1.8.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -40,6 +42,8 @@ litert-gpu = { group = "com.google.ai.edge.litert", name = "litert-gpu", version
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
+kotlinx-serialization-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-core", version.ref = "kotlinxSerialization" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

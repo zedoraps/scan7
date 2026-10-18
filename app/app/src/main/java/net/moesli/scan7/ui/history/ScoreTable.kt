@@ -10,14 +10,17 @@ data class ScoreCell(val status: ResultStatus, val points: Int = 0)
 data class ScoreTableRow(val round: Int, val cells: List<ScoreCell>, val isRunning: Boolean)
 
 /**
- * Rounds × players table. Columns are [playerIds] in seating order; [totals] in the same order.
- * [leaders] are the winners once the game is over, else the current leaders.
+ * Rounds × players table. Columns are [playerIds] in seating order; [totals] in the same order
+ * (incl. total adjustments, like `GameState.totals`). [leaders] are the winners once the game is
+ * over, else the current leaders. [adjusted]: players with at least one total adjustment (the
+ * total cell shows a small "±"; there is no separate adjustments row).
  */
 data class ScoreTable(
     val playerIds: List<Long>,
     val rows: List<ScoreTableRow>,
     val totals: List<Int>,
     val leaders: Set<Long>,
+    val adjusted: Set<Long> = emptySet(),
 )
 
 fun scoreTable(state: GameState): ScoreTable {
@@ -30,7 +33,13 @@ fun scoreTable(state: GameState): ScoreTable {
         )
     }
     val totals = state.totals
-    return ScoreTable(ids, rows, ids.map { totals.getValue(it) }, state.winners.ifEmpty { state.leaders }.toSet())
+    return ScoreTable(
+        playerIds = ids,
+        rows = rows,
+        totals = ids.map { totals.getValue(it) },
+        leaders = state.winners.ifEmpty { state.leaders }.toSet(),
+        adjusted = state.adjustments.map { it.playerId }.toSet(),
+    )
 }
 
 /** Cell text: points, "BUST" (always the word, never color alone) or "–" while open. */

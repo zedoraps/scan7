@@ -15,12 +15,15 @@ import androidx.room.RoomDatabase
         RoundResultEntity::class,
         ResultCardEntity::class,
         SettingEntity::class,
+        ScoreAdjustmentEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
     autoMigrations = [
         // 2: games.endedEarly ("End game" from the round menu).
         AutoMigration(from = 1, to = 2),
+        // 3: new table score_adjustments ("Adjust total" in the player sheet); existing data untouched.
+        AutoMigration(from = 2, to = 3),
     ],
 )
 abstract class Scan7Database : RoomDatabase() {
