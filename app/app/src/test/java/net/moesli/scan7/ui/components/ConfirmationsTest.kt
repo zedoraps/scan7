@@ -8,6 +8,7 @@ import net.moesli.scan7.ui.nav.AfterScan
 import net.moesli.scan7.ui.nav.EntryMode
 import net.moesli.scan7.ui.round.segmentLabel
 import net.moesli.scan7.ui.round.shortLabel
+import net.moesli.scan7.ui.round.spoken
 import net.moesli.scan7.ui.round.spokenLabel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -113,7 +114,8 @@ class ConfirmationsTest {
     fun scanDirectionSegmentLabels() {
         assertEquals("↻ Clockwise", ScanDirection.CLOCKWISE.shortLabel().en)
         assertEquals("↺ Counter", ScanDirection.COUNTER_CLOCKWISE.shortLabel().en)
-        assertEquals("Scan clockwise", ScanDirection.CLOCKWISE.spokenLabel().en)
+        assertEquals("↻ Uhrzeigersinn", ScanDirection.CLOCKWISE.shortLabel().de)
+        assertEquals("Scan clockwise", ScanDirection.CLOCKWISE.spoken().en)
     }
 
     @Test
@@ -121,7 +123,7 @@ class ConfirmationsTest {
         assertEquals(listOf("Next player", "Back to table"), AfterScan.entries.map { it.segmentLabel().en })
         assertEquals(listOf("Nächster Spieler", "Zum Tisch"), AfterScan.entries.map { it.segmentLabel().de })
         assertEquals(listOf("Scan", "Type"), EntryMode.entries.map { it.segmentLabel().en })
-        assertEquals(listOf("Scannen", "Tippen"), EntryMode.entries.map { it.segmentLabel().de })
+        assertEquals(listOf("Scannen", "Eingeben"), EntryMode.entries.map { it.segmentLabel().de })
         assertEquals("Enter results by typing", EntryMode.TYPE.spokenLabel().en)
     }
 }

@@ -30,7 +30,7 @@ analytics, no crash reporter; training-scan saving is compiled out of release be
 |---|---|
 | Does your app collect or share any of the required user data types? | **No** |
 | Is all of the user data collected by your app encrypted in transit? | Not shown once "No" is answered (nothing is transmitted) |
-| Do you provide a way for users to request that their data is deleted? | Not shown once "No" is answered; data lives only on the device (delete players in the app, or clear the app's data) |
+| Do you provide a way for users to request that their data is deleted? | Not shown once "No" is answered; data lives only on the device (delete games and players in the app, or clear the app's data) |
 | Result shown on the listing | "No data collected · No data shared with third parties" |
 
 Why "No" is correct: Play counts data as *collected* only when it is transmitted off the device.

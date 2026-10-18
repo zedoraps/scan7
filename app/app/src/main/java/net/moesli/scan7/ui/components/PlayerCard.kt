@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.components
 
+import net.moesli.scan7.ui.text.resolve
 import androidx.compose.ui.composed
 import androidx.compose.ui.res.stringResource
 import net.moesli.scan7.R
@@ -144,12 +145,13 @@ internal fun Modifier.playerClickable(
     doubleClickLabel: String? = null,
 ): Modifier = composed {
     val longClickLabel = if (onLongClick != null) stringResource(R.string.action_rearrange) else null
-    clickableWithLabels(player, onClick, onLongClick, onDoubleClick, doubleClickLabel, longClickLabel)
+    val description = player.accessibilityLabel().resolve()
+    clickableWithLabels(description, onClick, onLongClick, onDoubleClick, doubleClickLabel, longClickLabel)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 private fun Modifier.clickableWithLabels(
-    player: PlayerUi,
+    description: String,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)?,
     onDoubleClick: (() -> Unit)?,
@@ -166,7 +168,7 @@ private fun Modifier.clickableWithLabels(
         onClick = onClick,
     )
     .semantics {
-        contentDescription = player.accessibilityLabel()
+        contentDescription = description
         if (onDoubleClick != null && doubleClickLabel != null) {
             customActions = listOf(CustomAccessibilityAction(doubleClickLabel) { onDoubleClick(); true })
         }

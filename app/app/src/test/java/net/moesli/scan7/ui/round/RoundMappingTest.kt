@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.round
 
+import net.moesli.scan7.ui.text.de
+import net.moesli.scan7.ui.text.en
 import net.moesli.scan7.data.GameSnapshot
 import net.moesli.scan7.game.ConfirmedCard
 import net.moesli.scan7.game.GameState
@@ -109,8 +111,9 @@ class RoundMappingTest {
         assertEquals(3L, s.score(4, 5, 2).scanNextAfter(4))
         // List / seating order is unchanged.
         assertEquals(listOf("1", "2", "3", "4"), snap(s).toRoundUiState().players.map { it.id })
-        assertEquals("↻ clockwise", ScanDirection.CLOCKWISE.label())
-        assertEquals("↺ counter-clockwise", ScanDirection.COUNTER_CLOCKWISE.label())
+        assertEquals("↻ clockwise", ScanDirection.CLOCKWISE.label().en)
+        assertEquals("↺ counter-clockwise", ScanDirection.COUNTER_CLOCKWISE.label().en)
+        assertEquals("Gegen den Uhrzeigersinn scannen", ScanDirection.COUNTER_CLOCKWISE.spoken().de)
     }
 
     @Test

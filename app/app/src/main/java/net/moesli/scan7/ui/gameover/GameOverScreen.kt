@@ -51,6 +51,7 @@ import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.SectionLabel
 import net.moesli.scan7.ui.components.TextLinkButton
 import net.moesli.scan7.ui.components.bottomButtonsInsets
+import net.moesli.scan7.ui.components.centeredMaxWidth
 import net.moesli.scan7.ui.components.headerInsets
 import net.moesli.scan7.ui.components.openCardShadow
 import net.moesli.scan7.ui.components.scan7Clickable
@@ -103,6 +104,7 @@ fun GameOverScreen(
         modifier = modifier
             .fillMaxSize()
             .background(colors.ground)
+            .centeredMaxWidth()
             .padding(horizontal = Scan7Spacing.screenMargin),
     ) {
         Row(

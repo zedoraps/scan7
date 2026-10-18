@@ -29,6 +29,9 @@ object Scan7Spacing {
     /** Minimum touch target; in-card actions on compact sizes may go down to [minCompactTouch]. */
     val minTouch = 48.dp
     val minCompactTouch = 36.dp
+
+    /** Tablets / unfolded foldables: screens keep at most this content width, centred. */
+    val maxContentWidth = 600.dp
 }
 
 /** Corner radii from the design handoff. */

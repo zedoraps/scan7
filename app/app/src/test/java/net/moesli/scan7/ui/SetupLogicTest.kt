@@ -128,7 +128,7 @@ class SetupLogicTest {
     fun unscoredWarningText() {
         assertEquals("Anna and David haven't been scored. They'll be marked BUST.", unscoredWarning(listOf("Anna", "David"))!!.en)
         assertEquals("Anna hasn't been scored. They'll be marked BUST.", unscoredWarning(listOf("Anna"))!!.en)
-        assertEquals("Anna und David sind noch nicht gewertet und sind dann RAUS.", unscoredWarning(listOf("Anna", "David"))!!.de)
+        assertEquals("Anna und David sind noch nicht gewertet und gelten dann als RAUS.", unscoredWarning(listOf("Anna", "David"))!!.de)
         assertEquals(null, unscoredWarning(emptyList()))
         // Everyone still open: asks explicitly (likely an accident).
         assertEquals("Nobody has been scored yet – mark everyone BUST?", unscoredWarning(listOf("Anna", "David"), nobodyScored = true)!!.en)

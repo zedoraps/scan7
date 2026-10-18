@@ -45,9 +45,9 @@ data class PastGameUi(
         get() {
             val names = UiText.Names(winners.map { it.name })
             return when {
-                outcome == PastOutcome.ABANDONED -> if (winners.isEmpty()) uiText(R.string.history_not_finished) else uiText(R.string.history_led, names)
+                outcome == PastOutcome.ABANDONED -> if (winners.isEmpty()) uiText(R.string.history_not_finished) else uiPlural(R.plurals.history_led, winners.size, winners.size, names)
                 winners.isEmpty() -> uiText(R.string.history_no_winner)
-                else -> uiText(R.string.history_won, names)
+                else -> uiPlural(R.plurals.history_won, winners.size, winners.size, names)
             }
         }
 

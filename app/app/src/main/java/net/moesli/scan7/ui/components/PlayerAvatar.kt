@@ -26,7 +26,8 @@ import androidx.compose.ui.unit.dp
 import net.moesli.scan7.R
 import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.AvatarCatalog
-import net.moesli.scan7.game.avatarDescription
+import net.moesli.scan7.ui.text.avatarDescription
+import net.moesli.scan7.ui.text.resolve
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
@@ -77,7 +78,7 @@ fun patternRes(id: String): Int? = when (id) {
  * A player's avatar: three stacked vector layers — the card (`avatar_base`, tinted with the
  * player color), the pattern (skipped for `plain`) and the face. The −8° tilt is baked into the
  * shapes. [size] is the square box (see [avatarSizeForHeight]). [contentDescription] like
- * "Mia, sand avatar, grin face" ([net.moesli.scan7.game.avatarDescription]); `null` = decorative
+ * "Mia, sand avatar, grin face" ([net.moesli.scan7.ui.text.avatarDescription]); `null` = decorative
  * (the parent already names the player).
  */
 @Composable
@@ -123,7 +124,7 @@ fun AvatarExamplesSheet(modifier: Modifier = Modifier) {
                     .background(colors.surface, RoundedCornerShape(Scan7Radii.card))
                     .padding(Scan7Spacing.s),
             ) {
-                PlayerAvatar(avatar, 88.dp, contentDescription = avatarDescription(name, avatar))
+                PlayerAvatar(avatar, 88.dp, contentDescription = avatarDescription(name, avatar).resolve())
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
                     verticalAlignment = Alignment.CenterVertically,

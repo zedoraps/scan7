@@ -50,7 +50,7 @@ class MigrationTest {
         val room = Room.databaseBuilder(context, Scan7Database::class.java, dbName).addMigrations(*MIGRATIONS).build()
         try {
             runBlocking {
-                val repo = GameRepository(room) { 1000L }
+                val repo = GameRepository(room, clock = { 1000L })
                 val snap = repo.activeGame.first()
                 assertNotNull(snap)
                 val s = snap!!.state
@@ -115,7 +115,7 @@ class MigrationTest {
         val room = Room.databaseBuilder(context, Scan7Database::class.java, dbName).addMigrations(*MIGRATIONS).build()
         try {
             runBlocking {
-                val repo = GameRepository(room) { 1000L }
+                val repo = GameRepository(room, clock = { 1000L })
                 val s = repo.activeGame.first()!!.state
                 assertEquals(listOf(1L, 2L), s.playerIds)
                 assertEquals(mapOf(1L to 42, 2L to 5), s.totals)

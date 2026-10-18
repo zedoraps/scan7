@@ -29,9 +29,10 @@ private const val EXTRA_OPEN = "debug_open"
 const val SEED_REVIEW_PHOTO = "screen_review.jpg"
 
 enum class SeedScenario(val players: Int) {
-    /** Mid-game (round 6 running, 5 closed rounds) with 3 / 6 / 10 players. */
+    /** Mid-game (round 6 running, 5 closed rounds) with 3 / 6 / 8 / 10 players. */
     P3(3),
     P6(6),
+    P8(8),
     P10(10),
 
     /** Finished game, 6 players, Philip won. */

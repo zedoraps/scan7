@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.net.Uri
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -154,7 +155,10 @@ private fun demoCapture(demo: ScanDemo, photoPath: String?): DemoCapture {
         ScanDemo.EMPTY -> remember { DemoCapture.Ready(syntheticCapture(emptyList())) }
         ScanDemo.PHOTO -> {
             val state by produceState<DemoCapture>(DemoCapture.Loading, photoPath) {
-                value = DemoCapture.Ready(photoCapture(context, photoPath!!))
+                // A missing / unreadable photo opens the flow without a capture instead of crashing.
+                value = runCatching { photoCapture(context, photoPath!!) }
+                    .onFailure { Log.w("ScanFlowDemo", "photo $photoPath unreadable", it) }
+                    .fold({ DemoCapture.Ready(it) }, { DemoCapture.None })
             }
             state
         }

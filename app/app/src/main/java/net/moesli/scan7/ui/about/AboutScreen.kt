@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.about
 
+import androidx.annotation.StringRes
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -66,8 +67,11 @@ enum class LicenseText(val id: String, val title: String) {
     }
 }
 
-/** One third-party notice: names and license names stay in English (proper names, not UI text). */
-data class ThirdParty(val name: String, val detail: String, val license: LicenseText)
+/**
+ * One third-party notice: names and license names stay as they are (proper names); the [detail]
+ * line (what it is + license) is a string resource.
+ */
+data class ThirdParty(val name: String, @StringRes val detail: Int, val license: LicenseText)
 
 /**
  * What the APK contains from others. A static list instead of a generated one (AboutLibraries /
@@ -76,16 +80,12 @@ data class ThirdParty(val name: String, val detail: String, val license: License
  * Keep it current when a dependency family is added.
  */
 val ThirdPartyNotices = listOf(
-    ThirdParty("Ultralytics YOLO", "Detector architecture + pretrained YOLO26n weights · AGPL-3.0", LicenseText.AGPL),
-    ThirdParty("LiteRT (Google AI Edge)", "On-device inference, GPU delegate · Apache-2.0", LicenseText.APACHE),
-    ThirdParty(
-        "Android Jetpack",
-        "Compose, Material 3, Activity, Core, Lifecycle, Navigation 3, CameraX, Room, SplashScreen · Apache-2.0",
-        LicenseText.APACHE,
-    ),
-    ThirdParty("Kotlin", "Standard library, kotlinx.coroutines, kotlinx.serialization · Apache-2.0", LicenseText.APACHE),
-    ThirdParty("Unbounded font", "© 2022 The Unbounded Project Authors · SIL OFL 1.1", LicenseText.OFL_UNBOUNDED),
-    ThirdParty("DM Mono font", "© 2020 The DM Mono Project Authors · SIL OFL 1.1", LicenseText.OFL_DM_MONO),
+    ThirdParty("Ultralytics YOLO", R.string.about_tp_yolo, LicenseText.AGPL),
+    ThirdParty("LiteRT (Google AI Edge)", R.string.about_tp_litert, LicenseText.APACHE),
+    ThirdParty("Android Jetpack", R.string.about_tp_jetpack, LicenseText.APACHE),
+    ThirdParty("Kotlin", R.string.about_tp_kotlin, LicenseText.APACHE),
+    ThirdParty("Unbounded", R.string.about_tp_unbounded, LicenseText.OFL_UNBOUNDED),
+    ThirdParty("DM Mono", R.string.about_tp_dmmono, LicenseText.OFL_DM_MONO),
 )
 
 /**
@@ -161,7 +161,7 @@ fun AboutScreen(
                 )
             }
             items(ThirdPartyNotices, key = { it.name }) { notice ->
-                LinkRow(notice.name, notice.detail, onClick = { onLicense(notice.license) }, onClickLabel = showLicense)
+                LinkRow(notice.name, stringResource(notice.detail), onClick = { onLicense(notice.license) }, onClickLabel = showLicense)
             }
         }
     }

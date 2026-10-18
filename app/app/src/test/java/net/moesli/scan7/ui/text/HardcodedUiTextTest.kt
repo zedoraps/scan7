@@ -25,7 +25,7 @@ class HardcodedUiTextTest {
     fun noHardcodedUiText() {
         val offenders = sourceRoot.walkTopDown()
             .filter { it.isFile && it.extension == "kt" && !it.relativeTo(sourceRoot).path.startsWith("debug/") }
-            .filter { it.relativeTo(sourceRoot).path !in Pending && it.relativeTo(sourceRoot).path !in DebugOnly }
+            .filter { it.relativeTo(sourceRoot).path !in DebugOnly }
             .flatMap { file ->
                 // Previews (at the end of a file) may use sample text.
                 val code = file.readText().substringBefore("@Preview")
@@ -56,19 +56,5 @@ class HardcodedUiTextTest {
         /** Debug-only screens outside `debug/` (may stay English). */
         val DebugOnly = setOf("camera/CameraScreen.kt")
 
-        /** Screens other agents are editing right now; translated in phase 2, then this set is empty. */
-        val Pending = setOf(
-            "ui/round/RoundScreen.kt",
-            "ui/round/RoundParts.kt",
-            "ui/round/RoundMenu.kt",
-            "ui/round/RoundMapping.kt",
-            "ui/round/RoundRoute.kt",
-            "ui/scan/ScanCamera.kt",
-            "ui/scan/ScanRoute.kt",
-            "ui/scan/ScanFlow.kt",
-            "ui/components/PlayerUi.kt",
-            "ui/components/PlayerAvatar.kt",
-            "game/Avatar.kt",
-        )
     }
 }

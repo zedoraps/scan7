@@ -52,6 +52,7 @@ class HomeHistoryTest {
         assertEquals(200, ui.points)
         assertEquals("1 round", ui.detail.en)
         assertEquals("1 Runde", ui.detail.de)
+        assertEquals("Anna und Ben haben gewonnen", ui.headline.de)
     }
 
     @Test

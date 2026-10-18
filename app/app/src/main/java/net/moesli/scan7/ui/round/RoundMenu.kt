@@ -73,7 +73,7 @@ data class RoundMenuSettings(
 /**
  * Round menu (⋮) content, an M3 list in two groups. Actions, most used first (`ListItem` rows,
  * leading icons, ≥ 56 dp touch rows with the Scan7 press dim): Scoreboard, Rearrange seats /
- * order, Home, a divider and End game (warning style; [onEndGame] opens the confirmation, `null`
+ * order, Home (room for more actions here), a divider and End game (warning style; [onEndGame] opens the confirmation, `null`
  * once the game is over). Then "SETTINGS": Target points (− value +, steps of 10 like New game),
  * and three M3 `SingleChoiceSegmentedButtonRow`s: Scan direction (↻ Clockwise | ↺ Counter), After
  * a score (Next player | Back to table) and Entry (Scan | Type). Settings keep the sheet open; the
@@ -94,7 +94,7 @@ fun RoundMenuContent(
 ) {
     val colors = Scan7Theme.colors
     Column(Modifier.verticalScroll(rememberScrollState())) {
-        MenuRow(stringResource(R.string.action_scoreboard), onScoreboard) { ScoreboardIcon(colors.text) }
+        MenuRow(stringResource(R.string.scoreboard_title), onScoreboard) { ScoreboardIcon(colors.text) }
         MenuRow(stringResource(R.string.action_rearrange), onArrange) { ArrangeIcon(colors.text) }
         MenuRow(stringResource(R.string.action_home), onHome) { HomeIcon(colors.text) }
         if (onEndGame != null) {
@@ -118,11 +118,11 @@ fun RoundMenuContent(
             )
         }
         SettingToggle(
-            title = stringResource(R.string.menu_scan_direction),
+            title = stringResource(R.string.menu_direction),
             options = ScanDirection.entries,
             selected = settings.direction,
             label = { it.shortLabel() },
-            spoken = { it.spokenLabel() },
+            spoken = { it.spoken() },
             onSelect = onDirection,
         )
         SettingToggle(
@@ -228,14 +228,8 @@ private fun <T> SettingToggle(
 
 /** Segment label: "↻ Clockwise" / "↺ Counter". */
 internal fun ScanDirection.shortLabel(): UiText = when (this) {
-    ScanDirection.CLOCKWISE -> uiText(R.string.direction_clockwise_short)
-    ScanDirection.COUNTER_CLOCKWISE -> uiText(R.string.direction_counter_short)
-}
-
-/** TalkBack: "Scan clockwise" (no arrow glyphs). */
-internal fun ScanDirection.spokenLabel(): UiText = when (this) {
-    ScanDirection.CLOCKWISE -> uiText(R.string.direction_clockwise_spoken)
-    ScanDirection.COUNTER_CLOCKWISE -> uiText(R.string.direction_counter_spoken)
+    ScanDirection.CLOCKWISE -> uiText(R.string.direction_cw_short)
+    ScanDirection.COUNTER_CLOCKWISE -> uiText(R.string.direction_ccw_short)
 }
 
 /** Segment label: "Next player" / "Back to table". */

@@ -1,5 +1,8 @@
 package net.moesli.scan7.ui.round
 
+import net.moesli.scan7.ui.text.uiText
+import net.moesli.scan7.ui.text.UiText
+import net.moesli.scan7.R
 import net.moesli.scan7.data.GameSnapshot
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.ScanDirection
@@ -59,9 +62,9 @@ fun GameSnapshot.toRoundUiState(arranging: Boolean = false, typeEntry: Boolean =
 }
 
 /** Round menu label of the scan direction ("↻ clockwise" / "↺ counter-clockwise"). */
-fun ScanDirection.label(): String = when (this) {
-    ScanDirection.CLOCKWISE -> "↻ clockwise"
-    ScanDirection.COUNTER_CLOCKWISE -> "↺ counter-clockwise"
+fun ScanDirection.label(): UiText = when (this) {
+    ScanDirection.CLOCKWISE -> uiText(R.string.direction_cw)
+    ScanDirection.COUNTER_CLOCKWISE -> uiText(R.string.direction_ccw)
 }
 
 /**
@@ -72,3 +75,9 @@ fun ScanDirection.label(): String = when (this) {
  */
 internal fun crossesTarget(state: GameState, target: Int): Boolean =
     target < state.target && state.reachesTarget(target) && !state.reachesTarget(state.target)
+
+/** The direction segment for TalkBack (no arrow glyphs): "Scan clockwise". */
+fun ScanDirection.spoken(): UiText = when (this) {
+    ScanDirection.CLOCKWISE -> uiText(R.string.direction_cw_spoken)
+    ScanDirection.COUNTER_CLOCKWISE -> uiText(R.string.direction_ccw_spoken)
+}
