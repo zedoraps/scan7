@@ -217,7 +217,9 @@ fun PlayerCard(
                         .fillMaxWidth()
                         .clearAndSetSemantics {},
                 ) {
-                    PlayerScoreRing(player, size.ring, size.token)
+                    // Name and total are measured first; the ring takes what is left (at most its
+                    // size class), so a large font scale shrinks the ring instead of clipping the total.
+                    PlayerScoreRing(player, size.ring, size.token, Modifier.weight(1f, fill = false))
                     if (compact) {
                         CompactNameAndTotal(player, look.ink)
                     } else {

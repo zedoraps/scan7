@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -498,7 +499,9 @@ fun TargetStepper(target: Int, onChange: (Int) -> Unit, modifier: Modifier = Mod
             color = colors.text,
             style = Scan7Type.total24,
             textAlign = TextAlign.Center,
-            modifier = Modifier.width(80.dp),
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.widthIn(min = 80.dp),
         )
         IconButton(
             onClick = { onChange(steppedTarget(target, 1)) },

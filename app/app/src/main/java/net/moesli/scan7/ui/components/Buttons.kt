@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +38,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewFontScale
 import androidx.compose.ui.unit.Dp
@@ -87,7 +90,7 @@ fun PrimaryButton(
             .scan7Clickable(onClick, enabled)
             .padding(horizontal = Scan7Spacing.xl),
     ) {
-        Text(text, color = Scan7Theme.colors.onAccent, style = textStyle, textAlign = TextAlign.Center, maxLines = 1)
+        FitText(text, textStyle.copy(color = Scan7Theme.colors.onAccent))
     }
 }
 
@@ -115,8 +118,22 @@ fun SecondaryButton(
             .then(if (contentDescription != null) Modifier.semantics { this.contentDescription = contentDescription } else Modifier)
             .padding(horizontal = Scan7Spacing.m),
     ) {
-        Text(text, color = Scan7Theme.colors.text, style = textStyle, textAlign = TextAlign.Center)
+        FitText(text, textStyle.copy(color = Scan7Theme.colors.text))
     }
+}
+
+/**
+ * Button label: as many lines as [text] has ("Close\nround"), shrinking to fit instead of
+ * breaking a word ("Clo / se") at a large font scale or in a narrow button.
+ */
+@Composable
+private fun FitText(text: String, style: TextStyle) {
+    BasicText(
+        text,
+        style = style.copy(textAlign = TextAlign.Center),
+        maxLines = text.count { it == '\n' } + 1,
+        autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = style.fontSize),
+    )
 }
 
 /** Square icon button on `surface` (48 dp, radius 12), e.g. Arrange and Menu in the header. */
@@ -216,9 +233,15 @@ fun ScanNextButton(
             }
             .padding(start = 20.dp, end = Scan7Spacing.l),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // Weighted so a long name ellipsizes before the token instead of running under it.
+        Column(
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .padding(end = Scan7Spacing.s),
+        ) {
             Text(stringResource(R.string.label_scan_next), color = colors.onAccent, style = Scan7Type.capsButton, maxLines = 1)
-            Text(next.name, color = colors.onAccent, style = Scan7Type.buttonName, maxLines = 1)
+            Text(next.name, color = colors.onAccent, style = Scan7Type.buttonName, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         PlayerToken(
             initial = next.initial,
