@@ -284,7 +284,7 @@ fun SeatingScreen(
         players = players.zip(positions) { p, pos -> RoundPlayer(p.toUi(target = target), pos) },
         view = view,
         arranging = true,
-        seatNumbers = true,
+        seating = true,
     )
     val actions = object : RoundActions {
         override fun onMoveCard(playerId: String, position: TablePosition) = onMoveCard(playerId.toLong(), position)
