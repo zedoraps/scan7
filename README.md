@@ -45,7 +45,7 @@ Folders (file names matter for `cards_flat/`):
 |---|---|---|---|
 | 1 | Card cutouts | `uv run python scripts/make_cutouts.py` | done |
 | 2 | Synthetic data | — | |
-| 3 | Real photo labeling | — | |
+| 3 | Real photo labeling | `ml/labeling/start.sh` — see [ml/labeling/README.md](ml/labeling/README.md) | set up, waiting for photos |
 | 4 | Training & evaluation | — | |
 | 5 | Export to LiteRT | — | |
 | 6 | Android app | — | |
