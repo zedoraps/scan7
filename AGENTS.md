@@ -143,6 +143,7 @@ The emulators run at nice 5 next to training; idle they cost ~1.5 cores in total
 | 2026-10-18 | **Multi-phone play (later):** Google Nearby Connections (P2P_STAR, host-authoritative, QR join), fully local, no online service. Research + plan in [docs/MULTI_DEVICE.md](docs/MULTI_DEVICE.md); not started yet. |
 | 2026-10-18 | **App flow agreed** — spec in [docs/APP_FLOW.md](docs/APP_FLOW.md): players stored locally (no groups), select who plays; scan with the **shutter button only** (no auto-capture); bust shown in magenta **plus** the word; the game ends only after a full round is scored, highest total wins. |
 | 2026-10-18 | **Total adjustments** ("Adjust total" in the player sheet): own table `score_adjustments` (DB v3, AutoMigration 2→3, MigrationTest in androidTest), counted in `GameState.totals`; no scoreboard row, only a "±" mark on the total. |
+| 2026-10-18 | **Card-look variants without a photo** go to `ml/data/cards_extra/<class>_<desc>.png` (rectified RGBA 600×832; English `00_en_rainbow`, `back_en` cut from the render `paste_773e114e` by `scripts/extract_en_variants.py`); `make_cutouts.py` copies them to `out/cutouts/<class>_<n>` (map in `out/cutouts/sources.yaml`), pick rates + banner box in synth.yaml `variants`. Web test stems listed in **`ml/data/web_test/exclude.txt`** (the render and its small copy `paste_80304d69`) are training sources and must be skipped by every evaluation. |
 
 ## Branding (summary; details in brand/BRAND.md)
 - App name **Scan7**; wordmark "scan" in text color + "7" in accent (`Scan7Wordmark`).

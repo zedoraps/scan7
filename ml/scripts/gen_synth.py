@@ -176,17 +176,59 @@ def prepare_backgrounds(cfg, workers) -> list[Path]:
     return out
 
 
+def cutout_files(classes) -> dict[str, list[Path]]:
+    files: dict[str, list[Path]] = {c: [] for c in classes}
+    for f in sorted(CUTOUTS.glob("*.png")):
+        files[class_of(f.stem, classes)].append(f)
+    return files
+
+
 def load_cutouts(classes) -> dict[str, list[np.ndarray]]:
     cut: dict[str, list[np.ndarray]] = {c: [] for c in classes}
-    for f in sorted(CUTOUTS.glob("*.png")):
-        img = cv2.imread(str(f), cv2.IMREAD_UNCHANGED)
-        if img is None or img.ndim != 3 or img.shape[2] != 4:
-            continue
-        cut[class_of(f.stem, classes)].append(img)
+    for c, fs in cutout_files(classes).items():
+        for f in fs:
+            img = cv2.imread(str(f), cv2.IMREAD_UNCHANGED)
+            if img is None or img.ndim != 3 or img.shape[2] != 4:
+                raise RuntimeError(f"{f}: not an RGBA image")
+            cut[c].append(img)
     missing = [c for c, v in cut.items() if not v]
     if missing:
         raise RuntimeError(f"missing cutouts for {missing} in {CUTOUTS} (run make_cutouts.py)")
     return cut
+
+
+def variant_table(classes, cfg) -> tuple[dict[str, np.ndarray], dict[str, list]]:
+    """Per class: pick probabilities of its cutouts (same order as load_cutouts) and the banner
+    inner box per cutout (None = text.inner). synth.yaml `variants` is keyed by source stem
+    (out/cutouts/sources.yaml, written by make_cutouts.py): a listed look gets its share of the
+    class's instances, the remaining share is split evenly among the class's other looks."""
+    vc = cfg.get("variants") or {}
+    weights = {str(k): float(v) for k, v in (vc.get("weights") or {}).items()}
+    inners = {str(k): v for k, v in (vc.get("text_inner") or {}).items()}
+    src_file = CUTOUTS / "sources.yaml"
+    sources = {}
+    if src_file.exists():
+        sources = {str(k): Path(v).stem for k, v in (yaml.safe_load(src_file.read_text()) or {}).items()}
+    used = set()
+    probs, inner = {}, {}
+    for c, fs in cutout_files(classes).items():
+        src = [sources.get(f.stem, f.stem) for f in fs]
+        fixed = [weights.get(s) for s in src]
+        used.update(s for s in src if s in weights)
+        given = sum(w for w in fixed if w is not None)
+        n_free = sum(w is None for w in fixed)
+        if given > 1 + 1e-9 or (n_free == 0 and abs(given - 1) > 1e-9 and fs):
+            raise ValueError(f"variants.weights for class {c} sum to {given}")
+        rest = (1 - given) / n_free if n_free else 0.0
+        p = np.array([rest if w is None else w for w in fixed], np.float64)
+        probs[c] = p / p.sum() if len(p) else p
+        inner[c] = [inners.get(s) for s in src]
+        used.update(s for s in src if s in inners)
+    unknown = (set(weights) | set(inners)) - used
+    if unknown:
+        raise ValueError(f"synth.yaml variants refer to unknown cutout sources {sorted(unknown)} "
+                         f"(see {src_file}; run make_cutouts.py)")
+    return probs, inner
 
 
 # ---------------------------------------------------------------- worker state
@@ -200,6 +242,7 @@ def init_worker(cfg, cards_cfg, bg_paths):
     G["classes"] = cards_cfg["classes"]
     G["number"] = set(cards_cfg["number_classes"])
     G["cutouts"] = load_cutouts(cards_cfg["classes"])
+    G["variant_p"], G["variant_inner"] = variant_table(cards_cfg["classes"], cfg)
     G["bgs"] = bg_paths
     G["fonts"] = [p for p in cfg["text"]["fonts"] if Path(p).exists()]
     G["font_cache"] = {}
@@ -272,11 +315,12 @@ def render_word(rng, roi, word):
         cv2.putText(roi, word, org, face, scale, fill, 2, cv2.LINE_AA)
 
 
-def randomize_text(rng, rgba, cfg):
-    """Replace / blur / erase the word inside the banner of a number card (copy returned)."""
+def randomize_text(rng, rgba, cfg, inner=None):
+    """Replace / blur / erase the word inside the banner of a number card (copy returned).
+    `inner`: banner inner box of this look (fractions of w/h), default text.inner."""
     t = cfg["text"]
     h, w = rgba.shape[:2]
-    x0, y0, x1, y1 = (int(round(v * s)) for v, s in zip(t["inner"], (w, h, w, h)))
+    x0, y0, x1, y1 = (int(round(v * s)) for v, s in zip(inner or t["inner"], (w, h, w, h)))
     out = rgba.copy()
     roi = np.ascontiguousarray(out[y0:y1, x0:x1, :3])
     mode = pick(rng, t["modes"])
@@ -669,9 +713,12 @@ def generate(task):
     rendered = []  # (cls, x0, y0, mask, full_area, center_xy, width_px)
     for cls, cx, cy, cw_scene, ang in cards:
         variants = G["cutouts"][cls]
-        rgba = variants[rng.integers(len(variants))]
+        vi = int(rng.choice(len(variants), p=G["variant_p"][cls])) if len(variants) > 1 else 0
+        rgba = variants[vi]
         if cls in G["number"] and rng.random() < cfg["text"]["p"]:
-            rgba = randomize_text(rng, rgba, cfg)
+            inner = G["variant_inner"][cls][vi]
+            # (inner only passed when set: lang_test.py swaps in a 3-argument randomize_text)
+            rgba = randomize_text(rng, rgba, cfg, inner) if inner else randomize_text(rng, rgba, cfg)
         ch0, cw0 = rgba.shape[:2]
         a_mat = T(cx, cy) @ R(ang) @ S(cw_scene / cw0) @ T(-cw0 / 2, -ch0 / 2)
         hf = hs @ a_mat
@@ -796,6 +843,11 @@ def main():
     seed = args.seed if args.seed is not None else int(cfg["seed"])
 
     load_cutouts(classes)  # fail early
+    vp, _ = variant_table(classes, cfg)
+    for c, p in vp.items():
+        if len(p) > 1:
+            src = [f.stem for f in cutout_files(classes)[c]]
+            print(f"variants {c}: " + ", ".join(f"{s} {q:.0%}" for s, q in zip(src, p)))
     bgs = prepare_backgrounds(cfg, args.workers)
     out = prepare_out(args.out)
 

@@ -74,6 +74,18 @@ card:
   shadow_offset: [0.0, 0.04]  # card widths
   shadow_blur: [0.01, 0.05]   # card widths (sigma)
 
+# ------------------------------------------------------------ card looks (variants of a class)
+# Keyed by cutout source stem (data/cards_flat/<stem>.jpg or data/cards_extra/<stem>.png, see
+# out/cutouts/sources.yaml). weights: share of the class's instances drawn with that look; the
+# rest is split evenly among the class's unlisted looks. text_inner: banner inner box of a look
+# whose banner sits elsewhere than text.inner (English 0: frame at y 0.716-0.820).
+variants:
+  weights:
+    00_en_rainbow: 0.4      # English rainbow "ZERO" 0 (German 00 gets 60 %)
+    back_en: 0.4            # English back, turquoise frame (German back gets 60 %)
+  text_inner:
+    00_en_rainbow: [0.065, 0.728, 0.935, 0.810]
+
 # ------------------------------------------------------------ text randomization (number cards)
 text:
   p: 0.5

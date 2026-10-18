@@ -5,6 +5,15 @@ corners), perspective-correct it to an upright portrait rectangle, apply the per
 from config/cards.yaml, and save an RGBA PNG with an anti-aliased rounded-corner alpha mask
 to ml/out/cutouts/<stem>.png. Also writes ml/out/cutouts/contact_sheet.jpg.
 
+Naming: a photo stem is a class name (`12`) or `<class>_<n>` (`12_2`) for another photo of the
+same class. Extra looks of a class that do not come from a photo (e.g. English-edition variants
+cut from a render, see scripts/extract_en_variants.py) are stored already rectified as RGBA
+600x832 PNGs in ml/data/cards_extra/<class>_<description>.png (e.g. `00_en_rainbow.png`,
+`back_en.png`). They are copied unchanged to out/cutouts/<class>_<n>.png, n = the next free
+number of that class after the photos (sorted by file name), so the generator picks them like any
+other variant. out/cutouts/sources.yaml maps every cutout stem to its source file; synth.yaml
+`variants:` refers to the source stems (e.g. `00_en_rainbow`), not to the numbered cutout stems.
+
     uv run python scripts/make_cutouts.py            # cutouts + contact sheet
     uv run python scripts/make_cutouts.py --measure  # also print measured aspect / corner radius
 """
@@ -21,6 +30,7 @@ import yaml
 ML = Path(__file__).resolve().parents[1]
 CONFIG = ML / "config" / "cards.yaml"
 SRC = ML / "data" / "cards_flat"
+EXTRA = ML / "data" / "cards_extra"
 OUT = ML / "out" / "cutouts"
 
 WORK_LONG_SIDE = 2000  # detection resolution (long side, px)
@@ -30,6 +40,14 @@ EDGE_MARGIN = 2  # px (at cutout size) the alpha stays inside the detected card 
 def load_config() -> dict:
     with open(CONFIG) as f:
         return yaml.safe_load(f)
+
+
+def extra_class(stem: str, classes: list[str]) -> str:
+    """'00_en_rainbow' -> '00', 'back_en' -> 'back' (longest class name that prefixes the stem)."""
+    hits = [c for c in classes if stem == c or stem.startswith(c + "_")]
+    if not hits:
+        raise ValueError(f"cards_extra/{stem}.png: name must start with a class name + '_'")
+    return max(hits, key=len)
 
 
 def class_of(stem: str, classes: list[str]) -> str:
@@ -276,6 +294,28 @@ def main():
             cv2.polylines(dbg, [corners_small.astype(np.int32)], True, (0, 255, 0), 2)
             cv2.imwrite(str(OUT / "debug" / f"{stem}.jpg"), dbg)
         print(f"{stem:15s} -> {cls:14s} rot {rot:3d}  silhouette clipped {cut} px")
+
+    # extra looks (already rectified RGBA) -> <class>_<n>
+    sources = {stem: f"data/cards_flat/{stem}.jpg" for stem, _, _ in items}
+    for stale in OUT.glob("*.png"):  # numbered cutouts from an earlier run that no source backs any more
+        if stale.stem not in sources and stale.stem.rpartition("_")[2].isdigit():
+            stale.unlink()
+    for f in sorted(EXTRA.glob("*.png")) if EXTRA.is_dir() else []:
+        cls = extra_class(f.stem, classes)
+        rgba = cv2.imread(str(f), cv2.IMREAD_UNCHANGED)
+        if rgba is None or rgba.ndim != 3 or rgba.shape[2] != 4 or rgba.shape[:2] != (out_h, out_w):
+            raise RuntimeError(f"{f}: must be an RGBA {out_w}x{out_h} PNG")
+        n = 2
+        while f"{cls}_{n}" in sources:
+            n += 1
+        stem = f"{cls}_{n}"
+        cv2.imwrite(str(OUT / f"{stem}.png"), rgba)
+        sources[stem] = f"data/cards_extra/{f.name}"
+        items.append((stem, cls, rgba))
+        print(f"{stem:15s} -> {cls:14s} from cards_extra/{f.name}")
+    with open(OUT / "sources.yaml", "w") as fh:
+        fh.write("# written by scripts/make_cutouts.py: cutout stem -> source file (relative to ml/)\n")
+        yaml.safe_dump(sources, fh, sort_keys=True)
 
     if args.measure:
         print(f"median aspect {np.median(aspects):.4f} (std {np.std(aspects):.4f}), "

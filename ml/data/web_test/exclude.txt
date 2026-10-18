@@ -1,0 +1,7 @@
+# Web test images that must NOT be used to evaluate recognition (one stem per line, '#' = comment).
+# paste_773e114e (large render of the whole English deck) is the source of the training variant
+# cutouts data/cards_extra/00_en_rainbow.png and back_en.png (scripts/extract_en_variants.py);
+# paste_80304d69 is a small copy of the same render. Evaluating on them would test on training data.
+# They stay in images/ and in Label Studio; evaluation scripts skip these stems.
+paste_773e114e
+paste_80304d69
