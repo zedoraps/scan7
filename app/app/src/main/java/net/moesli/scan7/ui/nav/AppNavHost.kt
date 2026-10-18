@@ -86,10 +86,13 @@ class DebugLaunch(
     val scanDemo: ScanDemoLaunch? = null,
     /** Camera scans in the real game flow start in Review on this photo (real detector). */
     val gamePhotoCapture: (suspend (Context) -> ScanCapture)? = null,
+    /** Stack to open after `debug_seed` seeded the database (debug/DebugSeed.kt). */
+    val seededStack: List<Route>? = null,
 )
 
 /** First stack for a fresh start: Home, or a debug screen when launched with a debug hook. */
 fun initialStack(debug: DebugLaunch): List<Route> = when {
+    debug.seededStack != null -> debug.seededStack
     debug.scanDemo != null -> listOf(Route.Home, Route.Debug(DebugScreen.HOME), Route.Debug(DebugScreen.SCAN_DEMO))
     debug.photo != null -> listOf(Route.Home, Route.Debug(DebugScreen.HOME), Route.Debug(DebugScreen.PHOTO))
     else -> listOf(Route.Home)
