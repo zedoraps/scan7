@@ -32,6 +32,7 @@ Bottom: **Scan next · <next open player>** (primary) + **Close round**; when ev
 ## Scan
 1. Full-screen camera, player name at the top, live boxes on the cards.
 2. **Shutter button only** (no auto-capture). Pressing it freezes the current frame.
+   Next to the shutter: **Bust** (magenta outline + word) marks the player busted without scanning (Undo toast); in Scan next it continues straight to the next open player. The header shows the player big (token + name in Unbounded ~28 sp, "SCANNING" / "NEXT").
 3. Review overlay on the frozen frame: boxes and labels stay on the cards; a bottom panel shows
    - detected cards as chips,
    - score breakdown (numbers, x2, plus cards, Flip 7 bonus) and the total,
