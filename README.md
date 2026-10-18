@@ -49,4 +49,4 @@ Folders (file names matter for `cards_flat/`):
 | 4 | Training & evaluation | — | |
 | 5 | Export to LiteRT | — | |
 | 6 | Android app | — | |
-| 7 | Scoring logic | — | |
+| 7 | Scoring logic | `cd app && ./gradlew testDebugUnitTest` | done (logic + tests; UI pending) |

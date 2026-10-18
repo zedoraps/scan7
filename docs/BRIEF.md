@@ -27,7 +27,7 @@ scan7/
 - **App:** Kotlin + Jetpack Compose, CameraX for the camera, LiteRT (TFLite) with the GPU delegate for inference
 - **ML:** Python, PyTorch with the MPS backend (`device="mps"`; set `PYTORCH_ENABLE_MPS_FALLBACK=1` if an op is unsupported)
 - **Model:** small object detector (e.g. YOLO nano/small at 640px), exported to LiteRT with int8 quantization
-- **Licensing note:** Ultralytics YOLO is AGPL. Fine for a personal project; if the app might be sold, use an Apache-licensed alternative (MediaPipe Model Maker, RT-DETR) or a commercial license. **Open decision — needed before milestone 4.**
+- **Licensing note:** Ultralytics YOLO is AGPL. Fine for a personal project; if the app might be sold, use an Apache-licensed alternative (MediaPipe Model Maker, RT-DETR) or a commercial license. **Decision (2026-10-18): Ultralytics YOLO** — the app stays personal/open source; a commercial release would need an Ultralytics license or a switch to an Apache-licensed model.
 - **Fallback architecture** (only if look-alike classes are confused): 1-class card detector + crop classifier.
 
 ## Cards (German edition)
