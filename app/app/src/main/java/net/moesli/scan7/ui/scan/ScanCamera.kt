@@ -29,6 +29,8 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -475,7 +477,7 @@ private fun CameraBottomBar(
             horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .height(18.dp)
+                .heightIn(min = 18.dp) // grows with the font scale instead of clipping the count
                 .alpha(if (showCount) 1f else 0f)
                 .clearAndSetSemantics { if (showCount) contentDescription = seenDescription },
         ) {
@@ -500,7 +502,9 @@ private fun BustButton(playerName: String, onClick: () -> Unit, enabled: Boolean
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .size(72.dp, Scan7Spacing.minTouch)
+            // Grows a little with large font scales (never into the shutter's column), then shrinks the label.
+            .widthIn(min = 72.dp, max = 104.dp)
+            .heightIn(min = Scan7Spacing.minTouch)
             .alpha(if (enabled) 1f else 0.4f)
             .clip(shape)
             .border(1.5.dp, colors.bust, shape)
@@ -508,9 +512,16 @@ private fun BustButton(playerName: String, onClick: () -> Unit, enabled: Boolean
             .clearAndSetSemantics {
                 contentDescription = description
                 role = Role.Button
-            },
+            }
+            .padding(horizontal = Scan7Spacing.s),
     ) {
-        Text(stringResource(R.string.label_bust_tag), color = colors.bust, style = Scan7Type.tag12, maxLines = 1)
+        BasicText(
+            stringResource(R.string.label_bust_tag),
+            style = Scan7Type.tag12.copy(color = colors.bust),
+            maxLines = 1,
+            softWrap = false,
+            autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = Scan7Type.tag12.fontSize),
+        )
     }
 }
 

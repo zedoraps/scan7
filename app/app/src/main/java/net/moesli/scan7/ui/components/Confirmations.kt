@@ -75,6 +75,26 @@ object Confirmations {
     )
 
     /**
+     * Home → long-press a game → Delete game: always asks (no Undo). [summary] names the game
+     * (date, winner / leader, rounds; blank raw parts are skipped) on the first body line, joined
+     * with " · "; then "This can't be undone.", after "The game in progress will be lost." when it
+     * is the [running] (unfinished) game.
+     */
+    fun deleteGame(summary: List<UiText>, running: Boolean): ConfirmSpec {
+        val parts = summary.filterNot { it is UiText.Raw && it.value.isBlank() }
+        val warning = UiText.Join(
+            listOfNotNull(uiText(R.string.confirm_delete_game_running).takeIf { running }, uiText(R.string.confirm_delete_game_irreversible)),
+            " ",
+        )
+        return ConfirmSpec(
+            title = uiText(R.string.confirm_delete_game_title),
+            confirmLabel = uiText(R.string.confirm_delete_game_action),
+            body = if (parts.isEmpty()) warning else UiText.Join(listOf(UiText.Join(parts, " · "), warning), "\n"),
+            destructive = true,
+        )
+    }
+
+    /**
      * Seating → Start game while a game is unfinished ([unfinishedRound] = its running round,
      * `null` if there is none → starts at once): starting ends that game for good.
      */

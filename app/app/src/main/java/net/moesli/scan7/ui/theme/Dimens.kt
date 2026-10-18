@@ -18,13 +18,20 @@ object Scan7Spacing {
     val headerTop = 48.dp
     val headerHeight = 48.dp
 
-    /** Bottom buttons: distance from the bottom and height. */
+    /**
+     * Bottom buttons: at least [bottomButtonsBottom] from the bottom of the screen and always
+     * [bottomButtonsGap] above the navigation bar / gesture handle; height.
+     */
     val bottomButtonsBottom = 24.dp
+    val bottomButtonsGap = 12.dp
     val bottomButtonsHeight = 64.dp
 
     /** Minimum touch target; in-card actions on compact sizes may go down to [minCompactTouch]. */
     val minTouch = 48.dp
     val minCompactTouch = 36.dp
+
+    /** Tablets / unfolded foldables: screens keep at most this content width, centred. */
+    val maxContentWidth = 600.dp
 }
 
 /** Corner radii from the design handoff. */

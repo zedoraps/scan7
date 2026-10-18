@@ -92,7 +92,7 @@ imperatives / verbs, headers nouns.
 | `home_leader_one` | Home (text) | %1$s leads · %2$d | %1$s führt · %2$d | |
 | `home_leader_many` | Home (text) | %1$s lead · %2$d | %1$s führen · %2$d | |
 | `home_resume_description` | Home (TalkBack) | one: Unfinished game, round %2$d, %1$d player, %3$s | other: Unfinished game, round %2$d, %1$d players, %3$s | one: Laufendes Spiel, Runde %2$d, %1$d Spieler, %3$s | other: Laufendes Spiel, Runde %2$d, %1$d Spieler, %3$s | |
-| `home_open_scoreboard` | Home (TalkBack) | Open scoreboard | Punktetabelle öffnen | |
+| `home_open_scoreboard` | (via UiText / plurals helper) | Open scoreboard | Punktetabelle öffnen | |
 | `home_intro_title` | Home (text) | Scan a row, get the score. | Reihe scannen, fertig gezählt. | Changed: "Punkte haben" sounded odd → "fertig gezählt". |
 | `home_intro_players` | Home (text) | Pick who's playing, then point the camera at each player's row of cards. Scan7 adds it up. | Wähl aus, wer mitspielt, und halt die Kamera über die Kartenreihe jedes Spielers. Scan7 rechnet zusammen. | |
 | `home_intro_no_players` | Home (text) | No players yet. New game starts with adding everyone at the table — they're saved for next time. | Noch keine Spieler. Bei „Neues Spiel“ legst du alle am Tisch an – sie bleiben fürs nächste Mal gespeichert. | |
@@ -360,3 +360,14 @@ imperatives / verbs, headers nouns.
 | `about_tp_unbounded` | About (text) | Font · © 2022 The Unbounded Project Authors · SIL OFL 1.1 | Schrift · © 2022 The Unbounded Project Authors · SIL OFL 1.1 | |
 | `about_tp_dmmono` | About (text) | Font · © 2020 The DM Mono Project Authors · SIL OFL 1.1 | Schrift · © 2020 The DM Mono Project Authors · SIL OFL 1.1 | |
 | `home_more_options` | Home (TalkBack) | More options | Weitere Optionen | TalkBack of the Home ⋮ button. |
+| `home_game_open_scoreboard` | Home (TalkBack) | Open scoreboard | Punktetabelle öffnen | Long-press menu: "Punktetabelle öffnen" (same as the row tap label). |
+| `home_game_resume` | Home (TalkBack) | Resume | Weiterspielen | |
+| `home_game_delete` | Home (TalkBack); Home (text) | Delete game | Spiel löschen | Long-press menu item + TalkBack action: "Spiel löschen". |
+| `home_game_round` | Home (text) | Round %1$d | Runde %1$d | Delete dialog summary; non-breaking space keeps "Runde 6" together. |
+| `home_game_rounds` | Home (text) | one: %1$d round | other: %1$d rounds | one: %1$d Runde | other: %1$d Runden | |
+| `confirm_delete_game_title` | Confirm dialogs (header) | Delete this game? | Dieses Spiel löschen? | |
+| `confirm_delete_game_action` | Confirm dialogs (TalkBack) | Delete | Löschen | |
+| `confirm_delete_game_cancel` | Home (TalkBack) | Cancel | Abbrechen | |
+| `confirm_delete_game_running` | Confirm dialogs (text) | The game in progress will be lost. | Das laufende Spiel geht verloren. | |
+| `confirm_delete_game_irreversible` | Confirm dialogs (text) | This can't be undone. | Das lässt sich nicht rückgängig machen. | Changed: "Das lässt sich nicht rückgängig machen." (shorter, natural). |
+| `action_enter_manually_two_lines` | Player sheet / adjust (button) | Enter / manually | Von Hand / eingeben | New: two-line sheet button at font scale > 1.4 ("Von Hand / eingeben"). |

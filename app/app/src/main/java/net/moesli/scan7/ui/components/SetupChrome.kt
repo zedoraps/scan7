@@ -69,6 +69,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewFontScale
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import androidx.compose.ui.window.DialogProperties
 import net.moesli.scan7.R
 import net.moesli.scan7.ui.theme.Scan7Radii
@@ -83,7 +84,7 @@ import net.moesli.scan7.ui.theme.Scan7Type
  */
 
 private val HeaderMinInsets = WindowInsets(top = Scan7Spacing.headerTop)
-private val BottomButtonsMinInsets = WindowInsets(bottom = Scan7Spacing.bottomButtonsBottom)
+private val BottomButtonsMinInsets = WindowInsets(bottom = Scan7Spacing.bottomButtonsBottom - Scan7Spacing.bottomButtonsGap)
 
 /**
  * Header position: 48 dp from the top of the screen, or below the status bar / cutout if that is
@@ -91,8 +92,16 @@ private val BottomButtonsMinInsets = WindowInsets(bottom = Scan7Spacing.bottomBu
  */
 fun Modifier.headerInsets(): Modifier = statusBarsPadding().displayCutoutPadding().windowInsetsPadding(HeaderMinInsets)
 
-/** Bottom buttons position: 24 dp from the bottom, or above the navigation bar if that is taller. */
-fun Modifier.bottomButtonsInsets(): Modifier = navigationBarsPadding().windowInsetsPadding(BottomButtonsMinInsets)
+/**
+ * Distance of the bottom buttons from the bottom of the screen for a [navBottom] navigation bar
+ * height: the same rule as [bottomButtonsInsets], for layouts that place them by measure.
+ */
+fun bottomButtonsOffset(navBottom: Dp): Dp =
+    max(Scan7Spacing.bottomButtonsBottom - Scan7Spacing.bottomButtonsGap, navBottom) + Scan7Spacing.bottomButtonsGap
+
+/** Bottom buttons position: 12 dp above the navigation bar / gesture handle, at least 24 dp from the bottom. */
+fun Modifier.bottomButtonsInsets(): Modifier =
+    navigationBarsPadding().windowInsetsPadding(BottomButtonsMinInsets).padding(bottom = Scan7Spacing.bottomButtonsGap)
 
 private val EdgeFade = 24.dp
 

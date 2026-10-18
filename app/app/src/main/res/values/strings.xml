@@ -418,4 +418,21 @@
     <string name="about_tp_unbounded">Font · © 2022 The Unbounded Project Authors · SIL OFL 1.1</string>
     <string name="about_tp_dmmono">Font · © 2020 The DM Mono Project Authors · SIL OFL 1.1</string>
     <string name="home_more_options">More options</string>
+
+    <!-- Home: long-press a past game / the Resume card → menu; Delete game → confirmation. -->
+    <string name="home_game_open_scoreboard">Open scoreboard</string>
+    <string name="home_game_resume">Resume</string>
+    <string name="home_game_delete">Delete game</string>
+    <!-- Summary of the running game in the delete confirmation ("Today, 21:40 · Round 4 · Mia leads"). -->
+    <string name="home_game_round">Round&#160;%1$d</string>
+    <plurals name="home_game_rounds">
+        <item quantity="one">%1$d&#160;round</item>
+        <item quantity="other">%1$d&#160;rounds</item>
+    </plurals>
+    <string name="confirm_delete_game_title">Delete this game?</string>
+    <string name="confirm_delete_game_action">Delete</string>
+    <string name="confirm_delete_game_cancel">Cancel</string>
+    <string name="confirm_delete_game_running">The game in progress will be lost.</string>
+    <string name="confirm_delete_game_irreversible">This can\'t be undone.</string>
+    <string name="action_enter_manually_two_lines">Enter\nmanually</string>
 </resources>

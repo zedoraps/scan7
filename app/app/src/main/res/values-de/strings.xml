@@ -402,4 +402,21 @@
     <string name="about_tp_unbounded">Schrift · © 2022 The Unbounded Project Authors · SIL OFL 1.1</string>
     <string name="about_tp_dmmono">Schrift · © 2020 The DM Mono Project Authors · SIL OFL 1.1</string>
     <string name="home_more_options">Weitere Optionen</string>
+
+    <!-- Home: long-press a past game / the Resume card → menu; Delete game → confirmation. -->
+    <string name="home_game_open_scoreboard">Punktetabelle öffnen</string>
+    <string name="home_game_resume">Weiterspielen</string>
+    <string name="home_game_delete">Spiel löschen</string>
+    <!-- Summary of the running game in the delete confirmation ("Heute, 21:40 · Runde 4 · Mia führt"). -->
+    <string name="home_game_round">Runde&#160;%1$d</string>
+    <plurals name="home_game_rounds">
+        <item quantity="one">%1$d&#160;Runde</item>
+        <item quantity="other">%1$d&#160;Runden</item>
+    </plurals>
+    <string name="confirm_delete_game_title">Dieses Spiel löschen?</string>
+    <string name="confirm_delete_game_action">Löschen</string>
+    <string name="confirm_delete_game_cancel">Abbrechen</string>
+    <string name="confirm_delete_game_running">Das laufende Spiel geht verloren.</string>
+    <string name="confirm_delete_game_irreversible">Das lässt sich nicht rückgängig machen.</string>
+    <string name="action_enter_manually_two_lines">Von Hand\neingeben</string>
 </resources>

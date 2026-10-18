@@ -15,7 +15,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
@@ -367,7 +371,8 @@ private fun OpenActions(name: String, onScan: () -> Unit, onEnterManually: () ->
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
             SecondaryButton(
-                stringResource(R.string.action_enter_manually),
+                // Large font scales: two lines (the button grows) instead of a tiny or cut label.
+                stringResource(if (LocalDensity.current.fontScale > 1.4f) R.string.action_enter_manually_two_lines else R.string.action_enter_manually),
                 onEnterManually,
                 Modifier.weight(1f),
                 height = 56.dp,
@@ -377,16 +382,25 @@ private fun OpenActions(name: String, onScan: () -> Unit, onEnterManually: () ->
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .weight(1f)
-                    .height(56.dp)
+                    .heightIn(min = 56.dp)
                     .clip(shape)
                     .border(1.5.dp, colors.bust, shape)
                     .scan7Clickable(onBust)
                     .clearAndSetSemantics {
                         contentDescription = bustDescription
                         role = Role.Button
-                    },
+                    }
+                    .padding(horizontal = Scan7Spacing.s),
             ) {
-                Text(stringResource(R.string.label_bust_tag), color = colors.bust, style = Scan7Type.tag12.copy(fontSize = 14.sp))
+                // One line at any font scale: shrinks instead of wrapping into the clipped second line.
+                val style = Scan7Type.tag12.copy(fontSize = 14.sp, color = colors.bust)
+                BasicText(
+                    stringResource(R.string.label_bust_tag),
+                    style = style,
+                    maxLines = 1,
+                    softWrap = false,
+                    autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = style.fontSize),
+                )
             }
         }
     }

@@ -21,8 +21,8 @@ keep the photos: once a result is saved, only the recognised cards and points ar
 - The players you add (name and avatar), your games, rounds, scores and app settings, in the
   app's private storage.
 - Nothing of this is sent to the developer or to anyone else.
-- You can delete players in the app, and everything by clearing the app's data in the Android
-  settings or by uninstalling the app.
+- You can delete games and players in the app (long-press a game on the home screen), and
+  everything by clearing the app's data in the Android settings or by uninstalling the app.
 
 ## Backup
 If you have turned on Android backup on your phone, Android may include Scan7's games, players
@@ -69,8 +69,9 @@ erkannten Karten und Punkte gespeichert.
 - Die Spieler, die du anlegst (Name und Avatar), deine Spiele, Runden, Punkte und
   App-Einstellungen, im privaten Speicher der App.
 - Nichts davon wird an den Entwickler oder an andere gesendet.
-- Spieler kannst du in der App löschen, alles zusammen durch Löschen der App-Daten in den
-  Android-Einstellungen oder durch Deinstallieren der App.
+- Spiele und Spieler kannst du in der App löschen (Spiel auf dem Startbildschirm lange drücken),
+  alles zusammen durch Löschen der App-Daten in den Android-Einstellungen oder durch
+  Deinstallieren der App.
 
 ## Sicherung
 Wenn du die Android-Sicherung auf deinem Handy eingeschaltet hast, kann Android die Spiele,
