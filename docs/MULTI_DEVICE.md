@@ -1,217 +1,281 @@
-# Scan7 – Multiple phones in one game (research + proposal)
+# Scan7 – Multiple phones in one game (spec)
 
-> Research note, 2026-10-18. Status: **proposal, nothing decided or built.** Open questions for the user are at the end.
-> Context: [APP_FLOW.md](APP_FLOW.md), [../AGENTS.md](../AGENTS.md). The app is `minSdk 29`, **`targetSdk 37` (Android 17)**, which matters for local networking (see §2.4).
-
-## TL;DR
-
-- **Yes, both are possible fully locally**, with no online service and no account: (a) a phone or tablet as a **second screen** (live scoreboard / round view), and (b) **several phones scanning different players** of the same round into one game.
-- **Architecture: host-authoritative.** One phone (the host) owns the game in its Room DB. Other devices send **commands** ("score Ben in round 3 with these cards"). The host applies them through the existing `GameRepository`/`GameState` code and broadcasts an ordered **event log + snapshots**. No CRDT is needed: a card table always has one obvious owner, and Scan7's game logic is already a pure function `GameState -> GameState` (`GameRepository.mutate`).
-- **Transport recommendation: Google Nearby Connections (`P2P_STAR`) for the MVP**. It is zero-config, works offline without a router (Bluetooth/BLE discovery, upgrade to Wi-Fi), and is encrypted. Joining is by **QR code**, with the nearby list as a fallback. Keep the protocol behind a small `SessionTransport` interface so a **LAN + WebSocket** transport can be added later. That later transport covers iOS and lets a browser show the scoreboard as a viewer.
-- **MVP plan:** Phase 0 makes game actions serializable commands (stable IDs). Phase 1 is a read-only **viewer**. Phase 2 adds **scanner clients** with player locks. Phase 3 adds resume and host-loss handling. Phase 4 (optional) adds LAN/WebSocket and a web or iOS viewer. Rough effort is about 3–5 weeks of focused work for phases 0–3.
+> Spec, 2026-10-18. Status: **flow agreed with the user; proposals below still to confirm; nothing in the UI built.**
+> A device-free protocol spike lives on the branch `worktree-agent-a50dec2812cd0b47a` (package `multiplayer/`, see §9). It is **not merged into main**.
+> Context: [APP_FLOW.md](APP_FLOW.md) (game flow), [../design/DESIGN_HANDOFF.md](../design/DESIGN_HANDOFF.md) (look), [../AGENTS.md](../AGENTS.md). App: `minSdk 29`, `targetSdk 37` (Android 17).
 
 ---
 
-## 1. What the user wants, in protocol terms
+## 0. Decisions, proposals, open questions
 
-| Use case | Data flow | Needs |
-|---|---|---|
-| **Second screen** (tablet on the table, or a guest's phone) | host → viewers: snapshot, then deltas | one-way, small JSON (< 5 KB per update), latency < 1 s, survives screen-off/reconnect |
-| **Multiple scanners** | scanner → host: commands; host → everyone: events | ordered, reliable, idempotent commands; conflict handling when two phones touch the same player; host stays the single writer to Room |
-| **Late join** | host → new device: full snapshot (players, seats, rounds, results, adjustments) | snapshot of about 10–30 KB for a long game |
+### 0.1 Decided by the user
+1. On the **host** (the phone that runs the game) the user taps **"Share this game"** (the user called it "connect others").
+2. **1–10 more people scan the host's QR code** with Scan7 on their own phone. Every phone needs the app.
+3. Each guest **picks who they are** (a player of this game).
+4. Each guest **picks the players they will scan**. Those players are **highlighted on that phone** and get **a small device badge on the other phones**, in both the table and the list view. A guest can technically still record other players, but the main flow is to scan only your own.
+5. Guests then scan their players.
+6. Guests can **only edit their own recent entries** (the running round). They can't make general score changes.
+7. Guests **can't change totals** (no Adjust total).
+8. Guests **can't end a round** (no Close round, Next round or End game).
+9. **Reuse the existing UI** as much as possible. The guest UI is the normal round screen with fewer buttons.
+10. **"Same players, new game"** keeps the joined guests connected. They move to the new game automatically.
+11. **Home** gets **"Join a game"**. The **round screen** gets **"Share this game"** (the QR).
+12. **Guests keep a copy of the game in their history**, marked "joined" (read-only).
+13. **Play services are OK.** The transport is **Google Nearby Connections (`P2P_STAR`)**. F-Droid isn't a target for multiplayer, so a Play flavor of the build is fine (§6.4).
+14. **Players can be managed during a game** (planned on main): only the host adds or removes players. Guests' claims on a removed player are dropped (§4.7).
 
-Bandwidth is tiny. A scan result is the list of confirmed cards (≤ ~20 cards), not the photo. **The camera frame and the training JPEG stay on the scanning phone** (training capture keeps working locally; see §5). So throughput is irrelevant for choosing a transport. What matters is **setup UX, offline robustness, permissions and iOS**.
+### 0.2 Proposals (please confirm or change)
+- **P1. One screen for steps 3 + 4**, "Who are you? · Who do you scan?". "Me" is preselected as scanned. You can add extra players, e.g. a neighbour without a phone. A player another device already scans shows that device's badge. Claiming them anyway asks first ("Take over Cleo from Anna's phone?"), and then they move to you.
+- **P2. "Share this game"** sits in the round menu (Actions group) and as a small icon in the round header (host only). It opens a **share sheet** with the QR, the connected devices (who they are, whom they scan, online or offline) and **Remove** per device (confirmation, destructive style). The sheet also has **Stop sharing**.
+- **P3. Conflicts:** the host decides, and its DB is the single source of truth. If two devices score the same player, the later one gets **"Already scored by <device> (+30)"**. Because of rule 6, a guest can't replace another device's entry: the dialog only has OK (the host can fix it). The host can always replace any entry.
+- **P4. Guest restrictions are hidden, not greyed out:** Close round, Next round, End game, Adjust total, Rearrange seats, target and game settings. When everyone is done, the guest's bottom bar shows **"Waiting for <host> to close the round"** (text, not a button). Edit, Rescan and Reset to open show only on the guest's own entries of the running round. Other entries show "Scored by <device>".
+- **P5. Host leaves or its phone dies:** guests see a non-blocking banner, "Connection lost · reconnecting…". They can keep scanning, and their scans wait in an outbox and are sent on reconnect. When the host app comes back, the same session resumes on its own. **Host migration is out of scope for v1.**
+- **P6. "Scan next"** on a guest walks only its own claimed players. On the host it walks the players nobody else claimed plus the host's own.
+- **P7. Badges:** the own players get a cyan outline plus a small "YOU SCAN" tag on the card or row. Other devices' players get a small phone badge with that device's owner avatar (initial). This needs a design pass (handoff rule).
+- **P8. Leaving:** "Leave game" (guest round menu) releases that phone's claims. A plain disconnect keeps them, so the badge goes to "offline" and the claims come back on rejoin.
+- **P9. Guest scoreboard:** read-only, including closed rounds (no reopen or edit).
+
+### 0.3 Open questions
+1. **P3:** if a guest scanned a player who another phone had already scored, is "OK, the host can fix it" enough? Or may a guest replace an entry of a player **it has claimed**?
+2. **P6:** should the host's Scan next also include guest-claimed players (e.g. so it can help when a guest is slow)?
+3. **Host's name in the UI:** the host phone's device name ("Pixel 10 Pro") or the host's "me" player ("Philip's phone")? The proposal is the "me" player, with the device name as fallback.
+4. **Guest player lists:** a joined game brings players the guest doesn't have stored. They are kept only for that game's history and never show in the guest's Players list. Should there be a "Save Philip to my players" option later?
+5. **Up to 10 guests + host = 11 phones, but a game has at most 10 players.** Is a guest without a player of its own (a pure viewer or helper) wanted? The proposal is yes: "Who are you?" can be "Just watching / helping".
+6. **Training scans on guests:** stay on the guest phone under its own debug setting (proposal). OK?
+7. **Test hardware for M2/M4:** is a second (and third) Android phone with Play services available? Nearby doesn't work between emulators.
 
 ---
 
-## 2. Technologies
+## 1. User stories
 
-### 2.1 Google Nearby Connections (Play services)
-- **What:** a peer-to-peer API that "combines Bluetooth, BLE and Wi-Fi", works "regardless of network connectivity", and is **fully encrypted**. Both sides accept the connection (a symmetric auth flow with an auth token that can be compared). [Overview](https://developers.google.com/nearby/connections/overview)
-- **Strategies:** `P2P_CLUSTER` (M-to-N mesh, lower bandwidth, "multiplayer gaming"), `P2P_STAR` (one hub with N spokes, higher bandwidth), and `P2P_POINT_TO_POINT` (1:1, highest throughput). [Strategies](https://developers.google.com/nearby/connections/strategies). Scan7 maps directly onto **`P2P_STAR`**: host = hub, scanners and viewers = spokes. Range is about 100 m. The docs give no fixed spoke count; in practice a table of up to 10 players is well within what people run.
-- **Payloads:** `BYTES` (one chunk), `FILE`, `STREAM`. Payloads of the same type arrive **in order**. [Exchange data](https://developers.google.com/nearby/connections/android/exchange-data). The BYTES limit is documented inconsistently: the overview says "32k", while the reference `MAX_BYTES_DATA_SIZE` is 1,047,552 bytes ([ConnectionsClient reference](https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionsClient)). **Design for ≤ 32 KB per message** and chunk or compress large snapshots.
-- **Permissions** (from the [Android get-started guide](https://developers.google.com/nearby/connections/android/get-started)):
-  - API 29–31: `ACCESS_FINE_LOCATION`
-  - API 31+: `BLUETOOTH_SCAN` / `BLUETOOTH_ADVERTISE` / `BLUETOOTH_CONNECT`
-  - API 32+: `NEARBY_WIFI_DEVICES`
-  - **API 37+: `ACCESS_LOCAL_NETWORK`** (Android 17, for the `WIFI_LAN` medium)
-
-  The API refuses to advertise or discover if any of them is denied. On Android 12+ these permissions mostly fall into one **"Nearby devices"** prompt.
-- **Requirements:** Google Play services (fine on the Pixel and almost all phones; not on de-Googled ROMs or Huawei). The Play services SDK collects analytics, which users can turn off in Settings → Google → Usage & diagnostics ([overview](https://developers.google.com/nearby/connections/overview)). That is a privacy caveat for a "local only" promise. No internet is needed at runtime.
-- **iOS:** Google ships a [Swift library](https://developers.google.com/nearby/connections/swift/get-started) from [google/nearby](https://github.com/google/nearby), which needs `NSBluetoothAlwaysUsageDescription` and `NSLocalNetworkUsageDescription`. Its maturity is doubtful: a maintainer reports that BLE between iOS devices works but **iOS↔Android has discovery/connection issues**, and the BLE v2 flag is not production-ready ([issue #1619](https://github.com/google/nearby/issues/1619)). The Swift package registry entry lists only a 2021 v0.0.1 ([registry](https://swiftpackageregistry.com/google/nearby)). Apple's own MultipeerConnectivity shares **no wire protocol** with Nearby, so an iPhone using it never sees an Android phone ([Codename One notes](https://codenameone.com/javadoc/com/codename1/nearby/transport/package-summary)). **Treat Nearby as Android-only.**
-- **Pros:** zero-config (no shared Wi-Fi, no IPs), works in a basement or at a cottage, encrypted, the medium upgrade is handled for you, and the dependency is small.
-- **Cons:** a closed-source Play services black box with OEM-specific quirks. Bluetooth plus Wi-Fi radios have to be on. Android-only in practice. Connection setup takes a few seconds.
-
-### 2.2 Plain Bluetooth: Classic RFCOMM and BLE GATT
-- **Permissions:** Android 12+ needs `BLUETOOTH_SCAN` (with `neverForLocation`), `BLUETOOTH_ADVERTISE` and `BLUETOOTH_CONNECT`, all runtime ("Nearby devices" prompt). ≤ Android 11 needs `ACCESS_FINE_LOCATION`. [Bluetooth permissions](https://developer.android.com/develop/connectivity/bluetooth/bt-permissions)
-- **Classic RFCOMM:** stream sockets with roughly 1–2 Mbit/s. In practice this needs **pairing or a discoverability dialog** ("Make discoverable for 120 s?"), and a server phone holds about 7 links at most (piconet). The UX is poor for guests.
-- **BLE GATT:** the host runs a GATT server and phones connect as centrals. Throughput is phone-dependent. A benchmark with 2M PHY and DLE reached about 1.2 Mbit/s to Pixel/Galaxy phones, but only about 0.3 Mbit/s to iPhones ([Infineon benchmark](https://community.infineon.com/t5/ModusToolbox-Blog/BLE-Throughput-Rate-Benchmark-Test-for-Cypress-BT-SoCs/bc-p/267238)). Nordic's model gives about 256 kbit/s at a 7.5 ms interval ([Nordic SoftDevice docs](https://infocenter.nordicsemi.com/topic/sds_s140/SDS/s1xx/ble_data_throughput/ble_data_throughput.html)). That is plenty for Scan7. The concurrent-connection limit isn't documented and depends on the stack and chip (commonly cited as about 7). You must build MTU negotiation, chunking, reliability and reconnects yourself. Throughput also drops when Wi-Fi is busy ([Nordic DevZone](https://devzone.nordicsemi.com/f/nordic-q-a/85258/comunicating-at-least-300-kbp-s-via-ble-nrf5340-with-android-phones/357443)).
-- **iOS:** BLE GATT is the one radio protocol that iOS *does* speak natively (CoreBluetooth, as central or peripheral). It is therefore the only offline radio route to iOS, but it costs the most to build well.
-- **Verdict:** Nearby Connections already wraps BLE/BT and does this work for us. Raw BLE only makes sense if offline iOS support becomes a hard requirement.
-
-### 2.3 Wi-Fi Direct (Wi-Fi P2P) and Wi-Fi Aware (NAN)
-- **Wi-Fi Direct:** a group owner (GO) plus clients, with ordinary sockets on top. It needs `NEARBY_WIFI_DEVICES` (API 33+) or `ACCESS_FINE_LOCATION` (≤ 32), and **Location Mode must be on** for `discoverPeers()` ([Wi-Fi P2P guide](https://developer.android.com/develop/connectivity/wifi/wifip2p)). Known UX quirks: a system invitation dialog on the other device, flaky GO negotiation across OEMs, discovery that stops, and conflicts with an active hotspot. **No iOS support.**
-- **Wi-Fi Aware (NAN):** since API 26. It is **optional hardware** (check `FEATURE_WIFI_AWARE` + `isAvailable()`), and some devices can't run it while Wi-Fi Direct, hotspot or tethering is active. Data paths and sessions are limited (`getAvailableAwareResources()`), and discovery messages are about 255 bytes and unreliable. The same `NEARBY_WIFI_DEVICES` permission applies. [Wi-Fi Aware guide](https://developer.android.com/develop/connectivity/wifi/wifi-aware). Pixels support it; many mid-range phones don't. iOS 26 added a Wi-Fi Aware framework, but mainly for EU interoperability with accessories; I found no evidence of phone-to-phone interoperability with Android. Treat it as unproven.
-- **Verdict:** both are lower-level than Nearby (which can use them internally) and give no benefit for Scan7's tiny payloads.
-
-### 2.4 Same Wi-Fi LAN: NSD/mDNS discovery + small server on the host (Ktor / WebSocket)
-- **How:** the host runs an embedded server (Ktor CIO + WebSockets) on a port, announces `_scan7._tcp` via `NsdManager`, and clients connect with a WebSocket. The QR can carry `ws://192.168.x.y:port/?s=<session>&k=<key>` directly, so no discovery is needed at all.
-- **Android 17 caveat (we target SDK 37):** local network protection is **enforced for apps targeting API 37**. Outgoing TCP, **accepting incoming TCP**, all UDP/multicast and `.local` mDNS resolution need **`ACCESS_LOCAL_NETWORK`** (runtime, in the `NEARBY_DEVICES` group; no second prompt if Bluetooth/nearby was already granted). Alternatively, the **NSD system picker** (`DiscoveryRequest.FLAG_SHOW_PICKER`) grants access to the one chosen device without the permission. Blocked TCP shows up as **timeouts** and UDP as `EPERM`. [Local network permission](https://developer.android.com/privacy-and-security/local-network-permission). So the host needs the permission (it accepts connections), and clients need it or the picker.
-- **No router (host hotspot):** `WifiManager.startLocalOnlyHotspot()` creates a hotspot with **no internet access**. The system picks the SSID and passphrase (readable via `getSoftApConfiguration()`, API 30+). It needs `NEARBY_WIFI_DEVICES` (target 33+). [LocalOnlyHotspot](https://developer.android.com/develop/connectivity/wifi/localonlyhotspot). The host can show a **Wi-Fi QR** (`WIFI:T:WPA;S:…;P:…;;`) that the system camera can join, then a second QR or a deep link for the session. Quirks: the guest's phone leaves its own Wi-Fi, may warn "no internet" and loses mobile data on some phones, and some chipsets can't run the hotspot and a Wi-Fi client together. This is clunkier than Nearby.
-- **iOS:** this path works natively. `URLSessionWebSocketTask` or the Network framework connects to the host, browsing needs `NSLocalNetworkUsageDescription` + `NSBonjourServices`, and there is a known flaky "Local Network" prompt with no API to query its state ([Apple forums](https://developer.apple.com/forums/thread/653316), [MASTG](https://mas.owasp.org/MASTG/knowledge/ios/MASVS-PLATFORM/MASTG-KNOW-0128/)).
-- **Bonus:** the same Ktor server can serve a small **web scoreboard** (`http://host:port/`). Any tablet, laptop or iPhone could then be a **viewer with no app install**, by scanning the QR. Browsers are adding their own local network access prompts, so test that.
-- **Pros:** open, debuggable (curl, browser), cross-platform, and the server/WebSocket is plain Kotlin that can be tested on the JVM.
-- **Cons:** needs a shared Wi-Fi (guests are often not on the host's Wi-Fi) or the hotspot dance. Guest Wi-Fi with client isolation silently breaks it. More moving parts (server lifecycle in a foreground service, IP changes).
-
-### 2.5 QR-code joining (works with any transport)
-The host shows a QR containing `scan7://join?v=1&s=<sessionId>&k=<base64 32-byte key>&h=<host endpoint name>[&ws=<url>]`. The joiner scans it with Scan7's own CameraX (or the system camera via a deep link).
-- With **Nearby**, the joiner discovers only the endpoint whose name matches `h`/`s` and auto-accepts, so there is no list and no "compare these codes" step. After connecting, it proves knowledge of `k` with an HMAC challenge (Nearby already encrypts; the key adds *authorization*).
-- With **LAN**, the QR carries the URL directly, so there is no mDNS step (which also sidesteps flaky mDNS).
-- Fallback without a camera, or for a tablet with a bad camera: a "Nearby games" list plus a 4-digit code shown on the host.
-
-### 2.6 Online options (fallback, brief)
-| Option | What it adds | Cost / limits | Privacy |
+| # | As … | I want … | Acceptance |
 |---|---|---|---|
-| **Firebase Realtime DB / Firestore** | No host phone needed; works across networks (a remote player, a TV at home); built-in offline cache | Spark free tier: RTDB 100 concurrent connections, 1 GB, 10 GB/month; Firestore 50K reads / 20K writes per day ([pricing](https://firebase.google.com/pricing)). Plenty for game nights | Data at Google; needs anonymous auth + security rules; the app gets an internet dependency and a project to maintain |
-| **Supabase Realtime** | Same, Postgres-based, open source | Free: 500 MB, 200 concurrent realtime connections, 2M messages/month, **paused after 1 week of inactivity** ([pricing](https://supabase.com/pricing)), which is bad for occasional game nights | Hosted (EU region possible) or self-hosted |
-| **Self-hosted relay** (a tiny WebSocket relay on a VPS / Cloudflare Worker + Durable Object) | Same protocol as the LAN transport, just relayed; can be end-to-end encrypted with the QR key, so the relay sees only ciphertext | about €0–5/month; you run it | Best of the online options if E2E-encrypted |
-
-The online options solve "no host phone" and "different rooms", which nobody asked for. **Not recommended for now.** The relay is the natural later extension because it reuses the same protocol and key.
-
-### 2.7 Comparison
-
-| | Offline (no internet) | No router needed | Range | Throughput | Setup UX for a guest | Android requirements | iOS | Effort / complexity |
-|---|---|---|---|---|---|---|---|---|
-| **Nearby Connections (P2P_STAR)** | ✅ | ✅ | ~100 m | high (BLE → Wi-Fi upgrade) | ★★★ scan QR → connected (one "Nearby devices" prompt) | Play services; BT + Wi-Fi on; Nearby/BT/Wi-Fi perms; `ACCESS_LOCAL_NETWORK` on 17 | ⚠️ Google Swift lib exists, Android interop unreliable | **Low–medium** |
-| **BLE GATT (raw)** | ✅ | ✅ | ~10–30 m indoors | ~0.2–1.2 Mbit/s | ★★ scan → connect, no pairing needed | BT perms (12+), location ≤ 11 | ✅ CoreBluetooth | High (MTU, chunking, reliability) |
-| **Bluetooth Classic RFCOMM** | ✅ | ✅ | ~10 m | ~1–2 Mbit/s | ★ pairing/discoverable dialogs | BT perms | ❌ (MFi only) | Medium; ~7 links |
-| **Wi-Fi Direct** | ✅ | ✅ | ~50 m | high | ★ system invite dialogs, flaky across OEMs | `NEARBY_WIFI_DEVICES` + Location Mode on | ❌ | Medium–high |
-| **Wi-Fi Aware (NAN)** | ✅ | ✅ | ~50 m | high | ★★ when supported | `FEATURE_WIFI_AWARE` (not on many phones), `NEARBY_WIFI_DEVICES` | ❓ iOS 26 framework, interop unproven | High |
-| **LAN + NSD + WebSocket (Ktor)** | ✅ (LAN only) | ❌ (shared Wi-Fi) | Wi-Fi coverage | high | ★★ if on the same Wi-Fi: scan QR → connected | `ACCESS_LOCAL_NETWORK` (17) or NSD picker | ✅ native + **browser viewer** | **Medium** (server + lifecycle) |
-| **LAN via host LocalOnlyHotspot** | ✅ | ✅ | ~30 m | high | ★ join hotspot (QR) + session QR; leaves own Wi-Fi | `NEARBY_WIFI_DEVICES`; chipset concurrency | ✅ (joins Wi-Fi via QR) | Medium–high |
-| **Firebase / Supabase** | ❌ | n/a | global | fine | ★★★ (QR = room id) | internet | ✅ | Low–medium + backend ops |
-| **Self-hosted relay** | ❌ | n/a | global | fine | ★★★ | internet | ✅ | Medium + a server |
+| U1 | host | to tap **Share this game** and show a QR | QR + "0 phones connected" within 1 s. Advertising runs while the sheet is closed (foreground-service notification) |
+| U2 | guest | to tap **Join a game** on Home and scan the QR | Connected in ≤ 10 s with one permission prompt. Then "Who are you · Who do you scan?" |
+| U3 | guest | to say who I am and whom I scan | My players are highlighted on my phone. The others see my badge on them within 1 s |
+| U4 | guest | to scan my own row on my phone | Review → OK → my result shows on every phone within 1 s. Pending shows a hollow ✓ until the host confirms |
+| U5 | everyone | to see the live table | Every phone shows the same results, totals, leader and round. Remote results flash briefly ("by Anna's phone") |
+| U6 | host | to take over a player who has no phone | Unclaimed players are the host's by default. The host can scan or edit any player, any time |
+| U7 | guest | to fix my own mistake | Edit, Rescan, Reset and Undo bust on my own entries of the running round |
+| U8 | host | to close the round, end the game, adjust totals | As today. Guests see the result. Guests never get these buttons |
+| U9 | guest | to leave and come back | Leave → the history copy stays, the claims are released. Rejoin by QR → snapshot, the claims are offered again |
+| U10 | guest | my phone dropping off (screen off, out of range) to cost nothing | Reconnects by itself and gets a snapshot. Scans made meanwhile are sent then |
+| U11 | late joiner | to join in round 5 | Snapshot of the whole game, then step U3 |
+| U12 | host | my phone dying or the app being killed not to lose the game | The game is in the host's DB. Reopening Scan7 resumes sharing with the same QR, and guests reconnect |
+| U13 | host | "Same players, new game" with everyone still connected | Guests switch to the new game, and their claims stay |
+| U14 | host | to add or remove a player mid-game (once main has it) | Every phone updates. Claims and entries of a removed player go away |
+| U15 | host | to remove a phone | It is disconnected and can't rejoin this session. Its claims are released |
+| U16 | guest | a copy of the game in my history | A history row marked "Joined · Philip's phone" opens a read-only scoreboard |
 
 ---
 
-## 3. Architecture
+## 2. UX per screen (minimal, reuse first)
 
-### 3.1 Host-authoritative vs. replicated state
-| | **Host-authoritative** (recommended) | Peer-replicated (CRDT / merged event log) |
-|---|---|---|
-| Source of truth | Host's Room DB, unchanged schema | Every device; merge on reconnect |
-| Fit with existing code | Direct: commands map 1:1 to `GameRepository` methods (`scoreCards`, `bust`, `undoBust`, `resetToOpen`, `adjustTotal`, `removeAdjustment`, `closeRound`, `nextRound`, `reopenRound`, `endGame`, …), which already run `GameState` transitions inside `mutate()` | Needs commutative ops or vector clocks; `closeRound` (marks every open player BUST) and game-over are inherently order-dependent |
-| Conflicts | Host decides by arrival order + version checks | Merge rules for every field; surprising results ("Ben scored twice") |
-| Host leaves | Game pauses for clients (see §3.5) | Keeps going on all devices |
-| Effort | Low–medium | High |
+Everything new uses existing components: `Scan7ConfirmDialog`, the M3 bottom sheet, `PlayerAvatar`, the round cards and rows, the camera chrome and the snackbar or toast. **New screens and badges need a design pass with the user before M3 is built** (DESIGN_HANDOFF rule).
 
-A game round at one table has a natural single owner. **Go host-authoritative.** The P2P_STAR topology (or a WebSocket server) matches it exactly.
+**Home**
+- A new tertiary text button **"Join a game"** goes under the pinned **Players · New game** row. It opens the join flow.
+- The Resume card of a shared game shows "Shared · 3 phones". On a guest it shows "Joined · Philip's phone" while the session lives.
+- In Past games, joined games show the tag **"Joined"**. Tapping one opens the read-only scoreboard, and they can be deleted like any other game.
 
-### 3.2 Identity: needed groundwork (Phase 0)
-Room IDs are local `Long` autoincrements, so they are not meaningful on another phone. For the session:
-- Give every game a **`gameUid` (UUID)** and use **session-scoped player refs**: the host's `playerId` is sent along with name + colorIndex. Clients keep **no** copy in their own player list (optional "save a copy of this game" later; see open questions).
-- Results already key on `(roundNumber, playerId)`. Adjustments get a `uid` so removal can address them across devices.
-- Introduce a serializable **`GameCommand`** sealed class (kotlinx.serialization) in plain Kotlin under `game/`, with one `GameRepository.apply(gameId, cmd)` that dispatches to the existing methods. Local UI can use the same path, so single-device and multi-device take one code path. This is fully JVM-testable.
+**Join flow (guest, new)**
+1. **QR scanner:** the existing camera chrome (← back, title "Scan the QR on the host's phone", no shutter). Decoding uses ZXing core (Apache-2.0, pure Java) on CameraX frames. A `scan7://join?...` deep link also works from the system camera.
+2. **Permission rationale** (one line + Continue), then the system **"Nearby devices"** prompt (§6.3). On denial: "Scan7 needs Nearby devices to join · Open settings".
+3. "Connecting to Philip's phone…", then **Who are you? · Who do you scan?** (P1). This reuses the New game player list (avatar rows). The top section, "I am", is a single choice plus "Just watching". The second section, "I scan", is multi-select with me preselected. Rows claimed by another phone show its badge. **Done** → round screen.
 
-### 3.3 Protocol (transport-independent)
-JSON messages (≤ 32 KB), a version field, and a thin `SessionTransport` interface (`send(peer, bytes)`, `broadcast(bytes)`, `events: Flow<PeerEvent>`) with a Nearby implementation and, later, a WebSocket one.
+**Round screen: host**
+- Header: a small **share icon** next to ⋮ (filled while sharing, with the count of phones). Round menu → Actions → **Share this game**.
+- **Share sheet:** big QR + short code, then the devices (owner avatar, name, "scans: avatars…", ● online / ○ offline, ✕ Remove → confirm "Remove Anna's phone?" destructive), then **Stop sharing** (confirm).
+- Cards and rows of guest-claimed players carry the device badge. A remote result flashes "by Anna's phone" for 2 s.
+- Close round: if a guest still has an open player, the existing confirmation adds "Anna's phone is still scanning Ben."
 
-```
-client → host
-  Hello{protocol:1, deviceName, role:viewer|scanner, hmac(k, nonce), lastSeq?}
-  Command{cmdId: UUID, baseSeq, expect?: {round, playerId, resultVersion}, cmd: GameCommand}
-  Lock{playerId, round} / Unlock{playerId}        // scanner "I'm scanning Ben"
-  Ping
+**Round screen: guest** (the same composables, fewer actions)
+- Header: logo · Table|List · ⋮. The guest's ⋮ holds: Scoreboard, Scan direction, **Who do you scan?**, **Leave game** (confirm). Rearrange seats and End game are left out.
+- Own players are highlighted (P7). Others' players have badges.
+- Bottom: **Scan next · <my next open player>** (P6). Close round is left out. When all my players are done, **Scan next** gives way to "Waiting for Philip to close the round" (muted text), or to "All your players are done" while others are still open.
+- Player sheet: an open player has Scan · Enter manually · Bust. My own done entry has Edit · Rescan · Reset to open. Someone else's entry shows the result + "Scored by Ben's phone", read-only. Adjust total is left out.
+- Banner states: "Connection lost · reconnecting…" (non-blocking), "Removed by the host" (blocking, → Home).
 
-host → client
-  Welcome{sessionId, yourPeerId, role, snapshot: GameSnapshotDto, seq}
-  Event{seq, cmdId?, by: peerId|host, event: GameEvent}   // applied, ordered
-  Reject{cmdId, reason: STALE|LOCKED|ROUND_CLOSED|NOT_ALLOWED, current?}
-  Locks{map playerId -> peerId+expiresAt}
-  Snapshot{seq, …}                                       // on resume gap / periodically
-```
+**Scan flow (both)**
+- Unchanged camera, review and manual screens. On a guest, OK sends the intent and returns as usual. The card shows a **hollow ✓ (pending)** until the host's event arrives.
+- Refusals become a `Scan7ConfirmDialog`-style info dialog: "Already scored by Ben's phone (+30)" · OK, or "Round 3 was closed by Philip" · OK.
+- Photos and training JPEGs never leave the phone.
 
-- **Sequence numbers:** the host increments `seq` per applied event and persists `seq` with the game. A client that sees a gap asks for `Resume{lastSeq}`. The host replays events from a bounded in-memory/Room log, or just sends a fresh snapshot (simpler: **snapshot on any gap**, because a snapshot is small).
-- **Idempotency:** the host remembers recent `cmdId`s, so a retried command after a reconnect is acknowledged, not applied twice.
-- **Events = commands as applied** plus derived effects (e.g. `RoundClosed{bustedPlayers}`), so viewers can animate "Ben BUST" without diffing. Clients can also simply re-render from snapshot + event application using the same `GameState` code.
-
-### 3.4 Conflict rules
-1. **Locks first, as a soft lease (UX):** when a scanner opens the camera for Ben, it sends `Lock(Ben)`. The host grants it if it is free (lease of 90 s, renewed while the camera is open; released on OK/back/disconnect). Other devices show "**Ben · being scanned by Anna's phone**" and their Scan button asks "Take over?". The host's own UI can always break a lock.
-2. **Optimistic check on write (correctness):** `Command.expect.resultVersion` (e.g. the result's `updatedAt` or a per-result counter). If the result changed since the scanner looked, the host replies `Reject(STALE, current)`, and the scanner shows "Ben was already scored +46 by Max. Replace with +38?" → resend without `expect`. **Last confirmed write wins, but never silently.**
-3. **Round boundaries:** a command for a round that the host has since closed is rejected (`ROUND_CLOSED`). The client offers "Apply to round N (closed, reopens totals)", which maps to the existing edit-closed-round path.
-4. **Close round / Next round / End game / Reopen / seating / target** are **host-only** in the MVP (one person runs the game). The host sees a warning if any lock is active: "Anna is still scanning Ben".
-5. **Undo** (bust undo toast, adjustment removal) is just another command with an `expect` check.
-
-### 3.5 Reconnect, late join, host loss
-- **Late join / reconnect:** `Hello{lastSeq}` → `Welcome{snapshot}`. A viewer that comes back after screen-off is instantly current. Nearby connections drop when the app is backgrounded for long; the host should run a **foreground service** while hosting (also needed so the host can keep serving while its own camera is open).
-- **Client offline queue:** a scanner that loses the link mid-scan keeps the confirmed result in an outbox and sends it on reconnect (idempotent `cmdId`, `expect` check → may get STALE).
-- **Host leaves or crashes:** clients show "Host disconnected – reconnecting…" and keep retrying for a while. The game is safe on the host's disk (Room) and resumes when the host app returns (re-advertise the same session id and key, so clients auto-reconnect). **No automatic host migration in the MVP.** Phase 3 option: "**Continue on this phone**" lets a client turn its latest snapshot into a local game (new `gameUid`, forked) and optionally re-host it. Merging the fork back is out of scope.
-
-### 3.6 Roles
-| Role | Can | UI |
-|---|---|---|
-| **Host** | everything (as today) + start/stop sharing, see who is connected, kick, break locks | Round menu ⋮ → **Share game…** shows the QR + list of connected devices |
-| **Scanner** | scan / enter manually / bust / edit *assigned or any open* players (setting on the host: "Scanners may edit: any player · only open players · only assigned"), adjust total (optional, see questions) | Same round screen; lock badges; host-only actions hidden or disabled; a header pill "Joined · Philip's Pixel" |
-| **Viewer** | read only | Big scoreboard / round view (landscape, tablet-friendly, keep-screen-on), auto-follows round changes and the game-over screen |
-
-Optional "assigned players": the host taps a player → "Scanned by: Anna's phone". It is a soft default for *Scan next* on that phone (Scan next cycles only through its assigned open players), not a hard permission.
+**End of round / game over**
+- The host is unchanged. On a guest, the end-of-round view replaces **Next round** with "Waiting for Philip…". Game over on a guest shows the result + **Leave**, with no New game buttons. When the host taps **Same players, new game**, every guest goes straight to round 1 of the new game with its claims kept (U13).
 
 ---
 
-## 4. UX sketch
+## 3. Roles and permissions
 
-- **Host:** ⋮ → **Share game** → sheet with a large QR, a "Viewer / Scanner" toggle (the QR encodes the role or the joiner picks one), a short code for manual entry, and the connected-devices list (name, role, ● online). Sharing starts a foreground service (persistent notification "Scan7 is sharing a game").
-- **Joiner:** Home → **Join game** → camera QR scanner (CameraX is already in the app; ML Kit barcode or ZXing) → one "Nearby devices" permission prompt → "Joined Philip's game · Round 3". Fallback: "Nearby games" list + 4-digit code.
-- **Round screen on a scanner:** identical look. A player card being scanned elsewhere shows a small device chip + "scanning…". The card shows "✓ +46 · by Anna" briefly when a remote result arrives.
-- **Disconnect:** non-blocking banner "Reconnecting to Philip's phone…". Commands taken meanwhile are shown as "pending" (hollow ✓).
-- Per the design-handoff rule, **these new screens need a design pass with the user** before building (Share sheet, Join scanner, viewer layout, lock chip).
-
-## 5. Security & privacy
-- **Local only:** no account, no server, no internet. Nearby is encrypted on the link. For a LAN transport, add TLS or, simpler, **encrypt and authenticate each message with the session key from the QR** (e.g. AES-GCM/ChaCha20 via Tink or `javax.crypto`), so other devices on the same Wi-Fi can't read or inject messages.
-- **Session key** (32 random bytes) per share session, only in the QR (or a short code + PAKE if the manual-code path must be secure; for a card game, a 4-digit code with a host-side "Accept Anna's phone?" confirmation is enough). Rotating the key on "Stop sharing" ends all access.
-- **Data shared:** player names + colors, results, cards. **No photos**: training JPEGs stay on the device that took them (each phone's own "Save scans for training" setting applies). The `PRIVATE_*` rules are unaffected.
-- **Nearby caveat:** the Play services SDK sends usage analytics unless the user disables it ([overview](https://developers.google.com/nearby/connections/overview)). Mention this honestly if "local only" is advertised.
-- **Permissions:** only requested when the user taps Share/Join (never at startup), with a rationale screen. On Android 17 the Nearby/Bluetooth and local-network permissions sit in one "Nearby devices" group.
-
-## 6. Recommendation
-
-**MVP: Nearby Connections `P2P_STAR` + QR join + host-authoritative command/event protocol behind a `SessionTransport` interface.**
-
-Rationale:
-1. **The game is played at a table, often away from home.** Nearby works with no router, no shared Wi-Fi and no internet; LAN needs a common Wi-Fi or the clumsy hotspot dance. Zero-config wins for guests.
-2. **The permission cost is about the same either way on Android 17**: LAN needs `ACCESS_LOCAL_NETWORK` too (in the same "Nearby devices" group), so LAN isn't simpler on our target SDK.
-3. **The payloads are tiny**, so Nearby's medium upgrades and the 32 KB limit don't matter.
-4. **iOS is the one real argument for LAN/WebSocket.** Nearby's iOS interop is unreliable, so the protocol stays transport-agnostic, and a **LAN/WebSocket transport + browser viewer** is Phase 4 if iPhones or a non-Android tablet need to join. Raw BLE (the only offline radio path to iOS) is not worth it.
-
-**Flip condition:** if the main wish is "*a tablet/laptop/iPhone as a scoreboard without installing anything*", then start with **LAN + Ktor WebSocket + a web viewer page** instead. The command/event design stays identical.
-
-## 7. Phases & effort (rough, one developer with agents; days = focused working days)
-
-| Phase | Scope | Effort |
+| Action | Host | Guest |
 |---|---|---|
-| **0 – Groundwork** | `GameCommand`/`GameEvent` (kotlinx.serialization), `GameRepository.apply`, `gameUid`, adjustment uid, `seq` in the games table (DB v4 migration + MigrationTest), snapshot DTO; JVM tests for command → state | 2–4 d |
-| **1 – Viewer (second screen)** | `SessionTransport` + Nearby impl, host foreground service, Share sheet with QR, Join with QR scanner, HMAC hello, snapshot + events, read-only viewer screen (reuse round/scoreboard composables), reconnect banner; test on Pixel + emulator/second phone | 5–8 d |
-| **2 – Multiple scanners** | Scanner role, commands from the client round screen/scan flow, locks + lease UI, STALE/ROUND_CLOSED handling, outbox, host-only actions, "by Anna" attribution, assigned players for Scan next | 6–10 d |
-| **3 – Robustness** | Resume after host restart (same session), kick/stop sharing, "Continue on this phone" fork, multi-OEM testing (Samsung/Xiaomi quirks), battery/screen-off behaviour | 3–6 d |
-| **4 – optional** | LAN/WebSocket transport (Ktor CIO) + web viewer page, encrypted messages with the session key; later iOS viewer/scanner or E2E relay | 5–10 d |
+| Score an open player (scan / manual / bust), running round | ✅ | ✅ (anyone; the main flow is own players) |
+| Edit / rescan / reset / undo bust a done result, running round | ✅ any | ✅ **only entries this phone made** |
+| Edit results of closed rounds, reopen a round | ✅ | ❌ |
+| Close round · Next round · End game · Abandon | ✅ | ❌ |
+| Adjust total / remove an adjustment | ✅ | ❌ |
+| Rearrange seats, view per game, target | ✅ | ❌ (Table/List view toggle is local only) |
+| Claim players ("who do you scan") | ✅ (always wins) | ✅ (asks before taking players from another phone) |
+| Add / remove players mid-game, rename players | ✅ | ❌ |
+| Share / stop sharing / remove a phone | ✅ | ❌ (Leave only) |
 
-**MVP = Phases 0 + 1** (about 1.5–2.5 weeks) gives a live second screen. **Phase 2** adds multiple scanners (about 1.5 weeks more).
+One pure function enforces this on both sides: `GuestRules.refusal(action, state, authors, device)`. The host checks every intent with it, and the guest UI uses the same function to decide which buttons to show.
 
-## 8. Risks
-- **Nearby OEM quirks / black box:** connection drops, slow discovery on some brands, background limits. Mitigations: foreground service, snapshot-on-reconnect, a transport interface so LAN can replace it.
-- **Testing needs ≥ 2 physical devices.** Emulators don't do Nearby radios well. Today there is one Pixel test phone, so a second Android phone or tablet is needed.
-- **Android 17 local-network permission** if/when we add LAN: test TCP timeouts vs. denial carefully ([docs](https://developer.android.com/privacy-and-security/local-network-permission)).
-- **Scope creep in conflict UX:** keep host-only control for round/game-level actions in the MVP.
-- **Design handoff:** new screens aren't in `DESIGN_HANDOFF.md`, so they need agreement before UI work.
-- **Play services dependency** excludes de-Googled phones and adds the analytics caveat.
-- **iOS later:** a Nearby-only app can't add iPhones without a second transport. This is accepted, given the plan above.
+---
 
-## 9. Open questions for the user
-1. **Who will join?** Only Android phones (yours + friends'), or also **iPhones / an iPad / a laptop browser**? This decides Nearby-first vs. LAN-first (§6 flip condition).
-2. **Where do you play?** Mostly at home with shared Wi-Fi, or also away (cottage, train, a friend's place)?
-3. **Priority:** is the **second screen** (Phase 1) enough at first, or is **multi-scanner** the real goal?
-4. **Scanner permissions:** may scanners edit any player, only open ones, or only assigned ones? May they adjust totals, bust, reopen? Or is the host the only one who closes rounds (proposed)?
-5. **Guest data:** should a joined phone keep a copy of the finished game (and the players) in its own history, or forget it when the session ends?
-6. **Host leaving:** is "game pauses until the host is back" acceptable, or do you want "continue on this phone" (a fork) in the MVP?
-7. **Is the Play services analytics caveat OK** for a "local only" promise, or must it be strictly open-source and local (→ LAN/WebSocket)?
-8. **Test hardware:** is a second Android device available for development?
+## 4. Architecture
+
+### 4.1 Host-authoritative event log + snapshot
+- The **host's Room DB is the source of truth.** Guests never write game state. They send **intents** (`Intent{intentId, baseSeq, action: GameAction}`).
+- `GameAction` is a sealed, `@Serializable` wire form of the existing `GameState` mutations (`ScoreCards`, `ScorePoints`, `Bust`, `UndoBust`, `ResetToOpen`, host-only `AdjustTotal`, `RemoveAdjustment`, `CloseRoundAndStartNext`, `ReopenRound`, `EndGame`, `ReorderSeats`, `MovePosition`, …). Player actions carry an **explicit round**, so a late intent never lands in the next round.
+- The host applies an accepted action with the same pure `GameState` code (in the app: `GameRepository.apply(gameId, action)` → `mutate`). It numbers the action with a gap-free **`seq`** and broadcasts `Event{seq, at, action, intentId, by}`.
+- **Guests mirror** by applying each event with the **same `GameAction.apply(state, at, seq)`**: same input, same timestamp, same state. A seq gap or an apply failure → `ResyncRequest` → `Snapshot`. Every (re)join gets a `Welcome` with the full snapshot (10 players × 30 rounds ≈ 7 KB gzipped, measured), so no event replay is needed.
+- **Host UI = local path:** the host's own taps go through the same `GameAction` path (`HostSession.perform`), so one code path serves single-phone and shared play. Without sharing, nothing changes.
+
+### 4.2 Conflict handling (in order, per intent)
+1. **Duplicate** `intentId` (a retry after a reconnect): answered with the original outcome (`IntentAck` or the same refusal). It is never applied twice.
+2. **Host-only** action → `NOT_ALLOWED`.
+3. **Stale:** the result the intent targets changed after the guest's `baseSeq` (another phone scored that player, or the round was closed) → `STALE` with `author` ("Already scored by Ben's phone"). `baseSeq` is the seq the guest saw when the user **started** the action (opened the camera), not when it was sent.
+4. **Guest rules** (§3): older round, or another device's entry → `NOT_ALLOWED` with `author`.
+5. **`GameState` refuses** it (game over, unknown player, nothing to undo) → `INVALID`.
+
+There are no merges and no CRDT. Order of arrival at the host decides, and every refusal is shown to the user (P3).
+
+### 4.3 Claims ("who do you scan")
+- The host keeps a **roster**: `DeviceInfo{deviceId, name, me, scans, connected}`, with the host itself as `"host"`. It broadcasts `Roster` on every change (join, drop, claim, remove).
+- `Claim{me, scans, force}`. Players another device scans → `ClaimRejected{conflicts}` (nothing changes). The UI asks, then resends with `force = true`, which moves the players. The host's own claims always win.
+- Claims are **UI guidance only**, not permissions. Any guest may score an open player (rule 4). Badges, highlights and Scan next come from the roster.
+- Claims survive a disconnect (shown offline) and a rejoin (the same `deviceId`). "Leave game" releases them (P8, to build in M1).
+
+### 4.4 Identity
+- **`deviceId`:** a random UUID per install (settings table). It recognises a returning phone on a new transport endpoint, and the old link is dropped.
+- **Player ids** in the protocol are the **host's** Room ids, valid inside the session. The snapshot carries `PlayerDto{id, name, avatar}`.
+- **`gameUid`** (new, UUID column on `games`): the guest's history copy is keyed by `(gameUid)`, so rejoining updates the copy instead of duplicating it. "Same players, new game" creates a new uid.
+- **Adjustment ids** are the event `seq` that created them (spike) or a new `uid` column, so "remove adjustment" addresses the same row on every phone.
+
+### 4.5 Offline-first and persistence
+- **Host:** game state as today (Room). New table `share_session` (M1): `sessionId`, `token`, `gameId`, `seq`, the last ~1000 intent outcomes (dedup across restarts), and the roster. With it, a host restart **resumes the same session**: same QR, guests reconnect on their own, nothing is applied twice, and intents older than the restart are treated as stale (`floorSeq`).
+- **Guest:** the session mirror lives in memory (plus `SavedStateHandle`). After each snapshot or event, the latest state is also written as the **joined history copy** (`games.origin = JOINED`, `host_name`, `game_uid`). Its players are stored as hidden per-game players (`players.joined_only = 1`, never in the Players list). The **outbox** (pending intents) is persisted too, so a scan made while offline survives the guest app being killed.
+- **DB migration** (v5, M1): `games.game_uid`, `games.origin`, `games.host_name`, `players.joined_only`, `share_session`. Each gets a MigrationTest, as for v3/v4.
+
+### 4.6 Lifecycles
+- **Late join / reconnect:** `Hello{lastSeq}` → `Welcome{seq, snapshot, roster}` → the guest resends its outbox (same ids).
+- **Guest drop:** the host marks it offline and keeps its claims. The guest retries discovery of the same endpoint name (with backoff, up to 10 min, then "Rejoin" + QR).
+- **Host app killed / phone dies:** guests show the banner (P5) and keep queueing. Guest phones still have a full copy. When the host reopens Scan7, Resume → sharing restarts from `share_session` → guests reconnect. If the host phone is gone for good, the guests keep their read-only history copy. Host migration ("continue on this phone") is a later option, not v1.
+- **Same players, new game:** `HostSession.newGame(game, players)`. The seq continues, staleness and authors reset, and claims are kept for the players still in the game. Guests receive a `Snapshot` with the new game id.
+- **Stop sharing / remove a phone:** removed phones get `HelloRejected(REMOVED)` and are disconnected. They can't rejoin this session; a new share session (new token) resets that.
+
+### 4.7 Managing players during a game (planned on main)
+- Adding or removing a player is a **host-only** change made through the repository (it is not a guest intent). The host then calls `HostSession.updateGame(game, players)`. The seq advances and everyone gets a `Snapshot` + `Roster`.
+- A **removed** player's claims (`me` or `scans`) are dropped on every device, and so are their entry authors. Intents still in flight for them fail as `INVALID` ("Cleo is no longer in this game").
+- An **added** player appears unclaimed, so the host scans them by default and any guest can claim them.
+- Once main has `GameState.addPlayer` / `removePlayer`, both become ordinary `GameAction`s (`AddPlayer{PlayerDto}`, `RemovePlayer{id}`, host-only). That keeps them in the event log, and the snapshot path stays as the fallback.
+
+### 4.8 Threading
+Sessions are plain Kotlin and not thread-safe. In the app, each one runs on a single-threaded dispatcher (`Dispatchers.Default.limitedParallelism(1)`). Nearby callbacks post to it, and the UI observes `StateFlow`s (`ClientSession.view`, host state via Room flows).
+
+---
+
+## 5. Protocol
+
+### 5.1 Framing
+The transport payload is one BYTES payload per message: `[format byte][body]`. Format `0` = UTF-8 JSON, `1` = gzipped JSON (used from 4 KB). The body is `{"v": <protocol>, "m": {"type": "...", ...}}`, encoded with kotlinx.serialization (already a dependency: polymorphic sealed classes, `classDiscriminator = "type"`, `ignoreUnknownKeys`). The design limit is **32 KB per frame**. Nearby's own limit is about 1 MB, and a measured 10-player, 30-round snapshot is about 7 KB gzipped.
+
+### 5.2 Messages
+```
+guest → host                                  host → guest
+hello{sessionId, token, deviceId,             welcome{sessionId, seq, snapshot, roster}
+      deviceName, lastSeq?}        [frozen]   hello_rejected{reason, hostProtocol}   [frozen]
+intent{intentId, baseSeq, action}             event{seq, at, action, intentId?, by?}
+claim{me?, scans[], force}                    intent_ack{intentId, seq}          (duplicate)
+resync{lastSeq}                               intent_rejected{intentId, reason, detail?, author?}
+(leave{} – M1)                                snapshot{seq, snapshot}
+                                              roster{devices[]}
+                                              claim_rejected{conflicts[]}
+snapshot = {game: GameDto, players: [PlayerDto], authors: [{round, playerId, deviceId}]}
+```
+`reason`: join `VERSION_MISMATCH | BAD_TOKEN | WRONG_SESSION | SESSION_FULL | REMOVED`, intent `STALE | NOT_ALLOWED | INVALID`.
+
+### 5.3 Wire DTOs
+The domain classes (`GameState`, `PlayerResult`, …) are **not** annotated. The protocol has its own DTOs (`GameDto`, `RoundDto`, `ResultDto`, `WireCard{label, ignored}`). Card labels are the stable detector labels (`ml/config/cards.yaml`), so refactoring the domain can't silently change the wire format.
+
+### 5.4 Versioning
+- `PROTOCOL_VERSION = 1`. Peers need the **same major version**. Adding an optional field with a default needs no bump, because old peers ignore unknown keys. Anything else bumps the version.
+- The codec reads `v` **before** decoding the message and refuses non-frozen messages of another version (`UnsupportedVersion`).
+- **Frozen forever:** the frame layout, `hello`, `hello_rejected`, and the `JoinRejection` values. An outdated phone can therefore always be told "Update Scan7 on this phone (host uses protocol 2)".
+- The QR carries `v` as well, so the joiner can warn before connecting.
+
+---
+
+## 6. Transport: Nearby Connections
+
+### 6.1 Shape
+- Strategy **`P2P_STAR`**: the host advertises, guests discover. The service id is `net.moesli.scan7.mp` (the app id + `.mp`; debug suffixes give separate ids, so a debug build and a release build never mix). Only BYTES payloads are used.
+- The **endpoint name** = `scan7:<sessionId>`. The guest discovers, matches the session id from the QR, requests the connection and **accepts automatically** (no "compare the codes" dialog). The token then authorises the phone in `hello`.
+- `NearbyHostTransport` / `NearbyClientTransport` implement the spike's `HostTransport` / `ClientTransport` (`multiplayer/Transport.kt`). They deliver in order per endpoint and on one dispatcher.
+- **Foreground service** while hosting or joined (`foregroundServiceType="connectedDevice"`, notification "Scan7 is sharing a game"), so screen-off and the camera don't kill the link. "Keep screen on" already applies on the round and camera screens.
+- Disconnects: Nearby `onDisconnected` → the transport's `onPeerDisconnected`. The guest reconnects with exponential backoff (1, 2, 4 … 30 s). The host sends `hello_rejected` and waits about 300 ms before `disconnectFromEndpoint`, so the frame is not lost.
+
+### 6.2 QR content
+`scan7://join?v=1&s=<sessionId>&t=<token, 128-bit base64url>&n=<host name>`, shown with ZXing core. The short code on the share sheet is the first 6 characters of the session id; it is a fallback for a broken camera and goes with a "Nearby games" list. Joining by short code asks the host "Let Anna's phone join?" because the token is missing.
+
+### 6.3 Permissions (requested only on Share or Join, with a one-line rationale)
+| API level | Runtime permissions Nearby needs | Manifest |
+|---|---|---|
+| 29–30 (Android 10–11) | `ACCESS_FINE_LOCATION` (and Location services must be on) | `BLUETOOTH`, `BLUETOOTH_ADMIN` (`maxSdkVersion=30`), `ACCESS_WIFI_STATE`, `CHANGE_WIFI_STATE` |
+| 31–32 (Android 12) | `BLUETOOTH_SCAN`, `BLUETOOTH_ADVERTISE`, `BLUETOOTH_CONNECT` + `ACCESS_FINE_LOCATION` (Nearby still wants location up to 31/32) | `ACCESS_FINE_LOCATION` with `maxSdkVersion=32` |
+| 33+ (Android 13+) | the three Bluetooth permissions + `NEARBY_WIFI_DEVICES` (`neverForLocation`); no location | — |
+| 37 (Android 17, our target) | + `ACCESS_LOCAL_NETWORK` for the Wi-Fi LAN medium (same "Nearby devices" group, no extra dialog; **verify on a device**) | — |
+| all | `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_CONNECTED_DEVICE` (34+), `POST_NOTIFICATIONS` (33+, optional) | — |
+
+On 12+ these mostly show as **one "Nearby devices" dialog**. On 10–11 it is the location dialog, which needs a clear rationale ("Android needs location access to find nearby phones; Scan7 never uses your location"). The exact list is checked against the current [Nearby get-started guide](https://developers.google.com/nearby/connections/android/get-started) when M2 starts.
+
+### 6.4 Dependency, flavors, license
+- `com.google.android.gms:play-services-nearby` is **proprietary** (Play services) and needs Play services on the phone (excludes de-Googled ROMs and Huawei).
+- **Build flavors:** `play` (default for Play and GitHub releases) has Nearby + multiplayer UI. `foss` has no Play services; Share and Join are hidden, and everything else is identical. The `multiplayer/` protocol package stays plain Kotlin in `main`. Only `src/play/…/NearbyTransport.kt` depends on Play services. F-Droid (optional, docs/RELEASE.md) builds `foss`. The user decided multiplayer isn't an F-Droid target.
+- **AGPL:** linking a proprietary library into an AGPL app is fine for the copyright holder. To let others redistribute the `play` build, add an **AGPL §7 additional permission** for Google Play services to the license notice (a standard pattern). The About screen lists Play services Nearby in the third-party notices (`ThirdPartyNotices`).
+- Privacy note: the Play services SDK may send usage diagnostics (users can turn this off in system settings). Say so in the privacy policy.
+
+### 6.5 Not chosen (short)
+- **Local Wi-Fi with NSD + sockets (Ktor/WebSocket):** needs everyone on the same Wi-Fi (guest Wi-Fi with client isolation breaks it), or a local-only hotspot dance. Its main advantage would be F-Droid or iOS or browser viewers, and none of those is a goal. It stays possible later behind the same `HostTransport` interface.
+- **Wi-Fi Direct / Wi-Fi Aware / raw BLE GATT / Bluetooth RFCOMM:** lower-level, OEM-flaky or missing on many phones; Nearby already uses them internally.
+- **Online (Firebase, Supabase, relay):** needs internet and a backend, against "fully local".
+- Research links: [Nearby overview](https://developers.google.com/nearby/connections/overview), [strategies](https://developers.google.com/nearby/connections/strategies), [payloads](https://developers.google.com/nearby/connections/android/exchange-data), [Android 17 local network permission](https://developer.android.com/privacy-and-security/local-network-permission).
+
+---
+
+## 7. Security and privacy
+- **Local only:** no account, no server, no internet. Nearby encrypts the link.
+- **Join token:** 128 random bits per share session, only in the QR. It is compared in constant time in `hello`; a wrong token → `BAD_TOKEN` + disconnect. Stop sharing invalidates it. Removed phones are blocked for the session.
+- **Data exchanged:** player **names + avatar ids**, seats, results (status, points, **card labels**), adjustments (delta + note), the device names chosen for the roster, and timestamps. **No photos, no training JPEGs, no other games, no player stats.** Guests store the joined game (and those players) only as their read-only history copy.
+- **Input from guests is untrusted:** frames are size-limited (32 KB); malformed or unknown messages are dropped; every intent is validated by `GameState` and `GuestRules`; a guest can't name another guest's `deviceId` (the host fills `by` from the link).
+- `PRIVATE_*` photo rules are unaffected (nothing image-like is sent).
+
+---
+
+## 8. Milestones
+
+| | Scope | Estimate | Test plan |
+|---|---|---|---|
+| **M1 Protocol + fake transport** (spike ≈ 60 % done) | `GameAction` + DTOs + codec, `HostSession`, `ClientSession`, `GuestRules`, claims and roster, `FakeNetwork` (**on the branch**). Still to do: `GameRepository.apply(gameId, GameAction)` so the host UI uses the same path; DB v5 (`game_uid`, `origin`, `host_name`, `joined_only`, `share_session`, adjustment uid) + migrations; host session persistence (seq, intent outcomes, roster) and resume; `leave`; guest outbox persistence; joined history copy; `AddPlayer`/`RemovePlayer` once main has them | 4–6 d | JVM: the spike suite (22 tests, §9) + Room tests for `apply` + MigrationTest 4→5 + randomized interleavings (seeds × 4 phones, also with random drops) where everyone converges with the host DB; restart test (host session reloaded from `share_session`, retried intents not re-applied) |
+| **M2 Nearby transport behind a flag** | `play`/`foss` flavors, `play-services-nearby`, `NearbyHost/ClientTransport`, foreground service, permission flow per API level, QR encode/decode (ZXing core), deep link; a debug-menu toggle "Multiplayer (experimental)" and a debug screen "Host / Join" with the raw roster and event log | 5–8 d | JVM: frame size and the transport adapter against a fake `ConnectionsClient`; **2 physical phones** (Pixel + any Play phone): join, 100 intents back and forth, screen off for 5 min, airplane mode toggle, host app kill → resume; permission flows on API 29/31/33+ (one device each, or a borrowed one). Emulators can't do this |
+| **M3 UX** | Design pass first (share sheet, join, "Who are you · Who do you scan", badges, waiting states, banners), then: Home "Join a game", the share icon + menu item, the share sheet, the guest round screen variants (hidden actions, highlights and badges, Scan next on own players), pending ✓, refusal dialogs, joined history rows, EN + DE strings, TalkBack labels ("Ben, scanned by Anna's phone") | 6–10 d | Screenshot matrix: new `debug_seed` scenarios (`mp_host`, `mp_guest`, `mp_waiting`, `mp_offline`) that drive an in-process `FakeNetwork`, so no radio is needed; Compose UI tests for hidden guest actions; font 2.0 and 21:9 profiles; TalkBack pass |
+| **M4 Field test with 2–4 phones** | A real game night: 1 host + 1–3 guests, mixed OEMs if possible (Pixel + Samsung) | 2–3 d + fixes | Script: share → 3 joins by QR within 1 min; everyone scans their own row in parallel × 5 rounds; one guest scans a neighbour; a conflicting double scan; guest screen off / out of range mid-round; host app killed mid-round → resume; late join in round 3; remove a phone; Same players, new game; battery drain per hour (target < 8 %); note every latency > 1 s |
+
+Total ≈ **17–27 focused days**. M1 + M2 are the technical risk. M3 is mostly reuse of existing composables.
+
+---
+
+## 9. Spike on this branch (device-free)
+
+Package `app/app/src/main/java/net/moesli/scan7/multiplayer/` is plain Kotlin with no Android dependencies, not wired into the UI, and has no Play services:
+- `GameAction.kt`: sealed `@Serializable` actions → `GameState` mutations, plus `touches()` for the stale check and `hostOnly`.
+- `Snapshot.kt`: wire DTOs (`GameSnapshot`, `GameDto`, …) that round-trip exactly to `GameState`.
+- `Protocol.kt`: messages, `PROTOCOL_VERSION`, and `WireCodec` (versioned frame, gzip, frozen hello).
+- `GuestRules.kt`: guest permissions (shared by the host and the guest UI), `DeviceInfo`, `HOST_DEVICE`.
+- `HostSession.kt`: the single writer (intents → checks → apply → seq'd event broadcast), claims and roster, remove device, `newGame`, `updateGame`.
+- `ClientSession.kt`: the mirror (`StateFlow<ClientView>`), outbox and resend, gap → resync, `mayEdit` / `mayPerform`.
+- `Transport.kt` + `FakeTransport.kt`: transport interfaces, and an in-memory star network with per-link FIFO, random interleaving across links, drops and lost frames.
+
+Tests (`app/app/src/test/.../multiplayer/`, 22, all green): 3 guests + host score a round concurrently and converge (50 random interleavings); reconnect after a drop gets a snapshot and sends the outbox; a late joiner gets the game; a retried intent is applied once; a stale double scan is refused with its author, and a replace by another guest is refused while the host can replace it; a scan for a closed round doesn't land in the next round; a guest can't close a round, end the game, reopen, adjust or remove totals, or reorder seats; a guest edits only its own entries of the running round; claim conflict → ask → forced take-over, and badges survive a drop and rejoin; Same players, new game keeps guests connected and their claims; a player removed mid-game drops claims and entries (and an added one shows up); a removed device can't rejoin; protocol version mismatch and a wrong token are rejected; a lost event triggers a resync; a rejoin from a new endpoint replaces the old link; codec round-trips, frame size, version gate and malformed input.
