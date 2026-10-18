@@ -69,6 +69,7 @@ ml/labeling/start.sh                                          # http://localhost
 uv run --project ml python ml/labeling/setup_projects.py      # create projects / sync photos
 uv run --project ml python ml/labeling/make_config.py         # regenerate label config from cards.yaml
 uv run --project ml python ml/labeling/export_yolo.py         # -> ml/out/real/{train,test}
+uv run --project ml python ml/labeling/ai_review.py prepare|upload --split train|test   # AI-assisted labeling of unlabeled tasks (review sheets -> decisions.json -> annotations marked 'Labeled by Claude')
 uv run --project ml python ml/labeling/import_predictions.py ml/out/pred/v1/train/labels --model-version v1   # train project only
 ```
 
