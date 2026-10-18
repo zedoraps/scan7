@@ -1,3 +1,7 @@
+import java.net.URI
+import java.security.MessageDigest
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -5,6 +9,34 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.androidx.room)
 }
+
+// ---- Versioning (docs/RELEASE.md) ------------------------------------------------------------
+// versionCode: -Pscan7.versionCode=N, else the commit count of HEAD (grows with every commit on the
+// release branch; needs a full clone, not a shallow one), else 1. versionName: scan7.versionName
+// in gradle.properties (bump it per release), overridable with -Pscan7.versionName=...
+val gitCommitCount: Int? = runCatching {
+    providers.exec {
+        commandLine("git", "rev-list", "--count", "HEAD")
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get().trim().toIntOrNull()
+}.getOrNull()
+val scan7VersionCode: Int = providers.gradleProperty("scan7.versionCode").orNull?.toInt() ?: gitCommitCount ?: 1
+val scan7VersionName: String = providers.gradleProperty("scan7.versionName").orNull ?: "0.0.0-dev"
+
+// Public source repository (AGPL-3.0: the app links to its source) and the privacy policy page.
+val scan7SourceUrl: String = providers.gradleProperty("scan7.sourceUrl").get()
+val scan7PrivacyUrl: String = providers.gradleProperty("scan7.privacyUrl").get()
+
+// ---- Release signing (docs/RELEASE.md) --------------------------------------------------------
+// The upload key never lives in the repo: set these in ~/.gradle/gradle.properties or as
+// environment variables. Without all four, release builds are left unsigned.
+fun secret(property: String, env: String): String? =
+    providers.gradleProperty(property).orElse(providers.environmentVariable(env)).orNull?.takeIf { it.isNotBlank() }
+val uploadStoreFile = secret("scan7.upload.storeFile", "SCAN7_UPLOAD_STORE_FILE")
+val uploadStorePassword = secret("scan7.upload.storePassword", "SCAN7_UPLOAD_STORE_PASSWORD")
+val uploadKeyAlias = secret("scan7.upload.keyAlias", "SCAN7_UPLOAD_KEY_ALIAS")
+val uploadKeyPassword = secret("scan7.upload.keyPassword", "SCAN7_UPLOAD_KEY_PASSWORD")
+val hasUploadKey = listOf(uploadStoreFile, uploadStorePassword, uploadKeyAlias, uploadKeyPassword).all { it != null }
 
 android {
     namespace = "net.moesli.scan7"
@@ -16,10 +48,23 @@ android {
         applicationId = "net.moesli.scan7"
         minSdk = 29
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = scan7VersionCode
+        versionName = scan7VersionName
+        buildConfigField("String", "SOURCE_URL", "\"$scan7SourceUrl\"")
+        buildConfigField("String", "PRIVACY_URL", "\"$scan7PrivacyUrl\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        if (hasUploadKey) {
+            create("release") {
+                storeFile = file(uploadStoreFile!!)
+                storePassword = uploadStorePassword
+                keyAlias = uploadKeyAlias
+                keyPassword = uploadKeyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -30,6 +75,8 @@ android {
         release {
             // Same for testing a release build on the shared emulator (-Pscan7.idSuffix=.p assembleRelease).
             providers.gradleProperty("scan7.idSuffix").orNull?.let { applicationIdSuffix = it }
+            // Signed with the upload key when it is configured (see above), else unsigned.
+            signingConfig = signingConfigs.findByName("release")
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
@@ -101,19 +148,105 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
-// The detector model is not in git (~10 MB per version): fail early with a hint instead of
-// building an APK whose camera screens can't detect anything.
-val checkModelAsset by tasks.registering {
-    val modelAsset = layout.projectDirectory.file("src/main/assets/model.tflite").asFile
+
+// ---- Detector model (docs/RELEASE.md "Model") -------------------------------------------------
+// assets/model.tflite is not in git (~10 MB per version). `./gradlew downloadModel` fetches the
+// released model named in app/model.properties (a GitHub release asset) and checks its SHA-256;
+// alternatively export your own with ml/scripts/export.py.
+val modelProps = Properties().apply { rootProject.file("model.properties").inputStream().use(::load) }
+val modelAssetFile: RegularFile = layout.projectDirectory.file("src/main/assets/model.tflite")
+
+abstract class DownloadModel : DefaultTask() {
+    @get:Input abstract val url: Property<String>
+
+    @get:Input abstract val sha256: Property<String>
+
+    @get:OutputFile abstract val target: RegularFileProperty
+
+    @TaskAction
+    fun download() {
+        val out = target.get().asFile
+        val tmp = File(out.parentFile, out.name + ".part")
+        logger.lifecycle("Downloading ${url.get()}")
+        URI(url.get()).toURL().openStream().use { input -> tmp.outputStream().use { input.copyTo(it) } }
+        val actual = MessageDigest.getInstance("SHA-256").digest(tmp.readBytes()).joinToString("") { "%02x".format(it) }
+        if (!actual.equals(sha256.get(), ignoreCase = true)) {
+            tmp.delete()
+            throw GradleException("model.tflite SHA-256 mismatch: expected ${sha256.get()}, got $actual")
+        }
+        out.delete()
+        check(tmp.renameTo(out)) { "Could not move $tmp to $out" }
+        logger.lifecycle("Installed ${out.path} (SHA-256 ok)")
+    }
+}
+
+tasks.register<DownloadModel>("downloadModel") {
+    description = "Downloads the released detector model (app/model.properties) into assets/model.tflite."
+    group = "scan7"
+    url = providers.gradleProperty("scan7.modelUrl").orElse(modelProps.getProperty("model.url"))
+    sha256 = providers.gradleProperty("scan7.modelSha256").orElse(modelProps.getProperty("model.sha256"))
+    target = modelAssetFile
+}
+
+// Fail early with a hint instead of building an APK whose camera screens can't detect anything.
+val checkModelAsset = tasks.register("checkModelAsset") {
+    val modelAsset = modelAssetFile.asFile
     description = "Checks that the detector model (assets/model.tflite) is present."
     inputs.property("modelPresent", modelAsset.exists())
     doLast {
         if (!modelAsset.exists()) {
             throw GradleException(
-                "Missing app/src/main/assets/model.tflite (not in git). Export it first: " +
-                    "cd ml && uv run scripts/export.py runs/<run>/weights/best.pt  (run ml/scripts/export.py)",
+                "Missing app/src/main/assets/model.tflite (not in git). Download the released model: " +
+                    "cd app && ./gradlew downloadModel  (URL + SHA-256 in app/model.properties), " +
+                    "or export your own: cd ml && uv run scripts/export.py runs/<run>/weights/best.pt",
             )
         }
     }
 }
 tasks.named("preBuild") { dependsOn(checkModelAsset) }
+
+// ---- License texts for the in-app About screen ------------------------------------------------
+// Copies the repo's LICENSE (AGPL-3.0) and docs/third_party/*.txt into generated assets
+// (licenses/<id>.txt, id = lower-case file stem; LICENSE -> agpl-3.0), so the texts have one source.
+abstract class CopyLicenseTexts : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val license: RegularFileProperty
+
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val thirdParty: DirectoryProperty
+
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val dir = outputDir.get().asFile.resolve("licenses")
+        dir.deleteRecursively()
+        dir.mkdirs()
+        license.get().asFile.copyTo(dir.resolve("agpl-3.0.txt"))
+        thirdParty.get().asFile.listFiles { f -> f.extension == "txt" }.orEmpty().forEach { f ->
+            f.copyTo(dir.resolve(f.nameWithoutExtension.lowercase() + ".txt"))
+        }
+    }
+}
+
+val copyLicenseTexts = tasks.register<CopyLicenseTexts>("copyLicenseTexts") {
+    license = rootProject.layout.projectDirectory.file("../LICENSE")
+    thirdParty = rootProject.layout.projectDirectory.dir("../docs/third_party")
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(copyLicenseTexts, CopyLicenseTexts::outputDir)
+    }
+}
+
+// Say so at the end of every unsigned release build (also when the configuration cache is reused).
+if (!hasUploadKey) {
+    tasks.matching { it.name == "bundleRelease" || it.name == "assembleRelease" }.configureEach {
+        doLast {
+            logger.warn("scan7: no upload key configured (scan7.upload.* / SCAN7_UPLOAD_*): $name output is UNSIGNED.")
+        }
+    }
+}

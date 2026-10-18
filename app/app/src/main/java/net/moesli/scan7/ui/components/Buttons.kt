@@ -3,6 +3,8 @@ package net.moesli.scan7.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -211,16 +214,26 @@ fun ScanBustActions(
     val shape = RoundedCornerShape(cornerRadius)
     val scanLabel = stringResource(R.string.action_scan_player, playerName)
     val bustLabel = stringResource(R.string.action_bust_player, playerName)
-    Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs), modifier = modifier.fillMaxWidth()) {
+    // Touch areas reach 48 dp where the card allows: half the gap sideways (the two never overlap),
+    // up to 48 dp tall (cut at the card edge by its clip). The press dim stays on the visible button.
+    val gap = Scan7Spacing.xs
+    val slackX = gap / 2
+    val slackY = touchSlack(height)
+    val scanSource = remember { MutableInteractionSource() }
+    val bustSource = remember { MutableInteractionSource() }
+    Row(horizontalArrangement = Arrangement.spacedBy(gap), modifier = modifier.fillMaxWidth()) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .weight(1f)
                 .height(height)
+                .expandedTouchArea(slackX, slackY)
+                .clickable(scanSource, indication = null, role = Role.Button, onClick = onScan)
+                .semantics { contentDescription = scanLabel }
+                .padding(horizontal = slackX, vertical = slackY)
                 .clip(shape)
                 .background(colors.accent)
-                .scan7Clickable(onScan)
-                .semantics { contentDescription = scanLabel },
+                .indication(scanSource, PressDim),
         ) {
             ScanIcon(colors.onAccent)
         }
@@ -229,20 +242,23 @@ fun ScanBustActions(
             modifier = Modifier
                 .weight(1f)
                 .height(height)
-                .clip(shape)
-                .border(1.5.dp, colors.bust, shape)
-                .scan7Clickable(onBust)
+                .expandedTouchArea(slackX, slackY)
+                .clickable(bustSource, indication = null, role = Role.Button, onClick = onBust)
                 .clearAndSetSemantics {
                     contentDescription = bustLabel
                     role = Role.Button
-                },
+                }
+                .padding(horizontal = slackX, vertical = slackY)
+                .clip(shape)
+                .border(1.5.dp, colors.bust, shape)
+                .indication(bustSource, PressDim),
         ) {
             Text(stringResource(R.string.label_bust), color = colors.bust, style = Scan7Type.tag10, maxLines = 1)
         }
     }
 }
 
-/** Primary "SCAN NEXT · Ben ▢" button: caps label + name on the left, the player's token right. */
+/** Primary "SCAN NEXT · Ben ▢" button: caps label + name on the left, the player's avatar on a dark disc right. */
 @Composable
 fun ScanNextButton(
     next: PlayerUi,
@@ -276,9 +292,29 @@ fun ScanNextButton(
             Text(stringResource(R.string.label_scan_next), color = colors.onAccent, style = Scan7Type.capsButton, maxLines = 1)
             Text(next.name, color = colors.onAccent, style = Scan7Type.buttonName, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        PlayerAvatar(next.avatar, avatarSizeForHeight(42.dp))
+        AvatarBadge(next)
     }
 }
+
+/**
+ * The next player's avatar on a ground-coloured disc, so any player colour (orange, green …)
+ * stands on dark instead of clashing with the cyan button. No ring: a player-colour ring would
+ * put the clashing colour right back against the cyan, a white one adds a third tone.
+ */
+@Composable
+private fun AvatarBadge(next: PlayerUi) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(ScanNextBadgeSize)
+            .background(Scan7Theme.colors.ground, CircleShape),
+    ) {
+        PlayerAvatar(next.avatar, avatarSizeForHeight(38.dp))
+    }
+}
+
+/** Scan next avatar badge diameter (fits the 64 dp button with 6 dp to spare top and bottom). */
+private val ScanNextBadgeSize = 52.dp
 
 /**
  * Bottom buttons of the round screen (64 high, 8 apart). While someone is open ([next] != null):

@@ -6,6 +6,7 @@ import androidx.compose.ui.res.stringResource
 import net.moesli.scan7.R
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import net.moesli.scan7.ui.text.avatarDescription
+import net.moesli.scan7.ui.components.ContentWithBottomBar
 import net.moesli.scan7.ui.components.avatarSizeForHeight
 import net.moesli.scan7.ui.components.PlayerAvatar
 import androidx.compose.foundation.background
@@ -85,24 +86,27 @@ fun PlayersScreen(
             onBack = onBack,
             modifier = Modifier.headerInsets(),
         )
-        if (players.isEmpty()) {
-            EmptyPlayers(Modifier.weight(1f))
-        } else {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(vertical = Scan7Spacing.l),
-            ) {
-                players.forEach { p ->
-                    SetupPlayerRow(p, onClick = { onEdit(p) }, onClickLabel = stringResource(R.string.action_edit)) {
-                        ChevronRightIcon(colors.textMuted)
+        ContentWithBottomBar(
+            bottomBar = { PrimaryButton(stringResource(R.string.players_add), onAdd, Modifier.fillMaxWidth()) },
+        ) { bottomPadding ->
+            if (players.isEmpty()) {
+                EmptyPlayers(Modifier.fillMaxSize().padding(bottom = bottomPadding))
+            } else {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(top = Scan7Spacing.l, bottom = Scan7Spacing.l + bottomPadding),
+                ) {
+                    players.forEach { p ->
+                        SetupPlayerRow(p, onClick = { onEdit(p) }, onClickLabel = stringResource(R.string.action_edit)) {
+                            ChevronRightIcon(colors.textMuted)
+                        }
                     }
                 }
             }
         }
-        PrimaryButton(stringResource(R.string.players_add), onAdd, Modifier.fillMaxWidth().bottomButtonsInsets())
     }
 }
 

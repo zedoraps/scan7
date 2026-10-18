@@ -29,7 +29,8 @@ import net.moesli.scan7.ui.theme.Scan7Type
 /**
  * Player row for the list view. Columns: ring | name (+ leader badge) | total (right-aligned) |
  * Scan + Bust (open players in normal mode) or the status tag. Same states as [PlayerCard].
- * Fills the available width; the height comes from [size].
+ * Fills the available width; the height comes from [size]. [showScore] = false (new game's
+ * seating step): only avatar + name — no ring, total, leader badge or tag.
  */
 @Composable
 fun PlayerRow(
@@ -42,6 +43,7 @@ fun PlayerRow(
     onLongClick: (() -> Unit)? = null,
     onScan: () -> Unit = {},
     onBust: () -> Unit = {},
+    showScore: Boolean = true,
 ) {
     val done = player.status.isDone
     val look = cardLook(player.status, mode)
@@ -77,7 +79,7 @@ fun PlayerRow(
                     .padding(start = Scan7Spacing.m)
                     .clearAndSetSemantics {},
             ) {
-                PlayerScoreRing(player, size.ring, size.token)
+                PlayerScoreRing(player, size.ring, size.token, showRing = showScore)
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
                     verticalAlignment = Alignment.CenterVertically,
@@ -91,9 +93,9 @@ fun PlayerRow(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
-                    if (player.isLeader) LeaderBadge(size = 20.dp)
+                    if (player.isLeader && showScore) LeaderBadge(size = 20.dp)
                 }
-                Text(
+                if (showScore) Text(
                     text = player.total.toString(),
                     color = look.ink,
                     style = if (size == RowSize.Regular) Scan7Type.total24 else Scan7Type.total18,
@@ -103,7 +105,7 @@ fun PlayerRow(
                     modifier = Modifier.width(size.totalWidth),
                 )
             }
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.width(size.actionsWidth)) {
+            if (showScore) Box(contentAlignment = Alignment.Center, modifier = Modifier.width(size.actionsWidth)) {
                 if (showActions) {
                     ScanBustActions(
                         playerName = player.name,

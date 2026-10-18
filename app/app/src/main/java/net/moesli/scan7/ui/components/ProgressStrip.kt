@@ -17,7 +17,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import net.moesli.scan7.game.AvatarCatalog
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -63,30 +69,57 @@ fun ProgressStrip(
             .height(Scan7Spacing.xl)
             .clearAndSetSemantics { contentDescription = text },
     ) {
-        Canvas(Modifier.size(segment * players.size + gap * (players.size - 1).coerceAtLeast(0), 8.dp)) {
-            val w = segment.toPx()
-            val h = size.height
-            val shift = (tan(Math.toRadians(SKEW_DEGREES)) * h / 2).toFloat()
-            val stroke = 1.5.dp.toPx()
-            val corners = PathEffect.cornerPathEffect(2.dp.toPx())
-            players.forEachIndexed { i, p ->
-                val x = i * (w + gap.toPx())
-                // skewX(-20deg) around the center: top edge shifts right, bottom edge left.
-                val inset = if (p.status == PlayerStatus.Open) stroke / 2 else 0f
-                val path = Path().apply {
-                    moveTo(x + shift + inset, inset)
-                    lineTo(x + w + shift - inset, inset)
-                    lineTo(x + w - shift - inset, h - inset)
-                    lineTo(x - shift + inset, h - inset)
-                    close()
-                }
-                when (p.status) {
-                    PlayerStatus.Open -> drawPath(path, colors.openOutline, style = Stroke(stroke, pathEffect = corners))
-                    PlayerStatus.Bust -> drawPath(path, colors.bust, style = Fill)
-                    is PlayerStatus.Scored -> drawPath(path, p.color, style = Fill)
-                }
-            }
-        }
+        Spacer(
+            Modifier
+                .size(segment * players.size + gap * (players.size - 1).coerceAtLeast(0), 8.dp)
+                .drawWithCache {
+                    // Paths + patterns are rebuilt only when the players / size change, not per frame.
+                    val w = segment.toPx()
+                    val h = size.height
+                    val shift = (tan(Math.toRadians(SKEW_DEGREES)) * h / 2).toFloat()
+                    val stroke = 1.5.dp.toPx()
+                    val outline = Stroke(stroke, pathEffect = PathEffect.cornerPathEffect(2.dp.toPx()))
+                    val segments = players.mapIndexed { i, p ->
+                        val x = i * (w + gap.toPx())
+                        // skewX(-20deg) around the center: top edge shifts right, bottom edge left.
+                        val inset = if (p.status == PlayerStatus.Open) stroke / 2 else 0f
+                        val path = Path().apply {
+                            moveTo(x + shift + inset, inset)
+                            lineTo(x + w + shift - inset, inset)
+                            lineTo(x + w - shift - inset, h - inset)
+                            lineTo(x - shift + inset, h - inset)
+                            close()
+                        }
+                        // Scored segments carry the avatar pattern along their horizontal centre line.
+                        val band = if (p.status is PlayerStatus.Scored) {
+                            BandPattern.create(AvatarCatalog.pattern(p.avatar.pattern), h, w + 2 * shift, colors.ground)
+                        } else null
+                        val centre = Path().apply {
+                            moveTo(x - shift, h / 2)
+                            lineTo(x + w + shift, h / 2)
+                        }
+                        Segment(p.status, p.color, path, band, centre, Rect(x - shift, 0f, x + w + shift, h))
+                    }
+                    onDrawBehind {
+                        segments.forEach { s ->
+                            when (s.status) {
+                                PlayerStatus.Open -> drawPath(s.path, colors.openOutline, style = outline)
+                                PlayerStatus.Bust -> drawPath(s.path, colors.bust, style = Fill)
+                                is PlayerStatus.Scored -> if (s.band == null) {
+                                    drawPath(s.path, s.color, style = Fill)
+                                } else {
+                                    drawIntoCanvas { canvas ->
+                                        canvas.saveLayer(s.bounds, BandPattern.layerPaint)
+                                        drawPath(s.path, s.color, style = Fill)
+                                        s.band.drawStamps(this, s.centre)
+                                        canvas.restore()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+        )
         Text(text, color = colors.textMuted, style = Scan7Type.text12, maxLines = 1)
     }
 }
@@ -106,3 +139,13 @@ private fun ProgressStripPreview() {
         }
     }
 }
+
+/** One cached progress strip segment. */
+private class Segment(
+    val status: PlayerStatus,
+    val color: Color,
+    val path: Path,
+    val band: BandPattern?,
+    val centre: Path,
+    val bounds: Rect,
+)

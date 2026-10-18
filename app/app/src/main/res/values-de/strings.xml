@@ -28,12 +28,12 @@
     <string name="action_close_round_two_lines">Runde\nbeenden</string>
     <string name="action_scan">Scannen</string>
     <string name="action_scan_player">%1$s scannen</string>
-    <string name="action_bust_player">%1$s ist raus</string>
+    <string name="action_bust_player">%1$s als raus markieren</string>
     <string name="action_undo_bust_player">Raus für %1$s rückgängig</string>
     <string name="action_enter_manually">Von Hand eingeben</string>
     <string name="action_rearrange">Plätze / Reihenfolge ändern</string>
     <string name="label_scan_next">WEITER SCANNEN</string>
-    <string name="action_scan_next_player">Weiter scannen: %1$s</string>
+    <string name="action_scan_next_player">Als Nächstes scannen: %1$s</string>
     <string name="view_table">Tischansicht</string>
     <string name="view_list">Listenansicht</string>
     <string name="names_and">%1$s und %2$s</string>
@@ -331,4 +331,15 @@
     <string name="ordinal_rd">%1$d.</string>
     <string name="ordinal_th">%1$d.</string>
     <string name="player_heading">%1$s: %2$s</string>
+    <!-- About & licenses (Home: tap the version footer). -->
+    <string name="about_title">Über &amp; Lizenzen</string>
+    <string name="about_disclaimer">Inoffizieller Punktezähler für Flip 7. Keine Verbindung zu The Op Games.</string>
+    <string name="about_version">Version %1$s (%2$d)</string>
+    <string name="about_model">Erkennungsmodell: %1$s</string>
+    <string name="about_license_body">Scan7 ist freie Software: Du darfst sie unter der GNU Affero General Public License v3.0 nutzen, untersuchen, weitergeben und verändern. Der Quellcode ist öffentlich.</string>
+    <string name="about_source">Quellcode</string>
+    <string name="about_privacy">Datenschutzerklärung</string>
+    <string name="about_third_party">Software von Dritten</string>
+    <string name="about_show_license">Lizenz anzeigen</string>
+    <string name="gameover_home">Übersicht</string>
 </resources>

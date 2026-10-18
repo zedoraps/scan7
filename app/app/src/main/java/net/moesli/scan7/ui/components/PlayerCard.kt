@@ -180,6 +180,8 @@ private fun Modifier.clickableWithLabels(
  *
  * [onDoubleClick] (Compact cards have no in-card Scan): double-tap → scan, also offered to
  * TalkBack as the custom action "Scan <name>"; `null` keeps single taps instant.
+ * [showScore] = false (new game's seating step): only avatar + name — no ring, total, tag or
+ * leader badge.
  *
  * Stateless: [mode] and [index] (wiggle stagger) come from the screen; dragging itself is handled
  * by the caller (apply the drag offset to [modifier]).
@@ -196,6 +198,7 @@ fun PlayerCard(
     onScan: () -> Unit = {},
     onBust: () -> Unit = {},
     onDoubleClick: (() -> Unit)? = null,
+    showScore: Boolean = true,
 ) {
     val done = player.status.isDone
     val look = cardLook(player.status, mode)
@@ -235,14 +238,17 @@ fun PlayerCard(
                 ) {
                     // Name and total are measured first; the ring takes what is left (at most its
                     // size class), so a large font scale shrinks the ring instead of clipping the total.
-                    PlayerScoreRing(player, size.ring, size.token, Modifier.weight(1f, fill = false))
-                    if (compact) {
+                    PlayerScoreRing(player, size.ring, size.token, Modifier.weight(1f, fill = false), showRing = showScore)
+                    if (!showScore) {
+                        NameOnly(player, look.ink, if (compact) Scan7Type.text11 else size.nameStyle())
+                    } else if (compact) {
                         CompactNameAndTotal(player, look.ink)
                     } else {
                         NameAndTotal(player, look.ink, size.nameStyle(), size.totalStyle())
                     }
                 }
-                if (showActions) {
+                // !showScore (seating step): no actions / tag, avatar + name sit centred in the card.
+                if (showScore && showActions) {
                     ScanBustActions(
                         playerName = player.name,
                         onScan = onScan,
@@ -250,7 +256,7 @@ fun PlayerCard(
                         height = size.actionHeight,
                         cornerRadius = Scan7Radii.actionCard,
                     )
-                } else {
+                } else if (showScore) {
                     StatusTag(
                         status = player.status,
                         height = size.tagHeight,
@@ -262,7 +268,7 @@ fun PlayerCard(
                     )
                 }
             }
-            if (player.isLeader) {
+            if (player.isLeader && showScore) {
                 LeaderBadge(
                     Modifier
                         .align(Alignment.TopEnd)
@@ -298,6 +304,19 @@ private fun NameAndTotal(player: PlayerUi, ink: Color, nameStyle: TextStyle, tot
             modifier = Modifier.alignByBaseline(),
         )
     }
+}
+
+@Composable
+private fun NameOnly(player: PlayerUi, ink: Color, style: TextStyle) {
+    Text(
+        text = player.name,
+        color = ink,
+        style = style,
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 /**

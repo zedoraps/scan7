@@ -347,4 +347,15 @@
     <string name="ordinal_rd">%1$drd</string>
     <string name="ordinal_th">%1$dth</string>
     <string name="player_heading">%1$s: %2$s</string>
+    <!-- About & licenses (Home: tap the version footer). -->
+    <string name="about_title">About &amp; licenses</string>
+    <string name="about_disclaimer">Unofficial score keeper for Flip 7. Not affiliated with The Op Games.</string>
+    <string name="about_version">Version %1$s (%2$d)</string>
+    <string name="about_model">Detector model: %1$s</string>
+    <string name="about_license_body">Scan7 is free software: you may use, study, share and change it under the GNU Affero General Public License v3.0. Its source code is public.</string>
+    <string name="about_source">Source code</string>
+    <string name="about_privacy">Privacy policy</string>
+    <string name="about_third_party">Third-party software</string>
+    <string name="about_show_license">Show license</string>
+    <string name="gameover_home">Home</string>
 </resources>

@@ -72,6 +72,10 @@ import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.TorchIcon
 import net.moesli.scan7.ui.components.scan7Clickable
+import net.moesli.scan7.ui.components.expandedTouchArea
+import net.moesli.scan7.ui.components.touchSlack
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import net.moesli.scan7.ui.round.BustToastHost
 import net.moesli.scan7.ui.round.BustToastState
 import net.moesli.scan7.ui.theme.Scan7Radii
@@ -115,7 +119,9 @@ internal fun ScanCameraStep(
     var zoom by remember { mutableStateOf<ZoomControls?>(null) }
     var lastBustAt by remember { mutableLongStateOf(0L) }
     val haptics = LocalHapticFeedback.current
-    LaunchedEffect(analyzer) { analyzer.clearStats() }
+    // Also per player: after a camera Bust the next player's camera reuses this composition, and
+    // the shutter must not pick the previous player's frames from the ring buffer.
+    LaunchedEffect(analyzer, player.id) { analyzer.clearStats() }
 
     val busting = bustOverlay != null
     val seen = stats?.tracks?.map { it.detection }?.toCards()?.count { it.first.isScoring } ?: 0
@@ -393,23 +399,30 @@ private fun ZoomPills(zoom: ZoomControls, modifier: Modifier = Modifier) {
             val active = preset == zoom.selected
             // The active pill shows the real zoom (after a pinch, e.g. "1.6×").
             val label = if (active) zoomLabel(zoom.ratio) else formatZoom(preset)
+            // 40×34 pill, touch area 44×48 (half the 4 dp gap sideways, so neighbours don't overlap).
+            val source = remember { MutableInteractionSource() }
+            val slackX = Scan7Spacing.xxs / 2
+            val slackY = touchSlack(34.dp)
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(40.dp, 34.dp)
-                    .clip(RoundedCornerShape(Scan7Radii.toggleInner))
-                    .background(if (active) colors.accent else colors.surface.copy(alpha = 0f))
+                    .expandedTouchArea(slackX, slackY)
                     .selectable(
                         selected = active,
-                        interactionSource = null,
-                        indication = PressDim,
+                        interactionSource = source,
+                        indication = null,
                         role = Role.RadioButton,
                         onClick = {
                             if (!active) haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
                             zoom.onSelect(preset)
                         },
                     )
-                    .semantics { contentDescription = "Zoom $label" },
+                    .semantics { contentDescription = "Zoom $label" }
+                    .padding(horizontal = slackX, vertical = slackY)
+                    .clip(RoundedCornerShape(Scan7Radii.toggleInner))
+                    .background(if (active) colors.accent else colors.surface.copy(alpha = 0f))
+                    .indication(source, PressDim),
             ) {
                 Text(label, color = if (active) colors.onAccent else colors.text, style = Scan7Type.tag12)
             }

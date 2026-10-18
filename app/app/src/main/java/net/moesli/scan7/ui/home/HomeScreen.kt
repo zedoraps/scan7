@@ -5,8 +5,8 @@ import net.moesli.scan7.ui.text.UiText
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import net.moesli.scan7.R
 import net.moesli.scan7.game.AvatarCatalog
+import net.moesli.scan7.ui.components.ContentWithBottomBar
 import net.moesli.scan7.ui.components.avatarSizeForHeight
 import net.moesli.scan7.ui.components.PlayerAvatar
 import android.os.SystemClock
@@ -66,7 +66,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
 import net.moesli.scan7.BuildConfig
+import net.moesli.scan7.R
 import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.data.GameSnapshot
@@ -131,6 +133,8 @@ private val HeroAvatar = avatarSizeForHeight(58.dp)
  * (secondary) + New game (primary) stay at the bottom, version footer below. The debug menu is
  * hidden: tap the wordmark [DEBUG_TAPS] times (TalkBack: custom action "Open debug menu").
  * Without any game: a short intro; without players it says New game starts by adding them.
+ * The debug menu exists in debug builds only. Tapping the version footer opens [onAbout]
+ * (About & licenses).
  */
 @Composable
 fun HomeScreen(
@@ -141,6 +145,7 @@ fun HomeScreen(
     onDebug: () -> Unit,
     onPastGame: (gameId: Long) -> Unit,
     modifier: Modifier = Modifier,
+    onAbout: () -> Unit = {},
 ) {
     val colors = Scan7Theme.colors
     val dates = rememberHomeDateFormat()
@@ -157,49 +162,68 @@ fun HomeScreen(
                 .fillMaxWidth()
                 .height(Scan7Spacing.headerHeight),
         ) {
-            Scan7Wordmark(fontSize = 32.sp, modifier = Modifier.debugTaps(onDebug))
+            Scan7Wordmark(fontSize = 32.sp, modifier = if (BuildConfig.DEBUG) Modifier.debugTaps(onDebug) else Modifier)
             Spacer(Modifier.weight(1f))
             LanguageButton()
         }
-        LazyColumn(
-            contentPadding = PaddingValues(vertical = Scan7Spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
-            modifier = Modifier.weight(1f),
-        ) {
-            val resume = state.resume
-            when {
-                resume != null -> item(key = "resume") { ResumeCard(resume, onResume = { onResume(resume.gameId) }) }
-                state.past.isEmpty() -> item(key = "intro") { Intro(hasPlayers = state.playerCount > 0) }
-            }
-            if (state.past.isNotEmpty()) {
-                item(key = "past-label") {
-                    SectionLabel(
-                        stringResource(R.string.home_past_games),
-                        Modifier
-                            .padding(top = if (resume != null) Scan7Spacing.l else 0.dp, bottom = Scan7Spacing.xxs)
-                            .semantics { heading() },
+        ContentWithBottomBar(
+            bottomBar = {
+                Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
+                    SecondaryButton(stringResource(R.string.home_players), onPlayers, Modifier.width(128.dp))
+                    PrimaryButton(stringResource(R.string.action_new_game), onNewGame, Modifier.weight(1f))
+                }
+                // Version footer = the entry to About & licenses (its second line names it).
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = Scan7Spacing.xs)
+                        .clip(RoundedCornerShape(Scan7Radii.card))
+                        .scan7Clickable(onAbout)
+                        .padding(vertical = Scan7Spacing.xs),
+                ) {
+                    Text(
+                        text = state.footer,
+                        color = colors.textMuted,
+                        style = Scan7Type.text10,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                    )
+                    Text(
+                        text = stringResource(R.string.about_title),
+                        color = colors.accent,
+                        style = Scan7Type.text10,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
                     )
                 }
-                items(state.past, key = { it.gameId }) { game ->
-                    PastGameRow(game, state.now, dates, onClick = { onPastGame(game.gameId) })
+            },
+        ) { bottomPadding ->
+            LazyColumn(
+                contentPadding = PaddingValues(top = Scan7Spacing.xl, bottom = Scan7Spacing.xl + bottomPadding),
+                verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                val resume = state.resume
+                when {
+                    resume != null -> item(key = "resume") { ResumeCard(resume, onResume = { onResume(resume.gameId) }) }
+                    state.past.isEmpty() -> item(key = "intro") { Intro(hasPlayers = state.playerCount > 0) }
+                }
+                if (state.past.isNotEmpty()) {
+                    item(key = "past-label") {
+                        SectionLabel(
+                            stringResource(R.string.home_past_games),
+                            Modifier
+                                .padding(top = if (resume != null) Scan7Spacing.l else 0.dp, bottom = Scan7Spacing.xxs)
+                                .semantics { heading() },
+                        )
+                    }
+                    items(state.past, key = { it.gameId }) { game ->
+                        PastGameRow(game, state.now, dates, onClick = { onPastGame(game.gameId) })
+                    }
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
-            SecondaryButton(stringResource(R.string.home_players), onPlayers, Modifier.width(128.dp))
-            PrimaryButton(stringResource(R.string.action_new_game), onNewGame, Modifier.weight(1f))
-        }
-        Text(
-            text = state.footer,
-            color = colors.textMuted,
-            style = Scan7Type.text10,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(top = Scan7Spacing.m, bottom = Scan7Spacing.m),
-        )
     }
 }
 
@@ -399,6 +423,7 @@ fun HomeRoute(
     onPlayers: () -> Unit,
     onDebug: () -> Unit,
     onPastGame: (gameId: Long) -> Unit,
+    onAbout: () -> Unit,
     modelInfo: String,
     modifier: Modifier = Modifier,
     repository: GameRepository = AppGraph.repository(LocalContext.current),
@@ -422,6 +447,7 @@ fun HomeRoute(
         onDebug = onDebug,
         onPastGame = onPastGame,
         modifier = modifier,
+        onAbout = onAbout,
     )
 }
 

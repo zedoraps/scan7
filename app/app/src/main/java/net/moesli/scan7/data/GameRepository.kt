@@ -4,7 +4,9 @@ import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import net.moesli.scan7.BuildConfig
 import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.ConfirmedCard
 import net.moesli.scan7.game.DEFAULT_TARGET
@@ -44,6 +46,8 @@ class GameRepository(
     /** Random face + pattern of new players without an explicit avatar. */
     private val random: Random = Random.Default,
     private val clock: () -> Long = System::currentTimeMillis,
+    /** Whether "Save scans for training" can be on at all: debug builds only. */
+    private val trainingScansAllowed: Boolean = BuildConfig.DEBUG,
 ) {
     private val playerDao = db.playerDao()
     private val gameDao = db.gameDao()
@@ -60,12 +64,19 @@ class GameRepository(
         .distinctUntilChanged()
 
     /**
-     * Setting "Save scans for training": every shutter photo + JSON. Default on (also for installs
-     * that never touched the toggle); off only once the user switched it off.
+     * Setting "Save scans for training": every shutter photo + JSON to the public Pictures /
+     * Documents folders. Debug builds: default on (also for installs that never touched the
+     * toggle), off once the user switched it off. Release builds: always off, whatever is stored
+     * (the toggle lives in the debug menu, which release builds don't have, so a value restored
+     * from a debug install's backup could never be switched off again).
      */
-    val saveScansForTraining: Flow<Boolean> = settingsDao.observe(KEY_SAVE_SCANS)
-        .map { it != "false" }
-        .distinctUntilChanged()
+    val saveScansForTraining: Flow<Boolean> = if (!trainingScansAllowed) {
+        flowOf(false)
+    } else {
+        settingsDao.observe(KEY_SAVE_SCANS)
+            .map { it != "false" }
+            .distinctUntilChanged()
+    }
 
     suspend fun setSaveScansForTraining(on: Boolean) = settingsDao.put(SettingEntity(KEY_SAVE_SCANS, on.toString()))
 
@@ -259,9 +270,6 @@ class GameRepository(
      * finishes the game with the current leader(s) as winners (recorded as finished, not abandoned).
      */
     suspend fun endGame(gameId: Long): GameState = mutate(gameId) { s, now -> s.endGame(now) }
-
-    /** Ends the game without a winner (another game was started). */
-    suspend fun abandonGame(gameId: Long): GameState = mutate(gameId) { s, now -> s.abandon(now) }
 
     suspend fun deleteGame(gameId: Long) = gameDao.deleteGame(gameId)
 

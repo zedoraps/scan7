@@ -5,6 +5,7 @@ import net.moesli.scan7.ui.text.resolve
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import net.moesli.scan7.R
+import net.moesli.scan7.ui.components.ContentWithBottomBar
 import net.moesli.scan7.ui.components.sampleAvatar
 import net.moesli.scan7.ui.components.avatarSizeForHeight
 import net.moesli.scan7.ui.components.PlayerAvatar
@@ -117,27 +118,27 @@ fun GameOverScreen(
             )
             TextLinkButton(stringResource(R.string.action_scoreboard), onScoreboard)
         }
-        Column(
-            verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xl),
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(vertical = Scan7Spacing.l),
-        ) {
-            Winners(state)
-            Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
-                SectionLabel(stringResource(R.string.gameover_standings), Modifier.padding(bottom = Scan7Spacing.xxs))
-                state.standings.forEach { StandingRow(it) }
+        ContentWithBottomBar(
+            bottomBar = {
+                Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
+                    SecondaryButton(stringResource(R.string.gameover_home), onHome, Modifier.width(88.dp), textStyle = Scan7Type.button.copy(fontSize = 13.sp))
+                    NewGameButton(onNewGameSamePlayers, Modifier.weight(1f))
+                }
+            },
+        ) { bottomPadding ->
+            Column(
+                verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xl),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = Scan7Spacing.l, bottom = Scan7Spacing.l + bottomPadding),
+            ) {
+                Winners(state)
+                Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
+                    SectionLabel(stringResource(R.string.gameover_standings), Modifier.padding(bottom = Scan7Spacing.xxs))
+                    state.standings.forEach { StandingRow(it) }
+                }
             }
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
-            modifier = Modifier
-                .fillMaxWidth()
-                .bottomButtonsInsets(),
-        ) {
-            SecondaryButton(stringResource(R.string.action_home), onHome, Modifier.width(88.dp), textStyle = Scan7Type.button.copy(fontSize = 13.sp))
-            NewGameButton(onNewGameSamePlayers, Modifier.weight(1f))
         }
     }
 }

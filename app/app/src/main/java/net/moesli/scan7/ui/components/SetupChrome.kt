@@ -32,6 +32,12 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.displayCutoutPadding
@@ -87,6 +93,47 @@ fun Modifier.headerInsets(): Modifier = statusBarsPadding().displayCutoutPadding
 
 /** Bottom buttons position: 24 dp from the bottom, or above the navigation bar if that is taller. */
 fun Modifier.bottomButtonsInsets(): Modifier = navigationBarsPadding().windowInsetsPadding(BottomButtonsMinInsets)
+
+private val EdgeFade = 24.dp
+
+/**
+ * Scrolling content with the bottom buttons floating over it: the content runs under [bottomBar]
+ * (behind a ground-coloured fade) instead of being cut off above it, and fades out under the
+ * header. [content] gets the bar's height as bottom padding so its end can scroll clear of the
+ * buttons. [bottomBar] gets [bottomButtonsInsets] here.
+ */
+@Composable
+fun ColumnScope.ContentWithBottomBar(
+    bottomBar: @Composable ColumnScope.() -> Unit,
+    content: @Composable (bottomPadding: Dp) -> Unit,
+) {
+    val ground = Scan7Theme.colors.ground
+    val density = LocalDensity.current
+    var barHeight by remember { mutableIntStateOf(0) }
+    Box(Modifier.weight(1f).fillMaxWidth()) {
+        content(with(density) { barHeight.toDp() })
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(Scan7Spacing.l)
+                .background(Brush.verticalGradient(listOf(ground, ground.copy(alpha = 0f)))),
+        )
+        Column(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .onSizeChanged { barHeight = it.height },
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(EdgeFade)
+                    .background(Brush.verticalGradient(listOf(ground.copy(alpha = 0f), ground))),
+            )
+            Column(Modifier.fillMaxWidth().background(ground).bottomButtonsInsets()) { bottomBar() }
+        }
+    }
+}
 
 /**
  * Screen header (height 48): optional back button (48 dp icon button), title in Unbounded 16 and
