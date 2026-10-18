@@ -165,6 +165,21 @@ internal fun ScanCameraStep(
                     },
                     modifier = Modifier.align(Alignment.TopCenter),
                 )
+                // Lens/zoom + torch float over the preview (like the system camera), centred just above the bottom bar.
+                val zoomOverlay = zoom?.takeIf { permission.granted }
+                val torchOverlay = if (hasFlash && permission.granted) torchOn else null
+                if (zoomOverlay != null || torchOverlay != null) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = Scan7Spacing.m),
+                    ) {
+                        if (zoomOverlay != null) ZoomPills(zoomOverlay)
+                        if (torchOverlay != null) TorchToggle(torchOverlay) { torchOn = it }
+                    }
+                }
                 if (bustToast != null) {
                     CameraBustToast(
                         toast = bustToast,
@@ -172,7 +187,7 @@ internal fun ScanCameraStep(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .padding(horizontal = Scan7Spacing.screenMargin)
-                            .padding(bottom = Scan7Spacing.m),
+                            .padding(bottom = 72.dp),
                     )
                 }
             }
@@ -204,9 +219,6 @@ internal fun ScanCameraStep(
                 },
                 bustEnabled = !busting && !capturing,
                 playerName = player.name,
-                zoom = zoom?.takeIf { permission.granted },
-                torch = if (hasFlash && permission.granted) torchOn else null,
-                onTorchChange = { torchOn = it },
             )
         }
         if (bustOverlay != null) BustOverlay(bustOverlay, onUndoBustOverlay)
@@ -396,44 +408,40 @@ private fun HintPill(text: String, modifier: Modifier = Modifier) {
 @Composable
 private fun ZoomPills(zoom: ZoomControls, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
-    Column(
-        verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs),
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs),
         modifier = modifier
-            .background(colors.surface, RoundedCornerShape(Scan7Radii.toggleOuter))
+            .background(colors.ground.copy(alpha = 0.6f), RoundedCornerShape(Scan7Radii.toggleOuter))
             .padding(Scan7Spacing.xxs)
             .selectableGroup(),
     ) {
-        for (row in zoom.presets.chunked(2)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs)) {
-                for (preset in row) {
-                    val active = preset == zoom.selected
-                    val label = formatZoom(preset)
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(40.dp, 34.dp)
-                            .clip(RoundedCornerShape(Scan7Radii.toggleInner))
-                            .background(if (active) colors.accent else colors.surface.copy(alpha = 0f))
-                            .selectable(
-                                selected = active,
-                                interactionSource = null,
-                                indication = PressDim,
-                                role = Role.RadioButton,
-                                onClick = { zoom.onSelect(preset) },
-                            )
-                            .semantics { contentDescription = "Zoom $label" },
-                    ) {
-                        Text(label, color = if (active) colors.onAccent else colors.text, style = Scan7Type.tag12)
-                    }
-                }
+        for (preset in zoom.presets) {
+            val active = preset == zoom.selected
+            val label = formatZoom(preset)
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(40.dp, 34.dp)
+                    .clip(RoundedCornerShape(Scan7Radii.toggleInner))
+                    .background(if (active) colors.accent else colors.surface.copy(alpha = 0f))
+                    .selectable(
+                        selected = active,
+                        interactionSource = null,
+                        indication = PressDim,
+                        role = Role.RadioButton,
+                        onClick = { zoom.onSelect(preset) },
+                    )
+                    .semantics { contentDescription = "Zoom $label" },
+            ) {
+                Text(label, color = if (active) colors.onAccent else colors.text, style = Scan7Type.tag12)
             }
         }
     }
 }
 
 /**
- * Bottom bar: "● 3 cards seen" above the row Bust (left, when [onBust] is set) · shutter (center)
- * · zoom pills with the torch toggle next to them (right). Bust sits a full column away from the
+ * Bottom bar: "● 3 cards seen" above the row Bust (left, when [onBust] is set) · shutter (center).
+ * Zoom pills and the torch float over the preview instead. Bust sits a full column away from the
  * shutter.
  */
 @Composable
@@ -445,9 +453,6 @@ private fun CameraBottomBar(
     onBust: (() -> Unit)?,
     bustEnabled: Boolean,
     playerName: String,
-    zoom: ZoomControls?,
-    torch: Boolean?,
-    onTorchChange: (Boolean) -> Unit,
 ) {
     val colors = Scan7Theme.colors
     Column(
@@ -475,14 +480,6 @@ private fun CameraBottomBar(
         Box(Modifier.fillMaxWidth().height(84.dp)) {
             if (onBust != null) BustButton(playerName, onBust, bustEnabled, Modifier.align(Alignment.CenterStart))
             Shutter(enabled = shutterEnabled, onClick = onShutter, modifier = Modifier.align(Alignment.Center))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.align(Alignment.CenterEnd),
-            ) {
-                if (zoom != null) ZoomPills(zoom)
-                if (torch != null) TorchToggle(torch, onTorchChange)
-            }
         }
     }
 }
