@@ -73,7 +73,7 @@ export PATH="$HOME/Library/Android/sdk/platform-tools:$PATH"   # adb
 ./gradlew testDebugUnitTest        # JVM unit tests (scoring etc.)
 ./gradlew lintDebug                # lint
 ./gradlew installDebug             # install on the connected phone
-./gradlew -Pscan7.idSuffix=.b installDebug   # parallel agents: install a side-by-side copy (net.moesli.scan7.b) on the shared emulator
+ANDROID_SERIAL=emulator-5554 ./gradlew -Pscan7.idSuffix=.b installDebug   # parallel agents: side-by-side copy on the shared emulator. ALWAYS set ANDROID_SERIAL: installDebug otherwise installs on every device incl. the user's phone
 ./gradlew --stop                   # stops ALL Gradle daemons of this version on the Mac, incl. other agents' running builds: only when no other agent is building
 ```
 The test phone (Pixel 10 Pro) is connected over **wireless debugging** (adb-tls-connect via
