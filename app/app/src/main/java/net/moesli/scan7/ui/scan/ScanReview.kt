@@ -402,15 +402,15 @@ private fun PanelContent(content: @Composable ColumnScope.() -> Unit) {
     )
 }
 
-/** The score formula of [cards] ([breakdownFormula]), e.g. "(6 + 7 + 8) × 2 + 4 = 46". */
+/** The score formula of [cards] ([breakdownFormula]): "(6 + 7 + 8) × 2" over "+ 4". */
 @Composable
 internal fun Breakdown(cards: List<Card>, modifier: Modifier = Modifier, maxLines: Int = Int.MAX_VALUE) =
     FormulaText(breakdownFormula(cards), modifier, maxLines)
 
 /**
- * A score formula: numbers in the text color, modifiers in the modifier orange, the Flip 7 bonus
- * in cyan, operators muted. Wraps only at the operators (the "= 46" stays together); TalkBack
- * reads the plain spoken version ([spokenFormula]).
+ * A score formula (one or two lines, see [breakdownFormula]): numbers in the text color,
+ * modifiers in the modifier orange, the Flip 7 bonus in cyan, operators muted. Wraps only after
+ * "+" ("× 2" stays together); TalkBack reads the plain spoken version with the total ([spokenFormula]).
  */
 @Composable
 internal fun FormulaText(
@@ -422,15 +422,19 @@ internal fun FormulaText(
     val colors = Scan7Theme.colors
     Text(
         text = buildAnnotatedString {
-            parts.forEach { p ->
+            parts.filter { it.kind != FormulaKind.TOTAL }.forEach { p ->
                 val color = when (p.kind) {
                     FormulaKind.NUMBER, FormulaKind.TOTAL -> colors.text
                     FormulaKind.MODIFIER -> ModifierInk
                     FormulaKind.BONUS -> colors.accent
                     FormulaKind.OPERATOR -> colors.textMuted
                 }
-                // Keep "= 46" (and "× 2") on one line: break only after the other operators.
-                val text = if (p.text == " = " || p.text == " × ") p.text.dropLast(1) + " " else p.text
+                // Keep "× 2" and "+ 4" together: break only after " + ".
+                val text = when (p.text) {
+                    " × " -> " ×\u00A0"
+                    "+ " -> "+\u00A0"
+                    else -> p.text
+                }
                 withStyle(SpanStyle(color = color)) { append(text) }
             }
         },

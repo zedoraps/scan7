@@ -7,12 +7,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -29,11 +28,11 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -41,7 +40,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import net.moesli.scan7.ui.components.ArrangeIcon
 import net.moesli.scan7.ui.components.IconButton
 import net.moesli.scan7.ui.components.MenuIcon
 import net.moesli.scan7.ui.components.PrimaryButton
@@ -81,7 +79,7 @@ fun AppIcon(modifier: Modifier = Modifier, size: Dp = 32.dp) {
     }
 }
 
-/** Header (top 48, height 48): icon · view toggle · Arrange + Menu; arrange mode: title + hint + Done. */
+/** Header (top 48, height 48): icon · view toggle · ⋮ menu (Arrange seats is in the menu); arrange mode: title + hint + Done. */
 @Composable
 internal fun RoundHeader(
     view: RoundView,
@@ -122,87 +120,34 @@ internal fun RoundHeader(
                 textStyle = Scan7Type.button.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
             )
         } else {
-            AppIcon(Modifier.clearAndSetSemantics {})
-            ViewToggle(selected = view, onSelect = actions::onToggleView)
-            Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
-                IconButton(onClick = actions::onEnterArrange, contentDescription = "Arrange seats") {
-                    ArrangeIcon(colors.text)
-                }
-                IconButton(onClick = actions::onMenu, contentDescription = "Menu") {
-                    MenuIcon(colors.text)
-                }
+            // Logo → Home (like the menu's Home; the game stays resumable).
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    // 48 dp touch target, the 32 dp logo stays on the screen margin.
+                    .offset(x = -(Scan7Spacing.minTouch - 32.dp) / 2)
+                    .size(Scan7Spacing.minTouch)
+                    .clip(RoundedCornerShape(Scan7Radii.iconButton))
+                    .scan7Clickable(actions::onHome)
+                    .clearAndSetSemantics {
+                        contentDescription = "Home"
+                        role = Role.Button
+                    },
+            ) {
+                AppIcon()
             }
-        }
-    }
-}
-
-/**
- * Rank badge for the end-of-round view: 24 dp circle with the rank (Unbounded), overlapping the
- * card's top-left corner (the leader badge sits top-right). Rank 1 is cyan, the others `surface`
- * with a `line` outline.
- */
-@Composable
-fun RankBadge(rank: Int, modifier: Modifier = Modifier, size: Dp = 24.dp) {
-    val c = Scan7Theme.colors
-    val first = rank == 1
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier
-            .size(size)
-            .background(if (first) c.accent else c.surface, CircleShape)
-            .then(if (first) Modifier else Modifier.border(1.5.dp, c.line, CircleShape))
-            .semantics { contentDescription = "Rank $rank this round" },
-    ) {
-        Text(
-            text = rank.toString(),
-            color = if (first) c.onAccent else c.text,
-            style = Scan7Type.total13.copy(fontSize = 11.sp, lineHeight = 11.sp),
-            maxLines = 1,
-        )
-    }
-}
-
-/**
- * Bust undo toast ("Anna marked bust · Undo"): `surface` panel, 48 high, radius 12, at the bottom
- * above the buttons. Announced politely to TalkBack.
- */
-@Composable
-internal fun BustToast(name: String, onUndo: () -> Unit, modifier: Modifier = Modifier) {
-    val c = Scan7Theme.colors
-    val shape = RoundedCornerShape(Scan7Radii.iconButton)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .fillMaxWidth()
-            .height(Scan7Spacing.minTouch)
-            .background(c.surface, shape)
-            .border(1.5.dp, c.line, shape)
-            .semantics { liveRegion = LiveRegionMode.Polite },
-    ) {
-        Text(
-            text = "$name marked bust",
-            color = c.text,
-            style = Scan7Type.text13,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = Scan7Spacing.l),
-        )
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .fillMaxHeight()
-                .widthIn(min = Scan7Spacing.minTouch)
-                .clip(shape)
-                .scan7Clickable(onUndo)
-                .clearAndSetSemantics {
-                    contentDescription = "Undo bust for $name"
-                    role = Role.Button
-                }
-                .padding(horizontal = Scan7Spacing.l),
-        ) {
-            Text("UNDO", color = c.accent, style = Scan7Type.tag12.copy(letterSpacing = Scan7Type.capsButton.letterSpacing))
+            val haptics = LocalHapticFeedback.current
+            ViewToggle(
+                selected = view,
+                onSelect = {
+                    if (it != view) haptics.performHapticFeedback(HapticFeedbackType.ToggleOn)
+                    actions.onToggleView(it)
+                },
+            )
+            // "Arrange seats" lives in the ⋮ menu (and long-press on a card).
+            IconButton(onClick = actions::onMenu, contentDescription = "Menu") {
+                MenuIcon(colors.text)
+            }
         }
     }
 }

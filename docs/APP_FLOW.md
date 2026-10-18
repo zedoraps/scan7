@@ -23,7 +23,7 @@ Shown during the whole round: all players in seating order, each with
 
 Header: round number and current leader. Bottom: **Close round**.
 
-Views: **Table** (cards placed freely around the screen, arranged by long-press/drag) and **List** (rows in seating order); seating order is shared. Default Table for ≤ 6 players, List for 7+; choice remembered. Card positions are saved per game.
+Views: **Table** (cards placed freely around the screen, arranged by long-press/drag, or **Arrange seats** as the first item of the round menu ⋮; the header is logo · Table|List · ⋮) and **List** (rows in seating order); seating order is shared. Default Table for ≤ 6 players, List for 7+; choice remembered. Card positions are saved per game.
 
 Open cards have in-card **Scan** and **Bust** buttons: Bust marks the player busted immediately, with an "Undo" toast. Tap an open card → sheet with **Scan**, **Enter manually**, **Bust**. Tap a done card → its result with **Edit**, **Rescan**, **Reset to open**. Compact cards (7–10 players): name on one line, total below; **double-tap** an open card to scan (TalkBack action "Scan <name>").
 
@@ -32,7 +32,7 @@ Bottom: **Scan next · <next open player>** (primary) + **Close round**; when ev
 ## Scan
 1. Full-screen camera, player name at the top, live boxes on the cards.
 2. **Shutter button only** (no auto-capture). Pressing it freezes the current frame.
-   Next to the shutter: **Bust** (magenta outline + word) marks the player busted without scanning (Undo toast); in Scan next it continues straight to the next open player. The header shows the player big (token + name in Unbounded ~28 sp, "SCANNING" / "NEXT").
+   Left of the shutter: **Bust** (magenta outline + word) marks the player busted without scanning (Undo toast); in Scan next it continues straight to the next open player. Right of the shutter: **Type** (manual entry). The top row is ← back, then the player (token + "SCANNING" / "NEXT" · total over the name in Unbounded ~28 sp). Tap the preview to focus there; pinch to zoom (the zoom pills follow).
 3. Review overlay on the frozen frame: boxes and labels stay on the cards; a bottom panel shows
    - detected cards as chips,
    - score breakdown (numbers, x2, plus cards, Flip 7 bonus) and the total,
@@ -52,14 +52,14 @@ Used for **Enter manually**, **Fix** (prefilled with the scanned cards) and **Ed
 - Live score breakdown at the bottom, **Save**.
 
 ## Close round
-1. Confirmation: "X and Y haven't been scored. They'll be marked BUST." → every open player becomes busted (0 points).
-2. The round is closed and the next one starts at once (one transaction); on top of the new round a dismissible **round results overlay** ("Round N results": rank badge, player, round points or BUST, total; ✕ / tap outside / starting a scan closes it).
+1. Confirmation: "X and Y haven't been scored. They'll be marked BUST." → every open player becomes busted (0 points). If nobody has been scored at all: "Nobody has been scored yet – mark everyone BUST?" (likely an accident).
+2. The round is closed and the next one starts at once (one transaction); a snackbar "Round N closed" with **Scoreboard** shows for ~4 s (no overlay).
 3. If at least one player has reached the target (≥ 200) **after the full round is scored**, the game ends: the player with the most points wins (exact tie → shared win). Reaching 200 mid-round never ends the round early.
-4. Otherwise → next round, all players `open` (with the overlay of step 2).
+4. Otherwise → next round, all players `open` (with the snackbar of step 2).
 
 Closed rounds can be reopened from the scoreboard and edited; totals and the game-over state are recomputed.
 
-In the round results overlay ("Tap a player to edit"), tapping a player opens their result sheet for that closed round (Edit / Rescan, Adjust total); edits update the overlay's points, ranks and totals. The game-over check runs when the running round closes.
+Results of closed rounds are edited from the scoreboard. The game-over check runs when the running round closes.
 
 ## Adjust total
 Player sheet (any state, also on the end-of-round view) → **Adjust total**: a small dialog with a signed number (stepper −10 −5 −1 +1 +5 +10, ± sign toggle, or typed: `+10`, `-12`; max ±999), an optional note ("penalty", "house rule") and a preview "Total 123 → 133".
@@ -75,15 +75,15 @@ Round menu (⋮) → **End game** → confirm → the current round is closed as
 Hidden in every build: tap the Scan7 wordmark on Home 5 times (a toast counts down after the 3rd tap; TalkBack action "Open debug menu"). "Save scans for training" lives there and is ON by default.
 
 ## Camera
-Shutter only; best frame of the last second is used. Torch toggle in the camera header (off by default).
+Shutter only; best frame of the last second is used. Torch toggle next to the zoom pills (off by default; shows the camera's real torch state).
 
 ## Stats
 Store everything needed for statistics later (games, rounds, per-player round results incl. bust, and the confirmed cards per row), but no stats UI for now.
 
 ## Changes 2026-10-18 (evening)
-- **Round end in one tap:** when everyone is done, **Next round** closes the round and starts the next one; the round results appear as a dismissible overlay (points, BUST, ranks; tap a player to edit). Game over still goes to the Game over screen. (Replaces the separate end-of-round step.)
+- **Round end in one tap:** when everyone is done, **Next round** closes the round and starts the next one; a snackbar "Round N closed · Scoreboard" (~4 s) instead of a results overlay (the overlay was removed). Game over still goes to the Game over screen. (Replaces the separate end-of-round step.)
 - **Review OK is a split button:** "✓ OK · Next: Ben" / "✓ OK · back to table", chosen via ▾ and remembered (no setting). Applies to every scan (card Scan button or Scan next).
 - **Scan direction** ↻ clockwise / ↺ counter-clockwise in the round menu, remembered; only decides who "next" is.
-- **Camera:** top: ← back (= back to table) left, **Type** button right; bottom: BUST · shutter · zoom pills + torch. No REC marker, no hint text. Bust shows a full-screen magenta "✕ <name> BUST" overlay (~1 s, with Undo) and blocks a second tap.
+- **Camera:** top row: ← back (= back to table), then the player banner; bottom: BUST · shutter · Type, with the zoom pills + torch floating above. No REC marker, no hint text. Bust shows a full-screen magenta "✕ <name> BUST" overlay (~1 s, with Undo) and blocks a second tap.
 - **Review / manual chips:** no "ignored" text; action cards and backs only dashed outline. Stable panel height (no jump on bust), no "Misread a card…" text.
 - **Compact cards (7–10 players):** name on one line, total below; double-tap a compact card to scan.

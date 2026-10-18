@@ -80,6 +80,25 @@ fun dropIndex(offsetY: Float, pitch: Float, count: Int): Int {
 fun clampRowDrag(offsetY: Float, pitch: Float, count: Int, overshoot: Float): Float =
     offsetY.coerceIn(-overshoot, (count - 1).coerceAtLeast(0) * pitch + overshoot)
 
+/**
+ * Edge auto-scroll while a list row is dragged: pixels to scroll this frame for a row at
+ * [rowTop]..[rowTop] + [rowHeight] in a viewport of [viewport] px. Inside [edge] px of the top or
+ * bottom it scrolls up (negative) or down (positive), faster the deeper the row is in the edge zone,
+ * at most [maxStep]; 0 elsewhere (and when the row is taller than the space between both zones).
+ */
+fun autoScrollStep(rowTop: Float, rowHeight: Float, viewport: Float, edge: Float, maxStep: Float): Float {
+    if (edge <= 0f || viewport <= 0f) return 0f
+    val intoTop = edge - rowTop
+    val intoBottom = rowTop + rowHeight - (viewport - edge)
+    val depth = when {
+        intoTop > 0f && intoBottom > 0f -> return 0f
+        intoTop > 0f -> -intoTop
+        intoBottom > 0f -> intoBottom
+        else -> return 0f
+    }
+    return (depth / edge).coerceIn(-1f, 1f) * maxStep
+}
+
 /** First open player in seating order ("Scan next" default), or null when everyone is done. */
 fun firstOpenId(players: List<RoundPlayer>): String? = players.firstOrNull { !it.player.status.isDone }?.id
 
@@ -94,19 +113,4 @@ fun nextOpenIdAfter(players: List<RoundPlayer>, afterId: String?): String? {
         .map { players[(start + it) % players.size] }
         .firstOrNull { !it.player.status.isDone }
         ?.id
-}
-
-/**
- * Rank by this round's points (1 = best; equal points share a rank, next rank skipped: 1, 1, 3).
- * A bust ranks below a scored 0, open players last (same scheme as `GameState.roundRanks`).
- */
-fun roundRanks(players: List<PlayerUi>): Map<String, Int> {
-    val keys = players.associate { p ->
-        p.id to when (val s = p.status) {
-            is PlayerStatus.Scored -> s.points.toLong() * 4 + 2
-            PlayerStatus.Bust -> 1L
-            PlayerStatus.Open -> 0L
-        }
-    }
-    return players.associate { p -> p.id to 1 + keys.values.count { it > keys.getValue(p.id) } }
 }

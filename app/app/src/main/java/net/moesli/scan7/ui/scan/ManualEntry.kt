@@ -34,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -286,8 +285,8 @@ private fun CardGrid(
 
 /**
  * One grid toggle for [count] selected copies. Off: `surface` tile with a line border and the
- * card's echo dot. On: cyan fill, dark label and a check mark, so the state never relies on color
- * alone. Several copies (a duplicate from a scan): "×2" badge, and while the row is [bust] a
+ * card's echo dot. On: cyan fill without the border and a dark label (ground on accent, ~10:1),
+ * so on and off differ in fill and outline, not only in hue; TalkBack gets the checkbox state. Several copies (a duplicate from a scan): "×2" badge, and while the row is [bust] a
  * magenta outline like the duplicate chips (a Second Chance that cancels it keeps the cyan look);
  * a tap removes one copy. Disabled (7 number cards selected): dimmed, not tappable, TalkBack
  * state "7 number cards selected" + disabled.
@@ -351,13 +350,9 @@ private fun GridToggle(
                 .size(6.dp)
                 .background(card.echoDot(), CircleShape),
         )
-        if (on) {
+        if (several) {
             Box(Modifier.align(Alignment.TopEnd).padding(top = 3.dp, end = 4.dp)) {
-                if (several) {
-                    Text("×$count", color = if (duplicate) colors.bust else colors.onAccent, style = Scan7Type.tag12)
-                } else {
-                    CheckMark(colors.onAccent)
-                }
+                Text("×$count", color = if (duplicate) colors.bust else colors.onAccent, style = Scan7Type.tag12)
             }
         }
         Text(
@@ -383,11 +378,6 @@ internal fun SecondChanceInfo(text: String, modifier: Modifier = Modifier) {
         style = Scan7Type.text13,
         modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
     )
-}
-
-@Composable
-private fun CheckMark(color: Color) {
-    Text("✓", color = color, style = Scan7Type.tag12)
 }
 
 private val GridLabel = TextStyle(fontFamily = Unbounded, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
