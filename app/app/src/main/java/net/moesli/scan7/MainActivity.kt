@@ -18,10 +18,11 @@ import net.moesli.scan7.debug.ComponentGalleryScreen
 import net.moesli.scan7.debug.HomeScreen
 import net.moesli.scan7.debug.PhotoDetectScreen
 import net.moesli.scan7.debug.ScoreTesterScreen
+import net.moesli.scan7.debug.SetupDemoScreen
 import net.moesli.scan7.detection.readModelInfo
 import net.moesli.scan7.ui.theme.Scan7Theme
 
-private enum class Screen { HOME, CAMERA, SCORE_TESTER, PHOTO, GALLERY }
+private enum class Screen { HOME, CAMERA, SCORE_TESTER, PHOTO, GALLERY, SETUP_DEMO }
 
 /**
  * DEBUG BUILDS ONLY: `adb shell am start -n net.moesli.scan7/.MainActivity --es debug_photo <path>`
@@ -60,12 +61,14 @@ class MainActivity : ComponentActivity() {
                         onScoreTester = { screen = Screen.SCORE_TESTER },
                         onDetectFromPhoto = { screen = Screen.PHOTO },
                         onComponentGallery = { screen = Screen.GALLERY },
+                        onSetupDemo = { screen = Screen.SETUP_DEMO },
                         modelInfo = modelInfo,
                     )
                     Screen.CAMERA -> CameraScreen(onBack = goHome)
                     Screen.SCORE_TESTER -> ScoreTesterScreen(onBack = goHome)
                     Screen.PHOTO -> PhotoDetectScreen(onBack = goHome, initialUri = debugPhoto)
                     Screen.GALLERY -> ComponentGalleryScreen(onBack = goHome)
+                    Screen.SETUP_DEMO -> SetupDemoScreen(onExit = goHome, modelInfo = modelInfo)
                 }
             }
         }
