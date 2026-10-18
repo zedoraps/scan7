@@ -38,3 +38,6 @@ ml/*.log
 
 # Raw app scans pulled from the phone (images + JSON sidecars)
 ml/data/app_scans/
+
+# App screenshot matrix (scripts/screen-matrix.sh)
+/out/
