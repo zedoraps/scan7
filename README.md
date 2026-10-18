@@ -28,13 +28,17 @@ Run any script with `uv run python scripts/<name>.py` from `ml/`.
 - Test on a real phone over USB (enable USB debugging, then `adb devices`).
 
 ## Input data
-Put the photos here (file names matter for `cards_flat/`):
+Photos are **not in git**: they're large, and the `PRIVATE_*` files show personal info. `ml/data/manifest.csv` lists every file with its original camera filename and notes. Back up `ml/data/` separately.
+
+Folders (file names matter for `cards_flat/`):
 
 | Folder | Content |
 |---|---|
 | `ml/data/cards_flat/` | One straight-on photo per card on a dark background, named by class: `00.jpg` … `12.jpg`, `plus2.jpg`, `plus4.jpg`, `plus6.jpg`, `plus8.jpg`, `plus10.jpg`, `x2.jpg`, `freeze.jpg`, `flip3.jpg`, `second_chance.jpg`, `back.jpg`. Extra photos of the same class: `07_2.jpg`, `07_3.jpg`, … |
 | `ml/data/backgrounds/` | 30–50 photos of tables, floors, fabrics, desk mats — no cards |
-| `ml/data/real_photos/` | Real game photos with multiple cards, varied angles/lighting |
+| `ml/data/real_photos/train/` | Real game photos for fine-tuning (to be labeled) |
+| `ml/data/real_photos/test/` | Real game photos for evaluation only — **never train on these** |
+| `ml/data/unused/` | Kept for reference, not used (Flip 7 box shots, 12 on light background) |
 
 ## Stages
 | # | Stage | Command | Status |

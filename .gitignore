@@ -17,3 +17,9 @@ app/local.properties
 app/.idea/
 *.iml
 .DS_Store
+
+# Photo data: too large for git, contains private photos (PRIVATE_*). Index lives in ml/data/manifest.csv
+ml/data/**/*.jpg
+ml/data/**/*.jpeg
+ml/data/**/*.png
+*.zip

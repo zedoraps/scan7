@@ -47,6 +47,7 @@ Useful facts about the designs:
 ## How cards lie on the table
 - 1–10 cards per player, side by side in a row, flat on the table.
 - Normally not overlapping, sometimes slightly overlapping.
+- The app scans **one player's row at a time** (decided 2026-10-18). Neighbouring rows may be partly visible in the frame.
 
 ## Milestones
 
