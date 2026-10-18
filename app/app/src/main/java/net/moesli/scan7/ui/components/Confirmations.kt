@@ -15,6 +15,21 @@ data class ConfirmSpec(
 )
 
 /**
+ * Localized pieces of [Confirmations.deleteGame], from the `confirm_delete_game_*` string
+ * resources (EN + DE), so the text builder stays plain Kotlin.
+ */
+data class DeleteGameTexts(
+    /** "Delete this game?" */
+    val title: String,
+    /** "Delete" */
+    val confirm: String,
+    /** "The game in progress will be lost." (running game only) */
+    val runningLost: String,
+    /** "This can't be undone." */
+    val irreversible: String,
+)
+
+/**
  * Every confirmation in the app (docs/APP_FLOW.md "Confirmations"). A function returns `null`
  * when the action needs no confirmation in that state (it then runs at once).
  *
@@ -68,6 +83,24 @@ object Confirmations {
         title = "End the game now?",
         confirmLabel = "End game",
         body = "The round is closed as it is; open players count as BUST. The leader wins.",
+        destructive = true,
+    )
+
+    /**
+     * Home → long-press a game → Delete game: always asks (no Undo). [summary] names the game
+     * (date, winner / leader, rounds; blank parts are skipped) on the first body line, joined with
+     * " · "; then [DeleteGameTexts.irreversible], after [DeleteGameTexts.runningLost] when it is the
+     * [running] (unfinished) game.
+     */
+    fun deleteGame(summary: List<String>, running: Boolean, texts: DeleteGameTexts) = ConfirmSpec(
+        title = texts.title,
+        confirmLabel = texts.confirm,
+        body = buildString {
+            val name = summary.filter { it.isNotBlank() }.joinToString(" · ")
+            if (name.isNotEmpty()) append(name).append('\n')
+            if (running) append(texts.runningLost).append(' ')
+            append(texts.irreversible)
+        },
         destructive = true,
     )
 

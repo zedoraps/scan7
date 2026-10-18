@@ -271,7 +271,16 @@ class GameRepository(
      */
     suspend fun endGame(gameId: Long): GameState = mutate(gameId) { s, now -> s.endGame(now) }
 
-    suspend fun deleteGame(gameId: Long) = gameDao.deleteGame(gameId)
+    /**
+     * Home → long-press → Delete game: removes the game and everything keyed by it (seats + table
+     * positions, rounds, results, their cards, total adjustments; foreign-key cascades) in one
+     * transaction. Players stay, except ones the user already deleted (archived) that no remaining
+     * game shows any more. Works for the running game too (Home then has nothing to resume).
+     */
+    suspend fun deleteGame(gameId: Long) = db.withTransaction {
+        gameDao.deleteGame(gameId)
+        playerDao.deleteUnreferencedArchived()
+    }
 
     suspend fun loadGame(gameId: Long): GameState? =
         gameDao.load(gameId)?.toState()?.copy(scanDirection = parseScanDirection(settingsDao.get(KEY_SCAN_DIRECTION)))
