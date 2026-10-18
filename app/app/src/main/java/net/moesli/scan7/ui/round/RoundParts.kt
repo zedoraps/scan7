@@ -79,7 +79,7 @@ fun AppIcon(modifier: Modifier = Modifier, size: Dp = 32.dp) {
     }
 }
 
-/** Header (top 48, height 48): icon · view toggle · ⋮ menu (Arrange seats is in the menu); arrange mode: title + hint + Done. */
+/** Header (top 48, height 48): icon · view toggle · ⋮ menu ("Seats / order" is in the menu); arrange mode: title + hint + Done. */
 @Composable
 internal fun RoundHeader(
     view: RoundView,
@@ -103,7 +103,7 @@ internal fun RoundHeader(
                     .weight(1f)
                     .semantics(mergeDescendants = true) {},
             ) {
-                Text("Arrange seats", color = colors.text, style = Scan7Type.headline16, maxLines = 1)
+                Text("Seats / order", color = colors.text, style = Scan7Type.headline16, maxLines = 1)
                 Text(
                     text = if (view == RoundView.Table) "Drag players to where they sit" else "Drag rows into seating order",
                     color = colors.textMuted,
@@ -144,7 +144,7 @@ internal fun RoundHeader(
                     actions.onToggleView(it)
                 },
             )
-            // "Arrange seats" lives in the ⋮ menu (and long-press on a card).
+            // "Seats / order" lives in the ⋮ menu (and long-press on a card).
             IconButton(onClick = actions::onMenu, contentDescription = "Menu") {
                 MenuIcon(colors.text)
             }

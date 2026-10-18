@@ -42,7 +42,7 @@ import net.moesli.scan7.ui.theme.Scan7Type
 
 /**
  * Round menu (⋮) content: "ROUND 4 · TO 200", then an M3 list (`ListItem` rows, no outlines,
- * leading icons, ≥ 56 dp full-width touch rows with the Scan7 press dim): Arrange seats,
+ * leading icons, ≥ 56 dp full-width touch rows with the Scan7 press dim): Seats / order,
  * Scoreboard, Scan direction (an M3 `SingleChoiceSegmentedButtonRow` below its label: ↻ Clockwise |
  * ↺ Counter; selecting keeps the sheet open), End game (warning style; [onEndGame] opens the
  * confirmation; hidden once the game is over) and Home. The caller slides the sheet down for
@@ -62,7 +62,7 @@ fun RoundMenuContent(
     val colors = Scan7Theme.colors
     Column {
         SectionLabel("Round $round · to $target", Modifier.padding(start = Scan7Spacing.l, bottom = Scan7Spacing.s))
-        MenuRow("Arrange seats", onArrange) { ArrangeIcon(colors.text) }
+        MenuRow("Seats / order", onArrange) { ArrangeIcon(colors.text) }
         MenuRow("Scoreboard", onScoreboard) { ScoreboardIcon(colors.text) }
         ListItem(
             headlineContent = { Text("Scan direction", style = Scan7Type.text15) },

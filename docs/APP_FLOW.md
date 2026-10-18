@@ -23,7 +23,7 @@ Shown during the whole round: all players in seating order, each with
 
 Header: round number and current leader. Bottom: **Close round**.
 
-Views: **Table** (cards placed freely around the screen, arranged by long-press/drag, or **Arrange seats** as the first item of the round menu ⋮; the header is logo · Table|List · ⋮) and **List** (rows in seating order); seating order is shared. Default Table for ≤ 6 players, List for 7+; choice remembered. Card positions are saved per game. The round menu is a bottom sheet with an M3 list (`ListItem` rows with icons): Arrange seats, Scoreboard, **Scan direction** (M3 segmented buttons ↻ Clockwise | ↺ Counter, the sheet stays open), End game (warning style), Home.
+Views: **Table** (cards placed freely around the screen, arranged by long-press/drag, or **Seats / order** as the first item of the round menu ⋮; the header is logo · Table|List · ⋮) and **List** (rows in seating order); seating order is shared. Default Table for ≤ 6 players, List for 7+; choice remembered. Card positions are saved per game. The round menu is a bottom sheet with an M3 list (`ListItem` rows with icons): Seats / order, Scoreboard, **Scan direction** (M3 segmented buttons ↻ Clockwise | ↺ Counter, the sheet stays open), End game (warning style), Home.
 
 Open cards have in-card **Scan** and **Bust** buttons: Bust marks the player busted immediately, with an "Undo" toast. Tap an open card → sheet with **Scan**, **Enter manually**, **Bust**. Tap a done card → its result with **Edit**, **Rescan**, **Reset to open**. Compact cards (7–10 players): name on one line, total below; **double-tap** an open card to scan (TalkBack action "Scan <name>").
 
