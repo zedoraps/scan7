@@ -103,6 +103,22 @@ mDNS); `adb devices` should list `adb-…._adb-tls-connect._tcp`. If it is missi
 Wireless debugging on the phone (pair once with `adb pair <ip>:<port>`). Only one agent should
 drive the phone at a time.
 
+### Emulators on mini (headless, API 37 x86_64 Google APIs, 1080×2400, 2 GB RAM)
+Three emulators run on mini and are tunneled to the Mac over SSH: serials **`localhost:5561` =
+scan7-emu-1, `localhost:5563` = emu-2, `localhost:5565` = emu-3**. Use **one emulator per agent**
+(pick a free one, don't share), and **always** set `ANDROID_SERIAL=localhost:556x` for every
+`adb`/`./gradlew installDebug`/test command. **Never use the user's phone** (`adb-…` /
+`192.168.178.26`) unless told to.
+```sh
+scripts/mini-emulators.sh start      # boot on mini (if needed), open tunnels, adb connect (idempotent)
+scripts/mini-emulators.sh status     # remote state + tunnel + adb
+scripts/mini-emulators.sh tunnel     # only reopen tunnels / reconnect adb (e.g. after `adb kill-server`)
+scripts/mini-emulators.sh stop       # adb disconnect, close tunnels, stop the emulators
+ANDROID_SERIAL=localhost:5561 ./gradlew installDebug
+```
+On mini: `~/android/emulators.sh start|stop|status` (SDK via Nix in `~/android`, logs in `~/android/logs`).
+The emulators run at nice 5 next to training; idle they cost ~1.5 cores in total. The app data persists across restarts.
+
 ## Hard rules
 - **Class order is fixed** by `ml/config/cards.yaml` (ids 0–22 = YOLO class ids = app labels). Never reorder.
 - **Photos are not in git.** `PRIVATE_*` files show personal info: never upload, share, paste or send them anywhere.
