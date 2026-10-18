@@ -82,6 +82,7 @@ private object Vectors {
     val flag by lazy { vector("Flag", "M6 21V4M6 4h11l-2.5 4L17 12H6", 2f) }
     val home by lazy { vector("Home", "M3.5 11.5L12 4l8.5 7.5M6 9.5V20h12V9.5", 2f) }
     val rotate by lazy { vector("Rotate", "M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4v4h-4", 2f) }
+    val globe by lazy { vector("Globe", circle(12f, 12f, 8.5f) + "M3.5 12h17M12 3.5c3 3 3 14 0 17M12 3.5c-3 3-3 14 0 17", 2f) }
     private const val TORCH = "M8 9h8l-2 4v8h-4v-8zM8 9V7h8v2M12 15v2"
     val torchOff by lazy { vector("TorchOff", TORCH, 2f) }
     val torchOn by lazy { vector("TorchOn", TORCH + "M12 2v2M6 3.5l1.2 1.6M18 3.5l-1.2 1.6", 2f) }
@@ -161,3 +162,7 @@ fun HomeIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) = Ve
 /** Circular arrow (round menu "Scan direction"). */
 @Composable
 fun RotateIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) = VectorIcon(Vectors.rotate, color, size, modifier)
+
+/** Globe (Home: app language). */
+@Composable
+fun GlobeIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) = VectorIcon(Vectors.globe, color, size, modifier)

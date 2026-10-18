@@ -79,7 +79,7 @@ shoot() {
   case $screen in
     sheet_open) tap_desc "$dev" "Maximilian-Alexander, "; sleep 2 ;;
     sheet_done) tap_desc "$dev" "Philip, "; sleep 2 ;;
-    adjust_dialog) tap_desc "$dev" "Philip, "; sleep 2; tap_desc "$dev" "Adjust Philip"; sleep 2 ;;
+    adjust_dialog) tap_desc "$dev" "Philip, "; sleep 2; tap_desc "$dev" "\(Adjust\|Summe von\) Philip"; sleep 2 ;;  # EN / DE label
   esac
   adb -s "$dev" exec-out screencap -p >"$OUT/$profile/$key.png"
 }

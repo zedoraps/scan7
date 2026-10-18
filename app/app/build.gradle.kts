@@ -90,6 +90,16 @@ android {
     androidResources {
         // CompiledModel memory-maps the model straight from the APK.
         noCompress += "tflite"
+        // UI languages (res/xml/locales_config.xml): drops library translations of other locales.
+        localeFilters += listOf("en", "de")
+    }
+    bundle {
+        // In-app language switch (ui/text/AppLanguage.kt): every language must be in the install.
+        language { enableSplit = false }
+    }
+    lint {
+        // Strings (AGENTS.md "Strings"): severities in lint.xml (missing translations fail lint).
+        lintConfig = file("lint.xml")
     }
     buildFeatures {
         compose = true

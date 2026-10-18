@@ -1,6 +1,352 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    UI strings, English (default). German in values-de/strings.xml: every string here needs a German
+    one (lint MissingTranslation is an error). German says "RAUS" for BUST; card names stay as printed
+    (Freeze, Flip Three, Second Chance, Flip 7). Conventions: AGENTS.md "Strings".
+-->
 <resources>
     <string name="app_name" translatable="false">Scan7</string>
 
+    <!-- Shared words and actions -->
+    <!-- The bust word as shown in tags, buttons and dialogs (always with magenta). -->
+    <string name="bust_word">BUST</string>
+    <string name="label_bust">BUST</string>
+    <string name="label_bust_tag">✕ BUST</string>
+    <string name="action_back">Back</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_save">Save</string>
+    <string name="action_reset">Reset</string>
+    <string name="action_start">Start</string>
+    <string name="action_next">Next</string>
+    <string name="action_done">Done</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_undo">Undo</string>
+    <string name="action_remove">Remove</string>
+    <string name="action_home">Home</string>
+    <string name="action_menu">Menu</string>
+    <string name="action_scoreboard">Scoreboard</string>
+    <string name="action_new_game">New game</string>
+    <string name="action_end_game">End game</string>
+    <string name="action_close_round">Close round</string>
+    <!-- Two-line label of the narrow "Close round" button next to "Scan next". -->
+    <string name="action_close_round_two_lines">Close\nround</string>
+    <string name="action_scan">Scan</string>
+    <string name="action_scan_player">Scan %1$s</string>
+    <string name="action_bust_player">Mark %1$s as bust</string>
+    <string name="action_undo_bust_player">Undo bust for %1$s</string>
+    <string name="action_enter_manually">Enter manually</string>
+    <string name="action_rearrange">Rearrange seats / order</string>
+    <string name="label_scan_next">SCAN NEXT</string>
+    <string name="action_scan_next_player">Scan next: %1$s</string>
+    <string name="view_table">Table view</string>
+    <string name="view_list">List view</string>
+    <!-- "Anna and David"; %1$s = "Anna, Ben" (comma-separated) for three or more. -->
+    <string name="names_and">%1$s and %2$s</string>
+    <string name="points_short">PTS</string>
+    <plurals name="points">
+        <item quantity="one">%d point</item>
+        <item quantity="other">%d points</item>
+    </plurals>
+    <plurals name="rounds">
+        <item quantity="one">%d round</item>
+        <item quantity="other">%d rounds</item>
+    </plurals>
+    <string name="target_short">to %1$d</string>
+    <string name="round_label">ROUND</string>
+    <string name="round_number">Round %1$d</string>
+    <string name="error_save">Couldn\'t save</string>
+    <string name="error_delete">Couldn\'t delete</string>
+
+    <!-- Player status (tags, TalkBack) -->
+    <string name="tag_open">OPEN</string>
+    <string name="tag_scored">✓ +%1$d</string>
+    <string name="status_open">Not scored yet</string>
+    <string name="status_scored">Scored %1$d</string>
+    <string name="status_bust">Bust</string>
+    <!-- Progress strip: "2 of 4 scored · to 200". -->
+    <plurals name="progress_scored">
+        <item quantity="one">%1$d of %2$d scored · to %3$d</item>
+        <item quantity="other">%1$d of %2$d scored · to %3$d</item>
+    </plurals>
+
+    <!-- Language setting (Home) -->
+    <string name="language_title">Language</string>
+    <string name="language_system">System default</string>
+    <string name="language_english" translatable="false">English</string>
+    <string name="language_german" translatable="false">Deutsch</string>
+
+    <!-- Confirmations (ui/components/Confirmations.kt) -->
+    <string name="confirm_delete_player_title">Delete %1$s?</string>
+    <string name="confirm_delete_player_body">Past games keep showing them.</string>
+    <string name="confirm_reset_title">Reset %1$s to open?</string>
+    <string name="confirm_reset_body_points">Removes %1$s from this round.</string>
+    <string name="confirm_reset_body_bust">Removes the BUST from this round.</string>
+    <string name="confirm_close_round_title">Close round %1$d?</string>
+    <string name="confirm_close_round_one">%1$s hasn\'t been scored. They\'ll be marked BUST.</string>
+    <string name="confirm_close_round_some">%1$s haven\'t been scored. They\'ll be marked BUST.</string>
+    <string name="confirm_close_round_nobody">Nobody has been scored yet – mark everyone BUST?</string>
+    <string name="confirm_end_game_title">End the game now?</string>
+    <string name="confirm_end_game_body">The round is closed as it is; open players count as BUST. The leader wins.</string>
+    <string name="confirm_start_game_title">Start a new game?</string>
+    <string name="confirm_start_game_body">The unfinished game (round %1$d) ends and can\'t be resumed.</string>
+
+    <!-- Home -->
+    <string name="home_past_games">Past games</string>
+    <string name="home_players">Players</string>
+    <string name="home_debug_action">Open debug menu</string>
+    <string name="home_resume_title">Resume game</string>
+    <string name="home_resume">Resume</string>
+    <string name="home_no_points">No points yet</string>
+    <string name="home_leader_one">%1$s leads · %2$d</string>
+    <string name="home_leader_many">%1$s lead · %2$d</string>
+    <plurals name="home_resume_description">
+        <item quantity="one">Unfinished game, round %2$d, %1$d player, %3$s</item>
+        <item quantity="other">Unfinished game, round %2$d, %1$d players, %3$s</item>
+    </plurals>
+    <string name="home_open_scoreboard">Open scoreboard</string>
+    <string name="home_intro_title">Scan a row, get the score.</string>
+    <string name="home_intro_players">Pick who\'s playing, then point the camera at each player\'s row of cards. Scan7 adds it up.</string>
+    <string name="home_intro_no_players">No players yet. New game starts with adding everyone at the table — they\'re saved for next time.</string>
+    <string name="home_footer">Scan7 v%1$s (%2$d) · model %3$s</string>
+    <string name="history_today">Today, %1$s</string>
+    <string name="history_yesterday">Yesterday, %1$s</string>
+    <string name="history_won">%1$s won</string>
+    <string name="history_led">%1$s led</string>
+    <string name="history_not_finished">Not finished</string>
+    <string name="history_no_winner">No winner</string>
+    <string name="history_ended_early">ended early</string>
+    <string name="history_abandoned">not finished</string>
+    <!-- TalkBack for a past game: "Today, 21:40, Mia won with 214 points, 7 rounds, 4 players: …". -->
+    <string name="history_with_points">%1$s with %2$s</string>
+    <plurals name="history_players">
+        <item quantity="one">%1$d player: %2$s</item>
+        <item quantity="other">%1$d players: %2$s</item>
+    </plurals>
+
+    <!-- Players + editor -->
+    <string name="players_title">Players</string>
+    <plurals name="players_subtitle">
+        <item quantity="one">%d stored · tap to edit</item>
+        <item quantity="other">%d stored · tap to edit</item>
+    </plurals>
+    <string name="players_add">Add player</string>
+    <string name="players_add_first">Add your first player</string>
+    <string name="players_empty_body">Name and a color. They\'re saved on this phone for every game.</string>
+    <string name="players_new">New player</string>
+    <string name="editor_new_title">New player</string>
+    <string name="editor_edit_title">Edit player</string>
+    <string name="editor_name">Name</string>
+    <string name="editor_name_placeholder">e.g. Anna</string>
+    <string name="editor_name_missing">Enter a name to save</string>
+    <string name="editor_shuffle">Shuffle avatar</string>
+    <string name="editor_face">Face</string>
+    <string name="editor_pattern">Pattern</string>
+    <string name="editor_color">Color</string>
+    <string name="editor_face_option">%1$s face</string>
+    <string name="editor_pattern_option">%1$s pattern</string>
+    <string name="editor_no_pattern">No pattern</string>
+    <string name="editor_color_used">%1$s, used by %2$s</string>
+    <!-- TalkBack: "Mia, Sand avatar, grin face". -->
+    <string name="avatar_description">%1$s avatar, %2$s face</string>
+    <string name="avatar_description_named">%1$s, %2$s</string>
+    <string name="avatar_color_amber">Amber</string>
+    <string name="avatar_color_violet">Violet</string>
+    <string name="avatar_color_lime">Lime</string>
+    <string name="avatar_color_sand">Sand</string>
+    <string name="avatar_color_sky">Sky</string>
+    <string name="avatar_color_mint">Mint</string>
+    <string name="avatar_color_khaki">Khaki</string>
+    <string name="avatar_color_salmon">Salmon</string>
+    <string name="avatar_color_steel">Steel</string>
+    <string name="avatar_color_chartreuse">Chartreuse</string>
+    <string name="avatar_color_chalk">Chalk</string>
+    <string name="avatar_color_peach">Peach</string>
+    <string name="avatar_color_rose">Rose</string>
+    <string name="avatar_color_leaf">Leaf</string>
+    <string name="avatar_color_olive">Olive</string>
+    <string name="avatar_face_happy">happy</string>
+    <string name="avatar_face_cool">cool</string>
+    <string name="avatar_face_wink">wink</string>
+    <string name="avatar_face_wow">wow</string>
+    <string name="avatar_face_grin">grin</string>
+    <string name="avatar_face_sleepy">sleepy</string>
+    <string name="avatar_face_cheeky">cheeky</string>
+    <string name="avatar_face_focus">focus</string>
+    <string name="avatar_face_hearts">hearts</string>
+    <string name="avatar_face_grumpy">grumpy</string>
+    <string name="avatar_face_silly">silly</string>
+    <string name="avatar_face_dizzy">dizzy</string>
+    <string name="avatar_pattern_stripes">Stripes</string>
+    <string name="avatar_pattern_dots">Dots</string>
+    <string name="avatar_pattern_zigzag">Zigzag</string>
+    <string name="avatar_pattern_grid">Grid</string>
+    <string name="avatar_pattern_waves">Waves</string>
+
+    <!-- New game + seats -->
+    <string name="newgame_title">New game</string>
+    <string name="newgame_subtitle">Who\'s playing? · %1$d of %2$d</string>
+    <string name="newgame_min_players">Pick at least %1$d players.</string>
+    <string name="newgame_max_players">%1$d players is the maximum.</string>
+    <string name="newgame_no_players">No players yet. Add everyone who\'s at the table — they\'re saved for next time.</string>
+    <string name="newgame_skip_seats">Skip seats</string>
+    <string name="newgame_target">Target</string>
+    <string name="newgame_target_description">Target, points to win</string>
+    <string name="newgame_target_lower">Lower target</string>
+    <string name="newgame_target_raise">Raise target</string>
+    <string name="seats_title">Seats</string>
+    <string name="seats_hint_table">Drag players to where they sit</string>
+    <string name="seats_hint_list">Drag rows into seating order</string>
+    <string name="seats_start">Start game</string>
+    <string name="seats_error_start">Couldn\'t start the game</string>
+
+    <!-- Scoreboard -->
+    <string name="scoreboard_title">Scoreboard</string>
+    <string name="scoreboard_final">Final · %1$s · to %2$d</string>
+    <string name="scoreboard_abandoned">Not finished · %1$s · to %2$d</string>
+    <string name="scoreboard_running">Round %1$d · to %2$d · tap to edit</string>
+    <!-- Column header "round" (narrow: 3 letters). -->
+    <string name="scoreboard_round_short">RND</string>
+    <string name="scoreboard_round">Round</string>
+    <string name="scoreboard_round_running">Round %1$d, running</string>
+    <string name="scoreboard_now">NOW</string>
+    <string name="scoreboard_total_label">TOTAL</string>
+    <string name="scoreboard_total">Total</string>
+    <string name="scoreboard_total_description">%1$s, total %2$d</string>
+    <string name="scoreboard_adjusted">, includes total adjustments</string>
+    <string name="a11y_leading">, leading</string>
+    <string name="scoreboard_cell_points">Round %1$d, %2$s: %3$s</string>
+    <string name="scoreboard_cell_bust">Round %1$d, %2$s: bust</string>
+    <string name="scoreboard_cell_open">Round %1$d, %2$s: not scored yet</string>
+
+    <!-- Game over -->
+    <string name="gameover_title">Game over · %1$s</string>
+    <string name="gameover_standings">Final standings</string>
+    <string name="gameover_shared">Shared win</string>
+    <string name="gameover_wins">%1$s wins</string>
+    <string name="gameover_share">%1$s share the win</string>
+    <string name="gameover_no_winner">No winner</string>
+    <plurals name="gameover_points_each">
+        <item quantity="one">%d point each</item>
+        <item quantity="other">%d points each</item>
+    </plurals>
+    <string name="gameover_headline_description">%1$s with %2$s</string>
+    <string name="gameover_standing_description">%1$s, %2$s, %3$s</string>
+    <string name="gameover_winner">, winner</string>
+    <string name="gameover_same_players">SAME PLAYERS</string>
+    <string name="gameover_same_players_description">New game with the same players</string>
+
+    <!-- Player sheet + adjust total -->
+    <string name="sheet_points_round">%1$s · round %2$d</string>
+    <string name="sheet_points_this_round">points this round</string>
+    <string name="sheet_zero_points_this_round">0 points this round</string>
+    <string name="sheet_marked_bust">Marked bust, no cards recorded.</string>
+    <string name="sheet_points_only">Points entered without cards.</string>
+    <string name="sheet_rescan">Rescan</string>
+    <string name="sheet_edit_cards">Edit %1$s\'s cards</string>
+    <string name="sheet_rescan_player">Rescan %1$s</string>
+    <string name="sheet_reset">Reset to open</string>
+    <string name="sheet_reset_description">Reset %1$s to not scored</string>
+    <string name="sheet_card_ignored">%1$s · ignored</string>
+    <string name="sheet_card_ignored_description">%1$s, ignored</string>
+    <string name="sheet_card_duplicate_description">%1$s, duplicate</string>
+    <string name="sheet_adjustments">Total adjustments</string>
+    <string name="sheet_adjust">Adjust total</string>
+    <string name="sheet_adjust_description">Adjust %1$s\'s total (penalty, house rule)</string>
+    <string name="sheet_removed">Removed %1$s</string>
+    <string name="sheet_adjustment_description">Adjustment %1$s</string>
+    <string name="sheet_remove_adjustment">Remove adjustment %1$s</string>
+    <string name="adjust_title">Adjust %1$s\'s total</string>
+    <string name="adjust_note_placeholder">Note (optional): penalty …</string>
+    <string name="adjust_note_label">Note, optional</string>
+    <string name="adjust_apply">Apply</string>
+    <string name="adjust_apply_delta">Apply %1$s</string>
+    <string name="adjust_field_description">Points to add, use minus to subtract</string>
+    <string name="adjust_flip_sign">Switch between add and subtract</string>
+    <string name="adjust_error_sign">Enter a number after the sign</string>
+    <string name="adjust_error_range">Up to %1$d points</string>
+    <string name="adjust_error_zero">Enter a number other than 0</string>
+    <string name="adjust_step_add">Add %1$d</string>
+    <string name="adjust_step_subtract">Subtract %1$d</string>
+    <string name="adjust_preview">Total %1$d → %2$d</string>
+    <string name="adjust_round">round %1$d</string>
+    <string name="adjust_plus">plus %1$d</string>
+    <string name="adjust_minus">minus %1$d</string>
+    <!-- Sheet breakdown line: "7 + 12 + 3 = 22 · ×2 = 44 · +4 · Flip 7 +15"; bust: "BUST · two 7s". -->
+    <string name="breakdown_bust">BUST · %1$s</string>
+    <string name="breakdown_flip7">Flip 7 +%1$d</string>
+
+    <!-- Toasts -->
+    <string name="toast_bust">%1$s marked bust</string>
+    <string name="toast_round_closed">Round %1$d closed</string>
+    <string name="toast_open_scoreboard">Open the scoreboard</string>
+
+    <!-- Cards -->
+    <string name="card_freeze" translatable="false">Freeze</string>
+    <string name="card_flip_three">Flip 3</string>
+    <string name="card_second_chance">2nd chance</string>
+    <string name="card_back">Back</string>
+    <string name="card_plus_spoken">plus %1$d</string>
+    <string name="card_times_two_spoken">times 2</string>
+    <!-- Bust summary, "Two 7s", "Two 3s, two 7s" (the first one is capitalized in code). -->
+    <string name="dup_two">two %1$ds</string>
+    <string name="dup_three">three %1$ds</string>
+    <string name="dup_four">four %1$ds</string>
+    <string name="dup_five">five %1$ds</string>
+    <string name="dup_many">%2$d× %1$d</string>
+    <string name="formula_plus">plus</string>
+    <string name="formula_times">times</string>
+    <string name="formula_equals">%1$s equals %2$s</string>
+    <string name="second_chance_used">Second Chance used · %1$s counted once</string>
+
+    <!-- Review + manual entry (ui/scan) -->
+    <string name="review_photo">Frozen photo of %1$s\'s cards</string>
+    <string name="review_back_to_camera">Back to camera</string>
+    <string name="review_fix">Fix</string>
+    <string name="review_confirm_bust">Confirm bust</string>
+    <string name="review_ok">✓ OK</string>
+    <string name="review_round_progress">Round %1$d · %2$s</string>
+    <string name="review_in_row">%1$s in the row</string>
+    <string name="review_round_points">Round points</string>
+    <string name="review_zero_bust">0 points, bust</string>
+    <string name="review_no_cards">No cards found</string>
+    <string name="review_detector_failed">The card detector failed: %1$s</string>
+    <string name="review_no_cards_hint">Hold the phone over the whole row, with enough light, and try again.</string>
+    <string name="review_retake">Retake</string>
+    <string name="review_include">Include %1$s</string>
+    <string name="review_leave_out">Leave out %1$s</string>
+    <string name="review_tap_hint">Tap a card to leave it out</string>
+    <string name="review_flip7_description">Flip 7 bonus, plus %1$d</string>
+    <string name="review_flip7" translatable="false">FLIP 7</string>
+    <string name="review_number_limit">More than %1$d number cards – tap cards to leave them out</string>
+    <string name="chip_duplicate">%1$s, duplicate</string>
+    <string name="chip_ignored">%1$s, doesn\'t score</string>
+    <string name="chip_excluded">%1$s, left out</string>
+    <string name="box_excluded">EXCLUDED</string>
+    <string name="manual_cards_for">Cards for</string>
+    <string name="manual_in_row">In the row</string>
+    <string name="manual_empty">Tap the cards below to add them</string>
+    <string name="manual_numbers">Numbers</string>
+    <string name="manual_modifiers">Modifiers</string>
+    <string name="manual_bust">%1$s – remove one, or confirm the bust.</string>
+    <string name="manual_over_limit">More than %1$d number cards – remove %2$d to save</string>
+    <string name="manual_limit_reached">%1$d number cards – the maximum</string>
+    <string name="manual_limit_over">%1$d number cards – at most %2$d fit in a row</string>
+    <string name="manual_limit_state">%1$d number cards selected</string>
+    <string name="manual_count_state">%1$d selected, tap to remove one</string>
+    <string name="after_scan_title">AFTER SAVING</string>
+    <string name="after_scan_next">Next: %1$s</string>
+    <string name="after_scan_table">back to table</string>
+    <string name="after_scan_description">%1$s, then %2$s</string>
+    <string name="after_scan_choose">Choose what happens after %1$s</string>
+    <string name="after_scan_label">%1$s · %2$s</string>
+    <string name="bust_overlay_description">%1$s bust</string>
+    <string name="bust_overlay_undo">UNDO</string>
+    <string name="ordinal_st">%1$dst</string>
+    <string name="ordinal_nd">%1$dnd</string>
+    <string name="ordinal_rd">%1$drd</string>
+    <string name="ordinal_th">%1$dth</string>
+    <string name="player_heading">%1$s: %2$s</string>
     <!-- About & licenses (Home: tap the version footer). -->
     <string name="about_title">About &amp; licenses</string>
     <string name="about_disclaimer">Unofficial score keeper for Flip 7. Not affiliated with The Op Games.</string>
@@ -11,4 +357,5 @@
     <string name="about_privacy">Privacy policy</string>
     <string name="about_third_party">Third-party software</string>
     <string name="about_show_license">Show license</string>
+    <string name="gameover_home">Home</string>
 </resources>

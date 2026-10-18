@@ -1,5 +1,9 @@
 package net.moesli.scan7.ui.scan
 
+import androidx.compose.ui.platform.LocalResources
+import net.moesli.scan7.ui.text.resolve
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import net.moesli.scan7.ui.components.avatarSizeForHeight
 import net.moesli.scan7.ui.components.PlayerAvatar
 import androidx.compose.foundation.Canvas
@@ -141,12 +145,13 @@ internal fun RetakeIcon(color: Color, size: Dp = 22.dp) = StrokeIcon("M4 12a8 8 
 @Composable
 internal fun PlayerHeading(player: PlayerUi, label: String, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
+    val description = stringResource(R.string.player_heading, label, player.name)
     Row(
         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.clearAndSetSemantics {
             heading()
-            contentDescription = "${label.lowercase().replaceFirstChar { it.uppercase() }}: ${player.name}"
+            contentDescription = description
         },
     ) {
         PlayerAvatar(player.avatar, avatarSizeForHeight(35.dp))
@@ -189,11 +194,13 @@ internal fun CardChip(
         card.isModifier -> ModifierInk
         else -> colors.text
     }
+    val label = card.chipLabel().resolve()
+    val spoken = card.spokenLabel().resolve()
     val description = when (look) {
-        ChipLook.Normal -> card.spokenLabel()
-        ChipLook.Duplicate -> "${card.spokenLabel()}, duplicate"
-        ChipLook.Ignored -> "${card.chipLabel()}, doesn't score"
-        ChipLook.Excluded -> "${card.spokenLabel()}, left out"
+        ChipLook.Normal -> spoken
+        ChipLook.Duplicate -> stringResource(R.string.chip_duplicate, spoken)
+        ChipLook.Ignored -> stringResource(R.string.chip_ignored, label)
+        ChipLook.Excluded -> stringResource(R.string.chip_excluded, spoken)
     }
     Box(
         contentAlignment = Alignment.Center,
@@ -219,7 +226,7 @@ internal fun CardChip(
     ) {
         if (look == ChipLook.Excluded) {
             Text(
-                card.chipLabel(),
+                label,
                 color = ink.copy(alpha = 0.7f),
                 style = ChipLabelStyle.copy(textDecoration = TextDecoration.LineThrough),
                 maxLines = 1,
@@ -232,9 +239,9 @@ internal fun CardChip(
                     .size(6.dp)
                     .background(card.echoDot(), CircleShape),
             )
-            Text(card.chipLabel(), color = ink, style = ChipLabelStyle, maxLines = 1)
+            Text(label, color = ink, style = ChipLabelStyle, maxLines = 1)
         } else {
-            Text(card.chipLabel(), color = ink, style = Scan7Type.text12, maxLines = 1)
+            Text(label, color = ink, style = Scan7Type.text12, maxLines = 1)
         }
     }
 }
@@ -308,6 +315,10 @@ internal fun ScanBoxesOverlay(
     // Per-frame work stays allocation-light (the live overlay redraws on every analysis frame):
     // strokes, dash effects, tag styles and the tag path are built once and reused.
     val styles = remember(colors, density) { BoxDrawStyles(colors, density) }
+    // Tag texts resolved once per locale (not per frame).
+    val resources = LocalResources.current
+    val excludedTag = stringResource(R.string.box_excluded)
+    val labels = remember(resources, excludedTag) { Card.entries.associateWith { it.chipLabel().resolve(resources) } }
     Canvas(modifier) {
         if (imageWidth <= 0 || imageHeight <= 0) return@Canvas
         val mapping = DisplayMapping.of(imageWidth, imageHeight, size.width, size.height, crop)
@@ -316,7 +327,7 @@ internal fun ScanBoxesOverlay(
         for (layer in 0..2) {
             for (i in boxes.indices) {
                 val b = boxes[i]
-                if (b.look.layer == layer) drawScanBoxItem(b, mapping, styles, colors, measurer)
+                if (b.look.layer == layer) drawScanBoxItem(b, mapping, styles, colors, measurer, labels, excludedTag)
             }
         }
     }
@@ -371,6 +382,8 @@ private fun DrawScope.drawScanBoxItem(
     s: BoxDrawStyles,
     colors: Scan7Colors,
     measurer: TextMeasurer,
+    labels: Map<Card, String>,
+    excludedTag: String,
 ) {
     val alpha = b.alpha.coerceIn(0f, 1f)
     if (alpha <= 0f) return
@@ -394,13 +407,13 @@ private fun DrawScope.drawScanBoxItem(
                 alpha = alpha,
             )
             tagColor = colors.textMuted
-            tagText = "EXCLUDED"
+            tagText = excludedTag
             tagStyle = s.tagStyleSmall
         }
         BoxLook.Ignored -> {
             drawRoundRect(colors.text, topLeft, boxSize, corner, style = s.ignoredStroke, alpha = IgnoredInkAlpha * alpha)
             tagColor = colors.text.copy(alpha = IgnoredInkAlpha)
-            tagText = b.card.chipLabel()
+            tagText = labels.getValue(b.card)
             tagStyle = s.tagStyleSmall
         }
         BoxLook.Scoring, BoxLook.Duplicate -> {
@@ -410,7 +423,7 @@ private fun DrawScope.drawScanBoxItem(
                 cornerRadius = s.radius, ink = ink, alpha = alpha,
             )
             tagColor = ink
-            tagText = b.card.chipLabel()
+            tagText = labels.getValue(b.card)
             tagStyle = s.tagStyle
         }
     }

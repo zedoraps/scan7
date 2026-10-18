@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.scan
 
+import net.moesli.scan7.ui.text.de
+import net.moesli.scan7.ui.text.en
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.scoring.Card.BACK
 import net.moesli.scan7.scoring.Card.FREEZE
@@ -31,9 +33,12 @@ class ScanLogicTest {
     @Test
     fun chipLabels() {
         assertEquals(listOf("0", "7", "12", "+4", "+10", "×2", "Freeze", "Flip 3", "2nd chance", "Back"),
-            listOf(N0, N7, N12, PLUS_4, Card.PLUS_10, TIMES_2, FREEZE, Card.FLIP_THREE, SECOND_CHANCE, BACK).map { it.chipLabel() })
-        assertEquals("plus 4", PLUS_4.spokenLabel())
-        assertEquals("times 2", TIMES_2.spokenLabel())
+            listOf(N0, N7, N12, PLUS_4, Card.PLUS_10, TIMES_2, FREEZE, Card.FLIP_THREE, SECOND_CHANCE, BACK).map { it.chipLabel().en })
+        assertEquals("plus 4", PLUS_4.spokenLabel().en)
+        assertEquals("times 2", TIMES_2.spokenLabel().en)
+        assertEquals("mal 2", TIMES_2.spokenLabel().de)
+        // Card names stay as printed in German.
+        assertEquals(listOf("Freeze", "Flip 3"), listOf(FREEZE, Card.FLIP_THREE).map { it.chipLabel().de })
     }
 
     @Test
@@ -102,10 +107,11 @@ class ScanLogicTest {
     fun formula_spoken() {
         assertEquals(
             "6 plus 7 plus 8 times 2 plus 4 equals 46",
-            spokenFormula(breakdownFormula(listOf(N7, N6, TIMES_2, N8, PLUS_4))),
+            spokenFormula(breakdownFormula(listOf(N7, N6, TIMES_2, N8, PLUS_4))).en,
         )
-        assertEquals("0 plus 4 plus 6 equals 10", spokenFormula(breakdownFormula(listOf(PLUS_6, PLUS_4))))
-        assertEquals("7", spokenFormula(breakdownFormula(listOf(N7))))
+        assertEquals("0 plus 4 plus 6 equals 10", spokenFormula(breakdownFormula(listOf(PLUS_6, PLUS_4))).en)
+        assertEquals("7", spokenFormula(breakdownFormula(listOf(N7))).en)
+        assertEquals("6 plus 7 plus 8 mal 2 plus 4 gleich 46", spokenFormula(breakdownFormula(listOf(N7, N6, TIMES_2, N8, PLUS_4))).de)
     }
 
     @Test
@@ -113,12 +119,13 @@ class ScanLogicTest {
         val cards = listOf(N3, N7, N12, N7, N6, TIMES_2)
         val dups = duplicateCounts(cards)
         assertEquals(mapOf(7 to 2), dups)
-        assertEquals("Two 7s", duplicateSummary(dups))
+        assertEquals("Two 7s", duplicateSummary(dups).en)
+        assertEquals("Zwei 7er", duplicateSummary(dups).de)
         assertTrue(isDuplicate(N7, dups))
         assertFalse(isDuplicate(N3, dups))
         assertFalse(isDuplicate(TIMES_2, dups))
-        assertEquals("Two 3s, three 10s", duplicateSummary(duplicateCounts(listOf(N10, N3, N10, N3, N10))))
-        assertEquals("", duplicateSummary(duplicateCounts(listOf(N3, PLUS_4, PLUS_4))))
+        assertEquals("Two 3s, three 10s", duplicateSummary(duplicateCounts(listOf(N10, N3, N10, N3, N10))).en)
+        assertEquals("", duplicateSummary(duplicateCounts(listOf(N3, PLUS_4, PLUS_4))).en)
     }
 
     @Test
@@ -163,7 +170,7 @@ class ScanLogicTest {
         var sel = manualStart(listOf(N3, N12, N12, PLUS_4)).scoring // Fix after a bust scan
         assertEquals(2, selectedCount(sel, N12))
         assertTrue(scoreRow(sel).bust)
-        assertEquals("2 selected, tap to remove one", gridCountState(selectedCount(sel, N12)))
+        assertEquals("2 selected, tap to remove one", gridCountState(selectedCount(sel, N12))!!.en)
         sel = toggleCard(sel, N12) // 2 → 1: no longer bust
         assertEquals(listOf(N3, N12, PLUS_4), sel)
         assertFalse(scoreRow(sel).bust)
@@ -230,7 +237,7 @@ class ScanLogicTest {
     @Test
     fun manualGrid() {
         assertEquals(13, ManualNumbers.size)
-        assertEquals(listOf("+2", "+4", "+6", "+8", "+10", "×2"), ManualModifiers.map { it.chipLabel() })
+        assertEquals(listOf("+2", "+4", "+6", "+8", "+10", "×2"), ManualModifiers.map { it.chipLabel().en })
     }
 
     @Test
@@ -321,7 +328,7 @@ class ScanLogicTest {
         assertEquals(sel, toggleCard(sel, N8)) // the 8th is not added
         assertFalse(isGridCardEnabled(sel, N8))
         assertTrue(isGridCardEnabled(sel, N3)) // selected: still removable
-        assertEquals("7 number cards – the maximum", numberLimitHint(sel))
+        assertEquals("7 number cards – the maximum", numberLimitHint(sel)!!.en)
         // Deselecting re-enables the others.
         val six = toggleCard(sel, N3)
         assertTrue(canAddNumber(six))
@@ -337,7 +344,7 @@ class ScanLogicTest {
         assertFalse(canAddNumber(bustAtSeven))
         assertEquals(bustAtSeven, toggleCard(bustAtSeven, N9))
         assertTrue(overNumberLimit(bustAtSeven + N9))
-        assertEquals("8 number cards – at most 7 fit in a row", numberLimitHint(bustAtSeven + N9))
+        assertEquals("8 number cards – at most 7 fit in a row", numberLimitHint(bustAtSeven + N9)!!.en)
     }
 
     @Test

@@ -1,5 +1,11 @@
 package net.moesli.scan7.ui.round
 
+import net.moesli.scan7.ui.text.uiText
+import net.moesli.scan7.ui.text.resolve
+import net.moesli.scan7.ui.text.UiText
+import androidx.compose.ui.platform.LocalResources
+import android.content.res.Resources
+import net.moesli.scan7.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -90,10 +96,10 @@ class BustToastState {
 @Composable
 fun rememberBustToastState(): BustToastState = remember { BustToastState() }
 
-/** Snackbar visuals of one [RoundToast] (the slot draws [toastText] of [data]). */
-private class RoundSnackbarVisuals(val data: RoundToast) : SnackbarVisuals {
-    override val message: String = toastText(data).message
-    override val actionLabel: String = toastText(data).action
+/** Snackbar visuals of one [RoundToast] (the slot draws [toastText] of [data]), texts resolved with [resources]. */
+private class RoundSnackbarVisuals(val data: RoundToast, resources: Resources) : SnackbarVisuals {
+    override val message: String = toastText(data).message.resolve(resources)
+    override val actionLabel: String = toastText(data).action.resolve(resources)
     override val withDismissAction: Boolean = false
 
     // Short = 4 s, stretched by the host to the user's accessibility timeout.
@@ -101,11 +107,19 @@ private class RoundSnackbarVisuals(val data: RoundToast) : SnackbarVisuals {
 }
 
 /** Texts of a toast: [message], the [action] label and its TalkBack description. */
-internal data class ToastText(val message: String, val action: String, val actionDescription: String)
+internal data class ToastText(val message: UiText, val action: UiText, val actionDescription: UiText)
 
 internal fun toastText(toast: RoundToast): ToastText = when (toast) {
-    is BustToastData -> ToastText("${toast.name} marked bust", "Undo", "Undo bust for ${toast.name}")
-    is RoundClosedToast -> ToastText("Round ${toast.round} closed", "Scoreboard", "Open the scoreboard")
+    is BustToastData -> ToastText(
+        uiText(R.string.toast_bust, toast.name),
+        uiText(R.string.action_undo),
+        uiText(R.string.action_undo_bust_player, toast.name),
+    )
+    is RoundClosedToast -> ToastText(
+        uiText(R.string.toast_round_closed, toast.round),
+        uiText(R.string.action_scoreboard),
+        uiText(R.string.toast_open_scoreboard),
+    )
 }
 
 /**
@@ -126,10 +140,11 @@ internal fun BustToastHost(
     val undo by rememberUpdatedState(onUndo)
     val scoreboard by rememberUpdatedState(onScoreboard)
     val data = toast.current
+    val resources = LocalResources.current
     LaunchedEffect(data) {
         // A new key cancels the previous showSnackbar, which takes that snackbar down.
         if (data == null || (data is RoundClosedToast && scoreboard == null)) return@LaunchedEffect
-        val result = host.showSnackbar(RoundSnackbarVisuals(data))
+        val result = host.showSnackbar(RoundSnackbarVisuals(data, resources))
         if (result == SnackbarResult.ActionPerformed) {
             when (data) {
                 is BustToastData -> undo(data.playerId)
@@ -141,7 +156,7 @@ internal fun BustToastHost(
     SnackbarHost(hostState = host, modifier = modifier) { snackbar ->
         val visuals = snackbar.visuals as? RoundSnackbarVisuals ?: return@SnackbarHost
         val text = toastText(visuals.data)
-        ToastPanel(text.message, text.action, text.actionDescription, onAction = snackbar::performAction)
+        ToastPanel(text.message.resolve(), text.action.resolve(), text.actionDescription.resolve(), onAction = snackbar::performAction)
     }
 }
 
@@ -201,6 +216,6 @@ internal fun ToastPanel(
 private fun BustToastPreview() {
     Scan7Theme {
         val text = toastText(BustToastData("1", "Anna", 1))
-        ToastPanel(text.message, text.action, text.actionDescription, {}, Modifier.padding(Scan7Spacing.screenMargin))
+        ToastPanel(text.message.resolve(), text.action.resolve(), text.actionDescription.resolve(), {}, Modifier.padding(Scan7Spacing.screenMargin))
     }
 }

@@ -1,5 +1,9 @@
 package net.moesli.scan7.ui.scan
 
+import net.moesli.scan7.ui.text.resolve
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import net.moesli.scan7.ui.components.avatarSizeForHeight
 import net.moesli.scan7.ui.components.PlayerAvatar
 import android.graphics.Bitmap
@@ -60,7 +64,7 @@ import net.moesli.scan7.detection.DisplayMapping
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.training.TrainingCapture
 import net.moesli.scan7.scoring.scoreRow
-import net.moesli.scan7.scoring.secondChanceText
+import net.moesli.scan7.ui.text.secondChanceText
 import net.moesli.scan7.ui.components.IconButton
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.PrimaryButton
@@ -141,7 +145,7 @@ internal fun ScanReviewStep(
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             Image(
                 bitmap = remember(capture) { capture.bitmap.asImageBitmap() },
-                contentDescription = "Frozen photo of ${player.name}'s cards",
+                contentDescription = stringResource(R.string.review_photo, player.name),
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -170,7 +174,7 @@ internal fun ScanReviewStep(
             )
             IconButton(
                 onClick = onRetake,
-                contentDescription = "Back to camera",
+                contentDescription = stringResource(R.string.review_back_to_camera),
                 modifier = Modifier
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(Scan7Spacing.screenMargin),
@@ -220,14 +224,14 @@ private fun ResultPanel(
         ReviewChips(chips, onToggleExclude)
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
             if (bust) {
-                SecondaryButton("Fix", onFix, Modifier.width(120.dp))
+                SecondaryButton(stringResource(R.string.review_fix), onFix, Modifier.width(120.dp))
                 ConfirmSplitButton(
-                    "Confirm bust", onConfirm, afterScan, Modifier.weight(1f), enabled = !overLimit, color = colors.bust, stacked = true,
+                    stringResource(R.string.review_confirm_bust), onConfirm, afterScan, Modifier.weight(1f), enabled = !overLimit, color = colors.bust, stacked = true,
                 )
             } else {
                 RetakeButton(onRetake)
-                SecondaryButton("Fix", onFix, Modifier.width(80.dp))
-                ConfirmSplitButton("✓ OK", onConfirm, afterScan, Modifier.weight(1f), enabled = !overLimit, stacked = true)
+                SecondaryButton(stringResource(R.string.review_fix), onFix, Modifier.width(80.dp))
+                ConfirmSplitButton(stringResource(R.string.review_ok), onConfirm, afterScan, Modifier.weight(1f), enabled = !overLimit, stacked = true)
             }
         }
     }
@@ -273,7 +277,7 @@ private fun StatusSlot(player: PlayerUi, cards: List<Card>, roundNumber: Int?, b
                     modifier = Modifier.weight(1f).semantics(mergeDescendants = true) { heading() },
                 ) {
                     CloseIcon(ink, size = 32.dp, strokeWidth = 3.2f)
-                    Text("BUST", color = ink, style = Scan7Type.total24.copy(fontSize = 28.sp), maxLines = 1)
+                    Text(stringResource(R.string.label_bust), color = ink, style = Scan7Type.total24.copy(fontSize = 28.sp), maxLines = 1)
                 }
                 Text(player.name, color = ink, style = Scan7Type.tag12.copy(fontSize = 13.sp), maxLines = 1)
                 PlayerAvatar(player.avatar, ReviewAvatar)
@@ -283,28 +287,29 @@ private fun StatusSlot(player: PlayerUi, cards: List<Card>, roundNumber: Int?, b
                     Text(player.name, color = ink, style = Scan7Type.button.copy(fontSize = 17.sp), maxLines = 1)
                     val progress = "${player.total} → ${player.total + score.total}"
                     Text(
-                        text = roundNumber?.let { "Round $it · $progress" } ?: progress,
+                        text = roundNumber?.let { stringResource(R.string.review_round_progress, it, progress) } ?: progress,
                         color = colors.textMuted,
                         style = Scan7Type.text12,
                         maxLines = 1,
                     )
                 }
                 if (score.flip7Bonus > 0) Flip7Badge(score.flip7Bonus)
+                val pointsDescription = pluralStringResource(R.plurals.points, score.total, score.total)
                 Text(
                     text = score.total.toString(),
                     color = colors.accent,
                     style = ScoreNumberStyle.copy(fontSize = 40.sp, lineHeight = 48.sp),
                     maxLines = 1,
-                    modifier = Modifier.semantics { contentDescription = "${score.total} points" },
+                    modifier = Modifier.semantics { contentDescription = pointsDescription },
                 )
             }
         }
         Box(Modifier.fillMaxWidth().height(StatusLineHeight), contentAlignment = Alignment.CenterStart) {
-            val secondChance = score.secondChanceText()
+            val secondChance = score.secondChanceText()?.resolve()
             when {
                 overLimit -> NumberLimitWarning(if (bust) colors.onBust else colors.accent)
                 bust -> Text(
-                    "${duplicateSummary(duplicateCounts(splitCards(cards).scoring))} in the row",
+                    stringResource(R.string.review_in_row, duplicateSummary(duplicateCounts(splitCards(cards).scoring)).resolve()),
                     color = ink,
                     style = Scan7Type.tag12.copy(fontSize = 14.sp),
                     maxLines = 1,
@@ -322,16 +327,17 @@ private fun PointsLine(cards: List<Card>, bust: Boolean) {
     Box(Modifier.fillMaxWidth().height(PointsLineHeight), contentAlignment = Alignment.CenterStart) {
         if (bust) {
             val score = scoreRow(splitCards(cards).scoring)
+            val zeroBust = stringResource(R.string.review_zero_bust)
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Round points", color = colors.textMuted, style = Scan7Type.text13)
+                Text(stringResource(R.string.review_round_points), color = colors.textMuted, style = Scan7Type.text13)
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clearAndSetSemantics { contentDescription = "0 points, bust" },
+                    modifier = Modifier.clearAndSetSemantics { contentDescription = zeroBust },
                 ) {
                     Text(
                         score.totalIgnoringBust().toString(),
@@ -354,7 +360,7 @@ private fun PointsLine(cards: List<Card>, bust: Boolean) {
 @Composable
 private fun NumberLimitWarning(color: Color) {
     Text(
-        REVIEW_NUMBER_LIMIT_WARNING,
+        REVIEW_NUMBER_LIMIT_WARNING.resolve(),
         color = color,
         style = Scan7Type.text12,
         maxLines = 2,
@@ -376,21 +382,21 @@ private fun EmptyPanel(player: PlayerUi, error: String?, onRetake: () -> Unit, o
         }
         Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
             Text(
-                "No cards found",
+                stringResource(R.string.review_no_cards),
                 color = colors.text,
                 style = Scan7Type.total24,
                 modifier = Modifier.semantics { heading() },
             )
             Text(
-                text = error?.let { "The card detector failed: $it" }
-                    ?: "Hold the phone over the whole row, with enough light, and try again.",
+                text = error?.let { stringResource(R.string.review_detector_failed, it) }
+                    ?: stringResource(R.string.review_no_cards_hint),
                 color = colors.textMuted,
                 style = Scan7Type.text13,
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
-            SecondaryButton("Retake", onRetake, Modifier.weight(1f))
-            PrimaryButton("Enter manually", onEnterManually, Modifier.weight(1.6f))
+            SecondaryButton(stringResource(R.string.review_retake), onRetake, Modifier.weight(1f))
+            PrimaryButton(stringResource(R.string.action_enter_manually), onEnterManually, Modifier.weight(1.6f))
         }
     }
 }
@@ -424,6 +430,7 @@ internal fun FormulaText(
     style: TextStyle = Scan7Type.text13.copy(lineHeight = 20.sp),
 ) {
     val colors = Scan7Theme.colors
+    val spoken = spokenFormula(parts).resolve()
     Text(
         text = buildAnnotatedString {
             parts.filter { it.kind != FormulaKind.TOTAL }.forEach { p ->
@@ -446,7 +453,7 @@ internal fun FormulaText(
         style = style,
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
-        modifier = modifier.semantics { contentDescription = spokenFormula(parts) },
+        modifier = modifier.semantics { contentDescription = spoken },
     )
 }
 
@@ -464,9 +471,9 @@ private fun ReviewChips(chips: List<ReviewChip>, onToggleExclude: (Int) -> Unit)
             modifier = Modifier.fillMaxWidth(),
         ) {
             chips.forEach { chip ->
-                val label = chip.card.spokenLabel()
+                val label = chip.card.spokenLabel().resolve()
                 val excluded = chip.look == ChipLook.Excluded
-                val action = if (excluded) "Include $label" else "Leave out $label"
+                val action = stringResource(if (excluded) R.string.review_include else R.string.review_leave_out, label)
                 CardChip(
                     card = chip.card,
                     look = chip.look,
@@ -476,7 +483,7 @@ private fun ReviewChips(chips: List<ReviewChip>, onToggleExclude: (Int) -> Unit)
                 )
             }
         }
-        Text("Tap a card to leave it out", color = Scan7Theme.colors.textMuted, style = Scan7Type.text12, maxLines = 1)
+        Text(stringResource(R.string.review_tap_hint), color = Scan7Theme.colors.textMuted, style = Scan7Type.text12, maxLines = 1)
     }
 }
 
@@ -484,15 +491,16 @@ private fun ReviewChips(chips: List<ReviewChip>, onToggleExclude: (Int) -> Unit)
 @Composable
 private fun Flip7Badge(bonus: Int) {
     val colors = Scan7Theme.colors
+    val description = stringResource(R.string.review_flip7_description, bonus)
     Row(
         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .background(colors.accent, RoundedCornerShape(Scan7Radii.tagRow))
             .padding(horizontal = Scan7Spacing.s, vertical = Scan7Spacing.xxs)
-            .clearAndSetSemantics { contentDescription = "Flip 7 bonus, plus $bonus" },
+            .clearAndSetSemantics { contentDescription = description },
     ) {
-        Text("FLIP 7", color = colors.onAccent, style = Scan7Type.tag11, maxLines = 1)
+        Text(stringResource(R.string.review_flip7), color = colors.onAccent, style = Scan7Type.tag11, maxLines = 1)
         Text("+$bonus", color = colors.onAccent, style = Scan7Type.total15, maxLines = 1)
     }
 }
@@ -502,6 +510,7 @@ private fun Flip7Badge(bonus: Int) {
 private fun RetakeButton(onClick: () -> Unit) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.button)
+    val description = stringResource(R.string.review_retake)
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -510,7 +519,7 @@ private fun RetakeButton(onClick: () -> Unit) {
             .border(1.5.dp, colors.line, shape)
             .scan7Clickable(onClick)
             .clearAndSetSemantics {
-                contentDescription = "Retake"
+                contentDescription = description
                 role = Role.Button
             },
     ) {
