@@ -44,6 +44,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -296,6 +297,7 @@ private fun TableSeat(
     val drag = remember { DragTracker() }
     val anchor = remember { DragAnchor() }
     val haptics = LocalHapticFeedback.current
+    val touchSlop = LocalViewConfiguration.current.touchSlop
     val arranging = rememberUpdatedState(state.arranging)
     val callbacks = rememberUpdatedState(
         object : ArrangeDragCallbacks {
@@ -306,6 +308,7 @@ private fun TableSeat(
                 // In arrange mode the drag starts on touch (no long press, so no system tick yet).
                 if (!afterLongPress) haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
                 drag.raw = anim.value
+                drag.start = drag.raw
                 dragging = true
             }
 
@@ -318,9 +321,12 @@ private fun TableSeat(
             override fun onDragEnd() {
                 val position = geometry.positionOf(drag.raw)
                 haptics.performHapticFeedback(HapticFeedbackType.GestureEnd)
-                pending = position
                 dragging = false
-                actions.onMoveCard(rp.id, position)
+                // A long press without moving (or back to the same spot) stores nothing.
+                if (isTableMove(drag.raw - drag.start, touchSlop, rp.position, position)) {
+                    pending = position
+                    actions.onMoveCard(rp.id, position)
+                }
             }
 
             override fun onDragCancel() {
@@ -360,6 +366,9 @@ private fun TableSeat(
 /** Unclamped drag position (finger-relative), so a card follows again after hitting the clamp. */
 private class DragTracker {
     var raw: Offset = Offset.Zero
+
+    /** Table view: [raw] at the drag start. */
+    var start: Offset = Offset.Zero
     var rawY: Float = 0f
 
     /** List view: the slot the row is over (haptic tick on change) and the edge auto-scroll loop. */
@@ -374,6 +383,10 @@ private class ListViewport(val scroll: ScrollState, val height: Float)
 /** Edge zone that auto-scrolls the list while a row is dragged, and the top speed per frame. */
 private val AutoScrollEdge = 56.dp
 private val AutoScrollMaxStep = 12.dp
+
+/** A table drag that ends [moved] away from its start is a real move from [from] to [to]. */
+internal fun isTableMove(moved: Offset, touchSlop: Float, from: TablePosition, to: TablePosition): Boolean =
+    moved.getDistance() >= touchSlop && to != from
 
 private fun Offset.round(): IntOffset = IntOffset(x.roundToInt(), y.roundToInt())
 
