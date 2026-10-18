@@ -65,6 +65,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.moesli.scan7.game.TablePosition
+import net.moesli.scan7.ui.components.bottomButtonsOffset
 import net.moesli.scan7.ui.components.BottomButtons
 import net.moesli.scan7.ui.components.CardMode
 import net.moesli.scan7.ui.components.CardSize
@@ -106,7 +107,7 @@ private val RowOvershoot = 20.dp
 private class RoundMetrics(val width: Dp, height: Dp, statusTop: Dp, navBottom: Dp) {
     val headerTop: Dp = max(Scan7Spacing.headerTop, statusTop)
     val areaTop: Dp = headerTop + Scan7Spacing.headerHeight + Scan7Spacing.l
-    val buttonsTop: Dp = height - max(Scan7Spacing.bottomButtonsBottom, navBottom) - Scan7Spacing.bottomButtonsHeight
+    val buttonsTop: Dp = height - bottomButtonsOffset(navBottom) - Scan7Spacing.bottomButtonsHeight
     val stripTop: Dp = buttonsTop - 36.dp
     val areaBottom: Dp = stripTop - Scan7Spacing.l
     val toastTop: Dp = buttonsTop - Scan7Spacing.s - Scan7Spacing.minTouch
