@@ -8,6 +8,10 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.constrainHeight
+import androidx.compose.ui.unit.constrainWidth
+import androidx.compose.ui.unit.offset
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -35,6 +39,27 @@ internal fun Modifier.dashedBorder(width: Dp, color: Color, cornerRadius: Dp): M
         style = Stroke(w, pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash, gap))),
     )
 }
+
+/**
+ * Grows the touch area by [horizontal] / [vertical] on each side while keeping the layout size:
+ * the rest of the chain is measured that much larger and placed centred over this slot. Use it
+ * right before the clickable, then `padding(horizontal, vertical)` before the visual modifiers
+ * (clip, background, `indication`) so the look stays the same. Custom because
+ * `minimumInteractiveComponentSize()` grows the layout, and the card / row geometry is fixed by
+ * the handoff. Keep neighbours' expansions ≤ half their gap so they don't steal each other's taps;
+ * a clipping parent still cuts the area at its edge.
+ */
+internal fun Modifier.expandedTouchArea(horizontal: Dp, vertical: Dp): Modifier = layout { measurable, constraints ->
+    val dx = horizontal.roundToPx().coerceAtLeast(0)
+    val dy = vertical.roundToPx().coerceAtLeast(0)
+    val placeable = measurable.measure(constraints.offset(2 * dx, 2 * dy))
+    layout(constraints.constrainWidth(placeable.width - 2 * dx), constraints.constrainHeight(placeable.height - 2 * dy)) {
+        placeable.place(-dx, -dy)
+    }
+}
+
+/** Extra touch margin per side so a [visual]-sized target reaches 48 dp (0 when it already does). */
+internal fun touchSlack(visual: Dp, target: Dp = 48.dp): Dp = ((target - visual) / 2).coerceAtLeast(0.dp)
 
 /** Solid or dashed border depending on [dashed]. */
 internal fun Modifier.cardBorder(width: Dp, color: Color, shape: Shape, cornerRadius: Dp, dashed: Boolean): Modifier =

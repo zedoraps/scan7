@@ -238,8 +238,8 @@ private fun TableView(state: RoundUiState, actions: RoundActions, m: RoundMetric
         )
     }
 
-    // Center: "ROUND" + number (72). No table graphic.
-    Box(
+    // Center: "ROUND" + number (72). No table graphic. None in the seating step (no round yet).
+    if (!state.seating) Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .offset(y = m.areaTop)
@@ -358,8 +358,9 @@ private fun TableSeat(
             onScan = { actions.onScan(rp.id) },
             onBust = { onBust(rp) },
             onDoubleClick = if (quickScan) ({ actions.onQuickScan(rp.id) }) else null,
+            showScore = !state.seating,
         )
-        if (state.seatNumbers) SeatBadge(index + 1, Modifier.align(Alignment.TopStart).offset(x = (-6).dp, y = (-6).dp))
+        if (state.seating) SeatBadge(index + 1, Modifier.align(Alignment.TopStart).offset(x = (-6).dp, y = (-6).dp))
     }
 }
 
@@ -397,7 +398,8 @@ private fun ListView(state: RoundUiState, actions: RoundActions, m: RoundMetrics
     val size = RowSize.forPlayerCount(state.playerCount)
     val colors = Scan7Theme.colors
 
-    Row(
+    // No "ROUND n" in the seating step (no round yet); the rows keep their place.
+    if (!state.seating) Row(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier
             .offset(y = m.areaTop)
@@ -562,6 +564,7 @@ private fun ListSeat(
             onLongClick = actions::onEnterArrange,
             onScan = { actions.onScan(rp.id) },
             onBust = { onBust(rp) },
+            showScore = !state.seating,
             modifier = Modifier
                 .arrangeDrag(arranging, anchor, callbacks)
                 .semantics {
@@ -576,7 +579,7 @@ private fun ListSeat(
                     }
                 },
         )
-        if (state.seatNumbers) SeatBadge(index + 1, Modifier.offset(x = (-6).dp, y = (-6).dp))
+        if (state.seating) SeatBadge(index + 1, Modifier.offset(x = (-6).dp, y = (-6).dp))
     }
 }
 
