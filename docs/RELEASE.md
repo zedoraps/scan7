@@ -155,6 +155,12 @@ Answers are drafted in [store/README.md](store/README.md).
   in `prebuild` with the checksum, or committed for their builds; training photos are not
   public, so the model isn't reproducible from source alone), and the LiteRT binaries from
   Google Maven (Apache-2.0).
+- **Blocker for the main F-Droid repo (not for Play / IzzyOnDroid):** `litert-api` 2.3.0 pulls in
+  the proprietary `com.google.android.gms:play-services-basement` / `play-services-tasks` and
+  `com.google.android.play:asset-delivery` (for AI Pack / Play-delivered models, unused by Scan7).
+  F-Droid rejects or flags these (NonFreeDep). Fix before an F-Droid submission: a `foss` build
+  flavor that `exclude`s those groups, then verify on a device that `CompiledModel` (GPU + CPU
+  fallback) still loads the bundled asset without them.
 - Store texts for F-Droid can live in `fastlane/metadata/android/<lang>/` (title, short and full
   description, images); copy them from `docs/store/` when doing this.
 
