@@ -32,3 +32,6 @@ ml/labeling/ls_data/
 
 # Training logs
 ml/*.log
+
+# Claude Code worktrees for parallel agents
+.claude/

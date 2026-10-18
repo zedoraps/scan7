@@ -1,1 +1,1 @@
-synth_v1/last ep5 (debug, unverified) · fp32 · 640px · 2026-10-18
+synth_v1/ep15 ep14 · fp32 · 640px · 2026-10-18
