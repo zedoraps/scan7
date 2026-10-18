@@ -389,6 +389,8 @@ data class GameState(
          * New game with [players] in seating order (avatar colors may repeat).
          * Positions default to an even ring; with [previousPositions] (from the last game with the
          * same player set) those spots are reused, handed out clockwise in the new seating order.
+         * Explicit [positions] (one per player, in seating order: arranged on the seating step) win
+         * over both and are kept as they are.
          */
         fun newGame(
             players: List<Player>,
@@ -396,19 +398,30 @@ data class GameState(
             startedAt: Long = 0,
             previousPositions: Map<Long, TablePosition>? = null,
             id: Long = 0,
+            positions: List<TablePosition>? = null,
         ): GameState {
             require(players.isNotEmpty()) { "A game needs at least one player" }
             require(players.size <= MAX_PLAYERS) { "At most $MAX_PLAYERS players" }
+            require(positions == null || positions.size == players.size) { "One position per player" }
             val ids = players.map { it.id }
-            val reuse = previousPositions != null && previousPositions.keys == ids.toSet()
-            val slots = if (reuse) previousPositions.values.toList().sortedClockwise() else defaultPositions(players.size)
             return GameState(
                 id = id,
                 target = target,
-                seats = ids.mapIndexed { i, p -> Seat(p, slots[i]) },
+                seats = positions?.let { p -> ids.mapIndexed { i, id -> Seat(id, p[i].clamped()) } }
+                    ?: initialSeats(ids, previousPositions),
                 rounds = listOf(RoundState(1, ids.associateWith { PlayerResult.OPEN })),
                 startedAt = startedAt,
             )
+        }
+
+        /**
+         * Seats for player [ids] in seating order: the spots of [previousPositions] when it covers
+         * exactly these players (handed out clockwise in this order), else the default ring.
+         */
+        fun initialSeats(ids: List<Long>, previousPositions: Map<Long, TablePosition>? = null): List<Seat> {
+            val reuse = previousPositions != null && previousPositions.keys == ids.toSet()
+            val slots = if (reuse) previousPositions.values.toList().sortedClockwise() else defaultPositions(ids.size)
+            return ids.mapIndexed { i, p -> Seat(p, slots[i]) }
         }
     }
 }

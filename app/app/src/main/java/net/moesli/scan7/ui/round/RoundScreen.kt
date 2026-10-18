@@ -119,6 +119,10 @@ private val BadgeRoom = 8.dp
  * progress strip and bottom buttons; arrange mode.
  * Stateless apart from transient UI (drag in progress); the bust undo toast lives in [toast] so the
  * caller can show it for other bust paths too (player sheet). In-card Bust shows it here.
+ *
+ * The new game's seating step reuses this screen in arrange mode with two slots: [header] replaces
+ * the round header (placed at the header row), [bottomBar] replaces the progress strip and bottom
+ * buttons (it gets the band from the strip to the bottom buttons' bottom, not dimmed).
  */
 @Composable
 fun RoundScreen(
@@ -126,6 +130,8 @@ fun RoundScreen(
     actions: RoundActions,
     modifier: Modifier = Modifier,
     toast: BustToastState = rememberBustToastState(),
+    header: (@Composable (Modifier) -> Unit)? = null,
+    bottomBar: (@Composable (Modifier) -> Unit)? = null,
 ) {
     val colors = Scan7Theme.colors
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -148,14 +154,26 @@ fun RoundScreen(
             RoundView.List -> ListView(state, actions, m, onBust)
         }
 
-        RoundHeader(
-            view = state.view,
-            arranging = state.arranging,
-            actions = actions,
-            modifier = Modifier.offset(y = m.headerTop),
-        )
+        if (header != null) {
+            header(Modifier.offset(y = m.headerTop))
+        } else {
+            RoundHeader(
+                view = state.view,
+                arranging = state.arranging,
+                actions = actions,
+                modifier = Modifier.offset(y = m.headerTop),
+            )
+        }
 
-        ProgressStrip(
+        if (bottomBar != null) {
+            bottomBar(
+                Modifier
+                    .offset(y = m.stripTop)
+                    .padding(horizontal = Scan7Spacing.screenMargin)
+                    .fillMaxWidth()
+                    .height(m.buttonsTop + Scan7Spacing.bottomButtonsHeight - m.stripTop),
+            )
+        } else ProgressStrip(
             players = state.players.map { it.player },
             target = state.target,
             modifier = Modifier
@@ -164,7 +182,7 @@ fun RoundScreen(
                 .alpha(dim),
         )
 
-        Box(
+        if (bottomBar == null) Box(
             modifier = Modifier
                 .offset(y = m.buttonsTop)
                 .padding(horizontal = Scan7Spacing.screenMargin)
@@ -335,6 +353,7 @@ private fun TableSeat(
             onBust = { onBust(rp) },
             onDoubleClick = if (quickScan) ({ actions.onQuickScan(rp.id) }) else null,
         )
+        if (state.seatNumbers) SeatBadge(index + 1, Modifier.align(Alignment.TopStart).offset(x = (-6).dp, y = (-6).dp))
     }
 }
 
@@ -544,6 +563,7 @@ private fun ListSeat(
                     }
                 },
         )
+        if (state.seatNumbers) SeatBadge(index + 1, Modifier.offset(x = (-6).dp, y = (-6).dp))
     }
 }
 

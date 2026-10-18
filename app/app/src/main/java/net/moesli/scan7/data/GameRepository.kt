@@ -140,11 +140,6 @@ class GameRepository(
     // ---- Games ---------------------------------------------------------------------------
 
     /**
-     * Starts a game with [seating] (player ids in seating order). Table positions come from the
-     * last game with exactly the same players, else the default ring. Any other unfinished game
-     * is abandoned (there is only one game to resume). Returns the new game id.
-     */
-    /**
      * Seating order of the last game played with exactly [players] (in any order), or null. The new
      * game screen starts from it, so everyone gets their old table spot back (spots are handed out in
      * seating order, see GameState.newGame).
@@ -156,17 +151,32 @@ class GameRepository(
         return gameDao.seats(gameId).map { it.playerId }
     }
 
-    suspend fun startGame(seating: List<Long>, target: Int = DEFAULT_TARGET): Long = db.withTransaction {
+    /** Table spots of the last game played with exactly [players], or null (see [previousSeating]). */
+    suspend fun previousPositions(players: Collection<Long>): Map<Long, TablePosition>? {
+        val ids = players.distinct()
+        if (ids.isEmpty()) return null
+        val gameId = gameDao.lastGameWithPlayers(ids, ids.size) ?: return null
+        return gameDao.seats(gameId)
+            .filter { it.tableX != null && it.tableY != null }
+            .associate { it.playerId to TablePosition(it.tableX!!, it.tableY!!) }
+    }
+
+    /**
+     * Starts a game with [seating] (player ids in seating order). Table positions: [positions] (one
+     * per player in seating order, arranged on the seating step) if given, else those of the last
+     * game with exactly the same players, else the default ring. Any other unfinished game is
+     * abandoned (there is only one game to resume). Returns the new game id.
+     */
+    suspend fun startGame(
+        seating: List<Long>,
+        target: Int = DEFAULT_TARGET,
+        positions: List<TablePosition>? = null,
+    ): Long = db.withTransaction {
         val now = clock()
         val byId = playerDao.byIds(seating).associateBy { it.id }
         val players = seating.map { checkNotNull(byId[it]) { "No player $it" }.toPlayer() }
-        val previous = if (seating.isEmpty()) null else gameDao.lastGameWithPlayers(seating.distinct(), seating.distinct().size)
-        val previousPositions = previous?.let { gameId ->
-            gameDao.seats(gameId)
-                .filter { it.tableX != null && it.tableY != null }
-                .associate { it.playerId to TablePosition(it.tableX!!, it.tableY!!) }
-        }
-        val state = GameState.newGame(players, target, now, previousPositions)
+        val previousPositions = if (positions == null) previousPositions(seating) else null
+        val state = GameState.newGame(players, target, now, previousPositions, positions = positions)
         for (gameId in gameDao.unfinishedIds()) {
             val other = gameDao.load(gameId) ?: continue
             persist(other, other.toState(), other.toState().abandon(now))
