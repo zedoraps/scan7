@@ -5,17 +5,18 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.ConfirmedCard
 import net.moesli.scan7.game.DEFAULT_TARGET
 import net.moesli.scan7.game.GameState
-import net.moesli.scan7.game.PALETTE_SIZE
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.ResultSource
 import net.moesli.scan7.game.ScanDirection
 import net.moesli.scan7.game.ScoreAdjustment
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.ViewMode
-import net.moesli.scan7.game.firstFreeColor
+import net.moesli.scan7.game.newPlayerAvatar
+import kotlin.random.Random
 
 /** A game with everything the round / end-of-round / game-over screens need. */
 data class GameSnapshot(
@@ -33,9 +34,6 @@ data class GameSnapshot(
     val viewMode: ViewMode get() = state.viewMode ?: preferredViewMode ?: ViewMode.defaultFor(state.seats.size)
 }
 
-/** [GameRepository.updatePlayer]: another player in an unfinished game of this player already has the color. */
-class ColorInUseException : IllegalArgumentException("Color already used in the running game")
-
 /**
  * Single entry point for players, games and settings. Every action loads the game, applies the
  * pure [GameState] logic and writes the changes back in one transaction; the flows update.
@@ -43,6 +41,8 @@ class ColorInUseException : IllegalArgumentException("Color already used in the 
  */
 class GameRepository(
     private val db: Scan7Database,
+    /** Random face + pattern of new players without an explicit avatar. */
+    private val random: Random = Random.Default,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     private val playerDao = db.playerDao()
@@ -97,31 +97,29 @@ class GameRepository(
 
     // ---- Players -------------------------------------------------------------------------
 
-    /** Adds a player; without [colorIndex] the first color not used by another stored player. Returns the id. */
-    suspend fun addPlayer(name: String, colorIndex: Int? = null): Long {
+    /**
+     * Adds a player; without [avatar] a random face + pattern and the first color no other stored
+     * player uses (else the first color). Returns the id.
+     */
+    suspend fun addPlayer(name: String, avatar: Avatar? = null): Long {
         val clean = name.trim()
         require(clean.isNotEmpty()) { "Name is empty" }
         return db.withTransaction {
-            val color = colorIndex ?: firstFreeColor(playerDao.activeColors()) ?: 0
-            require(color in 0 until PALETTE_SIZE) { "Color index out of range" }
-            playerDao.insert(PlayerEntity(name = clean, colorIndex = color, createdAt = clock()))
+            val a = (avatar ?: newPlayerAvatar(playerDao.activeColors(), random)).normalized()
+            playerDao.insert(
+                PlayerEntity(name = clean, avatarFace = a.face, avatarPattern = a.pattern, avatarColor = a.color, createdAt = clock()),
+            )
         }
     }
 
-    /** Renames / recolors a player. The color must stay unique within any unfinished game they're in. */
-    suspend fun updatePlayer(id: Long, name: String, colorIndex: Int) {
+    /** Renames a player / changes their avatar (colors may repeat within a game). */
+    suspend fun updatePlayer(id: Long, name: String, avatar: Avatar) {
         val clean = name.trim()
         require(clean.isNotEmpty()) { "Name is empty" }
-        require(colorIndex in 0 until PALETTE_SIZE) { "Color index out of range" }
+        val a = avatar.normalized()
         db.withTransaction {
             val player = checkNotNull(playerDao.byId(id)) { "No player $id" }
-            for (gameId in gameDao.gamesOf(id)) {
-                val game = gameDao.load(gameId) ?: continue
-                if (game.game.finishedAt != null) continue
-                val others = playerDao.byIds(game.seats.map { it.playerId }.filter { it != id })
-                if (others.any { it.colorIndex == colorIndex }) throw ColorInUseException()
-            }
-            playerDao.update(player.copy(name = clean, colorIndex = colorIndex))
+            playerDao.update(player.copy(name = clean, avatarFace = a.face, avatarPattern = a.pattern, avatarColor = a.color))
         }
     }
 

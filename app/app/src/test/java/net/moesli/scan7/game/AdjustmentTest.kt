@@ -11,9 +11,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AdjustmentTest {
-    private val anna = Player(1, "Anna", 0)
-    private val ben = Player(2, "Ben", 1)
-    private val cleo = Player(3, "Cleo", 2)
+    private val anna = Player(1, "Anna")
+    private val ben = Player(2, "Ben")
+    private val cleo = Player(3, "Cleo")
 
     private val start = GameState.newGame(listOf(anna, ben, cleo), target = 100, startedAt = 100)
 

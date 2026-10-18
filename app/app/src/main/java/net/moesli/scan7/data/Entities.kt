@@ -17,8 +17,10 @@ import net.moesli.scan7.game.ViewMode
 data class PlayerEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    /** 0–9, index into the player palette. */
-    val colorIndex: Int,
+    /** Avatar ids from the catalog (game/Avatar.kt); unknown ids fall back when read. Added in DB version 4. */
+    val avatarFace: String,
+    val avatarPattern: String,
+    val avatarColor: String,
     val createdAt: Long,
     /** Deleted by the user but still referenced by past games. */
     val archived: Boolean = false,

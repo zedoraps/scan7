@@ -8,10 +8,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GameStateTest {
-    private val anna = Player(1, "Anna", 0)
-    private val ben = Player(2, "Ben", 1)
-    private val cleo = Player(3, "Cleo", 2)
-    private val dan = Player(4, "Dan", 3)
+    private val anna = Player(1, "Anna")
+    private val ben = Player(2, "Ben")
+    private val cleo = Player(3, "Cleo")
+    private val dan = Player(4, "Dan")
 
     private val start = GameState.newGame(listOf(anna, ben, cleo), startedAt = 100)
 
@@ -38,14 +38,15 @@ class GameStateTest {
         assertNull(start.finishedAt)
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun newGame_duplicateColors_throws() {
-        GameState.newGame(listOf(anna, ben.copy(colorIndex = 0)))
+    @Test
+    fun newGame_duplicateAvatarColorsAllowed() {
+        val g = GameState.newGame(listOf(anna, ben.copy(avatar = anna.avatar)))
+        assertEquals(listOf(1L, 2L), g.playerIds)
     }
 
     @Test(expected = IllegalArgumentException::class)
     fun newGame_moreThanTenPlayers_throws() {
-        GameState.newGame((1..11).map { Player(it.toLong(), "P$it", it % 10) })
+        GameState.newGame((1..11).map { Player(it.toLong(), "P$it") })
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -55,7 +56,7 @@ class GameStateTest {
 
     @Test
     fun newGame_tenPlayersAllowed() {
-        val g = GameState.newGame((0 until 10).map { Player(it.toLong(), "P$it", it) })
+        val g = GameState.newGame((0 until 10).map { Player(it.toLong(), "P$it") })
         assertEquals(10, g.seats.size)
     }
 
@@ -545,12 +546,5 @@ class GameStateTest {
     fun viewModeDefault() {
         assertEquals(ViewMode.TABLE, ViewMode.defaultFor(6))
         assertEquals(ViewMode.LIST, ViewMode.defaultFor(7))
-    }
-
-    @Test
-    fun firstFreeColor_picksLowestUnused() {
-        assertEquals(0, firstFreeColor(emptyList()))
-        assertEquals(2, firstFreeColor(listOf(0, 1, 3)))
-        assertNull(firstFreeColor((0 until 10).toList()))
     }
 }

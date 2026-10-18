@@ -6,26 +6,25 @@ import net.moesli.scan7.scoring.RowScore
 import net.moesli.scan7.scoring.scoreRow
 
 const val MAX_PLAYERS = 10
-const val PALETTE_SIZE = 10
 const val DEFAULT_TARGET = 200
 
 /** Player count up to which the table view is the default (more players → list view). */
 const val TABLE_VIEW_MAX_PLAYERS = 6
 
-/** A stored player. [colorIndex] is an index into the fixed 10-color player palette. */
+/**
+ * A stored player with their [avatar] (color + pattern + face, reused across games). Avatar colors
+ * may repeat within a game (the editor only hints at colors already in use).
+ */
 data class Player(
     val id: Long,
     val name: String,
-    val colorIndex: Int,
+    val avatar: Avatar = Avatar.DEFAULT,
     val createdAt: Long = 0,
     val archived: Boolean = false,
 ) {
     /** Initial shown in the player token. */
     val initial: String get() = name.trim().take(1).uppercase()
 }
-
-/** First palette color not in [used], or `null` if all 10 are taken. */
-fun firstFreeColor(used: Collection<Int>): Int? = (0 until PALETTE_SIZE).firstOrNull { it !in used }
 
 enum class ResultStatus { OPEN, SCORED, BUST }
 

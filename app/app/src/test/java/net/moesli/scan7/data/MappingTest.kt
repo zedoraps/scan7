@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MappingTest {
-    private val players = listOf(Player(1, "Anna", 0), Player(2, "Ben", 1))
+    private val players = listOf(Player(1, "Anna"), Player(2, "Ben"))
 
     @Test
     fun endedGame_roundTripsThroughEntity() {
