@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "viewBox": "0 0 100 100",
+  "layerOrder": [
+    "base_card (tinted with color)",
+    "pattern (optional)",
+    "face"
+  ],
+  "faces": [
+    "happy",
+    "cool",
+    "wink",
+    "wow",
+    "grin",
+    "sleepy",
+    "cheeky",
+    "focus",
+    "hearts",
+    "grumpy",
+    "silly",
+    "dizzy"
+  ],
+  "patterns": [
+    "plain",
+    "stripes",
+    "dots",
+    "zigzag",
+    "grid",
+    "waves"
+  ],
+  "colors": [
+    {
+      "id": "amber",
+      "name": "Amber",
+      "hex": "#FFC24B"
+    },
+    {
+      "id": "violet",
+      "name": "Violet",
+      "hex": "#B39BFF"
+    },
+    {
+      "id": "lime",
+      "name": "Lime",
+      "hex": "#A8E55C"
+    },
+    {
+      "id": "sand",
+      "name": "Sand",
+      "hex": "#F2E3C4"
+    },
+    {
+      "id": "sky",
+      "name": "Sky",
+      "hex": "#7FA8FF"
+    },
+    {
+      "id": "mint",
+      "name": "Mint",
+      "hex": "#4FE0A8"
+    },
+    {
+      "id": "khaki",
+      "name": "Khaki",
+      "hex": "#C9B28A"
+    },
+    {
+      "id": "salmon",
+      "name": "Salmon",
+      "hex": "#FF9C8A"
+    },
+    {
+      "id": "steel",
+      "name": "Steel",
+      "hex": "#A9B8CC"
+    },
+    {
+      "id": "chartreuse",
+      "name": "Chartreuse",
+      "hex": "#E2F06B"
+    },
+    {
+      "id": "chalk",
+      "name": "Chalk",
+      "hex": "#E8EDF3"
+    },
+    {
+      "id": "peach",
+      "name": "Peach",
+      "hex": "#FFB27A"
+    },
+    {
+      "id": "rose",
+      "name": "Rose",
+      "hex": "#F2A7C3"
+    },
+    {
+      "id": "leaf",
+      "name": "Leaf",
+      "hex": "#6FCF7F"
+    },
+    {
+      "id": "olive",
+      "name": "Olive",
+      "hex": "#9DB86A"
+    }
+  ],
+  "reservedColors": {
+    "accent": "#38D6F5",
+    "bust": "#FF4F9A",
+    "note": "never offer these as player colors"
+  },
+  "examples": [
+    {
+      "player": "Philip",
+      "color": "amber",
+      "face": "happy",
+      "pattern": "stripes"
+    },
+    {
+      "player": "Anna",
+      "color": "violet",
+      "face": "cool",
+      "pattern": "dots"
+    },
+    {
+      "player": "Ben",
+      "color": "lime",
+      "face": "wink",
+      "pattern": "zigzag"
+    },
+    {
+      "player": "Mia",
+      "color": "sand",
+      "face": "grin",
+      "pattern": "plain"
+    },
+    {
+      "player": "Lena",
+      "color": "sky",
+      "face": "wow",
+      "pattern": "grid"
+    },
+    {
+      "player": "Tom",
+      "color": "mint",
+      "face": "focus",
+      "pattern": "waves"
+    },
+    {
+      "player": "Noah",
+      "color": "khaki",
+      "face": "sleepy",
+      "pattern": "dots"
+    },
+    {
+      "player": "Zoe",
+      "color": "salmon",
+      "face": "cheeky",
+      "pattern": "stripes"
+    },
+    {
+      "player": "Elias",
+      "color": "steel",
+      "face": "dizzy",
+      "pattern": "zigzag"
+    },
+    {
+      "player": "Sara",
+      "color": "chartreuse",
+      "face": "hearts",
+      "pattern": "waves"
+    }
+  ]
+}
