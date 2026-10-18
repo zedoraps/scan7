@@ -20,7 +20,7 @@ class WireCodecTest {
     @Test
     fun messages_roundTrip() {
         val msgs = listOf(
-            Hello("s", "t", "d", "Anna's phone", lastSeq = 4),
+            Hello("s", "t", "d", lastSeq = 4),
             Intent("d:1", 3, ScoreCards(1, 2, listOf(WireCard("07", false), WireCard("freeze", true)), manual = true)),
             Intent("d:2", 3, AdjustTotal(1, -5, "penalty")),
             Event(5, 99, CloseRoundAndStartNext(2)),
@@ -61,7 +61,7 @@ class WireCodecTest {
     fun otherVersion_isNotDecoded_exceptFrozenMessages() {
         val newer = WireCodec(version = 2)
         assertEquals(Decoded.UnsupportedVersion(2, "event"), codec.decode(newer.encode(Event(1, 1, Bust(1, 1)))))
-        val hello = codec.decode(newer.encode(Hello("s", "t", "d", "n"))) as Decoded.Message
+        val hello = codec.decode(newer.encode(Hello("s", "t", "d"))) as Decoded.Message
         assertEquals(2, hello.version)
         assertTrue(newer.decode(codec.encode(HelloRejected(JoinRejection.VERSION_MISMATCH, 1))) is Decoded.Message)
     }

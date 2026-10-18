@@ -25,17 +25,28 @@ class MultiplayerSessionTest {
     private inner class Table(seed: Int = 0) {
         val net = FakeNetwork(Random(seed))
         var time = 1_000L
-        val host = HostSession(
+        var host: HostSession = newHost(GameState.newGame(players, startedAt = 1), null)
+
+        private fun newHost(game: GameState, restored: HostSessionState?) = HostSession(
             sessionId = "s1",
             token = "secret",
-            initial = GameState.newGame(players, startedAt = 1),
+            initial = game,
             players = players,
             transport = net.host,
             clock = { time++ },
+            restored = restored,
         ).also { it.start() }
 
+        /** The host app is killed and reopened: the game comes from Room, the session from its saved state. */
+        fun restartHost() {
+            val game = host.state
+            val saved = HostSessionState.fromJson(host.exportState().toJson())
+            net.killHost()
+            host = newHost(game, saved)
+        }
+
         fun join(device: String, token: String = "secret", codec: WireCodec = WireCodec()): ClientSession =
-            ClientSession("s1", token, device, "$device's phone", codec).also { it.attach(net.connect()) }
+            ClientSession("s1", token, device, codec).also { it.attach(net.connect()) }
 
         val lastLink = mutableMapOf<ClientSession, PeerId>()
 
@@ -59,7 +70,7 @@ class MultiplayerSessionTest {
     }
 
     private fun Table.joined(device: String): ClientSession =
-        ClientSession("s1", "secret", device, "$device's phone").also { connect(it) }
+        ClientSession("s1", "secret", device).also { connect(it) }
 
     @Test
     fun threeClientsScoreARoundConcurrently_andConverge() {
@@ -270,8 +281,8 @@ class MultiplayerSessionTest {
 
         b.claim(me = ben.id, scans = listOf(ben.id, cleo.id))
         t.net.deliverAll()
-        val conflict = b.view.value.claimConflicts.single()
-        assertEquals(ClaimConflict(cleo.id, "anna", "anna's phone"), conflict)
+        val conflict = b.view.value.claimRejection!!.conflicts.single()
+        assertEquals(ClaimConflict(cleo.id, "anna"), conflict)
         assertEquals(emptyList<Long>(), b.myScans) // nothing claimed
 
         b.claim(me = ben.id, scans = listOf(ben.id, cleo.id), force = true) // "Take over Cleo from anna's phone?"
@@ -445,11 +456,193 @@ class MultiplayerSessionTest {
         t.net.deliverAll()
         val old = t.lastLink.getValue(a)
         // A second session object for the same phone (app restarted) while the old link still looks open.
-        val again = ClientSession("s1", "secret", "anna", "anna's phone")
+        val again = ClientSession("s1", "secret", "anna")
         t.connect(again)
         t.net.deliverAll()
         assertTrue(old !in t.net.openPeers)
         assertEquals(setOf("anna"), t.host.connectedDevices)
         t.assertConverged(again)
+    }
+
+    // ---- Decided rules (docs/MULTI_DEVICE.md §0.1) ----------------------------------------------
+
+    @Test
+    fun guestNeverReplacesAnotherDevicesValue_evenForAClaimedPlayer() {
+        val t = Table()
+        val a = t.joined("anna")
+        t.net.deliverAll()
+        t.host.perform(ScorePoints(anna.id, 1, 11)) // the host scanned Anna before she joined
+        a.claim(anna.id, listOf(anna.id))
+        t.net.deliverAll()
+        assertEquals(false, a.mayEdit(anna.id))
+        listOf(ScorePoints(anna.id, 1, 30), Bust(anna.id, 1), ResetToOpen(anna.id, 1)).forEach {
+            assertEquals(false, a.mayPerform(it))
+            a.perform(it)
+        }
+        t.net.deliverAll()
+        assertEquals(List(3) { RejectReason.NOT_ALLOWED }, a.view.value.rejections.map { it.reason })
+        assertEquals(List(3) { HOST_DEVICE }, a.view.value.rejections.map { it.author })
+        assertEquals(11, t.host.state.total(anna.id))
+        // Once the host resets her to open, Anna's phone may score her (and then edit its own entry).
+        t.host.perform(ResetToOpen(anna.id, 1))
+        t.net.deliverAll()
+        a.perform(ScorePoints(anna.id, 1, 30))
+        t.net.deliverAll()
+        assertEquals(true, a.mayEdit(anna.id))
+        assertEquals(30, t.host.state.total(anna.id))
+    }
+
+    @Test
+    fun scanNext_hostSkipsGuestClaims_guestWalksOnlyItsOwn() {
+        val t = Table()
+        val a = t.joined("anna")
+        t.net.deliverAll()
+        a.claim(anna.id, listOf(anna.id, cleo.id))
+        t.net.deliverAll()
+        assertEquals(ben.id, t.host.scanNext())
+        assertEquals(dan.id, t.host.scanNext(after = ben.id))
+        assertEquals(anna.id, a.scanNext())
+        assertEquals(cleo.id, a.scanNext(after = anna.id))
+        t.host.perform(ScorePoints(ben.id, 1, 1))
+        t.host.perform(ScorePoints(dan.id, 1, 1))
+        t.net.deliverAll()
+        assertNull(t.host.scanNext()) // Anna and Cleo are open, but Anna's phone scans them
+        a.perform(ScorePoints(anna.id, 1, 2))
+        t.net.deliverAll()
+        assertEquals(cleo.id, a.scanNext(after = anna.id))
+    }
+
+    @Test
+    fun phonesAreNamedAfterPeople_helpersPickAName() {
+        val t = Table()
+        val a = t.joined("anna")
+        val h = t.joined("helper")
+        t.net.deliverAll()
+        assertEquals(DeviceLabel.Joining, a.label("anna"))
+        assertEquals(DeviceLabel.Host, a.label(HOST_DEVICE))
+
+        h.claim(me = null, scans = listOf(cleo.id)) // "just helping" without a name
+        t.net.deliverAll()
+        assertEquals(ClaimProblem.HELPER_NAME_MISSING, h.view.value.claimRejection!!.problem)
+        h.claim(me = null, scans = listOf(cleo.id), helperName = "  Grandma  ")
+        a.claim(anna.id, listOf(anna.id))
+        t.host.claim(dan.id, listOf(dan.id))
+        t.net.deliverAll()
+        assertEquals(DeviceLabel.Helper("Grandma"), a.label("helper"))
+        assertEquals(DeviceLabel.OfPlayer("Anna"), h.label("anna"))
+        assertEquals(DeviceLabel.OfPlayer("Dan"), h.label(HOST_DEVICE))
+
+        h.claim(me = 99, scans = emptyList())
+        t.net.deliverAll()
+        assertEquals(ClaimProblem.UNKNOWN_PLAYER, h.view.value.claimRejection!!.problem)
+        t.assertConverged(a, h)
+    }
+
+    @Test
+    fun samePersonOnTwoPhones_asksThenMoves() {
+        val t = Table()
+        val a = t.joined("anna-old")
+        val b = t.joined("anna-new")
+        t.net.deliverAll()
+        a.claim(anna.id, listOf(anna.id))
+        t.net.deliverAll()
+        b.claim(anna.id, listOf(anna.id))
+        t.net.deliverAll()
+        assertEquals(
+            listOf(ClaimConflict(anna.id, "anna-old", isMe = true), ClaimConflict(anna.id, "anna-old")),
+            b.view.value.claimRejection!!.conflicts,
+        )
+        b.claim(anna.id, listOf(anna.id), force = true)
+        t.net.deliverAll()
+        assertNull(a.me!!.me)
+        assertEquals(emptyList<Long>(), a.myScans)
+        assertEquals(anna.id, b.me!!.me)
+    }
+
+    @Test
+    fun elevenPhones_tenGuestsIncludingHelpers_thenFull() {
+        val t = Table()
+        val guests = (1..MAX_GUEST_DEVICES).map { t.joined("g$it") }
+        t.net.deliverAll()
+        guests.take(4).zip(players).forEach { (g, p) -> g.claim(p.id, listOf(p.id)) }
+        guests.drop(4).forEachIndexed { i, g -> g.claim(null, emptyList(), helperName = "Helper $i") }
+        t.net.deliverAll()
+        assertEquals(MAX_GUEST_DEVICES + 1, t.host.roster.size)
+
+        val eleventh = t.join("g11")
+        t.net.deliverAll()
+        assertEquals(JoinRejection.SESSION_FULL, eleventh.view.value.joinRejection)
+        // A known phone coming back is fine even when full.
+        t.net.drop(t.lastLink.getValue(guests[0]))
+        t.connect(guests[0])
+        t.net.deliverAll()
+        t.assertConverged(*guests.toTypedArray())
+    }
+
+    @Test
+    fun leave_releasesTheClaims() {
+        val t = Table()
+        val a = t.joined("anna")
+        val b = t.joined("ben")
+        t.net.deliverAll()
+        a.claim(anna.id, listOf(anna.id, cleo.id))
+        t.net.deliverAll()
+        a.leave()
+        t.net.deliverAll()
+        assertEquals(ClientStatus.LEFT, a.view.value.status)
+        assertEquals(listOf(HOST_DEVICE, "ben"), b.view.value.roster.map { it.deviceId })
+        assertEquals(cleo.id, t.host.scanNext(after = ben.id))
+    }
+
+    @Test
+    fun savePlayers_offersOnlyNewNames() {
+        val joined = listOf(Player(11, "Anna"), Player(12, "Ben "), Player(13, "Philip"))
+        val local = listOf(Player(1, "anna"), Player(2, "Ben"), Player(3, "Philip", archived = true))
+        assertEquals(listOf("Philip"), PlayerImport.candidates(joined, local).map { it.name })
+    }
+
+    @Test
+    fun hostRestart_resumesTheSameSession() {
+        val t = Table()
+        val a = t.joined("anna")
+        t.net.deliverAll()
+        a.claim(anna.id, listOf(anna.id))
+        val id = a.perform(ScorePoints(anna.id, 1, 10))
+        while (t.host.seq == 0L) t.net.deliverNext()
+
+        t.restartHost() // the event never reached Anna; she still has the intent pending
+        assertEquals(ClientStatus.DISCONNECTED, a.view.value.status)
+        assertEquals(listOf(id), a.view.value.pending.map { it.intentId })
+        t.connect(a)
+        t.net.deliverAll()
+
+        t.assertConverged(a)
+        assertEquals(1L, t.host.seq) // the retry was recognised, not applied again
+        assertEquals(listOf(anna.id), a.myScans) // claims kept
+        assertEquals(true, a.mayEdit(anna.id)) // her own entry stays hers
+        a.perform(ScorePoints(anna.id, 1, 12))
+        t.net.deliverAll()
+        assertEquals(12, t.host.state.total(anna.id))
+    }
+
+    @Test
+    fun guestRestart_keepsItsOutbox() {
+        val t = Table()
+        val a = t.joined("anna")
+        t.net.deliverAll()
+        t.net.drop(t.lastLink.getValue(a))
+        a.perform(ScorePoints(anna.id, 1, 17)) // scanned offline, then the app is killed
+        val saved = ClientSessionState.fromJson(a.exportState().toJson())
+
+        val again = ClientSession("s1", "secret", "anna", restored = saved)
+        t.connect(again)
+        t.net.deliverAll()
+        t.assertConverged(again)
+        assertEquals(17, t.host.state.total(anna.id))
+        // New intents don't reuse the saved ids.
+        again.perform(ScorePoints(anna.id, 1, 18))
+        t.net.deliverAll()
+        assertEquals(18, t.host.state.total(anna.id))
+        assertEquals(2L, t.host.seq)
     }
 }

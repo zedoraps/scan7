@@ -27,12 +27,13 @@ class HostSession(
     players: List<Player>,
     private val transport: HostTransport,
     private val clock: () -> Long,
-    /** The host phone's name in the roster ("Philip's Pixel"). */
-    hostName: String = "Host",
-    /** Seq of the last event before this session (persisted with the game; 0 for a new share). */
-    startSeq: Long = 0,
-    /** Max. joined guest devices (the user's flow: 1–10 others). */
-    private val maxDevices: Int = 10,
+    /**
+     * What [exportState] saved before the host app died / was killed: the same session resumes (same
+     * QR), retried intents stay deduplicated, claims and entry authors are kept.
+     */
+    restored: HostSessionState? = null,
+    /** Max. guest phones: 10 (decided: 10 players + the host = 11 phones; helpers count too). */
+    private val maxDevices: Int = MAX_GUEST_DEVICES,
     private val codec: WireCodec = WireCodec(),
     /** Called after each applied action (persist + refresh the host's own UI). */
     private val onApplied: (Event, GameState) -> Unit = { _, _ -> },
@@ -41,7 +42,7 @@ class HostSession(
     var state: GameState = initial
         private set
 
-    var seq: Long = startSeq
+    var seq: Long = restored?.seq ?: 0
         private set
 
     private val players = players.associateBy { it.id }.toMutableMap()
@@ -51,24 +52,44 @@ class HostSession(
      * this game) count as changed at [floorSeq]: after a host restart, intents based on older state are stale.
      */
     private val lastTouched = mutableMapOf<ResultKey, Long>()
-    private var floorSeq = startSeq
+    private var floorSeq = seq
 
     /** Guest device that entered each result of the running round (absent = host / open). */
-    private val entryAuthors = mutableMapOf<ResultKey, String>()
+    private val entryAuthors: MutableMap<ResultKey, String> =
+        restored?.authors.orEmpty().associate { ResultKey(it.round, it.playerId) to it.deviceId }.toMutableMap()
 
     /** Recently applied (seq) or rejected intents by id, oldest first (bounded). */
     private val seenIntents = object : LinkedHashMap<String, HostMessage>() {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, HostMessage>?) = size > SEEN_INTENTS
+    }.apply {
+        restored?.outcomes?.forEach { msg ->
+            when (msg) {
+                is IntentAck -> put(msg.intentId, msg)
+                is IntentRejected -> put(msg.intentId, msg)
+                else -> Unit
+            }
+        }
     }
 
     /** Linked transport peers → device id from [Hello]. */
     private val links = mutableMapOf<PeerId, String>()
 
     /** Every device of the session by id, the host first; kept after a disconnect. */
-    private val devices = linkedMapOf(HOST_DEVICE to DeviceInfo(HOST_DEVICE, hostName))
+    private val devices: LinkedHashMap<String, DeviceInfo> = linkedMapOf(HOST_DEVICE to DeviceInfo(HOST_DEVICE)).apply {
+        restored?.roster?.forEach { put(it.deviceId, it.copy(connected = it.deviceId == HOST_DEVICE)) }
+    }
 
     /** Devices removed by the host: they can't rejoin this session. */
-    private val removed = mutableSetOf<String>()
+    private val removed = restored?.removed.orEmpty().toMutableSet()
+
+    /** Everything needed to resume this session after the host app restarts (persist it with the game). */
+    fun exportState() = HostSessionState(
+        seq = seq,
+        roster = roster,
+        removed = removed.toList(),
+        authors = entryAuthors.map { (k, d) -> ResultAuthor(k.round, k.playerId, d) },
+        outcomes = seenIntents.values.toList(),
+    )
 
     /** Guest device ids currently linked (one entry per phone). */
     val connectedDevices: Set<String> get() = links.values.toSet()
@@ -81,6 +102,9 @@ class HostSession(
 
     fun start() = transport.start(this)
 
+    /** "Scan next" on the host: open players no guest scans (decided). */
+    fun scanNext(after: Long? = null): Long? = ScanOrder.next(state, roster, HOST_DEVICE, after)
+
     /** Host-side action (its own UI): always allowed, never stale. Throws like [GameState] does. */
     fun perform(action: GameAction): GameState {
         apply(action, intentId = null, by = HOST_DEVICE)
@@ -88,7 +112,10 @@ class HostSession(
     }
 
     /** The host's own "who am I · who do I scan" (always wins: takes the players over). */
-    fun claim(me: Long?, scans: List<Long>) = applyClaim(HOST_DEVICE, me, scans)
+    fun claim(me: Long?, scans: List<Long>) {
+        val ids = state.playerIds.toSet()
+        applyClaim(HOST_DEVICE, me?.takeIf { it in ids }, scans.filter { it in ids }.distinct(), helperName = null)
+    }
 
     /** Share sheet → remove a device: it is disconnected and can't rejoin this session. */
     fun remove(deviceId: String) {
@@ -161,6 +188,7 @@ class HostSession(
                     device == null -> Unit // not joined: ignore everything but Hello
                     msg is Intent -> onIntent(peer, device, msg)
                     msg is Claim -> onClaim(peer, device, msg)
+                    msg is Leave -> onLeave(peer, device)
                     msg is ResyncRequest -> send(peer, Snapshot(seq, snapshot()))
                     else -> Unit // a host message from a guest: ignore
                 }
@@ -188,8 +216,7 @@ class HostSession(
             transport.disconnect(it)
         }
         links[peer] = hello.deviceId
-        devices[hello.deviceId] = devices[hello.deviceId]?.copy(name = hello.deviceName, connected = true)
-            ?: DeviceInfo(hello.deviceId, hello.deviceName)
+        devices[hello.deviceId] = devices[hello.deviceId]?.copy(connected = true) ?: DeviceInfo(hello.deviceId)
         send(peer, Welcome(sessionId, seq, snapshot(), roster))
         broadcast(Roster(roster), except = peer)
     }
@@ -202,16 +229,37 @@ class HostSession(
 
     private fun onClaim(peer: PeerId, device: String, claim: Claim) {
         val ids = state.playerIds.toSet()
-        val scans = claim.scans.filter { it in ids }.distinct()
-        val conflicts = scans.mapNotNull { p ->
-            devices.values.firstOrNull { it.deviceId != device && p in it.scans }?.let { ClaimConflict(p, it.deviceId, it.name) }
+        val helperName = claim.helperName?.trim()?.take(MAX_HELPER_NAME)?.takeIf { it.isNotEmpty() }
+        val problem = when {
+            claim.me != null && claim.me !in ids -> ClaimProblem.UNKNOWN_PLAYER
+            claim.me == null && helperName == null -> ClaimProblem.HELPER_NAME_MISSING
+            else -> null
         }
+        if (problem != null) return send(peer, ClaimRejected(problem = problem))
+        val scans = claim.scans.filter { it in ids }.distinct()
+        val others = devices.values.filter { it.deviceId != device }
+        val conflicts = others.filter { claim.me != null && it.me == claim.me }.map { ClaimConflict(claim.me!!, it.deviceId, isMe = true) } +
+            scans.mapNotNull { p -> others.firstOrNull { p in it.scans }?.let { ClaimConflict(p, it.deviceId) } }
         if (conflicts.isNotEmpty() && !claim.force) return send(peer, ClaimRejected(conflicts))
-        applyClaim(device, claim.me?.takeIf { it in ids }, scans)
+        applyClaim(device, claim.me, scans, if (claim.me == null) helperName else null)
     }
 
-    private fun applyClaim(device: String, me: Long?, scans: List<Long>) {
-        devices.replaceAll { id, d -> if (id == device) d.copy(me = me, scans = scans) else d.copy(scans = d.scans - scans.toSet()) }
+    /** Sets [device]'s claim; other phones lose the players it takes (and their `me` if it's the same person). */
+    private fun applyClaim(device: String, me: Long?, scans: List<Long>, helperName: String?) {
+        devices.replaceAll { id, d ->
+            if (id == device) {
+                d.copy(me = me, scans = scans, helperName = helperName)
+            } else {
+                d.copy(me = d.me.takeIf { it == null || it != me }, scans = d.scans - scans.toSet())
+            }
+        }
+        broadcast(Roster(roster))
+    }
+
+    private fun onLeave(peer: PeerId, device: String) {
+        devices.remove(device) // claims released; it may join again later as a new phone
+        links.remove(peer)
+        transport.disconnect(peer)
         broadcast(Roster(roster))
     }
 

@@ -40,7 +40,8 @@ app/                   Android Gradle root; module app/, package net.moesli.scan
     debug/             debug menu (Detector: live camera, detect from photo, model/backend info · Training data: save-scans toggle), hidden: tap the Home wordmark 5× (debug builds only, BuildConfig.DEBUG; TalkBack action "Open debug menu"); the scan-flow demo has no menu entry (only the debug_scan_demo / debug_scan_photo hooks)
     ui/about/          About & licenses (Home: tap the version footer): version, AGPL + source link, privacy link, third-party notices (static list; texts from LICENSE + docs/third_party/ copied into assets at build time)
     ui/theme/          Scan7 theme, colors, fonts, wordmark
-    multiplayer/       (spike branch only) plain-Kotlin multi-phone protocol: GameAction, Host/ClientSession, GuestRules, FakeNetwork; not wired into the UI
+    multiplayer/       (multiplayer branch only) plain-Kotlin multi-phone protocol: GameAction, Host/ClientSession, GuestRules, FakeNetwork; nearby/ = Nearby adapter on an owned ConnectionsApi (+ permissions, QR link); not wired into the UI
+  app/src/play/        (multiplayer branch, only with -Pscan7.flavors=true) GmsConnectionsApi + Nearby permissions manifest
   app/schemas/         exported Room schemas (committed; bump the DB version + add a migration on change)
 ```
 
@@ -101,6 +102,7 @@ export PATH="$HOME/Library/Android/sdk/platform-tools:$PATH"   # adb
 ./gradlew lintDebug                # lint
 ./gradlew installDebug             # install on the connected phone
 ANDROID_SERIAL=emulator-5554 ./gradlew -Pscan7.idSuffix=.b installDebug   # parallel agents: side-by-side copy on the shared emulator. ALWAYS set ANDROID_SERIAL: installDebug otherwise installs on every device incl. the user's phone
+./gradlew -Pscan7.flavors=true assembleDebug testPlayDebugUnitTest lintPlayDebug   # multiplayer branch: foss/play flavors (play = Play services Nearby); without the flag the build is flavorless + Play-free
 ./gradlew --stop                   # stops ALL Gradle daemons of this version on the Mac, incl. other agents' running builds: only when no other agent is building
 ```
 The test phone (Pixel 10 Pro) is connected over **wireless debugging** (adb-tls-connect via

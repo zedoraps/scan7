@@ -53,6 +53,12 @@ class FakeNetwork(private val random: Random = Random(0)) {
         hostListeners.forEach { it.onPeerDisconnected(peer) }
     }
 
+    /** The host process dies: every link breaks and the old session stops listening (start a new one on [host]). */
+    fun killHost() {
+        links.keys.toList().forEach(::drop)
+        hostListeners.clear()
+    }
+
     /** Loses the next frame queued from the host to [peer] (to provoke a seq gap). */
     fun loseNextToClient(peer: PeerId) {
         queues[peer to false]?.removeFirstOrNull()
@@ -93,6 +99,10 @@ class FakeNetwork(private val random: Random = Random(0)) {
         }
     }
 
+    internal fun closeFromClient(peer: PeerId) {
+        if (links[peer]?.open == true) enqueue(peer, toHost = true) { drop(peer) }
+    }
+
     internal fun recordDelivered(frame: ByteArray) {
         delivered += frame
     }
@@ -123,9 +133,9 @@ class FakeClientTransport internal constructor(private val network: FakeNetwork)
         peer?.let { network.sendToHost(it, frame) }
     }
 
-    /** Leaving: immediate, like closing the app. */
+    /** Graceful: frames already sent (e.g. [Leave]) reach the host first. Use [FakeNetwork.drop] for a radio loss. */
     override fun disconnect() {
-        peer?.let(network::drop)
+        peer?.let(network::closeFromClient)
     }
 
     internal fun receive(frame: ByteArray) {

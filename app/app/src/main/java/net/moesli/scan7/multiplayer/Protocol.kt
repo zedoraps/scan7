@@ -46,10 +46,14 @@ data class Hello(
     val sessionId: String,
     val token: String,
     val deviceId: String,
-    val deviceName: String,
     /** Last event seq this device applied (`null` = first join). Informational: Welcome always carries a snapshot. */
     val lastSeq: Long? = null,
 ) : ClientMessage
+
+/** "Leave game": the phone goes, its claims are released (a plain disconnect keeps them). */
+@Serializable
+@SerialName("leave")
+data object Leave : ClientMessage
 
 /**
  * "Please apply [action]". [intentId] is unique per device (retries reuse it: the host applies an
@@ -60,13 +64,19 @@ data class Hello(
 data class Intent(val intentId: String, val baseSeq: Long, val action: GameAction) : ClientMessage
 
 /**
- * "Who are you · who do you scan?" ([DeviceInfo.me], [DeviceInfo.scans]). Players another device
- * already scans are refused with [ClaimRejected] unless [force] (the UI asked first); a forced
- * claim takes them over. Can be sent again any time (changes the claim).
+ * "Who are you · who do you scan?" ([DeviceInfo.me], [DeviceInfo.scans]). [me] `null` = "just
+ * helping": then [helperName] names the phone (required). A player another phone is (as `me`) or
+ * scans is refused with [ClaimRejected] unless [force] (the UI asked first); a forced claim takes
+ * them over. Can be sent again any time (changes the claim).
  */
 @Serializable
 @SerialName("claim")
-data class Claim(val me: Long?, val scans: List<Long>, val force: Boolean = false) : ClientMessage
+data class Claim(
+    val me: Long?,
+    val scans: List<Long>,
+    val helperName: String? = null,
+    val force: Boolean = false,
+) : ClientMessage
 
 /** The client saw a gap in the event seqs and wants a fresh [Snapshot]. */
 @Serializable
@@ -139,13 +149,22 @@ data class Snapshot(val seq: Long, val snapshot: GameSnapshot) : HostMessage
 @SerialName("roster")
 data class Roster(val devices: List<DeviceInfo>) : HostMessage
 
-/** Some players of a [Claim] are scanned by other devices; nothing was claimed. */
+/** A [Claim] was refused; nothing was claimed. [conflicts] can be overridden with `force`, [problem] can't. */
 @Serializable
 @SerialName("claim_rejected")
-data class ClaimRejected(val conflicts: List<ClaimConflict>) : HostMessage
+data class ClaimRejected(val conflicts: List<ClaimConflict> = emptyList(), val problem: ClaimProblem? = null) : HostMessage
 
+/** [playerId] is another phone's `me` ([isMe]) or among its scans; the UI names the phone from the roster. */
 @Serializable
-data class ClaimConflict(val playerId: Long, val deviceId: String, val deviceName: String)
+data class ClaimConflict(val playerId: Long, val deviceId: String, val isMe: Boolean = false)
+
+enum class ClaimProblem {
+    /** "Just helping" without a name (phones are named after people only). */
+    HELPER_NAME_MISSING,
+
+    /** `me` is not a player of this game. */
+    UNKNOWN_PLAYER,
+}
 
 // ---- Codec -----------------------------------------------------------------------------------
 

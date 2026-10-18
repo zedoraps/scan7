@@ -13,7 +13,7 @@ data class ClientView(
     val game: GameState? = null,
     val players: Map<Long, Player> = emptyMap(),
     val seq: Long = 0,
-    /** Host + guests and who scans whom (badges, highlight of [myScans]). */
+    /** Host + guests and who scans whom (badges, highlight of the own players). */
     val roster: List<DeviceInfo> = emptyList(),
     /** Guest-entered results of the running round (which entries this phone may edit). */
     val authors: Map<ResultKey, String> = emptyMap(),
@@ -21,20 +21,24 @@ data class ClientView(
     val pending: List<Intent> = emptyList(),
     /** Refused intents, oldest first, until [ClientSession.clearRejections] (the UI explains them). */
     val rejections: List<IntentRejected> = emptyList(),
-    /** The last [Claim] was refused: these players are scanned by other devices (ask, then claim with force). */
-    val claimConflicts: List<ClaimConflict> = emptyList(),
+    /** The last [Claim] was refused (ask, then claim with force; or fix the [ClaimRejected.problem]). */
+    val claimRejection: ClaimRejected? = null,
     /** Set when the host refused the join or removed this phone (status [ClientStatus.REJECTED]). */
     val joinRejection: JoinRejection? = null,
 )
 
-enum class ClientStatus { CONNECTING, JOINED, DISCONNECTED, REJECTED }
+enum class ClientStatus { CONNECTING, JOINED, DISCONNECTED, REJECTED, LEFT }
 
 /**
- * A guest phone's mirror of the host's game (docs/MULTI_DEVICE.md §5). It never changes the game
+ * A guest phone's mirror of the host's game (docs/MULTI_DEVICE.md §4). It never changes the game
  * itself: [perform] sends an [Intent] and the state moves only when the host's [Event] arrives,
  * applied with the same [GameAction.apply] code, so every phone converges on the host's state.
  * Events are applied strictly in seq order; a gap asks for a snapshot. Unanswered intents stay in
- * [ClientView.pending] and are resent (same id) after the next [Welcome].
+ * [ClientView.pending] and are resent (same id) after the next [Welcome]; [exportState] keeps them
+ * across an app restart.
+ *
+ * A transport may reconnect by itself ([ClientTransport.Listener.onConnected] again after
+ * `onDisconnected`, like the Nearby adapter) or be replaced with [attach].
  *
  * Not thread-safe: call it from one thread (transport callbacks included).
  */
@@ -42,14 +46,14 @@ class ClientSession(
     private val sessionId: String,
     private val token: String,
     val deviceId: String,
-    private val deviceName: String,
     private val codec: WireCodec = WireCodec(),
+    restored: ClientSessionState? = null,
 ) {
-    private val _view = MutableStateFlow(ClientView())
+    private val _view = MutableStateFlow(ClientView(pending = restored?.pending.orEmpty(), seq = restored?.lastSeq ?: 0))
     val view: StateFlow<ClientView> = _view.asStateFlow()
 
     private var transport: ClientTransport? = null
-    private var nextIntent = 1L
+    private var nextIntent = restored?.nextIntent ?: 1L
     private var awaitingResync = false
 
     /** This phone's roster entry (who it is, whom it scans), once joined. */
@@ -58,17 +62,21 @@ class ClientSession(
     /** Players this phone scans (highlighted here, badge elsewhere). */
     val myScans: List<Long> get() = me?.scans.orEmpty()
 
-    /** Connects over [link] (first join or a reconnect after a drop). */
+    /** Connects over [link] (first join, or a new link after a drop). */
     fun attach(link: ClientTransport) {
+        if (_view.value.status == ClientStatus.REJECTED) return
         transport = link
-        if (_view.value.status != ClientStatus.REJECTED) _view.update { it.copy(status = ClientStatus.CONNECTING) }
+        _view.update { it.copy(status = ClientStatus.CONNECTING) }
         link.start(Listener(link))
     }
 
-    /** "Who are you · who do you scan?" ([force] after the user confirmed taking players over). */
-    fun claim(me: Long?, scans: List<Long>, force: Boolean = false) {
-        _view.update { it.copy(claimConflicts = emptyList()) }
-        send(Claim(me, scans, force))
+    /**
+     * "Who are you · who do you scan?" [me] `null` = just helping, then [helperName] is required.
+     * [force] after the user confirmed taking players (or their own `me`) over from another phone.
+     */
+    fun claim(me: Long?, scans: List<Long>, helperName: String? = null, force: Boolean = false) {
+        _view.update { it.copy(claimRejection = null) }
+        send(Claim(me, scans, helperName, force))
     }
 
     /**
@@ -94,19 +102,30 @@ class ClientSession(
         return v.game != null && GuestRules.mayEdit(v.game, v.authors, deviceId, playerId)
     }
 
+    /** "Scan next" on this phone: its own open players only. */
+    fun scanNext(after: Long? = null): Long? = _view.value.game?.let { ScanOrder.next(it, _view.value.roster, deviceId, after) }
+
+    /** How to name [device] ("Anna's phone"); `null` if it isn't in the roster. */
+    fun label(device: String): DeviceLabel? = _view.value.roster.firstOrNull { it.deviceId == device }?.label(_view.value.players)
+
     fun clearRejections() = _view.update { it.copy(rejections = emptyList()) }
 
-    /** Leaves the session (the outbox is dropped). */
+    /** Saved after each change and passed back after an app restart (the outbox survives). */
+    fun exportState() = ClientSessionState(nextIntent, _view.value.pending, _view.value.seq)
+
+    /** "Leave game": releases this phone's claims; the outbox is dropped. */
     fun leave() {
+        send(Leave)
         transport?.disconnect()
         transport = null
-        _view.update { it.copy(status = ClientStatus.DISCONNECTED, pending = emptyList()) }
+        _view.update { it.copy(status = ClientStatus.LEFT, pending = emptyList()) }
     }
 
     private inner class Listener(private val link: ClientTransport) : ClientTransport.Listener {
         override fun onConnected() {
             if (transport !== link) return
-            link.send(codec.encode(Hello(sessionId, token, deviceId, deviceName, _view.value.game?.let { _view.value.seq })))
+            _view.update { it.copy(status = ClientStatus.CONNECTING) }
+            link.send(codec.encode(Hello(sessionId, token, deviceId, _view.value.game?.let { _view.value.seq })))
         }
 
         override fun onFrame(frame: ByteArray) {
@@ -126,7 +145,7 @@ class ClientSession(
                 }
                 is Event -> onEvent(msg)
                 is Roster -> _view.update { it.copy(roster = msg.devices) }
-                is ClaimRejected -> _view.update { it.copy(claimConflicts = msg.conflicts) }
+                is ClaimRejected -> _view.update { it.copy(claimRejection = msg) }
                 is IntentAck -> settle(msg.intentId)
                 is IntentRejected -> {
                     settle(msg.intentId)
@@ -135,6 +154,7 @@ class ClientSession(
                 is HelloRejected -> {
                     _view.update { it.copy(status = ClientStatus.REJECTED, joinRejection = msg.reason) }
                     transport = null
+                    link.disconnect()
                 }
                 else -> Unit
             }
@@ -142,7 +162,6 @@ class ClientSession(
 
         override fun onDisconnected() {
             if (transport !== link) return
-            transport = null
             _view.update { if (it.status == ClientStatus.REJECTED) it else it.copy(status = ClientStatus.DISCONNECTED) }
         }
     }
