@@ -1,5 +1,8 @@
 package net.moesli.scan7.ui.newgame
 
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -50,6 +53,7 @@ import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.data.outlivingUi
 import net.moesli.scan7.game.DEFAULT_TARGET
 import net.moesli.scan7.game.MAX_PLAYERS
+import net.moesli.scan7.game.MIN_PLAYERS
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.ViewMode
@@ -90,9 +94,13 @@ import net.moesli.scan7.ui.theme.Scan7Type
 /**
  * New game, step 1 (3): stored players with checkboxes (pick order = initial seating order),
  * "+ New player" inline, max [MAX_PLAYERS]. Pinned above the buttons: the compact target row.
- * Bottom: **Skip seats** (start now: pick order on the default ring) and **Next** (seating step).
+ * Bottom: full-width **Next** (seating step; arranging there is optional, Start game works as is).
  * Avatar colors may repeat within a game (the editor only marks the colors the selected players
  * already use). [error] shows a failed start.
+ *
+ * Also the round menu's "Players" step ([GamePlayersRoute]): there with its own [title] /
+ * [subtitle], no target row ([onTargetChange] `null`), a
+ * [nextLabel] "Done" and a [supporting] line per row ("Joins in round 4" / "Leaves the game").
  */
 @Composable
 fun PickPlayersScreen(
@@ -101,13 +109,16 @@ fun PickPlayersScreen(
     target: Int,
     onToggle: (Long) -> Unit,
     onNewPlayer: () -> Unit,
-    onTargetChange: (Int) -> Unit,
-    onSkipSeats: () -> Unit,
+    onTargetChange: ((Int) -> Unit)?,
     onNext: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     error: String? = null,
     starting: Boolean = false,
+    title: String = stringResource(R.string.newgame_title),
+    subtitle: String? = null,
+    nextLabel: String = stringResource(R.string.action_next),
+    supporting: (Player) -> String? = { null },
 ) {
     val colors = Scan7Theme.colors
     val haptics = LocalHapticFeedback.current
@@ -116,8 +127,8 @@ fun PickPlayersScreen(
     val full = selectedPlayers.size >= MAX_PLAYERS
     val hint = when {
         error != null -> error
-        selectedPlayers.size < MIN_PLAYERS && players.isNotEmpty() -> "Pick at least $MIN_PLAYERS players."
-        full -> "$MAX_PLAYERS players is the maximum."
+        selectedPlayers.size < MIN_PLAYERS && players.isNotEmpty() -> stringResource(R.string.newgame_min_players, MIN_PLAYERS)
+        full -> stringResource(R.string.newgame_max_players, MAX_PLAYERS)
         else -> null
     }
     val canGo = canContinue(selectedPlayers.size) && !starting
@@ -128,8 +139,8 @@ fun PickPlayersScreen(
             .padding(horizontal = Scan7Spacing.screenMargin),
     ) {
         ScreenHeader(
-            title = "New game",
-            subtitle = "Who's playing? · ${selectedPlayers.size} of $MAX_PLAYERS",
+            title = title,
+            subtitle = subtitle ?: stringResource(R.string.newgame_subtitle, selectedPlayers.size, MAX_PLAYERS),
             onBack = onBack,
             modifier = Modifier.headerInsets(),
         )
@@ -139,11 +150,10 @@ fun PickPlayersScreen(
                 if (hint != null) {
                     Text(hint, color = colors.textMuted, style = Scan7Type.text12, modifier = Modifier.padding(bottom = Scan7Spacing.s))
                 }
-                TargetStepper(target = target, onChange = onTargetChange, modifier = Modifier.padding(bottom = Scan7Spacing.m))
-                Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
-                    SecondaryButton(text = "Skip seats", onClick = onSkipSeats, enabled = canGo, modifier = Modifier.weight(1f))
-                    PrimaryButton(text = "Next", onClick = onNext, enabled = canGo, modifier = Modifier.weight(1f))
+                if (onTargetChange != null) {
+                    TargetStepper(target = target, onChange = onTargetChange, modifier = Modifier.padding(bottom = Scan7Spacing.m))
                 }
+                PrimaryButton(text = nextLabel, onClick = onNext, enabled = canGo, modifier = Modifier.fillMaxWidth())
             },
         ) { bottomPadding ->
             Column(
@@ -155,7 +165,7 @@ fun PickPlayersScreen(
             ) {
                 if (players.isEmpty()) {
                     Text(
-                        "No players yet. Add everyone who's at the table — they're saved for next time.",
+                        stringResource(R.string.newgame_no_players),
                         color = colors.textMuted,
                         style = Scan7Type.text13,
                         modifier = Modifier.padding(bottom = Scan7Spacing.s),
@@ -172,10 +182,11 @@ fun PickPlayersScreen(
                             onToggle(p.id)
                         },
                         checked = checked,
+                        supporting = supporting(p),
                         leading = { Checkbox(checked) },
                     )
                 }
-                AddPlayerRow(onClick = onNewPlayer, text = if (players.isEmpty()) "Add your first player" else "New player")
+                AddPlayerRow(onClick = onNewPlayer, text = stringResource(if (players.isEmpty()) R.string.players_add_first else R.string.players_new))
             }
         }
     }
@@ -215,25 +226,44 @@ fun TargetStepper(target: Int, onChange: (Int) -> Unit, modifier: Modifier = Mod
             .clip(RoundedCornerShape(Scan7Radii.card))
             .background(colors.surface)
             .padding(start = Scan7Spacing.l, end = Scan7Spacing.xxs)
-            .clearAndSetSemantics {
-                contentDescription = "Target, points to win"
-                stateDescription = "$target points"
-                progressBarRangeInfo = ProgressBarRangeInfo(
-                    current = target.toFloat(),
-                    range = MIN_TARGET.toFloat()..MAX_TARGET.toFloat(),
-                    steps = TARGET_STEPS,
-                )
-                setProgress { value ->
-                    val next = targetFromProgress(value)
-                    if (next != target) onChange(next)
-                    true
-                }
-            },
+            .targetAdjustable(target, stringResource(R.string.newgame_target_description), onChange),
     ) {
-        SectionLabel("Target", Modifier.weight(1f))
+        SectionLabel(stringResource(R.string.newgame_target), Modifier.weight(1f))
+        TargetButtons(target, onChange)
+    }
+}
+
+/**
+ * The target as one adjustable TalkBack control ([description], "200 points"; range info + set
+ * progress: swipe up / down or volume keys) instead of three stops (New game row, round menu).
+ */
+@Composable
+fun Modifier.targetAdjustable(target: Int, description: String, onChange: (Int) -> Unit): Modifier {
+    val state = pluralStringResource(R.plurals.points, target, target)
+    return clearAndSetSemantics {
+        contentDescription = description
+        stateDescription = state
+        progressBarRangeInfo = ProgressBarRangeInfo(
+            current = target.toFloat(),
+            range = MIN_TARGET.toFloat()..MAX_TARGET.toFloat(),
+            steps = TARGET_STEPS,
+        )
+        setProgress { value ->
+            val next = targetFromProgress(value)
+            if (next != target) onChange(next)
+            true
+        }
+    }
+}
+
+/** [−] 200 [+] in steps of [TARGET_STEP] between [MIN_TARGET] and [MAX_TARGET]. */
+@Composable
+fun TargetButtons(target: Int, onChange: (Int) -> Unit) {
+    val colors = Scan7Theme.colors
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs)) {
         IconButton(
             onClick = { onChange(steppedTarget(target, -1)) },
-            contentDescription = "Lower target",
+            contentDescription = stringResource(R.string.newgame_target_lower),
             enabled = target > MIN_TARGET,
         ) { MinusIcon(colors.text) }
         Text(
@@ -247,7 +277,7 @@ fun TargetStepper(target: Int, onChange: (Int) -> Unit, modifier: Modifier = Mod
         )
         IconButton(
             onClick = { onChange(steppedTarget(target, 1)) },
-            contentDescription = "Raise target",
+            contentDescription = stringResource(R.string.newgame_target_raise),
             enabled = target < MAX_TARGET,
         ) { PlusIcon(colors.text) }
     }
@@ -260,7 +290,8 @@ fun TargetStepper(target: Int, onChange: (Int) -> Unit, modifier: Modifier = Mod
  * and Table | List toggle; seat numbers on the cards), so the spots set here are exactly the
  * game's table. Header: back · "Seats" · view toggle; bottom: drag hint + Start game.
  * [players] are in seating order, [positions] their table spots. Start asks first if a game is
- * unfinished ([NewGameRoute]); [error] shows a failed start.
+ * unfinished ([NewGameRoute]); [error] shows a failed start. The round menu's "Players" flow
+ * reuses it with [startLabel] "Done" and the players' game [totals].
  */
 @Composable
 fun SeatingScreen(
@@ -276,13 +307,15 @@ fun SeatingScreen(
     modifier: Modifier = Modifier,
     error: String? = null,
     starting: Boolean = false,
+    startLabel: String = stringResource(R.string.seats_start),
+    totals: Map<Long, Int> = emptyMap(),
 ) {
     val colors = Scan7Theme.colors
     val haptics = LocalHapticFeedback.current
     val state = RoundUiState(
         round = 1,
         target = target,
-        players = players.zip(positions) { p, pos -> RoundPlayer(p.toUi(target = target), pos) },
+        players = players.zip(positions) { p, pos -> RoundPlayer(p.toUi(total = totals[p.id] ?: 0, target = target), pos) },
         view = view,
         arranging = true,
         seating = true,
@@ -301,7 +334,7 @@ fun SeatingScreen(
         modifier = modifier,
         header = { headerModifier ->
             ScreenHeader(
-                title = "Seats",
+                title = stringResource(R.string.seats_title),
                 onBack = onBack,
                 modifier = headerModifier.padding(horizontal = Scan7Spacing.screenMargin),
             ) {
@@ -320,16 +353,17 @@ fun SeatingScreen(
             Column(barModifier) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.weight(1f).fillMaxWidth()) {
                     Text(
-                        text = error ?: if (view == RoundView.Table) "Drag players to where they sit" else "Drag rows into seating order",
+                        text = error ?: stringResource(if (view == RoundView.Table) R.string.seats_hint_table else R.string.seats_hint_list),
                         color = colors.textMuted,
                         style = Scan7Type.text12,
                         textAlign = TextAlign.Center,
-                        maxLines = 1,
+                        // "…, or just start" says arranging is optional: may wrap to a second line.
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
                 PrimaryButton(
-                    text = "Start game",
+                    text = startLabel,
                     onClick = onStart,
                     enabled = !starting && players.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth(),
@@ -341,12 +375,12 @@ fun SeatingScreen(
 
 // ---- Wired flow ----------------------------------------------------------------------------
 
-/** Which step asked to confirm the start (a game is unfinished): none, Skip seats (1) or Seats (2). */
+/** Which step asked to confirm the start (a game is unfinished): none, or Seats (2). */
 private const val CONFIRM_NONE = 0
 
 /**
  * New game flow (3 → 3b) wired to the real [GameRepository]: pick players (+ new player / fix a
- * color in the editor) and the target; Skip seats → start with the pick order on the default ring;
+ * color in the editor) and the target;
  * Next → seats (table / list arrange, starting from the last game's spots when the same players
  * played before) → Start → `repository.startGame` with those positions → [onGameStarted].
  * With [initialSeating] ("New game with same players") it opens on the seats step, prefilled.
@@ -390,9 +424,9 @@ fun NewGameRoute(
 
     // Start while a game is unfinished asks first (starting ends that game for good).
     val startConfirm = Confirmations.startGame(active?.state?.currentRound?.number)
-    val seatsToStart: () -> SeatingDraft? = { if (step == 1) SeatingDraft.of(liveSelected) else liveDraft }
+    val startError = stringResource(R.string.seats_error_start)
     fun start() {
-        val seats = seatsToStart() ?: return
+        val seats = liveDraft ?: return
         if (seats.ids.isEmpty()) return
         starting = true
         error = null
@@ -400,7 +434,7 @@ fun NewGameRoute(
             // Outlives this screen: a started transaction isn't rolled back by Back.
             runCatching { outlivingUi { repository.startGame(seats.ids, target, seats.positions) } }
                 .onSuccess(onGameStarted)
-                .onFailure { error = it.message ?: "Couldn't start the game" }
+                .onFailure { error = startError }
             starting = false
         }
     }
@@ -427,7 +461,6 @@ fun NewGameRoute(
             onToggle = { selected = toggleSelection(liveSelected, it) },
             onNewPlayer = { editorKey = EditorTarget.New.key },
             onTargetChange = { target = it },
-            onSkipSeats = { if (!starting) requestStart() },
             onNext = {
                 val picked = liveSelected
                 scope.launch {
@@ -499,7 +532,7 @@ private val DraftSaver = Saver<SeatingDraft?, LongArray>(
 @Composable
 private fun PickPlayersPreview() {
     Scan7Theme {
-        PickPlayersScreen(SampleStoredPlayers, listOf(2, 3, 6), 200, {}, {}, {}, {}, {}, {})
+        PickPlayersScreen(SampleStoredPlayers, listOf(2, 3, 6), 200, {}, {}, {}, {}, {})
     }
 }
 

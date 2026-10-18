@@ -2,6 +2,7 @@ package net.moesli.scan7.multiplayer
 
 import kotlinx.serialization.Serializable
 import net.moesli.scan7.game.Avatar
+import net.moesli.scan7.game.DepartedPlayer
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.PlayerResult
@@ -49,6 +50,10 @@ data class GameDto(
     val endedEarly: Boolean = false,
     val viewMode: ViewMode? = null,
     val adjustments: List<AdjustmentDto> = emptyList(),
+    /** Players who joined after round 1: (player, round). */
+    val joinedRounds: List<JoinedDto> = emptyList(),
+    /** Players who left mid-game, in the order they left. */
+    val departed: List<DepartedDto> = emptyList(),
 ) {
     fun toState() = GameState(
         id = id,
@@ -61,6 +66,8 @@ data class GameDto(
         endedEarly = endedEarly,
         viewMode = viewMode,
         adjustments = adjustments.map { it.toAdjustment() },
+        joinedRounds = joinedRounds.associate { it.playerId to it.round },
+        departed = departed.map { DepartedPlayer(it.playerId, it.joinedRound, it.leftRound) },
     )
 
     companion object {
@@ -75,9 +82,17 @@ data class GameDto(
             endedEarly = s.endedEarly,
             viewMode = s.viewMode,
             adjustments = s.adjustments.map { AdjustmentDto.of(it) },
+            joinedRounds = s.joinedRounds.map { (p, r) -> JoinedDto(p, r) },
+            departed = s.departed.map { DepartedDto(it.playerId, it.joinedRound, it.leftRound) },
         )
     }
 }
+
+@Serializable
+data class JoinedDto(val playerId: Long, val round: Int)
+
+@Serializable
+data class DepartedDto(val playerId: Long, val joinedRound: Int, val leftRound: Int)
 
 @Serializable
 data class SeatDto(val playerId: Long, val x: Float, val y: Float)

@@ -332,33 +332,36 @@ class MultiplayerSessionTest {
         a.perform(ScorePoints(cleo.id, 1, 6))
         t.net.deliverAll()
 
-        // The host removes Cleo (main's "manage players" will do this through the repository).
-        val s = t.host.state
-        val without = s.copy(
-            seats = s.seats.filter { it.playerId != cleo.id },
-            rounds = s.rounds.map { r -> r.copy(results = r.results - cleo.id) },
-        )
-        t.host.updateGame(without, players - cleo)
-        a.perform(ScorePoints(cleo.id, 1, 9)) // still in flight from before
+        // The host removes Cleo through main's "Players" flow (GameState.withLineup).
+        t.host.changeLineup(t.host.state.seats.filter { it.playerId != cleo.id })
+        a.perform(ScorePoints(cleo.id, 1, 9), baseSeq = 1) // still in flight from before
         t.net.deliverAll()
 
         t.assertConverged(a)
         assertEquals(listOf(anna.id), a.myScans)
         assertEquals(emptyMap<ResultKey, String>(), a.view.value.authors)
-        assertEquals(RejectReason.INVALID, a.view.value.rejections.single().reason) // Cleo is gone
+        assertEquals(RejectReason.STALE, a.view.value.rejections.single().reason)
+        a.clearRejections()
+        a.perform(ScorePoints(cleo.id, 1, 9)) // from the current state: Cleo is gone
+        t.net.deliverAll()
+        assertEquals(RejectReason.INVALID, a.view.value.rejections.single().reason)
 
-        // A player added mid-game simply shows up in the next snapshot.
+        // A player added mid-game arrives with the event (name + avatar for the guests).
         val eve = Player(5, "Eve")
-        val withEve = GameState.newGame(players - cleo + eve).let { g ->
-            t.host.state.copy(
-                seats = t.host.state.seats + g.seats.last(),
-                rounds = t.host.state.rounds.map { r -> r.copy(results = r.results + (eve.id to PlayerResult.OPEN)) },
-            )
-        }
-        t.host.updateGame(withEve, players - cleo + eve)
+        t.host.changeLineup(t.host.state.seatsFor(t.host.state.playerIds + eve.id), listOf(eve))
         t.net.deliverAll()
         t.assertConverged(a)
         assertEquals("Eve", a.view.value.players.getValue(eve.id).name)
+        assertTrue(a.view.value.game!!.result(eve.id).isOpen)
+
+        // After a closed round, a leaver stays in the scoreboard as departed (main's DepartedPlayer).
+        t.host.perform(ScorePoints(ben.id, 1, 4))
+        t.host.perform(CloseRoundAndStartNext(1))
+        t.host.changeLineup(t.host.state.seats.filter { it.playerId != ben.id })
+        t.net.deliverAll()
+        t.assertConverged(a)
+        assertEquals(listOf(ben.id), a.view.value.game!!.departed.map { it.playerId })
+        assertEquals(4, a.view.value.game!!.total(ben.id))
     }
 
     @Test

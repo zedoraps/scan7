@@ -194,6 +194,8 @@ class ClientSession(
                 game = next,
                 seq = event.seq,
                 authors = authors,
+                players = (event.action as? ChangeLineup)?.let { c -> it.players + c.newPlayers.associate { p -> p.id to p.toPlayer() } }
+                    ?: it.players,
                 pending = it.pending.filterNot { p -> p.intentId == event.intentId },
             )
         }

@@ -7,7 +7,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 /** Room schema version (bump together with a migration; schemas are exported to app/schemas). */
-const val DB_SCHEMA_VERSION = 4
+const val DB_SCHEMA_VERSION = 5
 
 @Database(
     entities = [
@@ -28,6 +28,8 @@ const val DB_SCHEMA_VERSION = 4
         // 3: new table score_adjustments ("Adjust total" in the player sheet); existing data untouched.
         AutoMigration(from = 2, to = 3),
         // 4: players.colorIndex → avatar ids (manual, see Migrations.kt: MIGRATION_3_4).
+        // 5: game_players.joinedRound (default 1) + leftRound (null): players join / leave mid-game.
+        AutoMigration(from = 4, to = 5),
     ],
 )
 abstract class Scan7Database : RoomDatabase() {

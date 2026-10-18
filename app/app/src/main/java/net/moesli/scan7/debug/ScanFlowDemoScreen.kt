@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.net.Uri
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,13 +39,13 @@ import net.moesli.scan7.detection.Box as DetectionBox
 import net.moesli.scan7.detection.Detection
 import net.moesli.scan7.detection.DetectorHolder
 import net.moesli.scan7.scoring.Card
+import net.moesli.scan7.scoring.CardKind
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.scan.CaptureMeta
 import net.moesli.scan7.ui.scan.ScanCapture
 import net.moesli.scan7.ui.scan.ScanFlowContent
 import net.moesli.scan7.ui.scan.ScanMode
 import net.moesli.scan7.ui.scan.ScanOutcome
-import net.moesli.scan7.ui.scan.chipLabel
 import net.moesli.scan7.ui.components.sampleAvatar
 
 /**
@@ -154,7 +155,10 @@ private fun demoCapture(demo: ScanDemo, photoPath: String?): DemoCapture {
         ScanDemo.EMPTY -> remember { DemoCapture.Ready(syntheticCapture(emptyList())) }
         ScanDemo.PHOTO -> {
             val state by produceState<DemoCapture>(DemoCapture.Loading, photoPath) {
-                value = DemoCapture.Ready(photoCapture(context, photoPath!!))
+                // A missing / unreadable photo opens the flow without a capture instead of crashing.
+                value = runCatching { photoCapture(context, photoPath!!) }
+                    .onFailure { Log.w("ScanFlowDemo", "photo $photoPath unreadable", it) }
+                    .fold({ DemoCapture.Ready(it) }, { DemoCapture.None })
             }
             state
         }
@@ -208,8 +212,8 @@ private fun syntheticCapture(cards: List<Card>): ScanCapture {
         val x = left0 + (i % cols) * (cw + gap)
         val y = 60f + (i / cols) * (ch + 40f)
         canvas.drawRoundRect(RectF(x, y, x + cw, y + ch), 18f, 18f, tile)
-        ink.textSize = if (card.chipLabel().length > 3) 36f else 72f
-        canvas.drawText(card.chipLabel(), x + cw / 2, y + ch / 2 + 26f, ink)
+        ink.textSize = if (card.demoLabel().length > 3) 36f else 72f
+        canvas.drawText(card.demoLabel(), x + cw / 2, y + ch / 2 + 26f, ink)
         Detection(card.label, 0.9f, DetectionBox(x / w, y / h, (x + cw) / w, (y + ch) / h))
     }
     return ScanCapture(bitmap, detections, meta = CaptureMeta(origin = "synthetic"))
@@ -217,8 +221,16 @@ private fun syntheticCapture(cards: List<Card>): ScanCapture {
 
 private fun describe(outcome: ScanOutcome): String = when (outcome) {
     is ScanOutcome.Scored -> "Scored ${outcome.score.total} (${outcome.source}) · cards " +
-        outcome.cards.joinToString(" ") { it.chipLabel() }.ifEmpty { "none" } +
-        " · ignored " + outcome.ignored.joinToString(" ") { it.chipLabel() }.ifEmpty { "none" }
-    is ScanOutcome.Bust -> "Bust · cards " + outcome.cards.joinToString(" ") { it.chipLabel() } +
-        " · ignored " + outcome.ignored.joinToString(" ") { it.chipLabel() }.ifEmpty { "none" }
+        outcome.cards.joinToString(" ") { it.demoLabel() }.ifEmpty { "none" } +
+        " · ignored " + outcome.ignored.joinToString(" ") { it.demoLabel() }.ifEmpty { "none" }
+    is ScanOutcome.Bust -> "Bust · cards " + outcome.cards.joinToString(" ") { it.demoLabel() } +
+        " · ignored " + outcome.ignored.joinToString(" ") { it.demoLabel() }.ifEmpty { "none" }
+}
+
+/** Debug-only English chip text (the real UI resolves [net.moesli.scan7.ui.scan.chipLabel] from resources). */
+private fun Card.demoLabel(): String = when (kind) {
+    CardKind.NUMBER -> value.toString()
+    CardKind.MODIFIER_PLUS -> "+$value"
+    CardKind.MODIFIER_TIMES2 -> "×2"
+    else -> label
 }

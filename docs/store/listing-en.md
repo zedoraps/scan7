@@ -46,4 +46,4 @@ Scan7 is an unofficial score keeper for Flip 7. It is not affiliated with, endor
 - App category: **Board** (games) is wrong for a tool; use **Apps → Entertainment** (alternative: Tools).
 - Tags: board games, score keeper, card games.
 - Contact e-mail: required (shown publicly). Website: the GitHub repository or its Pages site.
-- Privacy policy URL: `https://OWNER.github.io/scan7/privacy.html` (docs/privacy.md).
+- Privacy policy URL: `https://zedoraps.github.io/scan7/privacy.html` (docs/privacy.md).

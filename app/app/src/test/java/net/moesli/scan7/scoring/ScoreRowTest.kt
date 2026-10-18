@@ -1,5 +1,8 @@
 package net.moesli.scan7.scoring
 
+import net.moesli.scan7.ui.text.secondChanceText
+import net.moesli.scan7.ui.text.de
+import net.moesli.scan7.ui.text.en
 import net.moesli.scan7.scoring.Card.*
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -24,7 +27,8 @@ class ScoreRowTest {
         assertEquals(1, s.secondChanceUsed)
         assertEquals(listOf(7), s.cancelledDuplicates)
         assertEquals(emptyList<Int>(), s.duplicatedNumbers)
-        assertEquals("Second Chance used · 7 counted once", s.secondChanceText())
+        assertEquals("Second Chance used · 7 counted once", s.secondChanceText()!!.en)
+        assertEquals("Second Chance genutzt · 7 zählt einmal", s.secondChanceText()!!.de)
     }
 
     @Test

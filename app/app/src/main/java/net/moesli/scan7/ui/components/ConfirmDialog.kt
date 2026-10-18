@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -30,6 +31,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import net.moesli.scan7.R
+import net.moesli.scan7.ui.text.resolve
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
@@ -61,7 +64,7 @@ fun Scan7ConfirmDialog(
     modifier: Modifier = Modifier,
     body: String? = null,
     destructive: Boolean = false,
-    cancelLabel: String = "Cancel",
+    cancelLabel: String = stringResource(R.string.action_cancel),
     extra: @Composable ColumnScope.() -> Unit = {},
 ) {
     var armed by remember { mutableStateOf(false) }
@@ -99,12 +102,12 @@ fun Scan7ConfirmDialog(
     modifier: Modifier = Modifier,
     extra: @Composable ColumnScope.() -> Unit = {},
 ) = Scan7ConfirmDialog(
-    title = spec.title,
-    confirmLabel = spec.confirmLabel,
+    title = spec.title.resolve(),
+    confirmLabel = spec.confirmLabel.resolve(),
     onConfirm = onConfirm,
     onCancel = onCancel,
     modifier = modifier,
-    body = spec.body,
+    body = spec.body?.resolve(),
     destructive = spec.destructive,
     extra = extra,
 )
@@ -118,7 +121,7 @@ fun ColumnScope.ConfirmContent(
     onCancel: () -> Unit,
     body: String? = null,
     destructive: Boolean = false,
-    cancelLabel: String = "Cancel",
+    cancelLabel: String = stringResource(R.string.action_cancel),
     requestFocus: Boolean = false,
     extra: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -135,7 +138,7 @@ fun ColumnScope.ConfirmContent(
             .semantics { heading() },
     )
     extra()
-    if (body != null) Text(withBustWord(body, colors.bust), color = colors.text, style = Scan7Type.text14)
+    if (body != null) Text(withBustWord(body, colors.bust, stringResource(R.string.bust_word)), color = colors.text, style = Scan7Type.text14)
     Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
         val style = Scan7Type.button.copy(fontSize = 14.sp)
         SecondaryButton(cancelLabel, onCancel, Modifier.weight(1f), height = 56.dp, textStyle = style)
@@ -147,20 +150,21 @@ fun ColumnScope.ConfirmContent(
     }
 }
 
-/** [text] with every "BUST" in [bust] magenta (medium weight): bust = magenta + the word. */
-internal fun withBustWord(text: String, bust: Color): AnnotatedString = buildAnnotatedString {
+/**
+ * [text] with every [bustWord] ("BUST", German "RAUS"; `R.string.bust_word`) in [bust] magenta
+ * (medium weight): bust = magenta + the word.
+ */
+internal fun withBustWord(text: String, bust: Color, bustWord: String): AnnotatedString = buildAnnotatedString {
     var start = 0
-    while (true) {
-        val i = text.indexOf(BUST_WORD, start)
+    while (bustWord.isNotEmpty()) {
+        val i = text.indexOf(bustWord, start)
         if (i < 0) break
         append(text.substring(start, i))
-        withStyle(SpanStyle(color = bust, fontWeight = FontWeight.Medium)) { append(BUST_WORD) }
-        start = i + BUST_WORD.length
+        withStyle(SpanStyle(color = bust, fontWeight = FontWeight.Medium)) { append(bustWord) }
+        start = i + bustWord.length
     }
     append(text.substring(start))
 }
-
-private const val BUST_WORD = "BUST"
 
 @Preview(widthDp = 390)
 @Composable
@@ -170,10 +174,8 @@ private fun ConfirmDialogPreview() {
             verticalArrangement = Arrangement.spacedBy(Scan7Spacing.l),
             modifier = Modifier.background(Scan7Theme.colors.ground).padding(Scan7Spacing.xl),
         ) {
-            DialogPanel { ConfirmContent("Delete Pingu?", "Delete", {}, {}, "Past games keep showing them.", destructive = true) }
-            DialogPanel {
-                val spec = Confirmations.closeRound(4, listOf("Ben", "Mia"), 4)!!
-                ConfirmContent(spec.title, spec.confirmLabel, {}, {}, spec.body, spec.destructive)
+            listOf(Confirmations.deletePlayer("Pingu"), Confirmations.closeRound(4, listOf("Ben", "Mia"), 4)!!).forEach { spec ->
+                DialogPanel { ConfirmContent(spec.title.resolve(), spec.confirmLabel.resolve(), {}, {}, spec.body?.resolve(), spec.destructive) }
             }
         }
     }

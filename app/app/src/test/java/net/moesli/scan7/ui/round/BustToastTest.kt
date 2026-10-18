@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.round
 
+import net.moesli.scan7.ui.text.de
+import net.moesli.scan7.ui.text.en
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
@@ -32,10 +34,8 @@ class BustToastTest {
 
     @Test
     fun texts() {
-        assertEquals(ToastText("Anna marked bust", "Undo", "Undo bust for Anna"), toastText(BustToastData("1", "Anna", 1)))
-        assertEquals(ToastText("Round 5 closed", "Scoreboard", "Open the scoreboard"), toastText(RoundClosedToast(5, 2)))
-        val t = BustToastState()
-        t.showRoundClosed(5)
-        assertEquals(5, (t.current as RoundClosedToast).round)
+        val bust = toastText(BustToastData("1", "Anna", 1))
+        assertEquals(listOf("Anna marked bust", "Undo", "Undo bust for Anna"), listOf(bust.message.en, bust.action.en, bust.actionDescription.en))
+        assertEquals("Anna ist raus", bust.message.de)
     }
 }

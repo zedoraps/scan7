@@ -131,6 +131,56 @@ class MigrationTest {
     }
 
     @Test
+    fun v4ToV5_addsJoinedAndLeftRounds_andKeepsGames() {
+        helper.createDatabase(dbName, 4).use { db ->
+            db.execSQL(
+                "INSERT INTO players (id, name, avatarFace, avatarPattern, avatarColor, createdAt, archived) VALUES " +
+                    "(1, 'Anna', 'grin', 'plain', 'amber', 10, 0), (2, 'Ben', 'grin', 'plain', 'sand', 11, 0), (3, 'Cleo', 'grin', 'plain', 'lime', 12, 0)",
+            )
+            db.execSQL("INSERT INTO games (id, startedAt, finishedAt, abandoned, endedEarly, target, viewMode) VALUES (7, 100, NULL, 0, 0, 200, NULL)")
+            db.execSQL("INSERT INTO game_players (gameId, playerId, seatIndex, tableX, tableY) VALUES (7, 1, 0, 0.5, 0.0), (7, 2, 1, 0.5, 1.0)")
+            db.execSQL("INSERT INTO rounds (id, gameId, number, closedAt) VALUES (1, 7, 1, 150), (2, 7, 2, NULL)")
+            db.execSQL(
+                "INSERT INTO round_results (id, roundId, playerId, status, points, source, updatedAt) VALUES " +
+                    "(1, 1, 1, 'SCORED', 42, 'SCAN', 120), (2, 1, 2, 'BUST', 0, 'BUST_TAP', 130), " +
+                    "(3, 2, 1, 'OPEN', 0, NULL, 150), (4, 2, 2, 'SCORED', 17, 'MANUAL', 160)",
+            )
+        }
+
+        // Validates the new columns against the exported 5.json; existing seats played from round 1.
+        helper.runMigrationsAndValidate(dbName, 5, true).use { db ->
+            db.query("SELECT playerId, joinedRound, leftRound FROM game_players ORDER BY seatIndex").use { c ->
+                val rows = buildList { while (c.moveToNext()) add(Triple(c.getLong(0), c.getInt(1), if (c.isNull(2)) null else c.getInt(2))) }
+                assertEquals(listOf(Triple(1L, 1, null), Triple(2L, 1, null)), rows)
+            }
+        }
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val room = Room.databaseBuilder(context, Scan7Database::class.java, dbName).addMigrations(*MIGRATIONS).build()
+        try {
+            runBlocking {
+                val repo = GameRepository(room, clock = { 1000L })
+                val s = repo.activeGame.first()!!.state
+                assertEquals(listOf(1L, 2L), s.playerIds)
+                assertEquals(emptyList<Any>(), s.departed)
+                assertEquals(mapOf(1L to 42, 2L to 17), s.totals)
+
+                // The new columns work on the migrated database: Cleo joins, Ben leaves (his 17 dropped).
+                val changed = repo.changePlayers(7, s.seatsFor(listOf(1L, 3L)))
+                assertEquals(listOf(1L, 3L), changed.playerIds)
+                val reloaded = repo.activeGame.first()!!.state
+                assertEquals(listOf(1L, 3L), reloaded.playerIds)
+                assertEquals(listOf(1L, 3L, 2L), reloaded.everyoneIds)
+                assertEquals(2, reloaded.joinedRound(3))
+                assertEquals(2, reloaded.leftRound(2))
+                assertEquals(mapOf(1L to 42, 3L to 0, 2L to 0), reloaded.totals)
+            }
+        } finally {
+            room.close()
+        }
+    }
+
+    @Test
     fun v1ToV4_runsEveryMigration() {
         helper.createDatabase(dbName, 1).use { db ->
             db.execSQL("INSERT INTO players (id, name, colorIndex, createdAt, archived) VALUES (1, 'Anna', 4, 10, 0)")

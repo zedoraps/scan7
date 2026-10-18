@@ -1,5 +1,9 @@
 package net.moesli.scan7.ui.components
 
+import net.moesli.scan7.ui.text.uiPlural
+import net.moesli.scan7.ui.text.uiText
+import net.moesli.scan7.ui.text.UiText
+import net.moesli.scan7.R
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
@@ -113,13 +117,14 @@ enum class RowSize(
 }
 
 /** Content description for a card/row body, e.g. "Mia, 96 points, not scored yet". */
-internal fun PlayerUi.accessibilityLabel(): String {
+internal fun PlayerUi.accessibilityLabel(): UiText {
     val state = when (val s = status) {
-        PlayerStatus.Open -> "not scored yet"
-        is PlayerStatus.Scored -> "scored ${s.points} this round"
-        PlayerStatus.Bust -> "bust this round"
+        PlayerStatus.Open -> uiText(R.string.a11y_player_open)
+        is PlayerStatus.Scored -> uiPlural(R.plurals.a11y_player_scored, s.points)
+        PlayerStatus.Bust -> uiText(R.string.a11y_player_bust)
     }
-    return "$name, $total points, $state" + if (isLeader) ", leading" else ""
+    val parts = listOf(UiText.Raw(name), uiPlural(R.plurals.points, total), state)
+    return UiText.Join(if (isLeader) parts + uiText(R.string.a11y_player_leading) else parts, ", ")
 }
 
 /** The avatar kit's example preset of [name] (Philip, Anna, … Sara), else the fallback avatar. */

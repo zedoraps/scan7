@@ -30,10 +30,11 @@ import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
 
 /** Tag text: "OPEN", "✓ +46" or "✕ BUST" (bust is never shown by color alone). */
+@Composable
 fun PlayerStatus.tagText(): String = when (this) {
-    PlayerStatus.Open -> "OPEN"
-    is PlayerStatus.Scored -> "✓ +$points"
-    PlayerStatus.Bust -> "✕ BUST"
+    PlayerStatus.Open -> stringResource(R.string.tag_open)
+    is PlayerStatus.Scored -> stringResource(R.string.tag_scored, points)
+    PlayerStatus.Bust -> stringResource(R.string.label_bust_tag)
 }
 
 @Composable
@@ -81,13 +82,14 @@ fun StatusTag(
 
 /**
  * Leader badge: white circle with a dark crown. 24 dp overlapping a card's top-right corner; the
- * list view uses a 20 dp badge after the name (crown 14 / 12 dp as in the prototype).
+ * list view uses a 20 dp badge after the name. The crown icon is [CROWN_FILL] of the badge (the
+ * glyph itself ≈ 63 % wide, 55 % high), so it reads at 20 dp; the badge's outer size is unchanged.
  */
 @Composable
 fun LeaderBadge(
     modifier: Modifier = Modifier,
     size: Dp = 24.dp,
-    crownSize: Dp = if (size >= 24.dp) 14.dp else 12.dp,
+    crownSize: Dp = size * CROWN_FILL,
 ) {
     val colors = Scan7Theme.colors
     Box(
@@ -99,6 +101,9 @@ fun LeaderBadge(
         CrownIcon(colors.ground, size = crownSize)
     }
 }
+
+/** Crown icon size relative to the badge diameter (the 24-grid glyph spans 18 × 16 of it). */
+private const val CROWN_FILL = 0.84f
 
 @Preview
 @Composable

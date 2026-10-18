@@ -1,5 +1,8 @@
 package net.moesli.scan7.ui.sheet
 
+import net.moesli.scan7.ui.text.resolve
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -89,14 +92,14 @@ fun AdjustTotalContent(
     val apply = { if (delta != null && delta != 0) onApply(delta, note.trim().ifEmpty { null }) }
 
     Text(
-        "Adjust $name's total",
+        stringResource(R.string.adjust_title, name),
         color = colors.text,
         style = Scan7Type.buttonName,
         modifier = Modifier.semantics { heading() },
     )
     Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), verticalAlignment = Alignment.CenterVertically) {
         SignToggle(onClick = { input = flipSign(input) })
-        DeltaField(input, onChange = { input = filterDeltaInput(it) }, onDone = apply, errorText = deltaError(input), modifier = Modifier.weight(1f))
+        DeltaField(input, onChange = { input = filterDeltaInput(it) }, onDone = apply, errorText = deltaError(input)?.resolve(), modifier = Modifier.weight(1f))
     }
     // Large font scales: two rows of three instead of six narrow steps.
     val perRow = if (LocalDensity.current.fontScale > LARGE_FONT_SCALE) AdjustSteps.size / 2 else AdjustSteps.size
@@ -110,17 +113,17 @@ fun AdjustTotalContent(
         }
     }
     Text(
-        adjustPreview(total, delta ?: 0),
+        adjustPreview(total, delta ?: 0).resolve(),
         color = colors.textMuted,
         style = Scan7Type.text13,
         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
     )
     // IME Done on the note applies too (same as the number field).
-    Scan7TextField(note, { note = it.take(NOTE_MAX) }, placeholder = "Note (optional): penalty …", label = "Note, optional", onDone = apply)
+    Scan7TextField(note, { note = it.take(NOTE_MAX) }, placeholder = stringResource(R.string.adjust_note_placeholder), label = stringResource(R.string.adjust_note_label), onDone = apply)
     Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
-        SecondaryButton("Cancel", onCancel, Modifier.weight(1f), height = 56.dp, textStyle = Scan7Type.button.copy(fontSize = 14.sp))
+        SecondaryButton(stringResource(R.string.action_cancel), onCancel, Modifier.weight(1f), height = 56.dp, textStyle = Scan7Type.button.copy(fontSize = 14.sp))
         PrimaryButton(
-            if (valid) "Apply ${formatDelta(delta ?: 0)}" else "Apply",
+            if (valid) stringResource(R.string.adjust_apply_delta, formatDelta(delta ?: 0)) else stringResource(R.string.adjust_apply),
             { apply() },
             Modifier.weight(1.4f),
             enabled = valid,
@@ -136,6 +139,7 @@ private const val NOTE_MAX = 40
 private fun DeltaField(value: String, onChange: (String) -> Unit, onDone: () -> Unit, errorText: String?, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.iconButton)
+    val description = stringResource(R.string.adjust_field_description)
     BasicTextField(
         value = value,
         onValueChange = onChange,
@@ -146,7 +150,7 @@ private fun DeltaField(value: String, onChange: (String) -> Unit, onDone: () -> 
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done, autoCorrectEnabled = false),
         keyboardActions = KeyboardActions(onDone = { onDone() }),
         modifier = modifier.semantics {
-            contentDescription = "Points to add, use minus to subtract"
+            contentDescription = description
             if (errorText != null) error(errorText)
         },
         decorationBox = { inner ->
@@ -171,6 +175,7 @@ private fun DeltaField(value: String, onChange: (String) -> Unit, onDone: () -> 
 private fun SignToggle(onClick: () -> Unit) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.iconButton)
+    val description = stringResource(R.string.adjust_flip_sign)
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -179,7 +184,7 @@ private fun SignToggle(onClick: () -> Unit) {
             .border(1.5.dp, colors.line, shape)
             .scan7Clickable(onClick)
             .clearAndSetSemantics {
-                contentDescription = "Switch between add and subtract"
+                contentDescription = description
                 role = Role.Button
             },
     ) {
@@ -191,6 +196,7 @@ private fun SignToggle(onClick: () -> Unit) {
 private fun StepButton(step: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.actionRow)
+    val description = stepDescription(step).resolve()
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -200,7 +206,7 @@ private fun StepButton(step: Int, onClick: () -> Unit, modifier: Modifier = Modi
             .border(1.5.dp, colors.line, shape)
             .scan7Clickable(onClick)
             .clearAndSetSemantics {
-                contentDescription = stepDescription(step)
+                contentDescription = description
                 role = Role.Button
             },
     ) {

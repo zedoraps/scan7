@@ -1,5 +1,9 @@
 package net.moesli.scan7.game
 
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 import net.moesli.scan7.scoring.scoreRow
 
 /**
@@ -40,11 +44,24 @@ data class GameState(
      * in from the settings table). Default for [nextOpenPlayer].
      */
     val scanDirection: ScanDirection = ScanDirection.CLOCKWISE,
+    /**
+     * Players who joined after round 1 ("Players" in the round menu): player id → the round they
+     * joined in. Missing = played from round 1. Only for players in [seats].
+     */
+    val joinedRounds: Map<Long, Int> = emptyMap(),
+    /**
+     * Players who left mid-game, in the order they left. They are not in [seats] (so not in the
+     * round, Scan next, progress, leaders or winners), but their past results and adjustments stay
+     * in the scoreboard and in [totals].
+     */
+    val departed: List<DepartedPlayer> = emptyList(),
 ) {
     init {
         require(seats.isNotEmpty()) { "A game needs at least one player" }
         require(seats.size <= MAX_PLAYERS) { "At most $MAX_PLAYERS players" }
         require(seats.map { it.playerId }.toSet().size == seats.size) { "Duplicate player" }
+        require(departed.map { it.playerId }.toSet().size == departed.size) { "Duplicate departed player" }
+        require(departed.none { d -> seats.any { it.playerId == d.playerId } }) { "A departed player can't be seated" }
         require(target > 0) { "Target must be positive" }
         require(rounds.isNotEmpty()) { "A game has at least one round" }
         require(rounds.mapIndexed { i, r -> r.number == i + 1 }.all { it }) { "Rounds must be numbered 1..n" }
@@ -53,7 +70,30 @@ data class GameState(
 
     // ---- Queries -------------------------------------------------------------------------
 
+    /** Players at the table (who play the running round), in seating order. */
     val playerIds: List<Long> get() = seats.map { it.playerId }
+
+    /**
+     * Everyone who played in this game: [playerIds] (seating order), then the [departed] players in
+     * the order they left. Scoreboard columns and the Home history use this.
+     */
+    val everyoneIds: List<Long> get() = playerIds + departed.map { it.playerId }
+
+    /** Round [playerId] joined in (1 = from the start). */
+    fun joinedRound(playerId: Long): Int =
+        joinedRounds[playerId] ?: departed.firstOrNull { it.playerId == playerId }?.joinedRound ?: 1
+
+    /** Round [playerId] left in, `null` while they play. */
+    fun leftRound(playerId: Long): Int? = departed.firstOrNull { it.playerId == playerId }?.leftRound
+
+    /**
+     * Whether [playerId] plays / played [round]: the running round = everyone seated; a closed round
+     * = everyone with a result there (a player who joined later or had left has none: "–").
+     */
+    fun playedIn(playerId: Long, round: Int): Boolean {
+        val r = round(round)
+        return if (r.isClosed) playerId in r.results else playerId in playerIds
+    }
 
     val currentRound: RoundState get() = rounds.last()
 
@@ -66,8 +106,9 @@ data class GameState(
         require(it >= 0) { "Player $playerId is not in this game" }
     }
 
+    /** [playerId]'s result in [round] (any player of the game, also a departed one; open if none). */
     fun result(playerId: Long, round: Int = currentRound.number): PlayerResult {
-        seatIndex(playerId)
+        require(playerId in everyoneIds) { "Player $playerId is not in this game" }
         return round(round).result(playerId)
     }
 
@@ -75,7 +116,8 @@ data class GameState(
 
     /**
      * Totals over all rounds (incl. points already scored in the running round) plus all
-     * [adjustments], in seating order. The single source of truth for every total in the app.
+     * [adjustments], for [everyoneIds] (seated players first, in seating order; departed ones keep
+     * what they had). The single source of truth for every total in the app.
      */
     val totals: Map<Long, Int> get() = totalsThrough(rounds.size)
 
@@ -84,7 +126,7 @@ data class GameState(
         require(round in 0..rounds.size) { "No round $round" }
         val counted = rounds.take(round)
         val adjusted = adjustments.filter { it.round <= round }
-        return playerIds.associateWith { p -> counted.sumOf { it.points(p) } + adjusted.filter { it.playerId == p }.sumOf { it.delta } }
+        return everyoneIds.associateWith { p -> counted.sumOf { it.points(p) } + adjusted.filter { it.playerId == p }.sumOf { it.delta } }
     }
 
     fun total(playerId: Long): Int = totals.getValue(playerId)
@@ -95,10 +137,13 @@ data class GameState(
     /** Sum of [playerId]'s adjustments (0 without any). */
     fun adjustmentTotal(playerId: Long): Int = adjustmentsOf(playerId).sumOf { it.delta }
 
-    /** Player(s) with the highest total, in seating order; empty while nobody has points. */
+    /** Totals of the seated players only (leaders, winners and game over ignore departed players). */
+    private val seatedTotals: Map<Long, Int> get() = totals.filterKeys { it in playerIds }
+
+    /** Seated player(s) with the highest total, in seating order; empty while nobody has points. */
     val leaders: List<Long>
         get() {
-            val t = totals
+            val t = seatedTotals
             val best = t.values.max()
             return if (best <= 0) emptyList() else t.filterValues { it == best }.keys.toList()
         }
@@ -133,13 +178,16 @@ data class GameState(
      * Game over: the last round is closed and someone reached [target] or the game was
      * [endedEarly]. Never mid-round.
      */
-    val isOver: Boolean get() = currentRound.isClosed && (endedEarly || totals.values.any { it >= target })
+    val isOver: Boolean get() = currentRound.isClosed && (endedEarly || seatedTotals.values.any { it >= target })
 
-    /** Highest total once [isOver] (several on an exact tie = shared win), in seating order. */
+    /**
+     * Highest total of the seated players once [isOver] (several on an exact tie = shared win), in
+     * seating order. A player who left can't win.
+     */
     val winners: List<Long>
         get() {
             if (!isOver) return emptyList()
-            val t = totals
+            val t = seatedTotals
             val best = t.values.max()
             return t.filterValues { it == best }.keys.toList()
         }
@@ -221,7 +269,9 @@ data class GameState(
         setResult(playerId, currentRound.number, PlayerResult(updatedAt = now), now)
 
     private fun setResult(playerId: Long, round: Int, result: PlayerResult, now: Long): GameState {
-        seatIndex(playerId)
+        require(playerId in everyoneIds) { "Player $playerId is not in this game" }
+        // A round from before they joined / after they left has no result to edit ("–").
+        require(playedIn(playerId, round)) { "Player $playerId didn't play round $round" }
         val r = round(round)
         check(!abandoned) { "Game was abandoned" }
         check(!(r.isClosed && result.isOpen)) { "A closed round can't have open players" }
@@ -261,7 +311,7 @@ data class GameState(
 
     /** Undo of [removeAdjustment]: puts [adjustment] back as it was (same round, note and time; new id). */
     fun restoreAdjustment(adjustment: ScoreAdjustment, now: Long): GameState {
-        seatIndex(adjustment.playerId)
+        require(adjustment.playerId in everyoneIds) { "Player ${adjustment.playerId} is not in this game" }
         check(!abandoned) { "Game was abandoned" }
         require(adjustment.round in 1..rounds.size) { "No round ${adjustment.round}" }
         val restored = adjustment.copy(id = 0)
@@ -339,6 +389,88 @@ data class GameState(
         else -> this
     }
 
+    // ---- Players joining / leaving mid-game ("Players" in the round menu) -------------------
+
+    /** Whether players can join or leave now: only while a round is running (not over, not abandoned). */
+    val canChangePlayers: Boolean get() = !abandoned && !isOver && !currentRound.isClosed
+
+    /**
+     * [playerId] joins the running round as open, seated after the last seat (between the last and
+     * the first seat, see [seatsFor]) unless [position] is given. Their earlier rounds count 0 and
+     * show "–"; a player who had left comes back with their old results.
+     */
+    fun addPlayer(playerId: Long, now: Long, position: TablePosition? = null): GameState {
+        check(seats.size < MAX_PLAYERS) { "At most $MAX_PLAYERS players" }
+        require(playerId !in playerIds) { "Player $playerId is already seated" }
+        val lineup = seatsFor(playerIds + playerId).let { s ->
+            if (position == null) s else s.map { if (it.playerId == playerId) Seat(playerId, position.clamped()) else it }
+        }
+        return withLineup(lineup.sortedBy { clockwiseAngle(it.position) }, now)
+    }
+
+    /**
+     * [playerId] leaves the running round: any result they have in it is dropped, their past
+     * results and adjustments stay ("left" in the scoreboard). Someone who joined this very round
+     * and has nothing recorded just goes. The game keeps at least [MIN_PLAYERS] players.
+     */
+    fun removePlayer(playerId: Long, now: Long): GameState {
+        seatIndex(playerId)
+        return withLineup(seats.filter { it.playerId != playerId }, now)
+    }
+
+    /**
+     * The changed lineup from the "Players" flow in one step: [lineup] (seating order + table
+     * positions) is the new table. Seated players missing from it leave ([removePlayer]), new ones
+     * join the running round as open ([addPlayer]). [MIN_PLAYERS]..[MAX_PLAYERS] players.
+     */
+    fun withLineup(lineup: List<Seat>, now: Long): GameState {
+        check(canChangePlayers) { "Players can only change during a running round" }
+        val ids = lineup.map { it.playerId }
+        require(ids.toSet().size == ids.size) { "Duplicate player" }
+        require(ids.size in MIN_PLAYERS..MAX_PLAYERS) { "A game has $MIN_PLAYERS to $MAX_PLAYERS players" }
+        val round = currentRound
+        val leaving = playerIds.filter { it !in ids }
+        val joining = ids.filter { it !in playerIds }
+
+        var departedNow = departed.filter { it.playerId !in joining }
+        var joined = joinedRounds.filterKeys { it in ids }
+        for (p in leaving) {
+            val playedBefore = rounds.any { it.isClosed && p in it.results }
+            val adjusted = adjustments.any { it.playerId == p }
+            // Joined this round and nothing recorded: gone without a trace (no "left" column).
+            if (playedBefore || adjusted) departedNow = departedNow + DepartedPlayer(p, joinedRound(p), round.number)
+        }
+        for (p in joining) joined = if (round.number > 1) joined + (p to round.number) else joined - p
+        val results = round.results.filterKeys { it !in leaving } + joining.associateWith { PlayerResult(updatedAt = now) }
+        return copy(
+            seats = lineup.map { Seat(it.playerId, it.position.clamped()) },
+            rounds = rounds.replace(round.number, round.copy(results = results)),
+            joinedRounds = joined,
+            departed = departedNow,
+        ).settled(now)
+    }
+
+    /**
+     * Default seats for a changed lineup [ids] (seated players first, in their order; new ones
+     * appended): if the table is still on the default ring, everyone moves to the default ring of
+     * the new size; otherwise the players who stay keep their spots and new ones get spots on the
+     * ring between the last and the first seat ("after the last seat"). Clockwise order = seating
+     * order, as always.
+     */
+    fun seatsFor(ids: List<Long>): List<Seat> {
+        val staying = seats.filter { it.playerId in ids }
+        val joining = ids.filter { id -> seats.none { it.playerId == id } }
+        val order = staying.map { it.playerId } + joining
+        val onRing = seats.map { it.position }.zip(defaultPositions(seats.size)).all { (a, b) ->
+            abs(a.x - b.x) < RING_TOLERANCE && abs(a.y - b.y) < RING_TOLERANCE
+        }
+        if (onRing) return order.zip(defaultPositions(order.size)) { p, pos -> Seat(p, pos) }
+        val last = staying.lastOrNull()?.let { clockwiseAngle(it.position) } ?: 0.0
+        val first = staying.firstOrNull()?.let { clockwiseAngle(it.position) + 2 * PI } ?: (2 * PI)
+        val added = joining.mapIndexed { i, p -> Seat(p, ringPosition(last + (first - last) * (i + 1) / (joining.size + 1))) }
+        return (staying + added).sortedBy { clockwiseAngle(it.position) }
+    }
+
     // ---- Seating -------------------------------------------------------------------------
 
     /**
@@ -384,6 +516,20 @@ data class GameState(
 
     fun withViewMode(mode: ViewMode?): GameState = copy(viewMode = mode)
 
+    /**
+     * Changes the game's [target] (round menu "Target points"). Mid-round this only decides the
+     * game-over check at the next round close ([isOver]); on a closed last round [finishedAt]
+     * follows at once.
+     */
+    fun withTarget(target: Int, now: Long): GameState {
+        require(target > 0) { "Target must be positive" }
+        check(!abandoned) { "Game was abandoned" }
+        return copy(target = target).settled(now)
+    }
+
+    /** Someone's total (incl. adjustments) is at or above [target]: with that target the game ends at the round close. */
+    fun reachesTarget(target: Int): Boolean = totals.values.any { it >= target }
+
     companion object {
         /**
          * New game with [players] in seating order (avatar colors may repeat).
@@ -425,6 +571,15 @@ data class GameState(
         }
     }
 }
+
+/** How far (normalized) a seat may be off the default ring and still count as "on the ring". */
+private const val RING_TOLERANCE = 0.01f
+
+/** Spot on the default ellipse at [angle] (clockwise from 12 o'clock, radians). */
+private fun ringPosition(angle: Double) = TablePosition(
+    x = (0.5 + DEFAULT_ELLIPSE_RX * sin(angle)).toFloat(),
+    y = (0.5 - DEFAULT_ELLIPSE_RY * cos(angle)).toFloat(),
+)
 
 private fun List<RoundState>.replace(number: Int, round: RoundState): List<RoundState> =
     mapIndexed { i, r -> if (i == number - 1) round else r }

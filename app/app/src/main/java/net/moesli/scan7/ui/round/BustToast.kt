@@ -1,5 +1,11 @@
 package net.moesli.scan7.ui.round
 
+import net.moesli.scan7.ui.text.uiText
+import net.moesli.scan7.ui.text.resolve
+import net.moesli.scan7.ui.text.UiText
+import androidx.compose.ui.platform.LocalResources
+import android.content.res.Resources
+import net.moesli.scan7.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -41,29 +47,19 @@ import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
 
-/** One showing of a round screen toast; [seq] makes every showing distinct (same player busted again). */
-sealed interface RoundToast {
-    val seq: Long
-}
-
-/** "<name> marked bust · Undo". */
+/** "<name> marked bust · Undo"; [seq] makes every showing distinct (same player busted again). */
 @Immutable
-data class BustToastData(val playerId: String, val name: String, override val seq: Long) : RoundToast
-
-/** "Round 5 closed · Scoreboard" after Next round / Close round. */
-@Immutable
-data class RoundClosedToast(val round: Int, override val seq: Long) : RoundToast
+data class BustToastData(val playerId: String, val name: String, val seq: Long)
 
 /**
- * State of the round screen's toast ("<name> marked bust · Undo", "Round 5 closed · Scoreboard"),
- * hoisted out of [RoundScreen] so every bust path (in-card Bust inside the screen, the player
+ * State of the round screen's bust toast ("<name> marked bust · Undo"), hoisted out of [RoundScreen] so every bust path (in-card Bust inside the screen, the player
  * sheet's Bust in the route, the scan camera's Bust) shows the same toast. [current] is the
  * request; [BustToastHost] shows it through Material 3's [SnackbarHost] (timing, TalkBack
  * announcement and dismiss action come from there). A new toast replaces the one showing.
  */
 @Stable
 class BustToastState {
-    var current: RoundToast? by mutableStateOf(null)
+    var current: BustToastData? by mutableStateOf(null)
         private set
     private var seq = 0L
 
@@ -72,17 +68,12 @@ class BustToastState {
         current = BustToastData(playerId, name, ++seq)
     }
 
-    /** Shows "Round [round] closed" with the Scoreboard action. */
-    fun showRoundClosed(round: Int) {
-        current = RoundClosedToast(round, ++seq)
-    }
-
     fun dismiss() {
         current = null
     }
 
     /** The host is done with [data] (timeout, Undo, dismissed): clears it unless a newer one replaced it. */
-    internal fun finished(data: RoundToast) {
+    internal fun finished(data: BustToastData) {
         if (current == data) current = null
     }
 }
@@ -90,10 +81,10 @@ class BustToastState {
 @Composable
 fun rememberBustToastState(): BustToastState = remember { BustToastState() }
 
-/** Snackbar visuals of one [RoundToast] (the slot draws [toastText] of [data]). */
-private class RoundSnackbarVisuals(val data: RoundToast) : SnackbarVisuals {
-    override val message: String = toastText(data).message
-    override val actionLabel: String = toastText(data).action
+/** Snackbar visuals of one toast (the slot draws [toastText] of [data]), texts resolved with [resources]. */
+private class RoundSnackbarVisuals(val data: BustToastData, resources: Resources) : SnackbarVisuals {
+    override val message: String = toastText(data).message.resolve(resources)
+    override val actionLabel: String = toastText(data).action.resolve(resources)
     override val withDismissAction: Boolean = false
 
     // Short = 4 s, stretched by the host to the user's accessibility timeout.
@@ -101,17 +92,17 @@ private class RoundSnackbarVisuals(val data: RoundToast) : SnackbarVisuals {
 }
 
 /** Texts of a toast: [message], the [action] label and its TalkBack description. */
-internal data class ToastText(val message: String, val action: String, val actionDescription: String)
+internal data class ToastText(val message: UiText, val action: UiText, val actionDescription: UiText)
 
-internal fun toastText(toast: RoundToast): ToastText = when (toast) {
-    is BustToastData -> ToastText("${toast.name} marked bust", "Undo", "Undo bust for ${toast.name}")
-    is RoundClosedToast -> ToastText("Round ${toast.round} closed", "Scoreboard", "Open the scoreboard")
-}
+internal fun toastText(toast: BustToastData): ToastText = ToastText(
+    uiText(R.string.toast_bust, toast.name),
+    uiText(R.string.action_undo),
+    uiText(R.string.action_undo_bust_player, toast.name),
+)
 
 /**
  * Shows [toast] as a Material 3 snackbar restyled as [ToastPanel]. Undo calls [onUndo] with the
- * player id, Scoreboard calls [onScoreboard] with the round; without [onScoreboard] (scan camera)
- * round-closed toasts are not shown here. A new toast cancels the running snackbar, so it replaces
+ * player id. A new toast cancels the running snackbar, so it replaces
  * it. When this host leaves the screen with a toast still up (round ↔ camera), the next host shows
  * it again.
  */
@@ -120,33 +111,27 @@ internal fun BustToastHost(
     toast: BustToastState,
     onUndo: (String) -> Unit,
     modifier: Modifier = Modifier,
-    onScoreboard: ((Int) -> Unit)? = null,
 ) {
     val host = remember { SnackbarHostState() }
     val undo by rememberUpdatedState(onUndo)
-    val scoreboard by rememberUpdatedState(onScoreboard)
     val data = toast.current
+    val resources = LocalResources.current
     LaunchedEffect(data) {
         // A new key cancels the previous showSnackbar, which takes that snackbar down.
-        if (data == null || (data is RoundClosedToast && scoreboard == null)) return@LaunchedEffect
-        val result = host.showSnackbar(RoundSnackbarVisuals(data))
-        if (result == SnackbarResult.ActionPerformed) {
-            when (data) {
-                is BustToastData -> undo(data.playerId)
-                is RoundClosedToast -> scoreboard?.invoke(data.round)
-            }
-        }
+        if (data == null) return@LaunchedEffect
+        val result = host.showSnackbar(RoundSnackbarVisuals(data, resources))
+        if (result == SnackbarResult.ActionPerformed) undo(data.playerId)
         toast.finished(data)
     }
     SnackbarHost(hostState = host, modifier = modifier) { snackbar ->
         val visuals = snackbar.visuals as? RoundSnackbarVisuals ?: return@SnackbarHost
         val text = toastText(visuals.data)
-        ToastPanel(text.message, text.action, text.actionDescription, onAction = snackbar::performAction)
+        ToastPanel(text.message.resolve(), text.action.resolve(), text.actionDescription.resolve(), onAction = snackbar::performAction)
     }
 }
 
 /**
- * Toast panel ("Anna marked bust · UNDO", "Round 5 closed · SCOREBOARD"): `surface` panel, 48
+ * Toast panel ("Anna marked bust · UNDO"): `surface` panel, 48
  * high, radius 12, at the bottom above the buttons; the action in cyan caps. The [BustToastHost]
  * announces it politely to TalkBack.
  */
@@ -201,6 +186,6 @@ internal fun ToastPanel(
 private fun BustToastPreview() {
     Scan7Theme {
         val text = toastText(BustToastData("1", "Anna", 1))
-        ToastPanel(text.message, text.action, text.actionDescription, {}, Modifier.padding(Scan7Spacing.screenMargin))
+        ToastPanel(text.message.resolve(), text.action.resolve(), text.actionDescription.resolve(), {}, Modifier.padding(Scan7Spacing.screenMargin))
     }
 }

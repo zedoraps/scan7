@@ -27,7 +27,7 @@ DAS GANZE SPIEL
 • Speichere deine Mitspieler mit eigenem Avatar und wähle aus, wer heute mitspielt.
 • Setz die Spieler so, wie ihr am Tisch sitzt; die Tischansicht zeigt die Runde aller Spieler.
 • Zwischenstände, Führende, Zielpunktzahl (standardmäßig 200) und Spielende macht Scan7 für dich.
-• Punktetabelle mit allen Runden; frühere Ergebnisse lassen sich jederzeit korrigieren.
+• Tabelle mit allen Runden; frühere Ergebnisse lassen sich jederzeit korrigieren.
 • Vergangene Spiele bleiben auf dem Startbildschirm: Sieger, Punkte, Runden.
 
 PRIVAT VON ANFANG AN

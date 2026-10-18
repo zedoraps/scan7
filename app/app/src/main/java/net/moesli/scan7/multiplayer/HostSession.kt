@@ -137,9 +137,18 @@ class HostSession(
     }
 
     /**
-     * A change the host made outside the action log (players added to / removed from the running
-     * game, once main supports it). The seq advances, everyone gets a snapshot, and claims and
-     * entries of removed players are dropped; guest intents for them then fail as INVALID.
+     * "Players" in the round menu (main's [GameState.withLineup]): [lineup] becomes the table as an
+     * ordinary [ChangeLineup] event, carrying the new players' names and avatars. Claims and entries
+     * of players who left are dropped; guest intents for them then fail as INVALID.
+     */
+    fun changeLineup(lineup: List<net.moesli.scan7.game.Seat>, newPlayers: List<Player> = emptyList()): GameState {
+        newPlayers.forEach { players[it.id] = it }
+        return perform(ChangeLineup.of(lineup, lineup.mapNotNull { s -> players[s.playerId] }.filter { it.id !in state.playerIds }))
+    }
+
+    /**
+     * A change the host made outside the action log (e.g. a restored game state). The seq advances,
+     * everyone gets a snapshot, and claims and entries of players no longer seated are dropped.
      */
     fun updateGame(game: GameState, gamePlayers: List<Player>) = replaceGame(game, gamePlayers)
 
@@ -307,11 +316,17 @@ class HostSession(
         if (intentId != null) seenIntents[intentId] = IntentAck(intentId, seq)
         onApplied(event, next)
         broadcast(event)
+        // A player left the table: their claims go (rule 14), everyone gets the new roster.
+        val seated = next.playerIds.toSet()
+        if (devices.values.any { d -> (d.me != null && d.me !in seated) || d.scans.any { it !in seated } }) {
+            devices.replaceAll { _, d -> d.copy(me = d.me?.takeIf { it in seated }, scans = d.scans.filter { it in seated }) }
+            broadcast(Roster(roster))
+        }
     }
 
     private fun snapshot() = GameSnapshot(
         game = GameDto.of(state),
-        players = state.playerIds.map { PlayerDto.of(players.getValue(it)) },
+        players = state.everyoneIds.mapNotNull { players[it]?.let(PlayerDto::of) },
         authors = entryAuthors.map { (k, d) -> ResultAuthor(k.round, k.playerId, d) },
     )
 
@@ -339,7 +354,8 @@ internal fun trackAuthors(authors: MutableMap<ResultKey, String>, touched: Set<R
         return
     }
     for (key in touched) {
-        val open = key.round <= next.rounds.size && next.result(key.playerId, key.round).isOpen
+        val gone = key.playerId !in next.playerIds || key.round > next.rounds.size
+        val open = gone || next.result(key.playerId, key.round).isOpen
         if (by == null || by == HOST_DEVICE || open) authors.remove(key) else authors[key] = by
     }
 }

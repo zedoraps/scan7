@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.round
 
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -104,9 +106,9 @@ internal fun RoundHeader(
                     .weight(1f)
                     .semantics(mergeDescendants = true) {},
             ) {
-                Text("Rearrange seats / order", color = colors.text, style = Scan7Type.headline16, maxLines = 1)
+                Text(stringResource(R.string.action_rearrange), color = colors.text, style = Scan7Type.headline16, maxLines = 1)
                 Text(
-                    text = if (view == RoundView.Table) "Drag players to where they sit" else "Drag rows into seating order",
+                    text = stringResource(if (view == RoundView.Table) R.string.seats_hint_table else R.string.seats_hint_list),
                     color = colors.textMuted,
                     style = Scan7Type.text12,
                     maxLines = 1,
@@ -114,7 +116,7 @@ internal fun RoundHeader(
                 )
             }
             PrimaryButton(
-                text = "Done",
+                text = stringResource(R.string.action_done),
                 onClick = actions::onDone,
                 height = Scan7Spacing.minTouch,
                 cornerRadius = Scan7Radii.iconButton,
@@ -122,6 +124,7 @@ internal fun RoundHeader(
             )
         } else {
             // Logo → Home (like the menu's Home; the game stays resumable).
+            val homeDescription = stringResource(R.string.action_home)
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -131,7 +134,7 @@ internal fun RoundHeader(
                     .clip(RoundedCornerShape(Scan7Radii.iconButton))
                     .scan7Clickable(actions::onHome)
                     .clearAndSetSemantics {
-                        contentDescription = "Home"
+                        contentDescription = homeDescription
                         role = Role.Button
                     },
             ) {
@@ -146,7 +149,7 @@ internal fun RoundHeader(
                 },
             )
             // "Rearrange seats / order" lives in the ⋮ menu (and long-press on a card).
-            IconButton(onClick = actions::onMenu, contentDescription = "Menu") {
+            IconButton(onClick = actions::onMenu, contentDescription = stringResource(R.string.action_menu)) {
                 MenuIcon(colors.text)
             }
         }
@@ -160,13 +163,14 @@ internal fun RoundHeader(
 @Composable
 internal fun SeatBadge(seat: Int, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
+    val description = stringResource(R.string.seat_number, seat)
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .size(24.dp)
             .background(colors.accent, CircleShape)
             .border(1.5.dp, colors.ground, CircleShape)
-            .clearAndSetSemantics { contentDescription = "Seat $seat" },
+            .clearAndSetSemantics { contentDescription = description },
     ) {
         CappedFontScale {
             Text(seat.toString(), color = colors.onAccent, style = Scan7Type.tag11, maxLines = 1, softWrap = false)

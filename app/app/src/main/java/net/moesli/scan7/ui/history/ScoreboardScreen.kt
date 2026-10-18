@@ -1,5 +1,11 @@
 package net.moesli.scan7.ui.history
 
+import net.moesli.scan7.ui.text.uiPlural
+import net.moesli.scan7.ui.text.uiText
+import net.moesli.scan7.ui.text.resolve
+import net.moesli.scan7.ui.text.UiText
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import net.moesli.scan7.ui.components.sampleAvatar
 import net.moesli.scan7.ui.components.avatarSizeForHeight
 import net.moesli.scan7.ui.components.PlayerAvatar
@@ -25,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.CollectionInfo
 import androidx.compose.ui.semantics.CollectionItemInfo
@@ -71,20 +78,17 @@ fun GameSnapshot.toScoreboardUi(): ScoreboardUi = ScoreboardUi(
     gameId = state.id,
     target = state.target,
     isOver = state.isOver,
-    players = state.playerUis(players),
+    players = state.playerUis(players, ids = state.everyoneIds),
     table = scoreTable(state),
     abandoned = state.abandoned,
     closedRounds = state.rounds.count { it.isClosed },
 )
 
 /** Header subtitle: "Final · 6 rounds · to 200", "Not finished · 3 rounds · to 200" or "Round 4 · to 200 · tap to edit". */
-fun ScoreboardUi.subtitle(): String {
-    fun n(count: Int) = "$count ${if (count == 1) "round" else "rounds"}"
-    return when {
-        isOver -> "Final · ${n(table.rows.size)} · to $target"
-        abandoned -> "Not finished · ${n(closedRounds)} · to $target"
-        else -> "Round ${table.rows.size} · to $target · tap to edit"
-    }
+fun ScoreboardUi.subtitle(): UiText = when {
+    isOver -> uiText(R.string.scoreboard_final, uiPlural(R.plurals.rounds, table.rows.size), target)
+    abandoned -> uiText(R.string.scoreboard_abandoned, uiPlural(R.plurals.rounds, closedRounds), target)
+    else -> uiText(R.string.scoreboard_running, table.rows.size, target)
 }
 
 private val RoundColumn = 44.dp
@@ -114,8 +118,8 @@ fun ScoreboardScreen(
             .padding(horizontal = Scan7Spacing.screenMargin),
     ) {
         ScreenHeader(
-            title = "Scoreboard",
-            subtitle = state.subtitle(),
+            title = stringResource(R.string.scoreboard_title),
+            subtitle = state.subtitle().resolve(),
             onBack = onBack,
             modifier = Modifier.headerInsets(),
         )
@@ -133,7 +137,7 @@ fun ScoreboardScreen(
         ) {
             // Fixed-width columns (up to 10 players): cap the font scale like the table cards (2.0 broke "BUST" and the totals).
             CappedFontScale {
-                HeaderRow(state.players)
+                HeaderRow(state.players, table)
                 Divider()
                 Column(
                     modifier = Modifier
@@ -172,33 +176,45 @@ private fun Divider() {
 }
 
 @Composable
-private fun HeaderRow(players: List<PlayerUi>) {
+private fun HeaderRow(players: List<PlayerUi>, table: ScoreTable) {
     val colors = Scan7Theme.colors
     val showNames = players.size <= NAMES_UP_TO
+    val roundDescription = stringResource(R.string.scoreboard_round)
+    // Players who joined later / left get a third line ("from R3" / "left").
+    val marked = table.joined.isNotEmpty() || table.left.isNotEmpty()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .background(colors.surface)
-            .height(64.dp),
+            .height(if (marked) 76.dp else 64.dp),
     ) {
         Text(
-            "RND",
+            stringResource(R.string.scoreboard_round_short),
             color = colors.textMuted,
             style = Scan7Type.tag10,
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .width(RoundColumn)
-                .clearAndSetSemantics { contentDescription = "Round" }
+                .clearAndSetSemantics { contentDescription = roundDescription }
                 .tableCell(0, 0),
         )
         players.forEachIndexed { i, p ->
+            val id = table.playerIds[i]
+            val leftIn = table.left[id]
+            val joinedIn = table.joined[id]
+            val description = when {
+                leftIn != null -> stringResource(R.string.scoreboard_left_description, p.name, leftIn)
+                joinedIn != null -> stringResource(R.string.scoreboard_joined_description, p.name, joinedIn)
+                else -> p.name
+            }
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs),
                 modifier = Modifier
                     .weight(1f)
-                    .clearAndSetSemantics { contentDescription = p.name }
+                    .alpha(if (leftIn != null) 0.6f else 1f)
+                    .clearAndSetSemantics { contentDescription = description }
                     .tableCell(0, i + 1),
             ) {
                 PlayerAvatar(p.avatar, avatarSizeForHeight(if (showNames) 24.dp else 21.dp))
@@ -210,6 +226,20 @@ private fun HeaderRow(players: List<PlayerUi>) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                val tag = when {
+                    leftIn != null -> stringResource(R.string.player_left_tag, (leftIn - 1).coerceAtLeast(1)) // last round played
+                    joinedIn != null -> stringResource(R.string.player_joined_tag, joinedIn)
+                    else -> null
+                }
+                if (tag != null) {
+                    Text(
+                        tag.uppercase(),
+                        color = colors.textMuted,
+                        style = Scan7Type.tag10.copy(fontSize = 8.sp, letterSpacing = 0.sp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }
@@ -225,6 +255,7 @@ private fun RoundRow(
     onEditResult: ((round: Int, playerId: Long) -> Unit)?,
 ) {
     val colors = Scan7Theme.colors
+    val roundDescription = stringResource(if (row.isRunning) R.string.scoreboard_round_running else R.string.round_number, row.round)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -236,17 +267,17 @@ private fun RoundRow(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .width(RoundColumn)
-                .clearAndSetSemantics { contentDescription = if (row.isRunning) "Round ${row.round}, running" else "Round ${row.round}" }
+                .clearAndSetSemantics { contentDescription = roundDescription }
                 .tableCell(rowIndex, 0),
         ) {
             Text(row.round.toString(), color = if (row.isRunning) colors.text else colors.textMuted, style = Scan7Type.text13)
-            if (row.isRunning) Text("NOW", color = colors.accent, style = Scan7Type.tag10.copy(fontSize = 8.sp))
+            if (row.isRunning) Text(stringResource(R.string.scoreboard_now), color = colors.accent, style = Scan7Type.tag10.copy(fontSize = 8.sp))
         }
         row.cells.forEachIndexed { i, cell ->
             Cell(
                 cell = cell,
-                description = cell.describe(row.round, players[i].name),
-                onClick = onEditResult?.let { edit -> { edit(row.round, ids[i]) } },
+                description = cell.describe(row.round, players[i].name).resolve(),
+                onClick = onEditResult?.takeIf { cell.played }?.let { edit -> { edit(row.round, ids[i]) } },
                 compact = players.size > NAMES_UP_TO,
                 modifier = Modifier
                     .weight(1f)
@@ -259,11 +290,13 @@ private fun RoundRow(
 @Composable
 private fun Cell(cell: ScoreCell, description: String, onClick: (() -> Unit)?, compact: Boolean, modifier: Modifier) {
     val colors = Scan7Theme.colors
+    val editLabel = stringResource(R.string.action_edit)
+    val text = cell.text().resolve()
     Box(
         contentAlignment = if (cell.status == ResultStatus.SCORED) Alignment.CenterEnd else Alignment.Center,
         modifier = modifier
             .fillMaxHeight()
-            .then(if (onClick != null) Modifier.scan7Clickable(onClick, onClickLabel = "Edit") else Modifier)
+            .then(if (onClick != null) Modifier.scan7Clickable(onClick, onClickLabel = editLabel) else Modifier)
             .clearAndSetSemantics { contentDescription = description }
             .padding(horizontal = if (compact) 1.dp else 3.dp, vertical = Scan7Spacing.xs),
     ) {
@@ -275,7 +308,7 @@ private fun Cell(cell: ScoreCell, description: String, onClick: (() -> Unit)?, c
                     .background(colors.bust, RoundedCornerShape(Scan7Radii.tagCard)),
             ) {
                 Text(
-                    "BUST",
+                    text,
                     color = colors.onAccent,
                     style = if (compact) Scan7Type.tag10.copy(fontSize = 8.sp, letterSpacing = 0.sp) else Scan7Type.tag10,
                     maxLines = 1,
@@ -283,14 +316,14 @@ private fun Cell(cell: ScoreCell, description: String, onClick: (() -> Unit)?, c
                 )
             }
             ResultStatus.SCORED -> Text(
-                cell.text(),
+                text,
                 color = colors.text,
                 style = Scan7Type.text14,
                 textAlign = TextAlign.End,
                 maxLines = 1,
                 modifier = Modifier.padding(end = Scan7Spacing.xs),
             )
-            ResultStatus.OPEN -> Text(cell.text(), color = colors.textMuted, style = Scan7Type.text14)
+            ResultStatus.OPEN -> Text(text, color = colors.textMuted, style = Scan7Type.text14)
         }
     }
 }
@@ -298,6 +331,10 @@ private fun Cell(cell: ScoreCell, description: String, onClick: (() -> Unit)?, c
 @Composable
 private fun TotalsRow(table: ScoreTable, rowIndex: Int, players: List<PlayerUi>) {
     val colors = Scan7Theme.colors
+    val totalDescription = stringResource(R.string.scoreboard_total)
+    val adjustedText = stringResource(R.string.scoreboard_adjusted)
+    val leadingText = stringResource(R.string.a11y_leading)
+    val totalFormat = stringResource(R.string.scoreboard_total_description)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -306,13 +343,13 @@ private fun TotalsRow(table: ScoreTable, rowIndex: Int, players: List<PlayerUi>)
             .background(colors.surface),
     ) {
         Text(
-            "TOTAL",
+            stringResource(R.string.scoreboard_total_label),
             color = colors.textMuted,
             style = Scan7Type.tag10.copy(fontSize = 9.sp),
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .width(RoundColumn)
-                .clearAndSetSemantics { contentDescription = "Total" }
+                .clearAndSetSemantics { contentDescription = totalDescription }
                 .tableCell(rowIndex, 0),
         )
         table.totals.forEachIndexed { i, total ->
@@ -325,9 +362,9 @@ private fun TotalsRow(table: ScoreTable, rowIndex: Int, players: List<PlayerUi>)
                     .weight(1f)
                     .padding(end = if (players.size <= NAMES_UP_TO) Scan7Spacing.s - 1.dp else 2.dp)
                     .clearAndSetSemantics {
-                        contentDescription = "${players[i].name}, total $total" +
-                            (if (adjusted) ", includes total adjustments" else "") +
-                            if (leader) ", leading" else ""
+                        contentDescription = totalFormat.format(players[i].name, total) +
+                            (if (adjusted) adjustedText else "") +
+                            if (leader) leadingText else ""
                     }
                     .tableCell(rowIndex, i + 1),
             ) {

@@ -4,7 +4,9 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.moesli.scan7.game.ConfirmedCard
 import net.moesli.scan7.game.GameState
+import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.ResultSource
+import net.moesli.scan7.game.Seat
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.scoring.Card
 
@@ -190,4 +192,31 @@ data class MovePosition(val playerId: Long, val x: Float, val y: Float) : GameAc
     override fun touches(state: GameState): Set<ResultKey> = emptySet()
 
     override fun apply(state: GameState, now: Long, seq: Long) = state.movePosition(playerId, TablePosition(x, y))
+}
+
+/**
+ * "Players" in the round menu (main's [GameState.withLineup]): the new table in seating order.
+ * [newPlayers] carries names + avatars of players the guests haven't seen yet.
+ */
+@Serializable
+@SerialName("change_lineup")
+data class ChangeLineup(val seats: List<SeatDto>, val newPlayers: List<PlayerDto> = emptyList()) : GameAction {
+    override val hostOnly get() = true
+
+    /** The running round's results of everyone who joins or leaves. */
+    override fun touches(state: GameState): Set<ResultKey> {
+        val ids = seats.map { it.playerId }.toSet()
+        val before = state.playerIds.toSet()
+        return ((before - ids) + (ids - before)).map { ResultKey(state.currentRound.number, it) }.toSet()
+    }
+
+    override fun apply(state: GameState, now: Long, seq: Long) =
+        state.withLineup(seats.map { Seat(it.playerId, TablePosition(it.x, it.y)) }, now)
+
+    companion object {
+        fun of(lineup: List<Seat>, newPlayers: List<Player>) = ChangeLineup(
+            seats = lineup.map { SeatDto(it.playerId, it.position.x, it.position.y) },
+            newPlayers = newPlayers.map { PlayerDto.of(it) },
+        )
+    }
 }

@@ -11,7 +11,7 @@ is configured and what the user still has to do by hand.
 |---|---|---|
 | versionCode | `git rev-list --count HEAD` (commit count; full clone needed), override `-Pscan7.versionCode=N`, fallback 1 | `app/app/build.gradle.kts` |
 | versionName | `scan7.versionName` (bump per release), override `-Pscan7.versionName=…` | `app/gradle.properties` |
-| Source / privacy links | `scan7.sourceUrl`, `scan7.privacyUrl` → `BuildConfig.SOURCE_URL` / `PRIVACY_URL`, shown in About | `app/gradle.properties` (placeholders `OWNER`) |
+| Source / privacy links | `scan7.sourceUrl`, `scan7.privacyUrl` → `BuildConfig.SOURCE_URL` / `PRIVACY_URL`, shown in About | `app/gradle.properties` (`zedoraps/scan7`) |
 | Release signing | `signingConfigs.release` from `scan7.upload.*` Gradle properties or `SCAN7_UPLOAD_*` env vars; unsigned (with a warning) when absent | `app/app/build.gradle.kts` |
 | Detector model | not in git; `./gradlew downloadModel` fetches the released `model.tflite` and checks its SHA-256; `checkModelAsset` fails the build early with that hint | `app/model.properties` |
 | License texts | `copyLicenseTexts` copies `LICENSE` + `docs/third_party/*.txt` into the APK (`assets/licenses/`) for About & licenses | `app/app/build.gradle.kts` |
@@ -57,10 +57,10 @@ app), upload `app/app/src/main/assets/model.tflite` to a new release (tag e.g. `
       describe the `PRIVATE_*` photos (e.g. "a short note"); shorten them if they say
       more than you want public. The commit author name/e-mail become public too.
 - [ ] Create the public GitHub repository and push `main` (and tags).
-- [ ] Replace the `OWNER` placeholders: `app/gradle.properties` (`scan7.sourceUrl`,
+- [x] Repository set to `zedoraps/scan7` in `app/gradle.properties` (`scan7.sourceUrl`,
       `scan7.privacyUrl`), `app/model.properties` (`model.url`), `docs/store/listing-en.md`.
 - [ ] Enable **GitHub Pages** (Settings → Pages → deploy from branch `main`, folder `/docs`). The
-      privacy policy is then at `https://OWNER.github.io/scan7/privacy.html` (`docs/privacy.md`,
+      privacy policy is then at `https://zedoraps.github.io/scan7/privacy.html` (`docs/privacy.md`,
       English + German). Note: the other files in `docs/` are published too (they're public in
       the repo anyway).
 - [ ] Create the model release: `gh release create model-ft_v1 app/app/src/main/assets/model.tflite --title "Detector model ft_v1" --notes "YOLO26n fp32, 640 px (AGPL-3.0)"`,
@@ -123,9 +123,13 @@ Answers are drafted in [store/README.md](store/README.md).
 ### 6. Store listing
 - [ ] Texts from [store/listing-en.md](store/listing-en.md) and the German translation from
       [store/listing-de.md](store/listing-de.md) (add de-DE under *Store listing → Translations*).
-- [ ] Icon [store/icon-512.png](store/icon-512.png), feature graphic 1024 × 500 (spec in
-      store/README.md, not made yet), 2–8 phone screenshots at 1080 × 1920 (shot list in
-      store/README.md).
+- [ ] Icon [store/icon-512.png](store/icon-512.png), feature graphic
+      [store/feature-graphic-en.png](store/feature-graphic-en.png) / [-de.png](store/feature-graphic-de.png)
+      (`uv run --project ml python -I docs/store/make_feature_graphic.py`), 2–8 phone screenshots
+      at 1080 × 1920 per language (shot list in store/README.md), freshly made on an emulator:
+      `ANDROID_SERIAL=localhost:5561 scripts/store-screenshots.sh`, then optionally
+      `uv run --project ml python -I docs/store/caption_screenshots.py` for the captioned set
+      (`docs/store/screenshots/<locale>/captioned/`).
 - [ ] Category Entertainment (or Tools), contact e-mail, website = the GitHub repo.
 - [ ] Keep the disclaimer "Unofficial score keeper for Flip 7. Not affiliated with The Op Games."
       in the description; never use the game's artwork or logo.
@@ -155,6 +159,12 @@ Answers are drafted in [store/README.md](store/README.md).
   in `prebuild` with the checksum, or committed for their builds; training photos are not
   public, so the model isn't reproducible from source alone), and the LiteRT binaries from
   Google Maven (Apache-2.0).
+- **Blocker for the main F-Droid repo (not for Play / IzzyOnDroid):** `litert-api` 2.3.0 pulls in
+  the proprietary `com.google.android.gms:play-services-basement` / `play-services-tasks` and
+  `com.google.android.play:asset-delivery` (for AI Pack / Play-delivered models, unused by Scan7).
+  F-Droid rejects or flags these (NonFreeDep). Fix before an F-Droid submission: a `foss` build
+  flavor that `exclude`s those groups, then verify on a device that `CompiledModel` (GPU + CPU
+  fallback) still loads the bundled asset without them.
 - Store texts for F-Droid can live in `fastlane/metadata/android/<lang>/` (title, short and full
   description, images); copy them from `docs/store/` when doing this.
 
@@ -162,4 +172,3 @@ Answers are drafted in [store/README.md](store/README.md).
 - `WAKE_LOCK`, `ACCESS_NETWORK_STATE`, `RECEIVE_BOOT_COMPLETED` come from `androidx.work`, which
   LiteRT pulls in for AI Pack downloads that Scan7 doesn't use: remove them with
   `tools:node="remove"` in the manifest (like the FOREGROUND_SERVICE ones) after testing on a device.
-- Feature graphic and captioned screenshots still have to be made.

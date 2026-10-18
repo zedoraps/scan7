@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.round
 
+import net.moesli.scan7.ui.text.de
+import net.moesli.scan7.ui.text.en
 import net.moesli.scan7.data.GameSnapshot
 import net.moesli.scan7.game.ConfirmedCard
 import net.moesli.scan7.game.GameState
@@ -109,8 +111,9 @@ class RoundMappingTest {
         assertEquals(3L, s.score(4, 5, 2).scanNextAfter(4))
         // List / seating order is unchanged.
         assertEquals(listOf("1", "2", "3", "4"), snap(s).toRoundUiState().players.map { it.id })
-        assertEquals("↻ clockwise", ScanDirection.CLOCKWISE.label())
-        assertEquals("↺ counter-clockwise", ScanDirection.COUNTER_CLOCKWISE.label())
+        assertEquals("↻ clockwise", ScanDirection.CLOCKWISE.label().en)
+        assertEquals("↺ counter-clockwise", ScanDirection.COUNTER_CLOCKWISE.label().en)
+        assertEquals("Gegen den Uhrzeigersinn scannen", ScanDirection.COUNTER_CLOCKWISE.spoken().de)
     }
 
     @Test
@@ -206,5 +209,17 @@ class RoundMappingTest {
         assertEquals(PlayerStatus.Bust, ui.players[1].player.status)
         assertEquals(3, g.result(2).cards.size)
         assertEquals(ResultSource.MANUAL, g.result(2).source)
+    }
+
+    @Test
+    fun lowerTargetAsksOnlyWhenTheLeaderNewlyReachesIt() {
+        val s = GameState.newGame(listOf(Player(1, "Anna"), Player(2, "Ben")))
+            .scorePoints(1, 120, now = 1).scorePoints(2, 40, now = 1).closeRound(now = 1).nextRound()
+        assertEquals(false, crossesTarget(s, 150)) // still above Anna's 120
+        assertEquals(true, crossesTarget(s, 120)) // = leader: ends after this round
+        assertEquals(true, crossesTarget(s, 100))
+        assertEquals(false, crossesTarget(s, 250)) // raising never asks
+        val lowered = s.withTarget(110, now = 2)
+        assertEquals(false, crossesTarget(lowered, 100)) // already reached: no second dialog
     }
 }

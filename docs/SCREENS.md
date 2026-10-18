@@ -53,7 +53,7 @@ Screen inventory. Behaviour is specified in [APP_FLOW.md](APP_FLOW.md); brand ru
 - **New game** (primary).
 - **Players** (manage list).
 - **Debug** is hidden: tap the wordmark 5 times.
-- Footer: app version, model version.
+- ⋮ top right: version line, About & licenses (version + model details), Language (System default / English / Deutsch). No footer.
 
 States: no unfinished game (history only, or the intro when there is no game at all); no players yet (New game leads to adding players first).
 
@@ -75,7 +75,7 @@ Note: player colors must stay distinguishable from accent cyan and bust magenta.
 - All stored players with checkboxes (avatar + name).
 - **+ New player** inline (opens 2a, new player is auto-selected).
 - Compact **target** row (default **200**, − / + in steps of 10), pinned above the buttons.
-- **Skip seats** (secondary: start now, tick order on the default ring) + **Next** (primary), both enabled with 2–10 players.
+- **Next** (primary, full width), enabled with 2–10 players. Arranging seats on the next step is optional.
 
 ### 3b Seats
 - The round screen's table / list (same cards and rows) in arrange mode, seat number badges 1…n.
@@ -101,7 +101,7 @@ States: all open (start of round); mixed; all scored ("Close round" highlighted)
 ### 4a Player sheet (bottom sheet)
 - Player avatar + name, total.
 - If `open`: **Scan** (primary), **Enter manually**, **Bust**.
-- If scored or busted: current result, **Edit** (→ 7), **Rescan** (→ 5), **Reset to open**.
+- If scored or busted: current result, **Edit** (→ 7), **Rescan** (→ 5), **Reset last entry**.
 
 ## 5 Camera
 **Purpose:** point at the player's row and capture.
@@ -121,7 +121,7 @@ States: camera permission missing (explain + grant / open settings); no cards de
   - **total** (big),
   - breakdown line: `7 + 12 + 3 = 22 · ×2 = 44 · +4 · Flip 7 +15`,
   - detected cards as chips (scoring cards normal, action cards/`back` grey "ignored"),
-  - buttons: **Retake**, **Fix**, **✓ OK** (primary).
+  - buttons: **Retake**, **Fix**, **OK** (primary).
 
 Variants:
 - **Bust detected** (duplicate number): panel in magenta with **BUST · two 7s**, buttons **Fix** and **Confirm bust**.
