@@ -79,7 +79,7 @@ drive the phone at a time.
 - The Mac has **16 GB RAM**: keep memory use modest (one Gradle build at a time, moderate `--workers`/`--batch`, stop daemons when done).
 - Android Studio may hold `.git/index.lock` briefly: **retry** the git command, never delete the lock.
 - Don't commit secrets. `ml/labeling/ls_data/` (DB, credentials) is private and gitignored.
-- Commit only when the user asks.
+- Commits: the coordinating session commits each reviewed, finished step locally (approved by the user; no pushing without asking). Subagents working in parallel don't commit; they report their changed files.
 
 ## Decisions log
 | Date | Decision |
