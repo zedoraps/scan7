@@ -60,7 +60,11 @@ enum class CardMode {
 @Immutable
 data class TokenSize(val width: Dp, val height: Dp, val fontSize: TextUnit)
 
-/** Table-view card size classes (handoff §3, "Player card – table view"). */
+/**
+ * Table-view card size classes (handoff §3, "Player card – table view"). The round screen picks the
+ * largest one that fits the screen (`ui.round.tableCardSize`); the player counts are the handoff's
+ * reference-phone defaults.
+ */
 enum class CardSize(
     val width: Dp,
     val height: Dp,
@@ -72,26 +76,21 @@ enum class CardSize(
     /** In-card Scan/Bust height, or null when the size class has no in-card actions. */
     val actionHeight: Dp?,
 ) {
-    /** ≤ 4 players. */
+    /** ≤ 4 players on the reference phone. */
     Large(112.dp, 140.dp, 8.dp, 56.dp, TokenSize(24.dp, 32.dp, 12.sp), 12.sp, 30.dp, 36.dp),
 
-    /** 5–6 players. */
+    /** 5–6 players on the reference phone. */
     Medium(96.dp, 124.dp, 6.dp, 46.dp, TokenSize(20.dp, 27.dp, 11.sp), 11.sp, 26.dp, 30.dp),
 
     /** 7–10 players: tag only, no in-card actions. */
     Compact(72.dp, 96.dp, 6.dp, 36.dp, TokenSize(16.dp, 21.dp, 9.sp), 11.sp, 20.dp, null),
     ;
-
-    companion object {
-        fun forPlayerCount(count: Int): CardSize = when {
-            count <= 4 -> Large
-            count <= 6 -> Medium
-            else -> Compact
-        }
-    }
 }
 
-/** List-view row size classes (handoff §3, "Player row – list view"). */
+/**
+ * List-view row size classes (handoff §3, "Player row – list view"). The round screen uses Regular
+ * when all rows fit the screen, else Compact (`ui.round.listRowSize`).
+ */
 enum class RowSize(
     val height: Dp,
     /** Vertical gap between rows (used by the list layout). */
@@ -111,10 +110,6 @@ enum class RowSize(
     /** 7–10 players. */
     Compact(48.dp, 6.dp, 32.dp, TokenSize(15.dp, 20.dp, 9.sp), 14.sp, 52.dp, 108.dp, 36.dp),
     ;
-
-    companion object {
-        fun forPlayerCount(count: Int): RowSize = if (count <= 6) Regular else Compact
-    }
 }
 
 /** Content description for a card/row body, e.g. "Mia, 96 points, not scored yet". */

@@ -6,7 +6,9 @@ import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.clockwiseAngle
 import net.moesli.scan7.game.defaultPositions
 import kotlin.math.abs
+import net.moesli.scan7.ui.components.CardSize
 import net.moesli.scan7.ui.components.PlayerStatus
+import net.moesli.scan7.ui.components.RowSize
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.isDone
 
@@ -71,23 +73,48 @@ fun tableCardScale(
     gap: Float = 0f,
 ): Float {
     if (count < 2) return 1f
-    val seats = defaultPositions(count)
-    fun fits(scale: Float, minGap: Float): Boolean {
-        val g = TableGeometry(0f, 0f, width, height, cardWidth * scale, cardHeight * scale)
-        val tl = seats.map { g.topLeftOf(it) }
-        for (i in tl.indices) for (j in i + 1 until tl.size) {
-            val dx = abs(tl[i].x - tl[j].x)
-            val dy = abs(tl[i].y - tl[j].y)
-            if (dx < g.cardWidth + minGap && dy < g.cardHeight + minGap) return false
-        }
-        return true
-    }
+    fun fits(scale: Float, minGap: Float) = seatsFit(count, width, height, cardWidth * scale, cardHeight * scale, minGap)
     // Cards that only touch keep their full size; [gap] applies once they have to shrink anyway.
     if (fits(1f, 0f)) return 1f
     var scale = 1f
     while (scale > MIN_TABLE_CARD_SCALE && !fits(scale, gap)) scale -= 0.01f
     return scale.coerceAtLeast(MIN_TABLE_CARD_SCALE)
 }
+
+/**
+ * True when [count] cards of [cardWidth] × [cardHeight] on their default seats in an area of
+ * [width] × [height] are pairwise at least [gap] apart in x or y (no overlap).
+ */
+fun seatsFit(count: Int, width: Float, height: Float, cardWidth: Float, cardHeight: Float, gap: Float = 0f): Boolean {
+    val g = TableGeometry(0f, 0f, width, height, cardWidth, cardHeight)
+    val tl = defaultPositions(count).map { g.topLeftOf(it) }
+    for (i in tl.indices) for (j in i + 1 until tl.size) {
+        val dx = abs(tl[i].x - tl[j].x)
+        val dy = abs(tl[i].y - tl[j].y)
+        if (dx < cardWidth + gap && dy < cardHeight + gap) return false
+    }
+    return true
+}
+
+/**
+ * Table card size class for [count] players in a table area of [width] × [height] dp: the largest
+ * of Large → Medium → Compact whose default seats are [gap] dp apart. Compact when none fits
+ * ([tableCardScale] then shrinks it). By space, not by player count, so a tall phone gives 8 players
+ * Medium cards and a 16:9 phone gives 6 players Compact ones.
+ */
+fun tableCardSize(count: Int, width: Float, height: Float, gap: Float): CardSize =
+    CardSize.entries.firstOrNull { seatsFit(count, width, height, it.width.value, it.height.value, gap) } ?: CardSize.Compact
+
+/**
+ * List row size class for [count] rows in a viewport of [viewportHeight] dp (incl. the badge room
+ * [topRoom] above the first row): Regular when all rows fit, else Compact (fewer rows to scroll).
+ */
+fun listRowSize(count: Int, viewportHeight: Float, topRoom: Float): RowSize =
+    if (listContentHeight(RowSize.Regular, count, topRoom) <= viewportHeight) RowSize.Regular else RowSize.Compact
+
+/** Height of [count] rows of [size] (dp) plus [topRoom] above the first one. */
+fun listContentHeight(size: RowSize, count: Int, topRoom: Float): Float =
+    topRoom + size.height.value * count + size.gap.value * (count - 1).coerceAtLeast(0)
 
 /** Seating order re-derived from table positions: clockwise from 12 o'clock (stable for ties). */
 fun <T> List<T>.sortedClockwiseBy(position: (T) -> TablePosition): List<T> = sortedBy { clockwiseAngle(position(it)) }

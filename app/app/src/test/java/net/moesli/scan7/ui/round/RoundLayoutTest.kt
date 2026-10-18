@@ -6,7 +6,9 @@ import net.moesli.scan7.game.DEFAULT_ELLIPSE_RX
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.clockwiseAngle
 import net.moesli.scan7.game.defaultPositions
+import net.moesli.scan7.ui.components.CardSize
 import net.moesli.scan7.ui.components.PlayerStatus
+import net.moesli.scan7.ui.components.RowSize
 import net.moesli.scan7.ui.components.PlayerUi
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -154,6 +156,55 @@ class RoundLayoutTest {
     @Test
     fun tableCardScaleNeverGoesBelowTheMinimum() {
         assertEquals(MIN_TABLE_CARD_SCALE, tableCardScale(10, 200f, 200f, 72f, 96f), 0f)
+    }
+
+    // ---- Size classes by space (areas: table 8 dp margins, strip + buttons 36 dp above the bottom) ----
+
+    // 411 × 914 dp (1080 × 2400 @ 420, Pixel Pro class): table area 395 × 650, list viewport 602.
+    private val tallW = 395f
+    private val tallH = 650f
+    private val tallList = 602f
+
+    // 360 × 640 dp (720 × 1280 @ 320, 16:9): table area 344 × 376, list viewport 328.
+    private val shortW = 344f
+    private val shortH = 376f
+    private val shortList = 328f
+
+    @Test
+    fun tableCardSizeOnATallPhone() {
+        val pick = (2..10).associateWith { tableCardSize(it, tallW, tallH, gap = 4f) }
+        (2..6).forEach { assertEquals("$it players", CardSize.Large, pick[it]) }
+        (7..8).forEach { assertEquals("$it players", CardSize.Medium, pick[it]) }
+        (9..10).forEach { assertEquals("$it players", CardSize.Compact, pick[it]) }
+    }
+
+    @Test
+    fun tableCardSizeOnA16by9Phone() {
+        val pick = (2..10).associateWith { tableCardSize(it, shortW, shortH, gap = 4f) }
+        (2..3).forEach { assertEquals("$it players", CardSize.Large, pick[it]) }
+        (4..5).forEach { assertEquals("$it players", CardSize.Medium, pick[it]) }
+        (6..10).forEach { assertEquals("$it players", CardSize.Compact, pick[it]) }
+        // Compact still overlaps from 7 players: the scale shrinks it.
+        assertEquals(1f, tableCardScale(6, shortW, shortH, 72f, 96f, gap = 4f), 0f)
+        assertTrue(tableCardScale(10, shortW, shortH, 72f, 96f, gap = 4f) < 1f)
+    }
+
+    @Test
+    fun pickedTableSizeNeverOverlapsWhenItFits() {
+        for (n in 2..10) {
+            val s = tableCardSize(n, tallW, tallH, gap = 4f)
+            assertTrue("$n players", seatsFit(n, tallW, tallH, s.width.value, s.height.value, gap = 4f))
+        }
+    }
+
+    @Test
+    fun listRowSizeByViewport() {
+        // Regular while all rows fit (8 dp badge room + 72 per row + 8 between).
+        assertEquals(RowSize.Regular, listRowSize(7, tallList, 8f)) // 560
+        assertEquals(RowSize.Compact, listRowSize(8, tallList, 8f)) // 640 > 602
+        assertEquals(RowSize.Regular, listRowSize(4, shortList, 8f)) // 320
+        assertEquals(RowSize.Compact, listRowSize(5, shortList, 8f)) // 400 > 328
+        assertEquals(560f, listContentHeight(RowSize.Regular, 7, 8f), 0f)
     }
 
     private fun cardSizeFor(n: Int): Pair<Float, Float> = when {

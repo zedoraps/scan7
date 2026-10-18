@@ -236,9 +236,10 @@ fun RoundScreen(
 
 @Composable
 private fun TableView(state: RoundUiState, actions: RoundActions, m: RoundMetrics, onBust: (RoundPlayer) -> Unit) {
-    val size = CardSize.forPlayerCount(state.playerCount)
     val density = LocalDensity.current
     val areaWidth = m.width - TableSideMargin * 2
+    // Largest card size whose default seats fit this screen (not by player count).
+    val size = tableCardSize(state.playerCount, areaWidth.value, (m.areaBottom - m.areaTop).value, TableSeatGap.value)
     val areaHeight = (m.areaBottom - m.areaTop).coerceAtLeast(size.height)
     // Short screens (16:9): smaller cards instead of overlapping seats; 1 on regular phones.
     val scale = tableCardScale(
@@ -423,8 +424,10 @@ private fun Offset.round(): IntOffset = IntOffset(x.roundToInt(), y.roundToInt()
 
 @Composable
 private fun ListView(state: RoundUiState, actions: RoundActions, m: RoundMetrics, onBust: (RoundPlayer) -> Unit) {
-    val size = RowSize.forPlayerCount(state.playerCount)
     val colors = Scan7Theme.colors
+    val rowsTop = m.areaTop + ListRowsOffset
+    // Regular rows when they all fit this screen, else Compact (not by player count).
+    val size = listRowSize(state.playerCount, (m.areaBottom - rowsTop + BadgeRoom).value, BadgeRoom.value)
 
     // No "ROUND n" in the seating step (no round yet); the rows keep their place.
     if (!state.seating) Row(
@@ -444,7 +447,6 @@ private fun ListView(state: RoundUiState, actions: RoundActions, m: RoundMetrics
     }
 
     // Rows scroll when they don't fit (10 rows on a small screen); header, strip and buttons stay put.
-    val rowsTop = m.areaTop + ListRowsOffset
     val count = state.playerCount
     val contentHeight = BadgeRoom + size.height * count + size.gap * (count - 1).coerceAtLeast(0)
     val viewportHeight = (m.areaBottom - rowsTop + BadgeRoom).coerceAtLeast(size.height)
