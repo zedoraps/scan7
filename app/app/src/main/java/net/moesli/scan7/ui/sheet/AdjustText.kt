@@ -1,5 +1,8 @@
 package net.moesli.scan7.ui.sheet
 
+import net.moesli.scan7.ui.text.uiText
+import net.moesli.scan7.ui.text.UiText
+import net.moesli.scan7.R
 import net.moesli.scan7.game.MAX_ADJUSTMENT
 import net.moesli.scan7.game.ScoreAdjustment
 
@@ -29,13 +32,13 @@ fun parseDelta(text: String): Int? {
  * Error for the adjust field (error semantics, read by TalkBack), or null: nothing typed yet is
  * no error; a lone sign or 0 is ("Enter a number other than 0").
  */
-fun deltaError(text: String): String? {
+fun deltaError(text: String): UiText? {
     if (text.isBlank()) return null
     val d = parseDelta(text)
     return when {
-        d == null && text.trim().replace(MINUS, '-').trimStart('+', '-').isEmpty() -> "Enter a number after the sign"
-        d == null -> "Up to $MAX_ADJUSTMENT points"
-        d == 0 -> "Enter a number other than 0"
+        d == null && text.trim().replace(MINUS, '-').trimStart('+', '-').isEmpty() -> uiText(R.string.adjust_error_sign)
+        d == null -> uiText(R.string.adjust_error_range, MAX_ADJUSTMENT)
+        d == 0 -> uiText(R.string.adjust_error_zero)
         else -> null
     }
 }
@@ -79,18 +82,18 @@ fun formatDelta(delta: Int): String = when {
 fun stepLabel(step: Int): String = formatDelta(step)
 
 /** Spoken step: "Add 5" / "Subtract 10". */
-fun stepDescription(step: Int): String = if (step > 0) "Add $step" else "Subtract ${-step}"
+fun stepDescription(step: Int): UiText = if (step > 0) uiText(R.string.adjust_step_add, step) else uiText(R.string.adjust_step_subtract, -step)
 
 /** Preview under the field: "Total 123 → 133". */
-fun adjustPreview(total: Int, delta: Int): String = "Total $total → ${total + delta}"
+fun adjustPreview(total: Int, delta: Int): UiText = uiText(R.string.adjust_preview, total, total + delta)
 
 /** One adjustment in the sheet list: "penalty · round 2" / "round 2" (the delta is shown separately). */
-fun adjustmentDetail(adjustment: ScoreAdjustment): String =
-    listOfNotNull(adjustment.note, "round ${adjustment.round}").joinToString(" · ")
+fun adjustmentDetail(adjustment: ScoreAdjustment): UiText =
+    UiText.Join(listOfNotNull(adjustment.note?.let(UiText::Raw), uiText(R.string.adjust_round, adjustment.round)))
 
 /** Spoken adjustment: "plus 10, penalty, round 2" / "minus 12, round 1". */
-fun adjustmentDescription(adjustment: ScoreAdjustment): String {
+fun adjustmentDescription(adjustment: ScoreAdjustment): UiText {
     val d = adjustment.delta
-    val amount = if (d > 0) "plus $d" else "minus ${-d}"
-    return listOfNotNull(amount, adjustment.note, "round ${adjustment.round}").joinToString(", ")
+    val amount = if (d > 0) uiText(R.string.adjust_plus, d) else uiText(R.string.adjust_minus, -d)
+    return UiText.Join(listOfNotNull(amount, adjustment.note?.let(UiText::Raw), uiText(R.string.adjust_round, adjustment.round)), ", ")
 }

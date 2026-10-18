@@ -110,10 +110,3 @@ fun firstFreeAvatarColor(used: Collection<String>): String =
 /** Default avatar for a new player: random face + pattern and the first color not in [usedColors]. */
 fun newPlayerAvatar(usedColors: Collection<String>, random: Random = Random.Default): Avatar =
     AvatarCatalog.random(firstFreeAvatarColor(usedColors), random)
-
-/** Accessibility text from the kit: "Mia, sand avatar, grin face" (without [name]: "sand avatar, grin face"). */
-fun avatarDescription(name: String?, avatar: Avatar): String {
-    val a = avatar.normalized()
-    val text = "${AvatarCatalog.color(a.color).name.lowercase()} avatar, ${a.face} face"
-    return if (name.isNullOrBlank()) text else "${name.trim()}, $text"
-}

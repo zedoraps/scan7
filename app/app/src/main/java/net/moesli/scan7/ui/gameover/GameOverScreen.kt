@@ -1,5 +1,10 @@
 package net.moesli.scan7.ui.gameover
 
+import net.moesli.scan7.ui.text.UiText
+import net.moesli.scan7.ui.text.resolve
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import net.moesli.scan7.ui.components.ContentWithBottomBar
 import net.moesli.scan7.ui.components.sampleAvatar
 import net.moesli.scan7.ui.components.avatarSizeForHeight
@@ -68,7 +73,7 @@ data class GameOverUi(
 ) {
     val winners: List<StandingUi> get() = standings.filter { it.isWinner }
 
-    val headline: String get() = winnerHeadline(winners.map { it.player.name })
+    val headline: UiText get() = winnerHeadline(winners.map { it.player.name })
 }
 
 /** Game over data for a finished game. */
@@ -109,13 +114,16 @@ fun GameOverScreen(
                 .fillMaxWidth()
                 .height(Scan7Spacing.headerHeight),
         ) {
-            SectionLabel("Game over · ${state.rounds} ${if (state.rounds == 1) "round" else "rounds"}", Modifier.weight(1f))
-            TextLinkButton("Scoreboard", onScoreboard)
+            SectionLabel(
+                stringResource(R.string.gameover_title, pluralStringResource(R.plurals.rounds, state.rounds, state.rounds)),
+                Modifier.weight(1f),
+            )
+            TextLinkButton(stringResource(R.string.action_scoreboard), onScoreboard)
         }
         ContentWithBottomBar(
             bottomBar = {
                 Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
-                    SecondaryButton("Home", onHome, Modifier.width(88.dp), textStyle = Scan7Type.button.copy(fontSize = 13.sp))
+                    SecondaryButton(stringResource(R.string.gameover_home), onHome, Modifier.width(88.dp), textStyle = Scan7Type.button.copy(fontSize = 13.sp))
                     NewGameButton(onNewGameSamePlayers, Modifier.weight(1f))
                 }
             },
@@ -129,7 +137,7 @@ fun GameOverScreen(
             ) {
                 Winners(state)
                 Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
-                    SectionLabel("Final standings", Modifier.padding(bottom = Scan7Spacing.xxs))
+                    SectionLabel(stringResource(R.string.gameover_standings), Modifier.padding(bottom = Scan7Spacing.xxs))
                     state.standings.forEach { StandingRow(it) }
                 }
             }
@@ -153,12 +161,15 @@ private fun Winners(state: GameOverUi) {
         else -> 35.dp
     }
     val total = winners.firstOrNull()?.player?.total ?: 0
+    val headline = state.headline.resolve()
+    val points = pluralStringResource(R.plurals.points, total, total)
+    val description = stringResource(R.string.gameover_headline_description, headline, points)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
         modifier = Modifier
             .fillMaxWidth()
-            .clearAndSetSemantics { contentDescription = "${state.headline} with $total points" },
+            .clearAndSetSemantics { contentDescription = description },
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
             winners.take(5).forEach { w ->
@@ -174,16 +185,16 @@ private fun Winners(state: GameOverUi) {
                 }
             }
         }
-        if (shared) SectionLabel("Shared win", color = colors.accent)
+        if (shared) SectionLabel(stringResource(R.string.gameover_shared), color = colors.accent)
         Text(
-            state.headline,
+            headline,
             color = colors.text,
             style = if (shared) Scan7Type.total24 else Scan7Type.roundNumberList,
             textAlign = TextAlign.Center,
             modifier = Modifier.semantics { heading() },
         )
         Text(
-            if (shared) "$total points each" else "$total points",
+            if (shared) pluralStringResource(R.plurals.gameover_points_each, total, total) else points,
             color = colors.accent,
             style = Scan7Type.total18,
             textAlign = TextAlign.Center,
@@ -196,6 +207,9 @@ private fun StandingRow(s: StandingUi) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.card)
     val ink = if (s.isWinner) colors.text else colors.textDone
+    val rank = ordinal(s.rank).resolve()
+    val description = stringResource(R.string.gameover_standing_description, rank, s.player.name, pluralStringResource(R.plurals.points, s.player.total, s.player.total)) +
+        if (s.isWinner) stringResource(R.string.gameover_winner) else ""
     Row(
         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
         verticalAlignment = Alignment.CenterVertically,
@@ -206,11 +220,11 @@ private fun StandingRow(s: StandingUi) {
             .border(1.5.dp, if (s.isWinner) colors.line else colors.lineSubtleDone, shape)
             .padding(horizontal = Scan7Spacing.l)
             .clearAndSetSemantics {
-                contentDescription = "${ordinal(s.rank)}, ${s.player.name}, ${s.player.total} points" + if (s.isWinner) ", winner" else ""
+                contentDescription = description
             },
     ) {
         // Min width keeps the column aligned; grows with a large font scale instead of breaking "1st".
-        Text(ordinal(s.rank), color = colors.textMuted, style = Scan7Type.text13, maxLines = 1, softWrap = false, modifier = Modifier.widthIn(min = 36.dp))
+        Text(rank, color = colors.textMuted, style = Scan7Type.text13, maxLines = 1, softWrap = false, modifier = Modifier.widthIn(min = 36.dp))
         PlayerAvatar(s.player.avatar, avatarSizeForHeight(27.dp))
         Row(
             horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
@@ -229,6 +243,7 @@ private fun StandingRow(s: StandingUi) {
 private fun NewGameButton(onClick: () -> Unit, modifier: Modifier) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.button)
+    val description = stringResource(R.string.gameover_same_players_description)
     Column(
         verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
         modifier = modifier
@@ -237,13 +252,13 @@ private fun NewGameButton(onClick: () -> Unit, modifier: Modifier) {
             .background(colors.accent)
             .scan7Clickable(onClick)
             .clearAndSetSemantics {
-                contentDescription = "New game with the same players"
+                contentDescription = description
                 role = Role.Button
             }
             .padding(horizontal = 20.dp),
     ) {
-        Text("SAME PLAYERS", color = colors.onAccent, style = Scan7Type.capsButton, maxLines = 1)
-        Text("New game", color = colors.onAccent, style = Scan7Type.buttonName, maxLines = 1)
+        Text(stringResource(R.string.gameover_same_players), color = colors.onAccent, style = Scan7Type.capsButton, maxLines = 1)
+        Text(stringResource(R.string.action_new_game), color = colors.onAccent, style = Scan7Type.buttonName, maxLines = 1)
     }
 }
 

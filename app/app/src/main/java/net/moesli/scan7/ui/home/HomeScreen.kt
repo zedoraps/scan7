@@ -1,5 +1,12 @@
 package net.moesli.scan7.ui.home
 
+import net.moesli.scan7.ui.text.uiPlural
+import net.moesli.scan7.ui.text.uiText
+import net.moesli.scan7.ui.text.resolve
+import net.moesli.scan7.ui.text.UiText
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import net.moesli.scan7.game.AvatarCatalog
 import net.moesli.scan7.ui.components.ContentWithBottomBar
 import net.moesli.scan7.ui.components.avatarSizeForHeight
@@ -29,7 +36,6 @@ import androidx.compose.ui.unit.DpOffset
 import kotlinx.coroutines.launch
 import net.moesli.scan7.data.outlivingUi
 import net.moesli.scan7.ui.components.Confirmations
-import net.moesli.scan7.ui.components.DeleteGameTexts
 import net.moesli.scan7.ui.components.Scan7ConfirmDialog
 import net.moesli.scan7.ui.components.ChevronRightIcon
 import net.moesli.scan7.ui.components.ScoreboardIcon
@@ -101,7 +107,6 @@ import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.SectionLabel
 import net.moesli.scan7.ui.components.headerInsets
 import net.moesli.scan7.ui.components.openCardShadow
-import net.moesli.scan7.ui.gameover.joinNames
 import net.moesli.scan7.ui.players.playerUis
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
@@ -119,22 +124,22 @@ data class ResumeGameUi(
     val startedAt: Long = 0,
 ) {
     /** "Mia leads · 46", "Ben and Mia lead · 46", "No points yet". */
-    val leaderText: String
+    val leaderText: UiText
         get() = when {
-            leaders.isEmpty() -> "No points yet"
-            leaders.size == 1 -> "${leaders[0].name} leads · ${leaders[0].total}"
-            else -> "${joinNames(leaders.map { it.name })} lead · ${leaders[0].total}"
+            leaders.isEmpty() -> uiText(R.string.home_no_points)
+            leaders.size == 1 -> uiText(R.string.home_leader_one, leaders[0].name, leaders[0].total)
+            else -> uiText(R.string.home_leader_many, UiText.Names(leaders.map { it.name }), leaders[0].total)
         }
 }
 
 /**
  * Home (1) state. [past] = finished / abandoned games, newest first; [now] for their relative
- * dates. [footer] e.g. "v1.0 (1) · model.tflite ep15 (9.9 MB)".
+ * dates. [version] e.g. "Scan7 1.0 (1)" (first line of the ⋮ menu).
  */
 data class HomeUiState(
     val resume: ResumeGameUi?,
     val playerCount: Int,
-    val footer: String,
+    val version: String,
     val past: List<PastGameUi> = emptyList(),
     val now: Long = 0,
 )
@@ -163,11 +168,10 @@ private val HeroAvatar = avatarSizeForHeight(58.dp)
  * Home (1) = game history: wordmark, Resume card (round, avatars, leader) when a game is
  * unfinished, then "Past games" (finished / abandoned, newest first: date, avatars, winner +
  * points, rounds; tap = [onPastGame], that game's scoreboard) in one `LazyColumn`. Players
- * (secondary) + New game (primary) stay at the bottom, version footer below. The debug menu is
- * hidden: tap the wordmark [DEBUG_TAPS] times (TalkBack: custom action "Open debug menu").
+ * (secondary) + New game (primary) float at the bottom. The ⋮ top right ([HomeMenuButton]) shows
+ * the version, About & licenses ([onAbout]) and the app language. The debug menu (debug builds
+ * only) is hidden: tap the wordmark [DEBUG_TAPS] times (TalkBack: custom action "Open debug menu").
  * Without any game: a short intro; without players it says New game starts by adding them.
- * The debug menu exists in debug builds only. Tapping the version footer opens [onAbout]
- * (About & licenses).
  */
 @Composable
 fun HomeScreen(
@@ -182,9 +186,10 @@ fun HomeScreen(
     onDeleteGame: (gameId: Long) -> Unit = {},
 ) {
     val colors = Scan7Theme.colors
+    val dates = rememberHomeDateFormat()
     // The game whose "Delete game" confirmation is open (survives rotation).
     var pendingDelete by rememberSaveable { mutableStateOf<Long?>(null) }
-    pendingDelete?.let { id -> DeleteGameDialog(state, id, onDelete = onDeleteGame, onDismiss = { pendingDelete = null }) }
+    pendingDelete?.let { id -> DeleteGameDialog(state, id, dates, onDelete = onDeleteGame, onDismiss = { pendingDelete = null }) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -199,37 +204,14 @@ fun HomeScreen(
                 .height(Scan7Spacing.headerHeight),
         ) {
             Scan7Wordmark(fontSize = 32.sp, modifier = if (BuildConfig.DEBUG) Modifier.debugTaps(onDebug) else Modifier)
+            Spacer(Modifier.weight(1f))
+            HomeMenuButton(version = state.version, onAbout = onAbout)
         }
         ContentWithBottomBar(
             bottomBar = {
                 Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
-                    SecondaryButton("Players", onPlayers, Modifier.width(128.dp))
-                    PrimaryButton("New game", onNewGame, Modifier.weight(1f))
-                }
-                // Version footer = the entry to About & licenses (its second line names it).
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = Scan7Spacing.xs)
-                        .clip(RoundedCornerShape(Scan7Radii.card))
-                        .scan7Clickable(onAbout)
-                        .padding(vertical = Scan7Spacing.xs),
-                ) {
-                    Text(
-                        text = state.footer,
-                        color = colors.textMuted,
-                        style = Scan7Type.text10,
-                        textAlign = TextAlign.Center,
-                        maxLines = 2,
-                    )
-                    Text(
-                        text = stringResource(R.string.about_title),
-                        color = colors.accent,
-                        style = Scan7Type.text10,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                    )
+                    SecondaryButton(stringResource(R.string.home_players), onPlayers, Modifier.width(128.dp))
+                    PrimaryButton(stringResource(R.string.action_new_game), onNewGame, Modifier.weight(1f))
                 }
             },
         ) { bottomPadding ->
@@ -253,7 +235,7 @@ fun HomeScreen(
                 if (state.past.isNotEmpty()) {
                     item(key = "past-label") {
                         SectionLabel(
-                            "Past games",
+                            stringResource(R.string.home_past_games),
                             Modifier
                                 .padding(top = if (resume != null) Scan7Spacing.l else 0.dp, bottom = Scan7Spacing.xxs)
                                 .semantics { heading() },
@@ -263,6 +245,7 @@ fun HomeScreen(
                         PastGameRow(
                             game,
                             state.now,
+                            dates,
                             onClick = { onPastGame(game.gameId) },
                             onDelete = { pendingDelete = game.gameId },
                             modifier = Modifier.animateItem(),
@@ -285,6 +268,7 @@ private fun Modifier.debugTaps(onDebug: () -> Unit): Modifier = composed {
     val counter = remember { DebugTapCounter() }
     val toast = remember { arrayOfNulls<Toast>(1) }
     val open by rememberUpdatedState(onDebug)
+    val actionLabel = stringResource(R.string.home_debug_action)
     DisposableEffect(Unit) { onDispose { toast[0]?.cancel() } }
     pointerInput(Unit) {
         detectTapGestures {
@@ -301,7 +285,7 @@ private fun Modifier.debugTaps(onDebug: () -> Unit): Modifier = composed {
             }
         }
     }.semantics {
-        customActions = listOf(CustomAccessibilityAction("Open debug menu") { open(); true })
+        customActions = listOf(CustomAccessibilityAction(actionLabel) { open(); true })
     }
 }
 
@@ -314,7 +298,8 @@ private fun Modifier.debugTaps(onDebug: () -> Unit): Modifier = composed {
 private fun ResumeCard(game: ResumeGameUi, onResume: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.cardLarge)
-    val leaderText = game.leaderText
+    val leaderText = game.leaderText.resolve()
+    val description = pluralStringResource(R.plurals.home_resume_description, game.players.size, game.players.size, game.round, leaderText)
     var menu by remember { mutableStateOf(false) }
     val resumeLabel = stringResource(R.string.home_game_resume)
     val deleteLabel = stringResource(R.string.home_game_delete)
@@ -334,15 +319,15 @@ private fun ResumeCard(game: ResumeGameUi, onResume: () -> Unit, onDelete: () ->
             Column(
                 verticalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
                 modifier = Modifier.clearAndSetSemantics {
-                    contentDescription = "Unfinished game, round ${game.round}, ${game.players.size} players, $leaderText"
+                    contentDescription = description
                 },
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    SectionLabel("Resume game", Modifier.weight(1f))
-                    Text("to ${game.target}", color = colors.textMuted, style = Scan7Type.text12)
+                    SectionLabel(stringResource(R.string.home_resume_title), Modifier.weight(1f))
+                    Text(stringResource(R.string.target_short, game.target), color = colors.textMuted, style = Scan7Type.text12)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
-                    Text("ROUND", color = colors.textMuted, style = Scan7Type.capsLabel, modifier = Modifier.padding(bottom = 4.dp))
+                    Text(stringResource(R.string.round_label), color = colors.textMuted, style = Scan7Type.capsLabel, modifier = Modifier.padding(bottom = 4.dp))
                     Text(game.round.toString(), color = colors.text, style = Scan7Type.roundNumberList)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs)) {
@@ -356,7 +341,7 @@ private fun ResumeCard(game: ResumeGameUi, onResume: () -> Unit, onDelete: () ->
                 }
             }
             PrimaryButton(
-                "Resume",
+                stringResource(R.string.home_resume),
                 onResume,
                 Modifier.fillMaxWidth(),
                 height = Scan7Spacing.minTouch + Scan7Spacing.s,
@@ -381,27 +366,30 @@ private fun ResumeCard(game: ResumeGameUi, onResume: () -> Unit, onDelete: () ->
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PastGameRow(game: PastGameUi, now: Long, onClick: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
+private fun PastGameRow(game: PastGameUi, now: Long, dates: HomeDateFormat, onClick: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
     var menu by remember { mutableStateOf(false) }
     val openLabel = stringResource(R.string.home_game_open_scoreboard)
     val deleteLabel = stringResource(R.string.home_game_delete)
     val shape = RoundedCornerShape(Scan7Radii.card)
     val won = game.outcome != PastOutcome.ABANDONED && game.winners.isNotEmpty()
-    val date = historyDate(game.finishedAt, now)
-    val description = buildString {
-        append(date).append(", ").append(game.headline)
-        if (game.winners.isNotEmpty()) append(" with ").append(game.points).append(" points")
-        append(", ").append(game.detail)
-        append(", ").append(game.players.size).append(" players: ").append(joinNames(game.players.map { it.name }))
+    val date = historyDate(game.finishedAt, now, dates::time, dates::date).resolve()
+    val headline = game.headline.resolve()
+    val detail = game.detail.resolve()
+    val withPoints = if (game.winners.isEmpty()) {
+        headline
+    } else {
+        stringResource(R.string.history_with_points, headline, pluralStringResource(R.plurals.points, game.points, game.points))
     }
+    val players = pluralStringResource(R.plurals.history_players, game.players.size, game.players.size, UiText.Names(game.players.map { it.name }).resolve())
+    val description = listOf(date, withPoints, detail, players).joinToString(", ")
     Box(modifier) {
         ListItem(
             overlineContent = { Text(date, style = Scan7Type.text12, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             headlineContent = {
                 Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), verticalAlignment = Alignment.CenterVertically) {
                     if (won) LeaderBadge(size = 20.dp)
-                    Text(game.headline, style = Scan7Type.text15, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(headline, style = Scan7Type.text15, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             },
             supportingContent = {
@@ -409,7 +397,7 @@ private fun PastGameRow(game: PastGameUi, now: Long, onClick: () -> Unit, onDele
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         game.players.forEach { PlayerAvatar(it.avatar, PastAvatar) }
                     }
-                    Text(game.detail, style = Scan7Type.text12, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(detail, style = Scan7Type.text12, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             },
             trailingContent = if (game.winners.isEmpty()) {
@@ -418,7 +406,7 @@ private fun PastGameRow(game: PastGameUi, now: Long, onClick: () -> Unit, onDele
                 {
                     Column(horizontalAlignment = Alignment.End) {
                         Text(game.points.toString(), color = if (won) colors.text else colors.textMuted, style = Scan7Type.total18, maxLines = 1)
-                        Text("PTS", color = colors.textMuted, style = Scan7Type.tag10, maxLines = 1)
+                        Text(stringResource(R.string.points_short), color = colors.textMuted, style = Scan7Type.tag10, maxLines = 1)
                     }
                 }
             },
@@ -523,47 +511,39 @@ private fun GameMenuItem(label: String, ink: Color, icon: (@Composable (Color) -
  * itself when the game is gone.
  */
 @Composable
-private fun DeleteGameDialog(state: HomeUiState, gameId: Long, onDelete: (Long) -> Unit, onDismiss: () -> Unit) {
+private fun DeleteGameDialog(state: HomeUiState, gameId: Long, dates: HomeDateFormat, onDelete: (Long) -> Unit, onDismiss: () -> Unit) {
     val resume = state.resume?.takeIf { it.gameId == gameId }
     val past = state.past.firstOrNull { it.gameId == gameId }
     val summary = when {
         resume != null -> listOf(
-            historyDate(resume.startedAt, state.now),
-            stringResource(R.string.home_game_round, resume.round),
+            historyDate(resume.startedAt, state.now, dates::time, dates::date),
+            uiText(R.string.home_game_round, resume.round),
             resume.leaderText,
         )
         past != null -> listOf(
-            historyDate(past.finishedAt, state.now),
+            historyDate(past.finishedAt, state.now, dates::time, dates::date),
             past.headline,
-            pluralStringResource(R.plurals.home_game_rounds, past.rounds, past.rounds),
+            uiPlural(R.plurals.home_game_rounds, past.rounds),
         )
         else -> {
             LaunchedEffect(gameId) { onDismiss() }
             return
         }
     }
-    val spec = Confirmations.deleteGame(summary, running = resume != null, texts = deleteGameTexts())
+    val spec = Confirmations.deleteGame(summary, running = resume != null)
     Scan7ConfirmDialog(
-        title = spec.title,
-        confirmLabel = spec.confirmLabel,
+        title = spec.title.resolve(),
+        confirmLabel = spec.confirmLabel.resolve(),
         onConfirm = {
             onDismiss()
             onDelete(gameId)
         },
         onCancel = onDismiss,
-        body = spec.body,
+        body = spec.body?.resolve(),
         destructive = spec.destructive,
         cancelLabel = stringResource(R.string.confirm_delete_game_cancel),
     )
 }
-
-@Composable
-private fun deleteGameTexts() = DeleteGameTexts(
-    title = stringResource(R.string.confirm_delete_game_title),
-    confirm = stringResource(R.string.confirm_delete_game_action),
-    runningLost = stringResource(R.string.confirm_delete_game_running),
-    irreversible = stringResource(R.string.confirm_delete_game_irreversible),
-)
 
 @Composable
 private fun Intro(hasPlayers: Boolean) {
@@ -571,17 +551,13 @@ private fun Intro(hasPlayers: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.l), modifier = Modifier.fillMaxWidth()) {
         TokenFan(Modifier.padding(vertical = Scan7Spacing.xl).align(Alignment.CenterHorizontally))
         Text(
-            "Scan a row, get the score.",
+            stringResource(R.string.home_intro_title),
             color = colors.text,
             style = Scan7Type.total24,
             modifier = Modifier.semantics { heading() },
         )
         Text(
-            if (hasPlayers) {
-                "Pick who's playing, then point the camera at each player's row of cards. Scan7 adds it up."
-            } else {
-                "No players yet. New game starts with adding everyone at the table — they're saved for next time."
-            },
+            stringResource(if (hasPlayers) R.string.home_intro_players else R.string.home_intro_no_players),
             color = colors.textMuted,
             style = Scan7Type.text13,
         )
@@ -614,7 +590,6 @@ fun HomeRoute(
     onDebug: () -> Unit,
     onPastGame: (gameId: Long) -> Unit,
     onAbout: () -> Unit,
-    modelInfo: String,
     modifier: Modifier = Modifier,
     repository: GameRepository = AppGraph.repository(LocalContext.current),
 ) {
@@ -627,7 +602,7 @@ fun HomeRoute(
         state = HomeUiState(
             resume = active?.toResumeUi(),
             playerCount = players.size,
-            footer = "Scan7 v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · model $modelInfo",
+            version = stringResource(R.string.home_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
             past = past,
             // Relative dates ("Today") only need to be right when Home is (re)composed.
             now = System.currentTimeMillis(),
@@ -659,7 +634,7 @@ internal val SampleResume = ResumeGameUi(
 @Composable
 private fun HomeResumePreview() {
     Scan7Theme {
-        HomeScreen(HomeUiState(SampleResume, 4, "Scan7 v1.0 (1) · model model.tflite ep15 (9.9 MB)"), {}, {}, {}, {}, {})
+        HomeScreen(HomeUiState(SampleResume, 4, "Scan7 1.0 (1)"), {}, {}, {}, {}, {})
     }
 }
 
@@ -678,7 +653,7 @@ private val SamplePast = run {
 @Composable
 private fun HomeHistoryPreview() {
     Scan7Theme {
-        HomeScreen(HomeUiState(SampleResume, 4, "Scan7 v1.0 (1) · model none", SamplePast, 10 * 86_400_000L), {}, {}, {}, {}, {})
+        HomeScreen(HomeUiState(SampleResume, 4, "Scan7 1.0 (1)", SamplePast, 10 * 86_400_000L), {}, {}, {}, {}, {})
     }
 }
 
@@ -686,6 +661,6 @@ private fun HomeHistoryPreview() {
 @Composable
 private fun HomeEmptyPreview() {
     Scan7Theme {
-        HomeScreen(HomeUiState(null, 0, "Scan7 v1.0 (1) · model none"), {}, {}, {}, {}, {})
+        HomeScreen(HomeUiState(null, 0, "Scan7 1.0 (1)"), {}, {}, {}, {}, {})
     }
 }

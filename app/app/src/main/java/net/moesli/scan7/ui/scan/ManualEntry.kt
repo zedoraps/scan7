@@ -1,5 +1,9 @@
 package net.moesli.scan7.ui.scan
 
+import androidx.compose.ui.res.pluralStringResource
+import net.moesli.scan7.ui.text.resolve
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -57,7 +61,7 @@ import androidx.compose.ui.unit.sp
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.scoring.CardKind
 import net.moesli.scan7.scoring.scoreRow
-import net.moesli.scan7.scoring.secondChanceText
+import net.moesli.scan7.ui.text.secondChanceText
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.PressDim
 import net.moesli.scan7.ui.components.SecondaryButton
@@ -101,7 +105,7 @@ internal fun ManualEntryStep(
     val score = scoreRow(row)
     val duplicates = bustDuplicates(row)
     val overLimit = overNumberLimit(row)
-    val limitHint = numberLimitHint(row)
+    val limitHint = numberLimitHint(row)?.resolve()
 
     // Tablets: phone width, centred. Short screens / large fonts: the denser layout (see manualDense).
     BoxWithConstraints(modifier.fillMaxSize().background(colors.ground), contentAlignment = Alignment.TopCenter) {
@@ -121,9 +125,9 @@ internal fun ManualEntryStep(
                     .padding(horizontal = Scan7Spacing.screenMargin, vertical = Scan7Spacing.s)
                     .heightIn(min = Scan7Spacing.headerHeight), // grows with large font scales
             ) {
-                PlayerHeading(player, "Cards for", Modifier.weight(1f))
+                PlayerHeading(player, stringResource(R.string.manual_cards_for), Modifier.weight(1f))
                 SecondaryButton(
-                    text = "Cancel",
+                    text = stringResource(R.string.action_cancel),
                     onClick = onCancel,
                     height = Scan7Spacing.minTouch,
                     cornerRadius = Scan7Radii.iconButton,
@@ -141,7 +145,7 @@ internal fun ManualEntryStep(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = Scan7Spacing.screenMargin, vertical = Scan7Spacing.s),
             ) {
-                SectionLabel("In the row")
+                SectionLabel(stringResource(R.string.manual_in_row))
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
                     verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
@@ -149,7 +153,7 @@ internal fun ManualEntryStep(
                 ) {
                     if (selected.isEmpty() && ignored.isEmpty()) {
                         Text(
-                            "Tap the cards below to add them",
+                            stringResource(R.string.manual_empty),
                             color = colors.textMuted,
                             style = Scan7Type.text13,
                             modifier = Modifier.align(Alignment.CenterVertically),
@@ -161,7 +165,7 @@ internal fun ManualEntryStep(
                             look = if (isDuplicate(card, duplicates)) ChipLook.Duplicate else ChipLook.Normal,
                             height = chipHeight,
                             onClick = { selected = removeChipAt(selected, index) },
-                            clickLabel = "Remove",
+                            clickLabel = stringResource(R.string.action_remove),
                         )
                     }
                     ignored.forEach { CardChip(it, ChipLook.Ignored, height = chipHeight) }
@@ -173,7 +177,7 @@ internal fun ManualEntryStep(
                     .fillMaxWidth()
                     .padding(start = Scan7Spacing.screenMargin, end = Scan7Spacing.screenMargin, top = Scan7Spacing.s, bottom = gridGap),
             ) {
-                SectionLabel("Numbers")
+                SectionLabel(stringResource(R.string.manual_numbers))
                 // Dense: 0–6 over 7–12 (two rows instead of three).
                 CardGrid(ManualNumbers, if (dense) DENSE_NUMBER_COLUMNS else NUMBER_COLUMNS, selected, ignored, score.bust, dense) {
                     selected = toggleCard(selected, it, ignored)
@@ -191,7 +195,7 @@ internal fun ManualEntryStep(
                         )
                     }
                 }
-                SectionLabel("Modifiers")
+                SectionLabel(stringResource(R.string.manual_modifiers))
                 CardGrid(ManualModifiers, MODIFIER_COLUMNS, selected, ignored, score.bust, dense) { selected = toggleCard(selected, it, ignored) }
             }
             val shape = RoundedCornerShape(topStart = Scan7Radii.cardLarge, topEnd = Scan7Radii.cardLarge)
@@ -220,7 +224,7 @@ internal fun ManualEntryStep(
                         if (score.bust) {
                             // Fixed-height status: large font scales shrink the text instead of clipping it.
                             BasicText(
-                                "${duplicateSummary(duplicates)} – remove one, or confirm the bust.",
+                                stringResource(R.string.manual_bust, duplicateSummary(duplicates).resolve()),
                                 style = Scan7Type.text13.copy(color = colors.textMuted),
                                 // Bounded by the 52 dp row: shrinks until all lines fit (no maxLines cut).
                                 autoSize = TextAutoSize.StepBased(minFontSize = 7.sp, maxFontSize = Scan7Type.text13.fontSize),
@@ -229,24 +233,25 @@ internal fun ManualEntryStep(
                             StatusTag(PlayerStatus.Bust, height = 36.dp)
                         } else {
                             Breakdown(row, Modifier.weight(1f), maxLines = 2)
+                            val pointsDescription = pluralStringResource(R.plurals.points, score.total, score.total)
                             Text(
                                 score.total.toString(),
                                 color = colors.accent,
                                 style = ScoreNumberStyle.copy(fontSize = 40.sp, lineHeight = 44.sp),
                                 maxLines = 1,
                                 modifier = Modifier.semantics {
-                                    contentDescription = "${score.total} points"
+                                    contentDescription = pointsDescription
                                     liveRegion = LiveRegionMode.Polite
                                 },
                             )
                         }
                     }
                     Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.CenterStart) {
-                        val secondChance = score.secondChanceText()
+                        val secondChance = score.secondChanceText()?.resolve()
                         if (overLimit) {
                             // Fix prefilled more than 7 numbers: no real row has that many, so saving waits.
                             BasicText(
-                                "More than $MAX_NUMBER_CARDS number cards – remove ${rowNumberCount(row) - MAX_NUMBER_CARDS} to save",
+                                stringResource(R.string.manual_over_limit, MAX_NUMBER_CARDS, rowNumberCount(row) - MAX_NUMBER_CARDS),
                                 style = Scan7Type.text12.copy(color = colors.accent),
                                 autoSize = TextAutoSize.StepBased(minFontSize = 7.sp, maxFontSize = Scan7Type.text12.fontSize),
                             )
@@ -257,9 +262,9 @@ internal fun ManualEntryStep(
                 }
                 val save = { onSave(manualOutcome(selected, ignored)) }
                 if (score.bust) {
-                    ConfirmSplitButton("Confirm bust", save, afterScan, Modifier.fillMaxWidth(), enabled = !overLimit, color = colors.bust)
+                    ConfirmSplitButton(stringResource(R.string.review_confirm_bust), save, afterScan, Modifier.fillMaxWidth(), enabled = !overLimit, color = colors.bust)
                 } else {
-                    ConfirmSplitButton("Save", save, afterScan, Modifier.fillMaxWidth(), enabled = !overLimit)
+                    ConfirmSplitButton(stringResource(R.string.action_save), save, afterScan, Modifier.fillMaxWidth(), enabled = !overLimit)
                 }
             }
         }
@@ -346,6 +351,9 @@ private fun GridToggle(
     val on = count > 0
     val several = count >= 2
     val duplicate = several && bust
+    val spoken = card.spokenLabel().resolve()
+    val countState = gridCountState(count)?.resolve()
+    val limitState = NUMBER_LIMIT_STATE.resolve()
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -374,10 +382,10 @@ private fun GridToggle(
                 onValueChange = { onToggle() },
             )
             .clearAndSetSemantics {
-                contentDescription = card.spokenLabel()
-                gridCountState(count)?.let { stateDescription = it }
+                contentDescription = spoken
+                countState?.let { stateDescription = it }
                 if (!enabled) {
-                    stateDescription = NUMBER_LIMIT_STATE
+                    stateDescription = limitState
                     disabled()
                 }
             },
@@ -396,7 +404,7 @@ private fun GridToggle(
         }
         // Narrow tiles (dense grid, small phones) and large font scales: "+10" shrinks, never clips.
         BasicText(
-            card.chipLabel(),
+            card.chipLabel().resolve(),
             style = GridLabel.copy(
                 color = when {
                     duplicate -> colors.bust

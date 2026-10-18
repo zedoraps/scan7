@@ -40,6 +40,7 @@ app/                   Android Gradle root; module app/, package net.moesli.scan
     debug/             debug menu (Detector: live camera, detect from photo, model/backend info · Training data: save-scans toggle), hidden: tap the Home wordmark 5× (debug builds only, BuildConfig.DEBUG; TalkBack action "Open debug menu"); the scan-flow demo has no menu entry (only the debug_scan_demo / debug_scan_photo hooks)
     ui/about/          About & licenses (Home: tap the version footer): version, AGPL + source link, privacy link, third-party notices (static list; texts from LICENSE + docs/third_party/ copied into assets at build time)
     ui/theme/          Scan7 theme, colors, fonts, wordmark
+    ui/text/           UiText (string ids for plain-Kotlin text), GameText (card/avatar names), AppLocales (app language)
   app/schemas/         exported Room schemas (committed; bump the DB version + add a migration on change)
 ```
 
@@ -167,6 +168,7 @@ The emulators run at nice 5 next to training; idle they cost ~1.5 cores in total
 - **Platform first:** before building a UI behaviour or system feature yourself, use the Android / Jetpack / Material 3 component that already does it (bottom sheets, dialogs, snackbars, drag & drop, pull/scroll, text fields, permissions, haptics, back handling, accessibility actions, photo picker, settings storage …) and **restyle it** with the Scan7 tokens. Custom code only when the platform can't do it, with a one-line comment why.
 - Kotlin/Compose: follow the existing style (4-space indent, trailing commas, `modifier: Modifier = Modifier` as the first optional parameter, small private composables, `@Preview` wrapped in `Scan7Theme`). Use theme colors/typography, no hardcoded colors.
 - Game logic (scoring, smoothing, …) is plain Kotlin without Android dependencies, covered by JVM unit tests in `app/app/src/test`.
+- **Strings:** no UI text in code. English in `res/values/strings.xml`, German in `values-de/strings.xml` (every string, informal "du", BUST → "RAUS", card names as printed; check the length in the tight UI). Compose uses `stringResource` / `pluralStringResource` (`<plurals>` for counts); plain-Kotlin, JVM-tested code returns `UiText` (`ui/text/UiText.kt`: string id + args, `Names`, `Join`) and the screen calls `.resolve()`. Text for `game/` / `scoring/` types lives in `ui/text/GameText.kt`. Tests assert real text via `XmlStrings` (`.en` / `.de`); `HardcodedUiTextTest` fails on literal UI text, lint (`app/app/lint.xml`) on missing translations. Dates/times: locale formats (`android.text.format.DateFormat` skeletons). `debug/` may stay English. Language setting: Home ⋮ menu (`AppLocales`: LocaleManager on API 33+, prefs + `attachBaseContext` below).
 - Python: scripts in `ml/scripts/` runnable via `uv run python scripts/<name>.py` from `ml/` with argparse and sensible defaults; module docstring with usage example; paths relative to the `ml/` root.
 - Configuration lives in `ml/config/*.yaml`, not in code.
 - Keep README.md's stage table and commands current when you change a stage.

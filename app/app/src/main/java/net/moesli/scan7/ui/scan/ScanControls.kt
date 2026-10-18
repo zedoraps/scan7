@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.scan
 
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -72,8 +74,9 @@ class AfterScanUi(
 )
 
 /** "Next: Ben" / "back to table" (the second part of a confirm label). */
+@Composable
 internal fun afterScanText(choice: AfterScan, nextName: String): String =
-    if (choice == AfterScan.NEXT) "Next: $nextName" else "back to table"
+    if (choice == AfterScan.NEXT) stringResource(R.string.after_scan_next, nextName) else stringResource(R.string.after_scan_table)
 
 /**
  * Confirm button that also says where it goes: "✓ OK · Next: Ben" or "✓ OK · back to table"
@@ -105,6 +108,8 @@ internal fun ConfirmSplitButton(
     var menu by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(Scan7Radii.button)
     val destination = afterScanText(afterScan.choice, next)
+    val description = stringResource(R.string.after_scan_description, title, destination)
+    val chooseDescription = stringResource(R.string.after_scan_choose, title)
     Box(modifier) {
         Row(
             modifier = Modifier
@@ -121,7 +126,7 @@ internal fun ConfirmSplitButton(
                     .fillMaxHeight()
                     .scan7Clickable(confirm, enabled)
                     .clearAndSetSemantics {
-                        contentDescription = "$title, then $destination"
+                        contentDescription = description
                         role = Role.Button
                         if (!enabled) disabled()
                     }
@@ -140,7 +145,7 @@ internal fun ConfirmSplitButton(
                     }
                 } else {
                     Text(
-                        "$title · $destination",
+                        stringResource(R.string.after_scan_label, title, destination),
                         color = colors.onAccent,
                         style = Scan7Type.button,
                         maxLines = 1,
@@ -157,7 +162,7 @@ internal fun ConfirmSplitButton(
                     .fillMaxHeight()
                     .scan7Clickable({ menu = true }, enabled)
                     .clearAndSetSemantics {
-                        contentDescription = "Choose what happens after $title"
+                        contentDescription = chooseDescription
                         role = Role.Button
                     },
             ) {
@@ -209,7 +214,7 @@ private fun AfterScanMenu(
         modifier = Modifier.widthIn(min = 260.dp, max = 340.dp),
     ) {
         Text(
-            "AFTER SAVING",
+            stringResource(R.string.after_scan_title),
             color = colors.textMuted,
             style = Scan7Type.capsLabel,
             modifier = Modifier
@@ -242,7 +247,7 @@ private fun AfterScanMenu(
                             .background(if (chosen) colors.accent else Color.Transparent, CircleShape),
                     )
                     Text(
-                        "$title · ${afterScanText(choice, next)}",
+                        stringResource(R.string.after_scan_label, title, afterScanText(choice, next)),
                         color = if (chosen) colors.accent else colors.text,
                         style = Scan7Type.button.copy(fontSize = 15.sp),
                         maxLines = 1,
@@ -261,6 +266,8 @@ private fun AfterScanMenu(
 @Composable
 internal fun BustOverlay(name: String, onUndo: () -> Unit, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
+    val bustDescription = stringResource(R.string.bust_overlay_description, name)
+    val undoDescription = stringResource(R.string.action_undo_bust_player, name)
     BackHandler {}
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -275,7 +282,7 @@ internal fun BustOverlay(name: String, onUndo: () -> Unit, modifier: Modifier = 
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
             modifier = Modifier.clearAndSetSemantics {
-                contentDescription = "$name bust"
+                contentDescription = bustDescription
                 liveRegion = LiveRegionMode.Assertive
             },
         ) {
@@ -287,7 +294,7 @@ internal fun BustOverlay(name: String, onUndo: () -> Unit, modifier: Modifier = 
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text("BUST", color = colors.onBust, style = Scan7Type.roundNumberTable)
+            Text(stringResource(R.string.label_bust), color = colors.onBust, style = Scan7Type.roundNumberTable)
         }
         val shape = RoundedCornerShape(Scan7Radii.button)
         Box(
@@ -300,11 +307,11 @@ internal fun BustOverlay(name: String, onUndo: () -> Unit, modifier: Modifier = 
                 .border(2.dp, colors.onBust, shape)
                 .scan7Clickable(onUndo)
                 .clearAndSetSemantics {
-                    contentDescription = "Undo bust for $name"
+                    contentDescription = undoDescription
                     role = Role.Button
                 },
         ) {
-            Text("UNDO", color = colors.onBust, style = Scan7Type.button)
+            Text(stringResource(R.string.bust_overlay_undo), color = colors.onBust, style = Scan7Type.button)
         }
     }
 }

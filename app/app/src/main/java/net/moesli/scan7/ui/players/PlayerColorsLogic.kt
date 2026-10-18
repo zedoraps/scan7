@@ -1,13 +1,9 @@
 package net.moesli.scan7.ui.players
 
 import net.moesli.scan7.game.Avatar
-import net.moesli.scan7.game.AvatarCatalog
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.newPlayerAvatar
 import kotlin.random.Random
-
-/** Display name of avatar color [id] ("Amber"; unknown ids → the first color's name). */
-fun colorName(id: String): String = AvatarCatalog.color(id).name
 
 /**
  * Players by the avatar color they use, without the player being edited ([exceptId]). [players]

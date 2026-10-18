@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui
 
+import net.moesli.scan7.ui.text.de
+import net.moesli.scan7.ui.text.en
 import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.AvatarCatalog
 import net.moesli.scan7.game.ConfirmedCard
@@ -8,7 +10,8 @@ import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.ResultStatus
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.scoring.scoreRow
-import net.moesli.scan7.ui.gameover.joinNames
+import net.moesli.scan7.ui.text.UiText
+import net.moesli.scan7.ui.text.avatarColorName
 import net.moesli.scan7.ui.gameover.ordinal
 import net.moesli.scan7.ui.gameover.standingsOf
 import net.moesli.scan7.ui.gameover.winnerHeadline
@@ -21,11 +24,10 @@ import net.moesli.scan7.ui.newgame.canContinue
 import net.moesli.scan7.ui.newgame.seatingFor
 import net.moesli.scan7.ui.newgame.steppedTarget
 import net.moesli.scan7.ui.newgame.toggleSelection
-import net.moesli.scan7.ui.players.colorName
 import net.moesli.scan7.ui.players.colorOwners
 import net.moesli.scan7.ui.players.suggestedAvatar
 import net.moesli.scan7.ui.sheet.breakdownLine
-import net.moesli.scan7.ui.sheet.chipLabel
+import net.moesli.scan7.ui.text.chipText
 import net.moesli.scan7.ui.sheet.duplicatedCards
 import net.moesli.scan7.ui.components.unscoredWarning
 import org.junit.Assert.assertEquals
@@ -67,9 +69,10 @@ class SetupLogicTest {
         assertTrue(a.face in AvatarCatalog.faces)
         assertTrue(a.pattern in AvatarCatalog.patterns)
         assertEquals(a, suggestedAvatar(emptyList(), Random(3)))
-        assertEquals("Amber", colorName("amber"))
-        assertEquals("Chartreuse", colorName("chartreuse"))
-        assertEquals("Amber", colorName("gone"))
+        assertEquals("Amber", avatarColorName("amber").en)
+        assertEquals("Chartreuse", avatarColorName("chartreuse").en)
+        assertEquals("Amber", avatarColorName("gone").en)
+        assertEquals("Gelbgrün", avatarColorName("chartreuse").de)
     }
 
     // ---- selection / seating / target ----------------------------------------------------
@@ -111,43 +114,49 @@ class SetupLogicTest {
 
     @Test
     fun namesAndHeadlines() {
-        assertEquals("", joinNames(emptyList()))
-        assertEquals("Anna", joinNames(listOf("Anna")))
-        assertEquals("Anna and David", joinNames(listOf("Anna", "David")))
-        assertEquals("Anna, Ben and David", joinNames(listOf("Anna", "Ben", "David")))
-        assertEquals("Ben wins", winnerHeadline(listOf("Ben")))
-        assertEquals("Ben and Mia share the win", winnerHeadline(listOf("Ben", "Mia")))
+        assertEquals("", UiText.Names(emptyList()).en)
+        assertEquals("Anna", UiText.Names(listOf("Anna")).en)
+        assertEquals("Anna and David", UiText.Names(listOf("Anna", "David")).en)
+        assertEquals("Anna, Ben and David", UiText.Names(listOf("Anna", "Ben", "David")).en)
+        assertEquals("Anna, Ben und David", UiText.Names(listOf("Anna", "Ben", "David")).de)
+        assertEquals("Ben wins", winnerHeadline(listOf("Ben")).en)
+        assertEquals("Ben and Mia share the win", winnerHeadline(listOf("Ben", "Mia")).en)
+        assertEquals("Ben und Mia teilen sich den Sieg", winnerHeadline(listOf("Ben", "Mia")).de)
     }
 
     @Test
     fun unscoredWarningText() {
-        assertEquals("Anna and David haven't been scored. They'll be marked BUST.", unscoredWarning(listOf("Anna", "David")))
-        assertEquals("Anna hasn't been scored. They'll be marked BUST.", unscoredWarning(listOf("Anna")))
-        assertEquals("", unscoredWarning(emptyList()))
+        assertEquals("Anna and David haven't been scored. They'll be marked BUST.", unscoredWarning(listOf("Anna", "David"))!!.en)
+        assertEquals("Anna hasn't been scored. They'll be marked BUST.", unscoredWarning(listOf("Anna"))!!.en)
+        assertEquals("Anna und David sind noch nicht gewertet und gelten dann als RAUS.", unscoredWarning(listOf("Anna", "David"))!!.de)
+        assertEquals(null, unscoredWarning(emptyList()))
         // Everyone still open: asks explicitly (likely an accident).
-        assertEquals("Nobody has been scored yet – mark everyone BUST?", unscoredWarning(listOf("Anna", "David"), nobodyScored = true))
-        assertEquals("", unscoredWarning(emptyList(), nobodyScored = true))
+        assertEquals("Nobody has been scored yet – mark everyone BUST?", unscoredWarning(listOf("Anna", "David"), nobodyScored = true)!!.en)
+        assertEquals(null, unscoredWarning(emptyList(), nobodyScored = true))
     }
 
     @Test
     fun ordinals() {
         assertEquals(listOf("1st", "2nd", "3rd", "4th", "10th", "11th", "12th", "13th", "21st", "22nd", "101st", "111th"),
-            listOf(1, 2, 3, 4, 10, 11, 12, 13, 21, 22, 101, 111).map(::ordinal))
+            listOf(1, 2, 3, 4, 10, 11, 12, 13, 21, 22, 101, 111).map { ordinal(it).en })
+        assertEquals(listOf("1.", "2.", "11.", "21."), listOf(1, 2, 11, 21).map { ordinal(it).de })
     }
 
     @Test
     fun chipsAndBreakdown() {
-        assertEquals("7", chipLabel(Card.N7))
-        assertEquals("+4", chipLabel(Card.PLUS_4))
-        assertEquals("×2", chipLabel(Card.TIMES_2))
-        assertEquals("Freeze", chipLabel(Card.FREEZE))
+        assertEquals("7", Card.N7.chipText().en)
+        assertEquals("+4", Card.PLUS_4.chipText().en)
+        assertEquals("×2", Card.TIMES_2.chipText().en)
+        assertEquals("Freeze", Card.FREEZE.chipText().en)
+        assertEquals("Freeze", Card.FREEZE.chipText().de)
 
         val cards = listOf(Card.N7, Card.N12, Card.N3, Card.TIMES_2, Card.PLUS_4)
-        assertEquals("7 + 12 + 3 = 22 · ×2 = 44 · +4", breakdownLine(listOf(7, 12, 3), scoreRow(cards)))
+        assertEquals("7 + 12 + 3 = 22 · ×2 = 44 · +4", breakdownLine(listOf(7, 12, 3), scoreRow(cards)).en)
         val bust = listOf(Card.N7, Card.N5, Card.N7)
-        assertEquals("BUST · two 7s", breakdownLine(listOf(7, 5, 7), scoreRow(bust)))
+        assertEquals("BUST · two 7s", breakdownLine(listOf(7, 5, 7), scoreRow(bust)).en)
+        assertEquals("RAUS · zwei 7er", breakdownLine(listOf(7, 5, 7), scoreRow(bust)).de)
         assertEquals(setOf(Card.N7), duplicatedCards(bust.map { ConfirmedCard(it) }))
-        assertEquals("5", breakdownLine(listOf(5), scoreRow(listOf(Card.N5))))
+        assertEquals("5", breakdownLine(listOf(5), scoreRow(listOf(Card.N5))).en)
     }
 
     // ---- standings / scoreboard ------------------------------------------------------------
@@ -189,8 +198,9 @@ class SetupLogicTest {
         assertEquals(ResultStatus.OPEN, t.rows[1].cells[0].status)
         assertEquals(listOf(120, 135, 0), t.totals)
         assertEquals(setOf(2L), t.leaders)
-        assertEquals("BUST", t.rows[0].cells[2].text())
-        assertEquals("–", t.rows[1].cells[0].text())
-        assertEquals("15", t.rows[1].cells[1].text())
+        assertEquals("BUST", t.rows[0].cells[2].text().en)
+        assertEquals("RAUS", t.rows[0].cells[2].text().de)
+        assertEquals("–", t.rows[1].cells[0].text().en)
+        assertEquals("15", t.rows[1].cells[1].text().en)
     }
 }

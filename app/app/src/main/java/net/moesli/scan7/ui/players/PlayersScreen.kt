@@ -1,7 +1,11 @@
 package net.moesli.scan7.ui.players
 
+import androidx.compose.ui.res.pluralStringResource
+import net.moesli.scan7.ui.text.resolve
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import net.moesli.scan7.game.avatarDescription
+import net.moesli.scan7.ui.text.avatarDescription
 import net.moesli.scan7.ui.components.ContentWithBottomBar
 import net.moesli.scan7.ui.components.avatarSizeForHeight
 import net.moesli.scan7.ui.components.PlayerAvatar
@@ -77,13 +81,13 @@ fun PlayersScreen(
             .padding(horizontal = Scan7Spacing.screenMargin),
     ) {
         ScreenHeader(
-            title = "Players",
-            subtitle = if (players.isEmpty()) null else "${players.size} stored · tap to edit",
+            title = stringResource(R.string.players_title),
+            subtitle = if (players.isEmpty()) null else pluralStringResource(R.plurals.players_subtitle, players.size, players.size),
             onBack = onBack,
             modifier = Modifier.headerInsets(),
         )
         ContentWithBottomBar(
-            bottomBar = { PrimaryButton("Add player", onAdd, Modifier.fillMaxWidth()) },
+            bottomBar = { PrimaryButton(stringResource(R.string.players_add), onAdd, Modifier.fillMaxWidth()) },
         ) { bottomPadding ->
             if (players.isEmpty()) {
                 EmptyPlayers(Modifier.fillMaxSize().padding(bottom = bottomPadding))
@@ -96,7 +100,7 @@ fun PlayersScreen(
                         .padding(top = Scan7Spacing.l, bottom = Scan7Spacing.l + bottomPadding),
                 ) {
                     players.forEach { p ->
-                        SetupPlayerRow(p, onClick = { onEdit(p) }, onClickLabel = "Edit") {
+                        SetupPlayerRow(p, onClick = { onEdit(p) }, onClickLabel = stringResource(R.string.action_edit)) {
                             ChevronRightIcon(colors.textMuted)
                         }
                     }
@@ -114,9 +118,9 @@ private fun EmptyPlayers(modifier: Modifier) {
         verticalArrangement = Arrangement.spacedBy(Scan7Spacing.m, Alignment.CenterVertically),
         modifier = modifier.fillMaxWidth(),
     ) {
-        Text("Add your first player", color = colors.text, style = Scan7Type.headline16, textAlign = TextAlign.Center)
+        Text(stringResource(R.string.players_add_first), color = colors.text, style = Scan7Type.headline16, textAlign = TextAlign.Center)
         Text(
-            "Name and a color. They're saved on this phone for every game.",
+            stringResource(R.string.players_empty_body),
             color = colors.textMuted,
             style = Scan7Type.text13,
             textAlign = TextAlign.Center,
@@ -179,7 +183,7 @@ fun SetupPlayerRow(
         PlayerAvatar(
             player.avatar,
             avatarSizeForHeight(size.token.height),
-            contentDescription = avatarDescription(player.name, player.avatar),
+            contentDescription = avatarDescription(player.name, player.avatar).resolve(),
         )
         Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
             Text(
@@ -200,7 +204,7 @@ fun SetupPlayerRow(
 
 /** Dashed "+ New player" row (same height as [SetupPlayerRow]). */
 @Composable
-fun AddPlayerRow(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, text: String = "New player") {
+fun AddPlayerRow(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, text: String = stringResource(R.string.players_new)) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.cardLarge)
     Row(

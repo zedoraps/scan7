@@ -30,10 +30,11 @@ import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
 
 /** Tag text: "OPEN", "✓ +46" or "✕ BUST" (bust is never shown by color alone). */
+@Composable
 fun PlayerStatus.tagText(): String = when (this) {
-    PlayerStatus.Open -> "OPEN"
-    is PlayerStatus.Scored -> "✓ +$points"
-    PlayerStatus.Bust -> "✕ BUST"
+    PlayerStatus.Open -> stringResource(R.string.tag_open)
+    is PlayerStatus.Scored -> stringResource(R.string.tag_scored, points)
+    PlayerStatus.Bust -> stringResource(R.string.label_bust_tag)
 }
 
 @Composable

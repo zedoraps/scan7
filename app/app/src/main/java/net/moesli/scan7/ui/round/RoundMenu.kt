@@ -1,5 +1,10 @@
 package net.moesli.scan7.ui.round
 
+import net.moesli.scan7.ui.text.uiText
+import net.moesli.scan7.ui.text.resolve
+import net.moesli.scan7.ui.text.UiText
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -61,12 +66,12 @@ fun RoundMenuContent(
 ) {
     val colors = Scan7Theme.colors
     Column {
-        SectionLabel("Round $round · to $target", Modifier.padding(start = Scan7Spacing.l, bottom = Scan7Spacing.s))
-        MenuRow("Rearrange seats / order", onArrange) { ArrangeIcon(colors.text) }
-        MenuRow("Scoreboard", onScoreboard) { ScoreboardIcon(colors.text) }
+        SectionLabel(stringResource(R.string.menu_round_title, round, target), Modifier.padding(start = Scan7Spacing.l, bottom = Scan7Spacing.s))
+        MenuRow(stringResource(R.string.action_rearrange), onArrange) { ArrangeIcon(colors.text) }
+        MenuRow(stringResource(R.string.scoreboard_title), onScoreboard) { ScoreboardIcon(colors.text) }
         ListItem(
-            headlineContent = { Text("Scan direction", style = Scan7Type.text15) },
-            supportingContent = { Text("Who \"Scan next\" picks after a player", style = Scan7Type.text12) },
+            headlineContent = { Text(stringResource(R.string.menu_direction), style = Scan7Type.text15) },
+            supportingContent = { Text(stringResource(R.string.menu_direction_hint), style = Scan7Type.text12) },
             leadingContent = { RotateIcon(colors.textMuted) },
             colors = menuItemColors(),
         )
@@ -79,13 +84,13 @@ fun RoundMenuContent(
         )
         if (onEndGame != null) {
             MenuRow(
-                "End game",
+                stringResource(R.string.action_end_game),
                 onEndGame,
-                supporting = "The leader wins now",
+                supporting = stringResource(R.string.menu_end_game_hint),
                 ink = colors.warning,
             ) { WarningIcon(colors.warning, size = 20.dp) }
         }
-        MenuRow("Home", onHome, supporting = "The game stays resumable") { HomeIcon(colors.text) }
+        MenuRow(stringResource(R.string.action_home), onHome, supporting = stringResource(R.string.menu_home_hint)) { HomeIcon(colors.text) }
     }
 }
 
@@ -127,6 +132,7 @@ private fun DirectionToggle(direction: ScanDirection, onSelect: (ScanDirection) 
     val options = ScanDirection.entries
     SingleChoiceSegmentedButtonRow(modifier) {
         options.forEachIndexed { i, option ->
+            val description = option.spoken().resolve()
             SegmentedButton(
                 selected = option == direction,
                 onClick = { if (option != direction) onSelect(option) },
@@ -142,18 +148,18 @@ private fun DirectionToggle(direction: ScanDirection, onSelect: (ScanDirection) 
                 icon = {},
                 modifier = Modifier
                     .heightIn(min = 48.dp)
-                    .semantics { contentDescription = "Scan " + option.spoken() },
+                    .semantics { contentDescription = description },
             ) {
-                Text(option.shortLabel(), style = Scan7Type.text13, maxLines = 1, modifier = Modifier.clearAndSetSemantics {})
+                Text(option.shortLabel().resolve(), style = Scan7Type.text13, maxLines = 1, modifier = Modifier.clearAndSetSemantics {})
             }
         }
     }
 }
 
 /** Segment label: "↻ Clockwise" / "↺ Counter". */
-internal fun ScanDirection.shortLabel(): String = when (this) {
-    ScanDirection.CLOCKWISE -> "↻ Clockwise"
-    ScanDirection.COUNTER_CLOCKWISE -> "↺ Counter"
+internal fun ScanDirection.shortLabel(): UiText = when (this) {
+    ScanDirection.CLOCKWISE -> uiText(R.string.direction_cw_short)
+    ScanDirection.COUNTER_CLOCKWISE -> uiText(R.string.direction_ccw_short)
 }
 
 @Preview(widthDp = 390)

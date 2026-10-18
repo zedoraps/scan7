@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.sheet
 
+import net.moesli.scan7.ui.text.resolve
 import net.moesli.scan7.ui.components.avatarSizeForHeight
 import net.moesli.scan7.ui.components.PlayerAvatar
 import androidx.compose.foundation.background
@@ -90,7 +91,7 @@ private fun NameChip(player: PlayerUi) {
 @Composable
 private fun CloseRoundPreviewPanel(open: List<PlayerUi>, playerCount: Int) {
     val spec = Confirmations.closeRound(4, open.map { it.name }, playerCount) ?: return
-    DialogPanel { ConfirmContent(spec.title, spec.confirmLabel, {}, {}, spec.body, spec.destructive) { NameChips(open) } }
+    DialogPanel { ConfirmContent(spec.title.resolve(), spec.confirmLabel.resolve(), {}, {}, spec.body?.resolve(), spec.destructive) { NameChips(open) } }
 }
 
 @Preview(widthDp = 390)
