@@ -1,0 +1,141 @@
+# scan7 synthetic data generator settings (scripts/gen_synth.py).
+# Distances called "card widths" are relative to the card's width (short side).
+# [a, b] = uniform range, p_* = probability.
+
+seed: 7
+count: 5000
+val_frac: 0.1
+jpeg_quality: [40, 95]
+
+# ------------------------------------------------------------ image
+image:
+  long_side: [1024, 1280]
+  aspects: {"3:4": 0.6, "9:16": 0.4}   # short:long, picked with these weights
+  p_portrait: 0.55                       # else landscape
+
+# ------------------------------------------------------------ background
+background:
+  cache_long_side: 1600     # backgrounds are pre-resized once to ml/out/cache/backgrounds_<n>/
+  zoom: [0.45, 1.6]         # photo px per scene px (smaller = more background visible)
+  min_zoom: 0.25            # zoom may shrink down to this to keep the whole frame inside the photo
+  p_flip: 0.5
+
+# ------------------------------------------------------------ layouts
+layout_weights: {row: 0.65, scattered: 0.15, pile: 0.10, large: 0.10}
+
+row:
+  n_cards: [1, 10]
+  span: [0.35, 0.95]          # row length as fraction of the frame extent along the row
+  max_card_long: 0.55         # cap: card height <= this * min(W, H)
+  min_card_w: 34              # px (scene)
+  p_overlap: 0.3              # row uses overlapping cards (else small gaps)
+  gap: [0.02, 0.15]           # card widths
+  overlap: [0.0, 0.25]        # card widths
+  spacing_jitter: 0.03        # card widths, per card
+  rot_jitter: 5.0             # degrees, per card
+  offset_jitter: 0.04         # card widths, per card perpendicular/along the row
+  p_card_flip180: 0.15        # single card placed upside down
+  center_jitter: 0.12         # fraction of W/H the row centre may move from the image centre
+  p_neighbour: 0.2            # add a partial neighbouring row at an image edge
+  neighbour_n: [2, 8]
+  neighbour_scale: [0.8, 1.2]
+  neighbour_angle: 12.0       # degrees offset from the main row (plus 180 with p 0.5)
+  neighbour_edge_offset: [-0.7, 0.35]  # card heights: row centre relative to the frame edge (neg = inside)
+
+scattered:
+  n_cards: [1, 12]
+  card_w: [0.09, 0.22]        # fraction of min(W, H)
+  max_overlap: 0.15           # max centre-distance overlap allowed (rejection sampling)
+  margin: 0.05                # card centres may lie this fraction outside the frame
+
+pile:
+  n_piles: [1, 2]
+  n_cards: [3, 7]
+  card_w: [0.12, 0.28]
+  p_fan: 0.5                  # fan (common pivot) vs messy pile
+  fan_step: [6, 18]           # degrees between fanned cards
+  pile_offset: 0.35           # card widths, random offset per card in a messy pile
+
+large:
+  n_cards: [1, 3]
+  card_h: [0.45, 0.9]         # fraction of min(W, H)
+  gap: [-0.1, 0.25]           # card widths
+  rot: 25.0                   # degrees, per-card rotation around the group angle
+  center_jitter: 0.15
+
+# ------------------------------------------------------------ per-card appearance
+card:
+  brightness: [0.88, 1.10]
+  color_jitter: 0.04          # per-channel gain jitter
+  p_glare: 0.25               # specular highlight on the card
+  glare_strength: [0.25, 0.8]
+  glare_size: [0.15, 0.6]     # card widths (ellipse radius)
+  shadow_strength: [0.1, 0.4] # drop shadow under each card
+  shadow_offset: [0.0, 0.04]  # card widths
+  shadow_blur: [0.01, 0.05]   # card widths (sigma)
+
+# ------------------------------------------------------------ text randomization (number cards)
+text:
+  p: 0.5
+  modes: {word: 0.5, blur: 0.25, fill: 0.25}
+  # Area inside the banner frame (fractions of card w/h) that the word lives in.
+  inner: [0.065, 0.768, 0.935, 0.838]
+  word_len: [3, 7]
+  fonts:  # tried in order of a random pick; missing files are skipped (Hershey fallback)
+    - /System/Library/Fonts/Supplemental/Arial Bold.ttf
+    - /System/Library/Fonts/Supplemental/Arial Black.ttf
+    - /System/Library/Fonts/Supplemental/DIN Alternate Bold.ttf
+    - /System/Library/Fonts/Supplemental/DIN Condensed Bold.ttf
+    - /System/Library/Fonts/Supplemental/Verdana Bold.ttf
+    - /System/Library/Fonts/Supplemental/Trebuchet MS Bold.ttf
+    - /System/Library/Fonts/Supplemental/Tahoma Bold.ttf
+    - /System/Library/Fonts/Supplemental/Arial Rounded Bold.ttf
+    - /System/Library/Fonts/Supplemental/Impact.ttf
+  blur_sigma: [3.0, 8.0]      # px at cutout resolution
+  # Real number words are never generated (reserved for text-independence tests).
+  forbidden: [ZERO, ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, TEN, ELEVEN, TWELVE,
+              NULL, EINS, ZWEI, DREI, VIER, FUNF, SECHS, SIEBEN, ACHT, NEUN, ZEHN, ELF, ZWOLF]
+
+# ------------------------------------------------------------ occluders (also hide label area)
+occluders:
+  p_image: 0.45               # an image gets occluders at all
+  n: [1, 3]
+  weights: {finger: 0.45, patch: 0.3, pen: 0.25}
+  finger_w: [0.18, 0.32]
+  patch_size: [0.25, 0.8]     # card widths
+  pen_len: [1.0, 3.0]
+  pen_w: [0.05, 0.12]
+
+# ------------------------------------------------------------ whole-scene perspective (phone pose)
+camera:
+  tilt: [0, 45]               # degrees off top-down
+  tilt_power: 1.4             # tilt = lo + (hi-lo) * u**power (>1 favours near top-down)
+  fov_long: [60, 75]          # degrees, horizontal FOV across the long side
+  roll: 10.0                  # extra in-plane rotation, degrees
+  scale: [0.85, 1.15]
+  shift: 0.08                 # fraction of W/H
+
+# ------------------------------------------------------------ photometric (whole image)
+photo:
+  brightness: [0.7, 1.25]
+  contrast: [0.75, 1.25]
+  saturation: [0.7, 1.25]
+  temperature: [-1.0, 1.0]    # -1 cool daylight .. +1 warm lamp
+  temp_gain: 0.18
+  p_shadow: 0.35              # soft large shadow (gradient / blob / hand / phone)
+  shadow_strength: [0.2, 0.55]
+  p_glare: 0.2                # glare spot anywhere in the image
+  p_vignette: 0.4
+  vignette: [0.15, 0.45]
+  p_defocus: 0.25
+  defocus_sigma: [0.6, 2.2]
+  p_motion: 0.15
+  motion_len: [3, 11]
+  noise_sigma: [0.0, 7.0]
+  p_chroma_noise: 0.3
+
+# ------------------------------------------------------------ labels
+labels:
+  min_visible: 0.3            # drop label if less than this fraction of the card is visible
+  min_box: 6                  # px, drop smaller boxes
+  alpha_threshold: 0.5        # card pixel counts as card when alpha >= this
