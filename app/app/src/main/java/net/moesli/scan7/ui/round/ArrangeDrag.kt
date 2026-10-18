@@ -1,0 +1,80 @@
+package net.moesli.scan7.ui.round
+
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.runtime.State
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
+import kotlinx.coroutines.withTimeoutOrNull
+
+/** Long-press time that enters arrange mode from a card (handoff: ≈ 450 ms). */
+const val ARRANGE_LONG_PRESS_MS = 450L
+
+/** Callbacks of [arrangeDrag]. */
+internal interface ArrangeDragCallbacks {
+    fun onEnterArrange()
+
+    fun onDragStart()
+
+    fun onDrag(delta: Offset)
+
+    fun onDragEnd()
+
+    fun onDragCancel()
+}
+
+/**
+ * Seat drag for cards and rows, observed in the Initial pass so it runs before the card's own
+ * click handling:
+ * - in arrange mode a press starts the drag immediately (prototype `pointerdown`);
+ * - otherwise a still press of [ARRANGE_LONG_PRESS_MS] enters arrange mode and the drag continues
+ *   in the same gesture. A release or a move beyond the touch slop before that leaves the gesture
+ *   to the card (tap, in-card buttons).
+ * Once dragging, all pointer changes are consumed so the card sees no click.
+ *
+ * [arranging] is read as state so toggling arrange mode never restarts a running gesture.
+ */
+internal fun Modifier.arrangeDrag(arranging: State<Boolean>, callbacks: State<ArrangeDragCallbacks>): Modifier =
+    pointerInput(Unit) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            if (!arranging.value) {
+                // Released or moved away before the long press: the gesture belongs to the card.
+                var aborted = false
+                withTimeoutOrNull(ARRANGE_LONG_PRESS_MS) {
+                    while (!aborted) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull { it.id == down.id }
+                        aborted = change == null ||
+                            !change.pressed ||
+                            (change.position - down.position).getDistance() > viewConfiguration.touchSlop
+                    }
+                }
+                if (aborted) return@awaitEachGesture
+                callbacks.value.onEnterArrange()
+            } else {
+                down.consume()
+            }
+            callbacks.value.onDragStart()
+            var finished = false
+            try {
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    val delta = change.positionChangeIgnoreConsumed()
+                    change.consume()
+                    if (delta != Offset.Zero) callbacks.value.onDrag(delta)
+                    if (!change.pressed) {
+                        finished = true
+                        callbacks.value.onDragEnd()
+                        break
+                    }
+                }
+            } finally {
+                if (!finished) callbacks.value.onDragCancel()
+            }
+        }
+    }

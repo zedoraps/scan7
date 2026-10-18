@@ -23,6 +23,7 @@ fun HomeScreen(
     onDetectFromPhoto: () -> Unit,
     modifier: Modifier = Modifier,
     onComponentGallery: () -> Unit = {},
+    onRoundDemo: () -> Unit = {},
     modelInfo: String = "none",
 ) {
     DebugScaffold(
@@ -48,6 +49,8 @@ fun HomeScreen(
             Entry("Detect from photo", "Pick an image; run the detector on a still", onDetectFromPhoto)
             HorizontalDivider()
             Entry("Component gallery", "Design components in all states and size classes", onComponentGallery)
+            HorizontalDivider()
+            Entry("Round screen (demo)", "Round screen with fake data: table/list, arrange, end of round", onRoundDemo)
             HorizontalDivider()
         }
     }
