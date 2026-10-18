@@ -1,8 +1,10 @@
-"""Train the card detector with Ultralytics on Apple MPS.
+"""Train the card detector with Ultralytics (Apple MPS by default; --device cpu on mini).
 
 Example:
     uv run python scripts/train.py --data out/synth/dataset.yaml --name synth_v1
     uv run python scripts/train.py --data out/mix/dataset.yaml --model runs/synth_v1/weights/best.pt --name ft_v1
+    # continue an interrupted run (optimizer, LR schedule and epoch count from the checkpoint) into runs/<name>:
+    python scripts/train.py --resume runs/ft_v3/weights/last.pt --data out/mix3/dataset.yaml --device cpu --name ft_v3m
 """
 import argparse
 import os
@@ -25,8 +27,21 @@ def main():
     ap.add_argument("--batch", type=int, default=32)
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--patience", type=int, default=15)
-    ap.add_argument("--device", default="mps")
+    ap.add_argument("--device", default="mps", help="mps (Mac), cpu, xpu, 0 (CUDA) ...")
+    ap.add_argument("--resume", metavar="LAST_PT", help="resume this checkpoint; keeps its stored hyperparameters and "
+                    "only takes --data, --device, --workers and --name (output dir) from the command line")
     args = ap.parse_args()
+
+    if args.resume:
+        # Ultralytics resume: everything else (epochs, imgsz, batch, augmentation, lr) comes from the checkpoint.
+        YOLO(args.resume).train(
+            resume=args.resume,
+            data=args.data,
+            device=args.device,
+            workers=args.workers,
+            save_dir=str(ML / "runs" / args.name),
+        )
+        return
 
     model = YOLO(args.model)
     model.train(

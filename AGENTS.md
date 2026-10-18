@@ -65,6 +65,18 @@ Release: `./gradlew assembleRelease` (minified, unsigned; `-Pscan7.idSuffix=.p` 
 ```sh
 ```
 
+### Training on mini (`ssh pmo@mini`, NixOS, CPU only; details in `~/scan7-ml/README-mini.md` there)
+mini has no Intel GPU compute runtime (no XPU), so it trains on its 16 CPU cores. Its env is separate
+(`~/scan7-ml/.venv`, Python 3.13, `requirements-mini.txt`); don't `uv sync` there. Dataset yamls on mini use `/home/pmo/scan7-ml` paths.
+```sh
+rsync -a --exclude '*.cache' ml/out/<dataset>/ pmo@mini:scan7-ml/out/<dataset>/   # data up (then fix `path:` in its yaml to /home/pmo/scan7-ml/...)
+rsync -a ml/scripts/ pmo@mini:scan7-ml/scripts/                                     # keep scripts identical
+ssh pmo@mini 'cd ~/scan7-ml && . ./env-mini.sh && nohup nice -n 10 python scripts/train.py --device cpu ... --name <name> > train_<name>.log 2>&1 &'
+ssh pmo@mini 'tail -n 3 ~/scan7-ml/runs/<name>/results.csv; tail -c 400 ~/scan7-ml/train_<name>.log'   # check
+mkdir -p ml/runs/<name>/weights && rsync -a pmo@mini:scan7-ml/runs/<name>/ ml/runs/<name>/          # weights + results back
+```
+Resume an interrupted run: `scripts/train.py --resume runs/<old>/weights/last.pt --data <abs yaml> --device cpu --name <new>`.
+
 ### Labeling (from the repo root; Label Studio is a separate `uv tool`)
 ```sh
 ml/labeling/start.sh                                          # http://localhost:8080
