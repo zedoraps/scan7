@@ -460,7 +460,7 @@
     <string name="confirm_remove_player_body_past">Their points from past rounds stay in the scoreboard.</string>
     <string name="confirm_remove_player_body_points">Their %1$s in this round is dropped.</string>
     <string name="confirm_remove_player_body_bust">Their BUST in this round is dropped.</string>
-    <string name="player_left_tag">left</string>
+    <string name="player_left_tag">until R%1$d</string>
     <string name="player_joined_tag">from R%1$d</string>
     <string name="gameover_left">left</string>
     <string name="scoreboard_joined_description">%1$s, joined in round %2$d</string>

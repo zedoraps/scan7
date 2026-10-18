@@ -44,7 +44,7 @@ class GamePlayersTest {
         assertEquals("Remove", anna.confirmLabel.en)
         assertTrue(anna.destructive)
         assertTrue(removeConfirm(s, 2, "Ben")!!.body!!.en.endsWith("Their BUST in this round is dropped."))
-        assertEquals("Die Punkte aus früheren Runden bleiben in der Punktetabelle.", removeConfirm(s, 3, "Cleo")!!.body!!.de)
+        assertEquals("Die Punkte aus früheren Runden bleiben in der Tabelle.", removeConfirm(s, 3, "Cleo")!!.body!!.de)
         // Round 1, still open: nothing to say.
         assertNull(Confirmations.removePlayer("Anna", PlayerStatus.Open, playedBefore = false).body)
         // Not seated (only ticked in this step): no confirmation.

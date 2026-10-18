@@ -227,7 +227,7 @@ private fun HeaderRow(players: List<PlayerUi>, table: ScoreTable) {
                     overflow = TextOverflow.Ellipsis,
                 )
                 val tag = when {
-                    leftIn != null -> stringResource(R.string.player_left_tag)
+                    leftIn != null -> stringResource(R.string.player_left_tag, (leftIn - 1).coerceAtLeast(1)) // last round played
                     joinedIn != null -> stringResource(R.string.player_joined_tag, joinedIn)
                     else -> null
                 }
