@@ -152,7 +152,7 @@ fun PhotoDetectScreen(onBack: () -> Unit, modifier: Modifier = Modifier, initial
  * Decodes [uri] into a software bitmap, downscaled to [MAX_DECODE_EDGE].
  * ImageDecoder applies the EXIF orientation itself, so the result is upright.
  */
-private fun decodeUpright(context: Context, uri: Uri): Bitmap {
+internal fun decodeUpright(context: Context, uri: Uri): Bitmap {
     val source = ImageDecoder.createSource(context.contentResolver, uri)
     return ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
         decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE

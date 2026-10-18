@@ -17,6 +17,7 @@ import androidx.camera.lifecycle.awaitInstance
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -69,9 +70,16 @@ private val previewResolution = ResolutionSelector.Builder()
     .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
     .build()
 
+/** Zoom presets of the bound camera and the selected one, for a custom [CameraPreview] zoom bar. */
+class ZoomControls(val presets: List<Float>, val selected: Float, val onSelect: (Float) -> Unit)
+
 /**
  * Full-screen back-camera preview running the card detector on every analysis frame, with boxes
  * and a debug overlay. Requires the CAMERA permission to be granted already.
+ *
+ * [analyzer] can be hoisted (e.g. to [DetectionAnalyzer.capture] the current frame). [overlay]
+ * replaces the default [DetectionOverlay] (drawn over the whole preview, Crop mapping) and
+ * [zoomControls] the default zoom buttons (only called when there is more than one preset).
  *
  * Preview and analysis are both 4:3 with the same field of view; the preview is shown
  * FILL_CENTER-cropped ([ContentScale.Crop]), and [DetectionOverlay] maps the normalized analysis
@@ -81,11 +89,14 @@ private val previewResolution = ResolutionSelector.Builder()
 fun CameraPreview(
     modifier: Modifier = Modifier,
     showDebugInfo: Boolean = true,
+    analyzer: DetectionAnalyzer? = null,
+    overlay: (@Composable BoxScope.(FrameStats) -> Unit)? = null,
+    zoomControls: (@Composable BoxScope.(ZoomControls) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val analyzer = remember { DetectionAnalyzer(context) }
-    val stats by analyzer.stats.collectAsStateWithLifecycle()
+    val frameAnalyzer = analyzer ?: remember { DetectionAnalyzer(context) }
+    val stats by frameAnalyzer.stats.collectAsStateWithLifecycle()
     var surfaceRequest by remember { mutableStateOf<SurfaceRequest?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var camera by remember { mutableStateOf<Camera?>(null) }
@@ -107,8 +118,8 @@ fun CameraPreview(
     }
 
     // Analysis runs on the detector's own thread (shared, never shut down).
-    DisposableEffect(analysis, analyzer) {
-        analysis.setAnalyzer(DetectorHolder.executor, analyzer)
+    DisposableEffect(analysis, frameAnalyzer) {
+        analysis.setAnalyzer(DetectorHolder.executor, frameAnalyzer)
         onDispose { analysis.clearAnalyzer() }
     }
 
@@ -161,13 +172,17 @@ fun CameraPreview(
             )
         }
         stats?.let { s ->
-            DetectionOverlay(
-                detections = s.detections,
-                imageWidth = s.uprightWidth,
-                imageHeight = s.uprightHeight,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
+            if (overlay != null) {
+                overlay(s)
+            } else {
+                DetectionOverlay(
+                    detections = s.detections,
+                    imageWidth = s.uprightWidth,
+                    imageHeight = s.uprightHeight,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
         val info = error?.let { "Camera error: $it" }
             ?: stats?.let { s ->
@@ -179,7 +194,9 @@ fun CameraPreview(
                     )
             }
             ?: "Starting camera…"
-        if (presets.size > 1) {
+        if (presets.size > 1 && zoomControls != null) {
+            zoomControls(ZoomControls(presets, zoom) { zoom = it })
+        } else if (presets.size > 1) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier

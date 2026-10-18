@@ -24,6 +24,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onComponentGallery: () -> Unit = {},
     onRoundDemo: () -> Unit = {},
+    onScanFlowDemo: () -> Unit = {},
     modelInfo: String = "none",
 ) {
     DebugScaffold(
@@ -51,6 +52,8 @@ fun HomeScreen(
             Entry("Component gallery", "Design components in all states and size classes", onComponentGallery)
             HorizontalDivider()
             Entry("Round screen (demo)", "Round screen with fake data: table/list, arrange, end of round", onRoundDemo)
+            HorizontalDivider()
+            Entry("Scan flow (demo)", "Camera → review → manual with a fake player", onScanFlowDemo)
             HorizontalDivider()
         }
     }
