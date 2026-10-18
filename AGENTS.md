@@ -30,9 +30,12 @@ ml/                    Python (uv project): data, synthetic generator, training,
 app/                   Android Gradle root; module app/, package net.moesli.scan7
   app/src/main/java/net/moesli/scan7/
     scoring/           plain-Kotlin scoring rules (JVM unit tests)
+    game/              plain-Kotlin game state + rules (GameState: rounds, bust, close, seating; JVM unit tests)
+    data/              Room DB (entities, DAOs), GameRepository (Flows + actions), AppGraph container
     camera/ detection/ CameraX preview, detector, overlay
     debug/             debug screens (home, score tester, detect from photo)
     ui/theme/          Scan7 theme, colors, fonts, wordmark
+  app/schemas/         exported Room schemas (committed; bump the DB version + add a migration on change)
 ```
 
 ## Commands
