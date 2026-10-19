@@ -391,6 +391,16 @@ fun RoundRoute(
         Box(modifier.fillMaxSize().background(Scan7Theme.colors.ground))
         return
     }
+    // A joined copy without its live session (e.g. after an app restart) is read-only like a guest:
+    // no host actions; with a radio it rejoins the saved session by itself.
+    val readOnly = guest != null || snap.isJoined
+    LaunchedEffect(snap.isJoined, guest == null) {
+        if (snap.isJoined && guest == null && shareRuntime.radioAvailable) {
+            repository.shareSession(gameId)?.takeIf { it.role == "GUEST" }?.let { row ->
+                permissions.run { shareRuntime.join(net.moesli.scan7.multiplayer.nearby.JoinLink(row.sessionId, row.token), LinkMode.RADIO) }
+            }
+        }
+    }
     val roundClosed = snap.state.currentRound.isClosed
     // Only the host settles a closed round (a guest's copy follows the host's next round).
     LaunchedEffect(roundClosed) { if (roundClosed && !snap.isJoined) controller.settleClosedRound() }
@@ -407,6 +417,7 @@ fun RoundRoute(
         RoundScreen(
             state = when {
                 guest != null -> base.joined(guest)
+                snap.isJoined -> base.copy(share = RoundShareUi(guest = true, waiting = uiText(R.string.round_mine_done), banner = uiText(R.string.banner_lost)))
                 host != null || (canShare && !snap.isJoined) -> base.hosted(host, snap.players)
                 else -> base
             },
@@ -445,7 +456,7 @@ fun RoundRoute(
                 onResetToOpen = if (closed) null else ({ controller.sheetAction(id, SheetAction.Reset) }),
                 onDismiss = { flags.sheetPlayer = null },
                 // Guests can't change totals.
-                adjust = remember(id) { controller.adjustActions(id) }.takeIf { guest == null },
+                adjust = remember(id) { controller.adjustActions(id) }.takeIf { !readOnly },
                 typeEntry = entry == EntryMode.TYPE,
             )
         }
@@ -475,20 +486,20 @@ fun RoundRoute(
                 settings = RoundMenuSettings(
                     // A finished game (end-of-round view) keeps its target: changing it would reopen / end it.
                     // Guests don't change game settings.
-                    target = snap.state.target.takeUnless { snap.state.isOver || guest != null },
+                    target = snap.state.target.takeUnless { snap.state.isOver || readOnly },
                     direction = snap.state.scanDirection,
                     afterScan = AfterScan.fromSetting(afterScan),
                     entry = entry,
                 ),
                 onScoreboard = { sheet.hideThen(navigator::scoreboard) },
-                onArrange = if (guest != null) null else ({ sheet.hideThen(controller::onEnterArrange) }),
+                onArrange = if (readOnly) null else ({ sheet.hideThen(controller::onEnterArrange) }),
                 onHome = { sheet.hideThen(navigator::home) },
-                onEndGame = if (snap.state.isOver || guest != null) null else ({ sheet.hideThen(controller::onEndGame) }),
+                onEndGame = if (snap.state.isOver || readOnly) null else ({ sheet.hideThen(controller::onEndGame) }),
                 onTarget = controller::onTarget,
                 onDirection = controller::onScanDirection,
                 onAfterScan = controller::onAfterScan,
                 onEntry = controller::onEntryMode,
-                onPlayers = if (snap.state.canChangePlayers && guest == null) ({ sheet.hideThen(controller::onManagePlayers) }) else null,
+                onPlayers = if (snap.state.canChangePlayers && !readOnly) ({ sheet.hideThen(controller::onManagePlayers) }) else null,
                 onShare = if (guest == null && !snap.isJoined && canShare) ({ sheet.hideThen(controller::onShare) }) else null,
                 onWhoScan = if (guest != null) ({ sheet.hideThen({ flags.claimSheet = true }) }) else null,
                 onLeave = if (guest != null) ({ sheet.hideThen({ flags.confirmLeave = true }) }) else null,
