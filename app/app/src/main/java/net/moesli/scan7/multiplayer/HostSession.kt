@@ -84,14 +84,11 @@ class HostSession(
         restored?.roster?.forEach { put(it.deviceId, it.copy(connected = it.deviceId == HOST_DEVICE)) }
     }
 
-    /** Devices removed by the host: they can't rejoin this session. */
-    private val removed = restored?.removed.orEmpty().toMutableSet()
 
     /** Everything needed to resume this session after the host app restarts (persist it with the game). */
     fun exportState() = HostSessionState(
         seq = seq,
         roster = roster,
-        removed = removed.toList(),
         authors = entryAuthors.map { (k, d) -> ResultAuthor(k.round, k.playerId, d) },
         outcomes = seenIntents.values.toList(),
     )
@@ -122,10 +119,12 @@ class HostSession(
         applyClaim(HOST_DEVICE, me?.takeIf { it in ids }, scans.filter { it in ids }.distinct(), helperName = null)
     }
 
-    /** Share sheet → remove a device: it is disconnected and can't rejoin this session. */
+    /**
+     * Share sheet → remove a device: it is disconnected and its claims are freed. It is not banned:
+     * the removed phone stops reconnecting by itself, and scanning the code again lets it back in.
+     */
     fun remove(deviceId: String) {
         if (deviceId == HOST_DEVICE || devices.remove(deviceId) == null) return
-        removed += deviceId
         links.filterValues { it == deviceId }.keys.forEach { reject(it, JoinRejection.REMOVED) }
         broadcast(Roster(roster))
     }
@@ -219,7 +218,7 @@ class HostSession(
             version != codec.version -> JoinRejection.VERSION_MISMATCH
             hello.sessionId != sessionId -> JoinRejection.WRONG_SESSION
             !constantTimeEquals(hello.token, token) -> JoinRejection.BAD_TOKEN
-            hello.deviceId in removed || hello.deviceId == HOST_DEVICE -> JoinRejection.REMOVED
+            hello.deviceId == HOST_DEVICE -> JoinRejection.REMOVED
             !known && devices.size - 1 >= maxDevices -> JoinRejection.SESSION_FULL
             else -> null
         }

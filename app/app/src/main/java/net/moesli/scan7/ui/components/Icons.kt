@@ -121,6 +121,16 @@ private object Vectors {
         )
     }
 
+    /** Multiplayer guest: the share icon mirrored, a phone receiving the host's waves. */
+    val joined by lazy {
+        vector(
+            "Joined",
+            roundRect(14.5f, 4f, 7.5f, 16f, 2f) + "M17.5 16.5h1.5" +
+                "M11.5 9.5a3.5 3.5 0 0 0 0 5" + "M8.5 7.5a6 6 0 0 0 0 9" + "M5.5 5a8.5 8.5 0 0 0 0 14",
+            2f,
+        )
+    }
+
     /** A phone (multiplayer badges: scanned on another phone). */
     val phone by lazy { vector("Phone", roundRect(7f, 3f, 10f, 18f, 2f) + "M11 17.5h2", 2f) }
 
@@ -131,6 +141,10 @@ private object Vectors {
 /** Multiplayer: share this game. */
 @Composable
 fun ShareIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) = VectorIcon(Vectors.share, color, size, modifier)
+
+/** Multiplayer guest: this phone joined the host's game. */
+@Composable
+fun JoinedIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) = VectorIcon(Vectors.joined, color, size, modifier)
 
 /** Multiplayer: a phone (who scans whom). */
 @Composable

@@ -519,7 +519,7 @@
     <string name="share_offline">Offline</string>
     <string name="share_remove_phone">Remove %1$s</string>
     <string name="share_remove_title">Remove %1$s?</string>
-    <string name="share_remove_body">This phone can\'t rejoin this game.</string>
+    <string name="share_remove_body">It is disconnected and its players are free again. It can join again by scanning the code.</string>
     <string name="share_stop">Stop sharing</string>
     <string name="share_stop_title">Stop sharing?</string>
     <string name="share_stop_body">All phones are disconnected. The game stays on this phone.</string>
@@ -539,7 +539,7 @@
     <string name="join_rejected_version">Update Scan7 on this phone to join this game.</string>
     <string name="join_rejected_token">This code doesn\'t work any more. Scan the code again.</string>
     <string name="join_rejected_full">This game is full (at most 11 phones).</string>
-    <string name="join_rejected_removed">The host removed this phone from the game.</string>
+    <string name="join_rejected_removed">The host removed this phone. Scan the code again to rejoin.</string>
     <string name="join_failed">Couldn\'t join the game.</string>
     <string name="permission_rationale_nearby">Scan7 uses \"Nearby devices\" and precise location to connect the phones at your table. Scan7 never uses your location, and nothing goes to the internet.</string>
     <string name="permission_rationale_location">Android needs location access to find nearby phones. Scan7 never uses your location.</string>
@@ -565,6 +565,9 @@
     <!-- A joined game that can't reach its host: the screen shows only this phone's copy. -->
     <string name="banner_offline">Not connected · this is only a copy</string>
     <string name="action_join_again">Join again</string>
+    <!-- Guest header icon (TalkBack): connected to the host's game / not connected. -->
+    <string name="joined_header_description">Joined %1$s\'s game · who you are and scan</string>
+    <string name="joined_header_offline">Not connected to the host · join again</string>
     <plurals name="banner_pending">
         <item quantity="one">%d scan waiting to be sent</item>
         <item quantity="other">%d scans waiting to be sent</item>

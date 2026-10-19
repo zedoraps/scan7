@@ -263,7 +263,8 @@ class ShareRuntime(
     /** Join the game of [link] (a scanned QR / deep link, or the debug demo's host). */
     fun join(link: JoinLink, mode: LinkMode) {
         scope.launch {
-            if (joined?.link == link) return@launch
+            // Scanning the same code again retries a join the host refused (e.g. this phone was removed).
+            if (joined?.link == link && joined?.session?.view?.value?.status != ClientStatus.REJECTED) return@launch
             leaveNow()
             val deviceId = repository.deviceId().let { if (mode == LinkMode.IN_PROCESS) "demo-$it" else it }
             val saved = repository.shareSessions().firstOrNull { it.role == ROLE_GUEST && it.sessionId == link.sessionId }
@@ -288,7 +289,18 @@ class ShareRuntime(
             } else {
                 network().connect()
             }
-            j.jobs += scope.launch { session.view.collect { mirror(j); publish() } }
+            j.jobs += scope.launch {
+                session.view.collect { v ->
+                    // Removed by the host: end this session (and its saved rejoin) so the phone stops
+                    // knocking; its copy stays, and scanning the code again joins afresh.
+                    if (v.status == ClientStatus.REJECTED && v.joinRejection == JoinRejection.REMOVED && j.localGameId != null) {
+                        leaveNow()
+                        return@collect
+                    }
+                    mirror(j)
+                    publish()
+                }
+            }
             session.attach(transport)
         }
     }

@@ -193,6 +193,13 @@ class RoundController(
 
     override fun onRejoin() = navigator.join()
 
+    /** `true` while this phone's guest session is live (set by the route like [snapshot]). */
+    var guestLive: Boolean = false
+
+    override fun onJoinedInfo() {
+        if (guestLive) flags.claimSheet = true else navigator.join()
+    }
+
     override fun onMoveCard(playerId: String, position: TablePosition) =
         run("move card") { movePosition(gameId, playerId.toLong(), position.x, position.y) }
 
@@ -405,6 +412,7 @@ fun RoundRoute(
     // no host actions; with a radio it rejoins the saved session by itself.
     val readOnly = guest != null || snap.isJoined
     controller.canArrange = !readOnly
+    controller.guestLive = guest != null
     LaunchedEffect(snap.isJoined, guest == null) {
         if (snap.isJoined && guest == null && shareRuntime.radioAvailable) {
             repository.shareSession(gameId)?.takeIf { it.role == "GUEST" }?.let { row ->
@@ -449,7 +457,12 @@ fun RoundRoute(
             else -> base
         }
         RoundScreen(
-            state = if (offline) shown.copy(share = shown.share?.copy(banner = uiText(R.string.banner_offline), rejoin = true)) else shown,
+            state = shown.copy(
+                share = shown.share?.let { s ->
+                    val joined = if (s.guest) s.copy(hostName = snap.joinedFrom.orEmpty(), connected = guest?.status == ClientStatus.JOINED) else s
+                    if (offline) joined.copy(banner = uiText(R.string.banner_offline), rejoin = true) else joined
+                },
+            ),
             actions = controller,
             // The phone lies on the table during a game: keep the screen on.
             modifier = modifier.keepScreenOn(),

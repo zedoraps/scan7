@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.round
 
+import net.moesli.scan7.ui.components.JoinedIcon
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import net.moesli.scan7.ui.components.FitText
@@ -158,6 +159,15 @@ internal fun RoundHeader(
                         contentDescription = pluralStringResource(R.plurals.share_header_description, share.phones, share.phones),
                     ) {
                         ShareIcon(if (share.phones > 0) colors.accent else colors.text)
+                    }
+                }
+                // Multiplayer (guest): where the host has Share, the joined mark; cyan while linked.
+                if (share != null && share.guest) {
+                    IconButton(
+                        onClick = actions::onJoinedInfo,
+                        contentDescription = if (share.connected) stringResource(R.string.joined_header_description, share.hostName) else stringResource(R.string.joined_header_offline),
+                    ) {
+                        JoinedIcon(if (share.connected) colors.accent else colors.warning)
                     }
                 }
                 // "Rearrange seats / order" lives in the ⋮ menu (and long-press on a card).

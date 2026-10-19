@@ -12,6 +12,7 @@ import kotlinx.serialization.json.Json
 data class HostSessionState(
     val seq: Long,
     val roster: List<DeviceInfo>,
+    /** Unused since removed phones may join again (kept so older saved sessions still decode). */
     val removed: List<String> = emptyList(),
     val authors: List<ResultAuthor> = emptyList(),
     /** Recent intent outcomes ([IntentAck] / [IntentRejected]), oldest first. */

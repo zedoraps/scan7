@@ -499,7 +499,7 @@
     <string name="share_offline">Offline</string>
     <string name="share_remove_phone">%1$s entfernen</string>
     <string name="share_remove_title">%1$s entfernen?</string>
-    <string name="share_remove_body">Dieses Handy kann dem Spiel nicht mehr beitreten.</string>
+    <string name="share_remove_body">Es wird getrennt und seine Spieler sind wieder frei. Mit dem Code kann es wieder beitreten.</string>
     <string name="share_stop">Teilen beenden</string>
     <string name="share_stop_title">Teilen beenden?</string>
     <string name="share_stop_body">Alle Handys werden getrennt. Das Spiel bleibt auf diesem Handy.</string>
@@ -519,7 +519,7 @@
     <string name="join_rejected_version">Aktualisiere Scan7 auf diesem Handy, um beizutreten.</string>
     <string name="join_rejected_token">Dieser Code gilt nicht mehr. Scanne ihn noch einmal.</string>
     <string name="join_rejected_full">Das Spiel ist voll (höchstens 11 Handys).</string>
-    <string name="join_rejected_removed">Der Gastgeber hat dieses Handy aus dem Spiel entfernt.</string>
+    <string name="join_rejected_removed">Der Gastgeber hat dieses Handy entfernt. Scanne den Code, um wieder beizutreten.</string>
     <string name="join_failed">Beitreten hat nicht geklappt.</string>
     <string name="permission_rationale_nearby">Scan7 verbindet die Handys an deinem Tisch über „Geräte in der Nähe“ und den genauen Standort. Scan7 nutzt deinen Standort nie, und nichts geht ins Internet.</string>
     <string name="permission_rationale_location">Android braucht den Standortzugriff, um Handys in der Nähe zu finden. Scan7 nutzt deinen Standort nie.</string>
@@ -543,6 +543,8 @@
     <string name="banner_connecting">Verbinde …</string>
     <string name="banner_offline">Nicht verbunden · das ist nur eine Kopie</string>
     <string name="action_join_again">Neu beitreten</string>
+    <string name="joined_header_description">Dem Spiel von %1$s beigetreten · wer du bist und wen du scannst</string>
+    <string name="joined_header_offline">Nicht mit dem Host verbunden · neu beitreten</string>
     <string name="banner_lost">Verbindung weg · verbinde neu …</string>
     <plurals name="banner_pending">
         <item quantity="one">%d Scan wartet aufs Senden</item>

@@ -86,6 +86,10 @@ data class RoundShareUi(
     val banner: UiText? = null,
     /** The banner is the "not connected" warning: tapping it opens Join (scan the host's code again). */
     val rejoin: Boolean = false,
+    /** Guest: the host's name ("" = unknown) for the header icon and the "Joined · Anna" line. */
+    val hostName: String = "",
+    /** Guest: linked to the host right now (header icon cyan, else warning). */
+    val connected: Boolean = false,
 )
 
 /**
@@ -117,6 +121,9 @@ interface RoundActions {
 
     /** Multiplayer guest: the "not connected" banner → Join a game. */
     fun onRejoin() {}
+
+    /** Multiplayer guest: the header's joined icon (who you are / scan, or Join again when offline). */
+    fun onJoinedInfo() {}
 
     /**
      * A card was dropped in the table view at [position] (already clamped to 0–1). The caller

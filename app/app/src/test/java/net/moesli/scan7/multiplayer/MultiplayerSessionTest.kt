@@ -365,17 +365,19 @@ class MultiplayerSessionTest {
     }
 
     @Test
-    fun removedDevice_cannotRejoin() {
+    fun removedDevice_isDropped_andMayJoinAgain() {
         val t = Table()
         val a = t.joined("anna")
         t.net.deliverAll()
         t.host.remove("anna")
         t.net.deliverAll()
         assertEquals(JoinRejection.REMOVED, a.view.value.joinRejection)
+        assertEquals(listOf(HOST_DEVICE), t.host.roster.map { it.deviceId })
+        // Not banned: scanning the code again (a new session object) gets back in.
         val again = t.join("anna")
         t.net.deliverAll()
-        assertEquals(JoinRejection.REMOVED, again.view.value.joinRejection)
-        assertEquals(listOf(HOST_DEVICE), t.host.roster.map { it.deviceId })
+        assertEquals(null, again.view.value.joinRejection)
+        assertEquals(listOf(HOST_DEVICE, "anna"), t.host.roster.map { it.deviceId })
     }
 
     @Test

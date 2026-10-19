@@ -295,6 +295,10 @@ private fun TableView(state: RoundUiState, actions: RoundActions, m: RoundMetric
             .alpha(if (state.arranging) ARRANGE_DIM else 1f),
     ) {
         val roundDescription = stringResource(R.string.round_number, state.round)
+        // Multiplayer guest: "ROUND 4" small, and "Joined · Anna" instead of the big number.
+        val joinedLine = state.share?.takeIf { it.guest }?.let {
+            if (it.hostName.isBlank()) stringResource(R.string.history_joined_plain) else stringResource(R.string.history_joined, it.hostName)
+        }
         // Seat rects relative to this box: the "ROUND" label must not end up under a card (short
         // screens: the top seat reaches down to the number). Above the number if free, else below,
         // else left out (the number alone still reads as the round; TalkBack gets the full text).
@@ -303,11 +307,16 @@ private fun TableView(state: RoundUiState, actions: RoundActions, m: RoundMetric
         val gap = with(density) { Scan7Spacing.s.roundToPx() }
         Layout(
             content = {
-                Text(stringResource(R.string.round_label), color = Scan7Theme.colors.textMuted, style = Scan7Type.capsLabel)
-                Text(state.round.toString(), color = Scan7Theme.colors.text, style = Scan7Type.roundNumberTable)
+                if (joinedLine != null) {
+                    Text(roundDescription.uppercase(), color = Scan7Theme.colors.textMuted, style = Scan7Type.capsLabel)
+                    Text(joinedLine, color = Scan7Theme.colors.accent, style = Scan7Type.headline16, textAlign = TextAlign.Center)
+                } else {
+                    Text(stringResource(R.string.round_label), color = Scan7Theme.colors.textMuted, style = Scan7Type.capsLabel)
+                    Text(state.round.toString(), color = Scan7Theme.colors.text, style = Scan7Type.roundNumberTable)
+                }
             },
             modifier = Modifier.clearAndSetSemantics {
-                contentDescription = roundDescription
+                contentDescription = listOfNotNull(roundDescription, joinedLine).joinToString(", ")
                 heading()
             },
         ) { measurables, constraints ->
