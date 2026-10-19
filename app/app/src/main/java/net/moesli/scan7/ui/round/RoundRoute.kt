@@ -573,6 +573,10 @@ fun RoundRoute(
             guest = guest,
             onDone = { me, scans, helper, force -> shareRuntime.claim(me, scans, helper, force) },
             onDismiss = { flags.claimSheet = false },
+            onLeave = {
+                flags.claimSheet = false
+                flags.confirmLeave = true
+            },
         )
     }
     guest?.refusal?.let { refusal ->

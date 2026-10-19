@@ -267,6 +267,8 @@ fun ClaimScreen(
     guest: GuestInfo,
     onDone: (me: Long?, scans: List<Long>, helperName: String?, force: Boolean) -> Unit,
     onDismiss: () -> Unit,
+    /** Leave the game (the caller confirms first); `null` hides it. */
+    onLeave: (() -> Unit)? = null,
 ) {
     val colors = Scan7Theme.colors
     val players = guest.players.values.sortedBy { it.name.lowercase() }
@@ -345,6 +347,17 @@ fun ClaimScreen(
                     CheckRow(p, checked = p.id in scans, note = by?.let { stringResource(R.string.claim_scanned_by, ShareText.phone(it).resolve()) }) {
                         scans = if (p.id in scans) scans - p.id else scans + p.id
                     }
+                }
+                // Like the host's "Stop sharing": the way out, at the end of the list.
+                if (onLeave != null) {
+                    WarningButton(
+                        stringResource(R.string.menu_leave),
+                        onLeave,
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = Scan7Spacing.l),
+                        height = Scan7Spacing.minTouch + 8.dp,
+                    )
                 }
             }
         }
