@@ -39,10 +39,12 @@ val uploadKeyPassword = secret("scan7.upload.keyPassword", "SCAN7_UPLOAD_KEY_PAS
 val hasUploadKey = listOf(uploadStoreFile, uploadStorePassword, uploadKeyAlias, uploadKeyPassword).all { it != null }
 
 // ---- Multiplayer flavors (docs/MULTI_DEVICE.md §6.4) -----------------------------------------
-// Opt-in: -Pscan7.flavors=true adds `foss` (default, no Play services) and `play` (Google Nearby
-// Connections, proprietary). Without it the build stays flavorless and Play-free, so every
-// existing task (assembleDebug, installDebug, testDebugUnitTest, …) keeps its name.
+// The flavorless default build is the Play build (Google Nearby Connections, proprietary: Share /
+// Join), so every task (assembleDebug, installDebug, testDebugUnitTest, …) keeps its name.
+// -Pscan7.foss=true builds it without Play services (no multiplayer; F-Droid).
+// -Pscan7.flavors=true instead adds both as flavors, `play` (default) and `foss`.
 val scan7Flavors: Boolean = providers.gradleProperty("scan7.flavors").orNull == "true"
+val scan7Foss: Boolean = providers.gradleProperty("scan7.foss").orNull == "true"
 
 android {
     namespace = "net.moesli.scan7"
@@ -92,11 +94,11 @@ android {
     if (scan7Flavors) {
         flavorDimensions += "distribution"
         productFlavors {
-            create("foss") {
+            create("play") {
                 dimension = "distribution"
                 isDefault = true
             }
-            create("play") {
+            create("foss") {
                 dimension = "distribution"
             }
         }
@@ -171,7 +173,7 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
-    if (scan7Flavors) add("playImplementation", libs.play.services.nearby)
+    if (scan7Flavors) add("playImplementation", libs.play.services.nearby) else if (!scan7Foss) implementation(libs.play.services.nearby)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
@@ -279,8 +281,12 @@ val copyLicenseTexts = tasks.register<CopyLicenseTexts>("copyLicenseTexts") {
 androidComponents {
     onVariants { variant ->
         variant.sources.assets?.addGeneratedSourceDirectory(copyLicenseTexts, CopyLicenseTexts::outputDir)
-        // Flavorless default build = foss: no radio (src/foss holds the Play-free `Radio`).
-        if (!scan7Flavors) variant.sources.kotlin?.addStaticSourceDirectory("src/foss/java")
+        // Flavorless build: the play sources + manifest (Nearby radio), or with -Pscan7.foss=true the
+        // Play-free `Radio` from src/foss.
+        if (!scan7Flavors) {
+            variant.sources.kotlin?.addStaticSourceDirectory(if (scan7Foss) "src/foss/java" else "src/play/java")
+            if (!scan7Foss) variant.sources.manifests.addStaticManifestFile("src/play/AndroidManifest.xml")
+        }
     }
 }
 

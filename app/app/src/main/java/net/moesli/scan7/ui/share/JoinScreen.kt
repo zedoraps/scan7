@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.share
 
+import net.moesli.scan7.ui.components.BetaTag
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -85,7 +86,7 @@ fun JoinRoute(initialLink: String?, onBack: () -> Unit, onJoined: (Long) -> Unit
             .statusBarsPadding()
             .padding(horizontal = Scan7Spacing.screenMargin),
     ) {
-        ScreenHeader(stringResource(R.string.join_title), onBack)
+        ScreenHeader(stringResource(R.string.join_title), onBack, trailing = { BetaTag() })
         when {
             guest?.joinRejection != null -> {
                 Text(ShareText.joinRejection(guest.joinRejection).resolve(), color = colors.text, style = Scan7Type.text15)

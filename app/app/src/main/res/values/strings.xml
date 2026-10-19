@@ -497,6 +497,8 @@
     <string name="share_notification_title">Scan7 is sharing a game</string>
     <string name="share_notification_text">The phones at your table stay connected.</string>
     <string name="share_action">Share this game</string>
+    <!-- Pill next to Share / Join: multiplayer is new. -->
+    <string name="beta_tag">BETA</string>
     <plurals name="share_header_description">
         <item quantity="one">Share this game, %d phone connected</item>
         <item quantity="other">Share this game, %d phones connected</item>

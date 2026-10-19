@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.share
 
+import net.moesli.scan7.ui.components.BetaTag
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -123,7 +124,10 @@ fun ShareSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = Scan7Spacing.screenMargin, vertical = Scan7Spacing.s),
         ) {
-            Text(stringResource(R.string.share_action), color = colors.text, style = Scan7Type.headline16, modifier = Modifier.semantics { heading() })
+            Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.share_action), color = colors.text, style = Scan7Type.headline16, modifier = Modifier.semantics { heading() })
+                BetaTag()
+            }
             if (host == null) {
                 Text(stringResource(if (radioAvailable) R.string.share_starting else R.string.share_no_radio), color = colors.textMuted, style = Scan7Type.text15)
                 return@Column

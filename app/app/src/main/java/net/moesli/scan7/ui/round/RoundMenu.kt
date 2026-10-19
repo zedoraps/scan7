@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.round
 
+import net.moesli.scan7.ui.components.BetaTag
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -109,7 +110,7 @@ fun RoundMenuContent(
         MenuRow(stringResource(R.string.scoreboard_title), onScoreboard) { ScoreboardIcon(colors.text) }
         if (onArrange != null) MenuRow(stringResource(R.string.action_rearrange), onArrange) { ArrangeIcon(colors.text) }
         if (onPlayers != null) MenuRow(stringResource(R.string.menu_players), onPlayers) { PlayersIcon(colors.text) }
-        if (onShare != null) MenuRow(stringResource(R.string.share_action), onShare) { ShareIcon(colors.text) }
+        if (onShare != null) MenuRow(stringResource(R.string.share_action), onShare, trailing = { BetaTag() }) { ShareIcon(colors.text) }
         if (onWhoScan != null) MenuRow(stringResource(R.string.menu_who_scan), onWhoScan) { PhoneIcon(colors.text, size = 20.dp) }
         MenuRow(stringResource(R.string.action_home), onHome) { HomeIcon(colors.text) }
         if (onLeave != null) MenuRow(stringResource(R.string.menu_leave), onLeave) { LeaveIcon(colors.text) }
@@ -165,11 +166,13 @@ private fun MenuRow(
     title: String,
     onClick: () -> Unit,
     ink: Color = Scan7Theme.colors.text,
+    trailing: (@Composable () -> Unit)? = null,
     icon: @Composable () -> Unit,
 ) {
     ListItem(
         headlineContent = { Text(title, style = Scan7Type.text15, maxLines = 2, overflow = TextOverflow.Ellipsis) },
         leadingContent = icon,
+        trailingContent = trailing,
         colors = menuItemColors(ink),
         modifier = Modifier
             .heightIn(min = 56.dp)

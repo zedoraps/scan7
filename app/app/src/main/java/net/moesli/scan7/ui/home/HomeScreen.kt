@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.home
 
+import net.moesli.scan7.ui.components.BetaTag
 import net.moesli.scan7.ui.text.uiPlural
 import net.moesli.scan7.ui.text.uiText
 import net.moesli.scan7.ui.text.resolve
@@ -223,7 +224,12 @@ fun HomeScreen(
                         SecondaryButton(stringResource(R.string.home_players), onPlayers, Modifier.width(128.dp))
                         PrimaryButton(stringResource(R.string.action_new_game), onNewGame, Modifier.weight(1f))
                     }
-                    if (onJoin != null) TextLinkButton(stringResource(R.string.home_join), onJoin)
+                    if (onJoin != null) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
+                            TextLinkButton(stringResource(R.string.home_join), onJoin)
+                            BetaTag()
+                        }
+                    }
                 }
             },
         ) { bottomPadding ->
