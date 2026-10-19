@@ -53,11 +53,11 @@ At the bottom are **Scan next · <next open player>** (primary) and **Close roun
    - detected cards as chips,
    - the score breakdown (numbers, x2, plus cards, Flip 7 bonus) and the total,
    - the buttons **Retake** (back to the camera), **Fix** (the manual screen, prefilled) and **OK** (save; a split button, see below).
-   - Tapping a box or its chip **leaves that card out**, for example a neighbour's card in the frame. The box turns dashed grey with "EXCLUDED" and the chip is struck through. Score, bust check and the saved cards ignore it. Tap again to include it. Fix doesn't prefill left-out cards.
+   - Tapping a box or its chip **leaves that card out**, for example a neighbour's card in the frame. The box turns dashed grey with "EXCLUDED" and the chip is struck through. Score, bust check and the saved result ignore it. Tap again to include it. Fix doesn't prefill left-out cards.
    After OK, a scan started via **Scan next** goes straight to the camera for the next open player ("Next: Ben", with "Back to table"). Any other scan returns to the round screen.
 4. If a number is detected twice, the panel shows **BUST · two 7s** (magenta and text) with **Confirm bust** and **Fix**.
    **Second Chance rule** (in `scoreRow`). Each `second_chance` card in the row that is not left out cancels one extra copy of a number. If every extra copy is covered, there is no bust, the duplicated number counts once (also for Flip 7), and review and manual show the cyan line "Second Chance used · 7 counted once".
-5. **Leave a card out.** Tapping a box on the photo or its chip toggles it *excluded* (dashed grey, "EXCLUDED"), for example a neighbour's card. Excluded cards don't count for the score or the bust check and aren't prefilled in Fix. They are still saved as real cards for training.
+5. **Leave a card out.** Tapping a box on the photo or its chip toggles it *excluded* (dashed grey, "EXCLUDED"), for example a neighbour's card. Excluded cards don't count for the score or the bust check, aren't part of the saved result and aren't prefilled in Fix. The training file (debug builds with "Save scans for training" on) still keeps them, marked `"excluded": true`, because they are real cards the detector should learn.
 
 ## Manual screen
 The manual screen serves **Enter manually**, **Fix** (prefilled with the scanned cards) and **Edit**.
