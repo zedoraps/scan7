@@ -110,7 +110,15 @@ private object Vectors {
     val torchOn by lazy { vector("TorchOn", TORCH + "M12 2v2M6 3.5l1.2 1.6M18 3.5l-1.2 1.6", 2f) }
 
     /** Three linked dots (multiplayer: share this game). */
-    val share by lazy { vector("Share", circle(17.5f, 5.5f, 2.5f) + circle(6.5f, 12f, 2.5f) + circle(17.5f, 18.5f, 2.5f) + "M8.7 10.7l6.6-3.9M8.7 13.3l6.6 3.9", 2f) }
+    /** Multiplayer share: a phone sending signal waves (this phone hosts the game for the others). */
+    val share by lazy {
+        vector(
+            "Share",
+            roundRect(2f, 4f, 8f, 16f, 2f) + "M5.5 16.5h1" +
+                "M13 9.5a3.5 3.5 0 0 1 0 5" + "M16.5 7a6.5 6.5 0 0 1 0 10" + "M20 4.5a9 9 0 0 1 0 15",
+            2f,
+        )
+    }
 
     /** A phone (multiplayer badges: scanned on another phone). */
     val phone by lazy { vector("Phone", roundRect(7f, 3f, 10f, 18f, 2f) + "M11 17.5h2", 2f) }
