@@ -80,6 +80,13 @@ class HostSession(
     /** Linked transport peers → device id from [Hello]. */
     private val links = mutableMapOf<PeerId, String>()
 
+    /**
+     * Older links of a phone that linked again from a new endpoint, until their disconnect arrives
+     * (Nearby can take ~30 s to report a link the guest already gave up). Nothing they send counts,
+     * not even a Hello: a late frame on one must never take the phone's current link away.
+     */
+    private val replaced = mutableSetOf<PeerId>()
+
     /** Every device of the session by id, the host first; kept after a disconnect. */
     private val devices: LinkedHashMap<String, DeviceInfo> = linkedMapOf(HOST_DEVICE to DeviceInfo(HOST_DEVICE)).apply {
         restored?.roster?.forEach { put(it.deviceId, it.copy(connected = it.deviceId == HOST_DEVICE)) }
@@ -180,6 +187,7 @@ class HostSession(
     fun stop() {
         links.keys.toList().forEach(transport::disconnect)
         links.clear()
+        replaced.clear()
         transport.stop()
     }
 
@@ -188,6 +196,8 @@ class HostSession(
     override fun onPeerConnected(peer: PeerId) = Unit // nothing until its Hello
 
     override fun onPeerDisconnected(peer: PeerId) {
+        // A replaced link going away doesn't make the phone offline: it is linked by its new endpoint.
+        if (replaced.remove(peer)) return
         val device = links.remove(peer) ?: return
         if (device !in links.values) {
             devices.computeIfPresent(device) { _, d -> d.copy(connected = false) }
@@ -196,6 +206,7 @@ class HostSession(
     }
 
     override fun onFrame(peer: PeerId, frame: ByteArray) {
+        if (peer in replaced) return
         when (val decoded = codec.decode(frame)) {
             is Decoded.Message -> {
                 val msg = decoded.message
@@ -227,9 +238,12 @@ class HostSession(
             else -> null
         }
         if (reason != null) return reject(peer, reason)
-        // Rejoin from a new endpoint: forget the old link of the same phone.
+        // Rejoin from a new endpoint: forget the old link of the same phone (field test: the guest's
+        // old link was still open here when its new one said hello, and Nearby only reported it
+        // gone ~30 s later). The phone stays one device with its claims; the old link is closed.
         links.filterValues { it == hello.deviceId }.keys.filter { it != peer }.forEach {
             links.remove(it)
+            replaced += it
             transport.disconnect(it)
         }
         links[peer] = hello.deviceId

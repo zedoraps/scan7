@@ -7,7 +7,11 @@ import net.moesli.scan7.multiplayer.ClientTransport
 import net.moesli.scan7.multiplayer.HostTransport
 import net.moesli.scan7.multiplayer.PeerId
 
-/** Timers for retries and delayed disconnects (the app: a Handler / coroutine on the main thread; tests: virtual time). */
+/**
+ * Timers for retries and delayed disconnects, run on the transports' thread (the app: a coroutine
+ * on the share runtime's session thread, where a 0 ms task also posts Nearby's callbacks; tests:
+ * virtual time).
+ */
 fun interface Scheduler {
     fun schedule(delayMs: Long, block: () -> Unit): Cancellable
 }
@@ -162,6 +166,12 @@ class NearbyHostTransport(
  * after a drop it reports `onDisconnected`, rediscovers with backoff and reports `onConnected`
  * again (the [net.moesli.scan7.multiplayer.ClientSession] then sends a fresh `hello`). [disconnect]
  * ends it for good.
+ *
+ * Every connection attempt has its own callbacks ([Attempt]). On this side the host has **one
+ * endpoint id for all links**, so a late callback of an earlier link (its `onDisconnected` once the
+ * host closed it after a rejoin, a failed send) names the current link's id too. Taken for the loss
+ * of the current link, it made the guest link again, the host then closed the link before, and so
+ * on (field test: a new link on every scan). Only the current attempt may end the link.
  */
 class NearbyClientTransport(
     private val api: ConnectionsApi,
@@ -174,6 +184,8 @@ class NearbyClientTransport(
     private val flushDelayMs: Long = NearbyHostTransport.FLUSH_DELAY_MS,
     /** A request the host never answers (it went out of range mid-handshake) is given up after this. */
     private val connectTimeoutMs: Long = CONNECT_TIMEOUT_MS,
+    /** Field-test trail: why the link dropped, which late callbacks were ignored. */
+    private val log: (String) -> Unit = {},
 ) : ClientTransport {
     private val _status = MutableStateFlow<TransportStatus>(TransportStatus.Idle)
     val status: StateFlow<TransportStatus> = _status.asStateFlow()
@@ -188,6 +200,10 @@ class NearbyClientTransport(
     private var retry: Cancellable? = null
     private var connectTimer: Cancellable? = null
 
+    /** The attempt that owns [connecting] / [endpoint] (`null` between attempts); callbacks of any other are ignored. */
+    private var current: Attempt? = null
+    private var attempts = 0
+
     override fun start(listener: ClientTransport.Listener) {
         this.listener = listener
         discover()
@@ -195,9 +211,15 @@ class NearbyClientTransport(
 
     override fun send(frame: ByteArray) {
         val ep = endpoint ?: return
+        val owner = current
         chunker.split(frame).forEach { chunk ->
             api.sendPayload(ep, chunk) { result ->
-                if (result is ApiResult.Failed && result.error == ApiError.NOT_CONNECTED) dropped(ep)
+                if (result is ApiResult.Failed && result.error == ApiError.NOT_CONNECTED && owner != null && owner === current) {
+                    // Nearby says the link is gone: close our side too, so no half-open link lingers.
+                    log("send to $ep failed: not connected (attempt ${owner.number})")
+                    api.disconnectFromEndpoint(ep)
+                    dropped(ep)
+                }
             }
         }
     }
@@ -214,10 +236,12 @@ class NearbyClientTransport(
         if (ep != null) scheduler.schedule(flushDelayMs) { api.disconnectFromEndpoint(ep) }
         endpoint = null
         connecting = null
+        current = null
     }
 
     private fun discover() {
-        if (closed) return
+        // Never while linked or mid-handshake: a second request would open a second link to the host.
+        if (closed || endpoint != null || connecting != null) return
         val missing = missingPermissions()
         if (missing.isNotEmpty()) {
             _status.value = TransportStatus.MissingPermissions(missing)
@@ -235,7 +259,8 @@ class NearbyClientTransport(
                 }
                 result is ApiResult.Failed -> {
                     discovering = false
-                    scheduleRetry()
+                    // A late failure must not knock over a link found in the meantime.
+                    if (endpoint == null && connecting == null) scheduleRetry()
                 }
             }
         }
@@ -255,9 +280,13 @@ class NearbyClientTransport(
         retry = scheduler.schedule(delay) { discover() }
     }
 
+    /** The current link (or handshake) to [ep] is gone: tell the session and look for the host again. */
     private fun dropped(ep: String) {
         chunker.reset(ep)
-        if (endpoint == ep) {
+        val wasLinked = endpoint == ep
+        if (!wasLinked && connecting != ep) return // not ours (any more): nothing to retry
+        current = null
+        if (wasLinked) {
             endpoint = null
             listener?.onDisconnected()
         }
@@ -273,20 +302,25 @@ class NearbyClientTransport(
             if (closed || endpoint != null || connecting != null) return
             if (serviceId != this@NearbyClientTransport.serviceId || !JoinAuth.matches(name, link.sessionId)) return
             stopDiscovery()
+            val a = Attempt(++attempts)
+            current = a
             connecting = endpointId
             _status.value = TransportStatus.Connecting(endpointId)
             // Field test: the host lost Wi-Fi mid-request, no result ever came, and `connecting` then
             // made the guest ignore the host it found again ("Connecting…" forever).
             connectTimer?.cancel()
             connectTimer = scheduler.schedule(connectTimeoutMs) {
-                if (connecting == endpointId && endpoint == null && !closed) {
+                if (current === a && connecting == endpointId && endpoint == null && !closed) {
+                    log("request to $endpointId timed out (attempt ${a.number})")
+                    current = null
                     connecting = null
                     api.disconnectFromEndpoint(endpointId)
                     scheduleRetry()
                 }
             }
-            api.requestConnection(requestName(), endpointId, connectionCallback) { result ->
-                if (result is ApiResult.Failed && connecting == endpointId) {
+            api.requestConnection(requestName(), endpointId, a) { result ->
+                if (result is ApiResult.Failed && current === a && connecting == endpointId) {
+                    current = null
                     connecting = null
                     connectTimer?.cancel()
                     if (result.error == ApiError.MISSING_PERMISSION) {
@@ -301,6 +335,7 @@ class NearbyClientTransport(
         override fun onEndpointLost(endpointId: String) {
             // The host vanished before we got connected: look again (a connected link reports onDisconnected instead).
             if (connecting == endpointId && endpoint == null) {
+                current = null
                 connecting = null
                 connectTimer?.cancel()
                 scheduleRetry()
@@ -308,12 +343,17 @@ class NearbyClientTransport(
         }
     }
 
-    private val payloads = PayloadCallback { ep, bytes ->
-        if (ep == endpoint) chunker.accept(ep, bytes)?.let { listener?.onFrame(it) }
-    }
+    /** One connection attempt: its lifecycle and payload callbacks count only while it is [current]. */
+    private inner class Attempt(val number: Int) : ConnectionCallback {
+        val payloads = PayloadCallback { ep, bytes ->
+            if (current === this && ep == endpoint) chunker.accept(ep, bytes)?.let { listener?.onFrame(it) }
+        }
 
-    private val connectionCallback = object : ConnectionCallback {
         override fun onConnectionInitiated(endpointId: String, remoteName: String) {
+            if (current !== this) {
+                log("ignored a late connectionInitiated of attempt $number ($endpointId)")
+                return
+            }
             if (endpointId != connecting || !JoinAuth.matches(remoteName, link.sessionId)) {
                 api.rejectConnection(endpointId)
                 return
@@ -322,24 +362,36 @@ class NearbyClientTransport(
         }
 
         override fun onConnectionResult(endpointId: String, result: ApiResult) {
-            if (endpointId != connecting) return
+            if (current !== this || endpointId != connecting) {
+                log("ignored a late connectionResult of attempt $number ($endpointId)")
+                return
+            }
             connecting = null
             connectTimer?.cancel()
             if (result == ApiResult.Ok && !closed) {
                 endpoint = endpointId
                 attempt = 0
+                retry?.cancel()
                 _status.value = TransportStatus.Connected(endpointId)
                 listener?.onConnected()
             } else if (result is ApiResult.Failed && result.error == ApiError.REJECTED) {
+                current = null
                 // Wrong token / removed: the host won't take us; don't hammer it.
                 _status.value = TransportStatus.Failed(ApiError.REJECTED, result.message)
             } else {
+                current = null
                 scheduleRetry()
             }
         }
 
         override fun onDisconnected(endpointId: String) {
-            if (endpointId == endpoint || endpointId == connecting) dropped(endpointId)
+            if (current !== this) {
+                // An earlier link (e.g. the one the host closed after we rejoined), not the current one.
+                log("ignored a late disconnect of attempt $number ($endpointId)")
+                return
+            }
+            log("link to $endpointId lost (attempt $number)")
+            dropped(endpointId)
         }
     }
 

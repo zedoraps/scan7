@@ -33,6 +33,7 @@
 22. **The host always plays in practice.** If it hasn't picked a player, its label stays **"Host"**. There is no helper name for the host.
 23. **"Save players" matches by name only** (trimmed, ignoring case). The avatar doesn't count.
 24. **When multiplayer ships, the `play` flavor becomes the default build** (`installPlayDebug`, …). The **`foss` flavor without Play services stays buildable.** This is done: the flavorless default is the Play build, and `-Pscan7.foss=true` (or `-Pscan7.flavors=true` with the `foss` flavor) builds without Play services.
+25. **A guest may bust any open player of the running round, also players it doesn't scan** (even ones another phone scans), decided 2026-10-19 and kept as built. The bust then counts as that phone's entry: only it (or the host) may undo or change it. Scores follow the same rule; the main flow stays "scan your own players" (rule 4).
 
 ### 0.2 Proposals (please confirm or change)
 - **P1. One screen for steps 3 and 4**, "Who are you? · Who do you scan?". "Me" is preselected as scanned. You can add extra players, e.g. a neighbour without a phone. "Just helping" asks for a name instead. A player another device already scans shows that device's badge. Claiming them anyway asks first ("Take over Cleo from Anna's phone?"), and then they move to you. The same goes for "I am Anna" when another phone already is Anna (e.g. a new phone).
@@ -198,7 +199,7 @@ There are no merges and no CRDT. The order of arrival at the host decides, and t
 - An **added** player appears unclaimed, so the host scans them by default and any guest can claim them.
 
 ### 4.8 Threading
-Sessions are plain Kotlin and not thread-safe. `ShareRuntime` runs all of them on one session thread (`scan7-share`). The radio transports and their timers post to it, the repository routers switch to it, and the UI observes `ShareRuntime.state` plus the usual Room flows. The host's store calls Room with `runBlocking` on that thread. Room works on its own executors, so this can't deadlock.
+Sessions are plain Kotlin and not thread-safe. `ShareRuntime` runs all of them on one session thread (`scan7-share`). The radio transports' timers run on it, and every Nearby callback (Nearby calls them on the main thread) is posted to it in order by `SerialConnectionsApi`. Until 2026-10-19 the callbacks ran the transports and sessions on the main thread while sends, timers and joins ran on the session thread; the repository routers switch to it, and the UI observes `ShareRuntime.state` plus the usual Room flows. The host's store calls Room with `runBlocking` on that thread. Room works on its own executors, so this can't deadlock.
 
 ---
 
@@ -244,7 +245,9 @@ The domain classes (`GameState`, `PlayerResult`, …) are **not** annotated. The
   - The client transport **keeps its link**. After a drop it reports `onDisconnected`, rediscovers with backoff (1, 2, 4, 8, 16, 30 s; a connection attempt times out after 30 s) and reports `onConnected` again, so `ClientSession` sends a fresh `hello`. An `onEndpointLost` before the handshake also retries. A connection the host rejected is not retried.
   - The `missingPermissions` check runs before Nearby is touched, and `MISSING_PERMISSION` from Nearby shows as `TransportStatus.MissingPermissions` (no retry loop).
   - Graceful disconnects wait 300 ms, so `hello_rejected` or `leave` frames still get out.
-  - Callbacks are expected on one thread (for Nearby, the main thread).
+  - Callbacks are expected on one thread: the session thread (`SerialConnectionsApi` posts Nearby's main-thread callbacks there).
+  - **Every connection attempt of the guest has its own callbacks** and only the current one may end the link. On the guest side the host keeps one endpoint id for all links, so a late `onDisconnected` (or a late failed send) of an earlier link names the current link's id too. Field test 2026-10-19: taken for the loss of the current link, it made the guest link again on every scan (the host closed the previous link after each rejoin, and that disconnect arrived about 30 s later as the next "drop"). A send that fails "not connected" also closes the guest's side of the link before rediscovering, so no half-open link lingers. The guest never discovers while it is linked or mid-handshake.
+  - The host keeps **one link per phone**: a hello from a new endpoint replaces the phone's older link (closed, its later frames and its disconnect ignored), so the phone stays connected with its claims.
 - A **foreground service** runs while hosting or joined (`foregroundServiceType="connectedDevice"`, notification "Scan7 is sharing a game"), so screen-off and the camera don't kill the link. "Keep screen on" already applies on the round and camera screens.
 - Disconnects: Nearby's `onDisconnected` becomes the transport's `onPeerDisconnected`. The guest reconnects with exponential backoff (1, 2, 4 … 30 s). The host sends `hello_rejected` and waits about 300 ms before `disconnectFromEndpoint`, so the frame is not lost.
 
@@ -370,8 +373,10 @@ Test abbreviations: **MST** is `multiplayer/MultiplayerSessionTest` (sessions on
 | Duplicate / replayed / future event | The same or an older seq is ignored, and a gap triggers a resync | MST `duplicateAndReplayedEvents_…` | ✅ |
 | Retried intent (same id) | Applied once; the original outcome is sent back | MST `retriedIntent_isAppliedOnce` | ✅ |
 | Same refusal twice (outbox resent on two reconnects) | Explained once | `ClientSession` guard (no fake can reorder it) | 🛠 |
-| Rejoin from a new endpoint | The old link is dropped, same device | MST `rejoinFromANewEndpoint_…` | ✅ |
-| Send fails "not connected" | Counts as a drop | NTT `sendFailing_notConnected_countsAsADrop` | ✅ |
+| Rejoin from a new endpoint | The old link is dropped, same device; a late frame (even a hello) on the old link is ignored | MST `rejoinFromANewEndpoint_…`, NTT `hostKeepsOneLinkPerPhone_…` | 🛠 (a late hello on the old link took the phone's current link away) |
+| Late disconnect / failed send of an earlier link (same host id on the guest) | Ignored: the current link stays, no new link | NTT `aLateDisconnectOfAnEarlierLink_…`, `aLateSendFailureOfAnEarlierLink_…`, TPS `scansInARow_keepTheOneRadioLink` | 🛠 (field test 2026-10-19: a new link on every scan) |
+| Nearby callbacks vs. the session thread | Every callback runs on the session thread, in order | NTT `serialApi_runsEveryCallbackOnThePostedQueue_inOrder` | 🛠 (they ran on the main thread, racing sends, timers and joins) |
+| Send fails "not connected" | Counts as a drop; the guest closes its side of the link first | NTT `sendFailing_notConnected_countsAsADrop`, `ownSendFailure_closesTheLinkBeforeLinkingAgain` | 🛠 |
 
 ### Conflicts and stale intents
 | Case | Expected | Covered by | Status |
@@ -379,6 +384,7 @@ Test abbreviations: **MST** is `multiplayer/MultiplayerSessionTest` (sessions on
 | Two phones score the same player | The first confirmed score wins; the other phone gets "Already scored by …" | MST `staleIntent_isRejected_firstConfirmedScoreWins`, SRT `aRefusedScan_…` | ✅ |
 | Guest scores / busts a player the host already scored (race: its copy already showed it) | Sent anyway; the host refuses it and the guest shows the dialog "Already scored by Host" (was a silent failure on the phone) | SRT `hostAndGuest_playARound…`, MST `guestNeverReplacesAnotherDevicesValue_…` | 🛠 |
 | Host closes the round while a guest's camera is open | The scan keeps the round it started in, so it is refused with the dialog "The round was closed in the meantime", and nothing lands in the next round | TPS `aScanForARoundTheHostClosed_…`, MST `scanForAClosedRound_…`, `aRefusal_remembersWhatWasRefused` | 🛠 (the scan screen used the copy's *current* round, so it landed in the next round) |
+| Guest busts a player it doesn't scan (also one another phone scans) | Allowed (rule 25); it becomes that phone's entry, so only it or the host may undo it | MST `guestMayBustPlayersItDoesNotScan_…`, TPS `scansInARow_…` | ✅ (decided 2026-10-19) |
 | Undo across phones | Only the phone that busted (or the host) may undo; an Undo after the host changed it is STALE | MST `undoAcrossPhones_…`, `guestEditsOnlyItsOwnRecentEntries` | ✅ |
 | Host-only action from a guest | NOT_ALLOWED; never offered in the UI | MST `hostOnlyActionFromAClient_…`, `guestCannotEndARoundOrChangeTotals` | ✅ |
 | Invalid action (unknown player, game over) | INVALID, nothing changes | MST `invalidIntent_…`, HostStoreTest `aRefusingStore_changesNothing` | ✅ |
