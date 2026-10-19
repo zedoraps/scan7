@@ -121,6 +121,8 @@ fun ShareSheet(
     /** The host says which player it is (names its phone "Philip's phone"); [seated] = the table, in order. */
     seated: List<Player> = emptyList(),
     onClaimSelf: (Long) -> Unit = {},
+    /** The radio lacks permissions: ask again and restart sharing. */
+    onAllow: () -> Unit = {},
 ) {
     val colors = Scan7Theme.colors
     var removing by remember { mutableStateOf<DeviceInfo?>(null) }
@@ -145,7 +147,10 @@ fun ShareSheet(
             Text(stringResource(R.string.share_hint), color = colors.textMuted, style = Scan7Type.text12)
             Text(stringResource(R.string.share_code, host.link.sessionId.take(6).uppercase()), color = colors.text, style = Scan7Type.text15)
             when (val t = host.transport) {
-                is TransportStatus.MissingPermissions -> Text(stringResource(R.string.radio_permissions_missing), color = colors.warning, style = Scan7Type.text12)
+                is TransportStatus.MissingPermissions -> {
+                    Text(stringResource(R.string.radio_permissions_missing), color = colors.warning, style = Scan7Type.text12)
+                    PrimaryButton(stringResource(R.string.action_allow), onAllow, Modifier.fillMaxWidth())
+                }
                 is TransportStatus.Failed -> Text(stringResource(R.string.share_radio_failed), color = colors.warning, style = Scan7Type.text12)
                 else -> t
             }

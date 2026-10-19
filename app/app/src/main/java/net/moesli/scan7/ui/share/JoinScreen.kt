@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.share
 
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import net.moesli.scan7.ui.components.BetaTag
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -98,6 +99,11 @@ fun JoinRoute(initialLink: String?, onBack: () -> Unit, onJoined: (Long) -> Unit
                 val retry = {
                     runtime.leave()
                     permissions.run { runtime.join(parsed, LinkMode.RADIO) }
+                }
+                // Back from the app settings with the permissions now granted: connect by itself.
+                LifecycleResumeEffect(guest?.transport) {
+                    if (guest?.transport is TransportStatus.MissingPermissions && permissions.missing().isEmpty()) retry()
+                    onPauseOrDispose {}
                 }
                 when (guest?.transport) {
                     is TransportStatus.MissingPermissions -> {
