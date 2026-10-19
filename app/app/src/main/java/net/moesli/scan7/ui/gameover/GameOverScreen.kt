@@ -195,7 +195,8 @@ private fun Winners(state: GameOverUi) {
             modifier = Modifier.semantics { heading() },
         )
         Text(
-            if (shared) pluralStringResource(R.plurals.gameover_points_each, total, total) else points,
+            // The visible line is nominative ("200 Punkte"); only the TalkBack sentence uses the dative.
+            if (shared) pluralStringResource(R.plurals.gameover_points_each, total, total) else pluralStringResource(R.plurals.points, total, total),
             color = colors.accent,
             style = Scan7Type.total18,
             textAlign = TextAlign.Center,
