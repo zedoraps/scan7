@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -154,8 +153,9 @@ private fun PlayerRowContent(
                 textAlign = TextAlign.End,
                 maxLines = 1,
                 softWrap = false,
-                // Right-aligned against the actions column either way.
-                modifier = Modifier.widthIn(min = if (narrow) 0.dp else size.totalWidth),
+                // Right-aligned against the actions column either way. No reserved min width (it cut
+                // "Maximilian…" early beside a 2-digit total); a gap keeps a long name off the digits.
+                modifier = Modifier.padding(start = Scan7Spacing.s),
             )
         }
         if (showScore) Box(contentAlignment = Alignment.Center, modifier = Modifier.width(if (narrow) size.actionsWidth - 12.dp else size.actionsWidth)) {
