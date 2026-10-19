@@ -180,8 +180,9 @@ class ShareRuntime(
                 transport = transport,
                 clock = System::currentTimeMillis,
                 restored = restored,
-                onApplied = { _, _ -> saveHost(h) },
-                store = { _, action, now, _ -> runBlocking { repository.applyLocal(gameId, { action }, now) } },
+                onApplied = { _, _ -> hosting?.let(::saveHost) },
+                // The hosted game id moves with "Same players, new game" (hostMovedTo).
+                store = { _, action, now, _ -> runBlocking { repository.applyLocal(hosting?.gameId ?: gameId, { action }, now) } },
             )
             h = Hosting(gameId, link, mode, session)
             hosting = h

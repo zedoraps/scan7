@@ -115,6 +115,44 @@ class ShareRuntimeTest {
     }
 
     @Test
+    fun samePlayersNewGame_andRemovingAPlayer_reachTheGuest() {
+        val (game, anna, ben, cleo) = runBlocking {
+            val a = repo.addPlayer("Anna")
+            val b = repo.addPlayer("Ben")
+            val c = repo.addPlayer("Cleo")
+            listOf(repo.startGame(listOf(a, b, c)), a, b, c)
+        }
+        runtime.host(game, LinkMode.IN_PROCESS)
+        await("hosting") { runtime.state.value.host != null }
+        runtime.join(runtime.state.value.host!!.link, LinkMode.IN_PROCESS)
+        await("joined") { runtime.state.value.guest?.localGameId != null }
+        val firstCopy = runtime.state.value.guest!!.localGameId!!
+        val localCleo = runtime.state.value.guest!!.players.values.single { it.name == "Cleo" }.id
+        runtime.claim(localCleo, listOf(localCleo), null, force = false)
+        await("claim") { runtime.state.value.guest?.myScans == setOf(localCleo) }
+
+        // The host removes Cleo mid-game (main's Players flow): her claim goes, the copy follows.
+        runBlocking { repo.removePlayerFromGame(game, cleo) }
+        await("claim dropped") { runtime.state.value.guest?.myScans?.isEmpty() == true }
+        await("copy without Cleo") { repo.loadGame(firstCopy)!!.playerIds.size == 2 }
+
+        // End the game, then "Same players, new game": the guest stays connected, gets a new copy.
+        runBlocking { repo.endGame(game) }
+        await("copy over") { repo.loadGame(firstCopy)!!.isOver }
+        val next = runBlocking { repo.startGame(listOf(anna, ben)) }
+        runtime.hostMovedTo(next)
+        await("new copy") { runtime.state.value.guest?.localGameId.let { it != null && it != firstCopy } }
+        val newCopy = runtime.state.value.guest!!.localGameId!!
+        val localAnna = runtime.state.value.guest!!.players.values.single { it.name == "Anna" }.id
+        runtime.claim(localAnna, listOf(localAnna), null, force = false)
+        await("claim again") { runtime.state.value.guest?.myScans == setOf(localAnna) }
+        runBlocking { repo.scorePoints(newCopy, localAnna, 9) }
+        await("scored in the new game") { repo.loadGame(next)!!.total(anna) == 9 }
+        // The old copy stays in the history, read-only.
+        assertTrue(runBlocking { repo.pastGames.first() }.any { it.state.id == firstCopy && it.isJoined })
+    }
+
+    @Test
     fun aRefusedScan_reachesTheGuestAsARefusal() {
         val (game, anna) = runBlocking {
             val a = repo.addPlayer("Anna")
