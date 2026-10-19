@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -64,9 +65,9 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import net.moesli.scan7.detection.Detection
@@ -75,7 +76,9 @@ import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.training.TrainingCapture
 import net.moesli.scan7.scoring.scoreRow
 import net.moesli.scan7.ui.text.secondChanceText
+import net.moesli.scan7.ui.components.FitText
 import net.moesli.scan7.ui.components.IconButton
+import net.moesli.scan7.ui.components.cappedScale
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.SecondaryButton
@@ -156,6 +159,7 @@ internal fun ScanReviewStep(
     // left, panel right at phone width, instead of a small photo strip above a wide panel.
     BoxWithConstraints(modifier = modifier.fillMaxSize().background(colors.ground)) {
         val sideBySide = maxWidth > maxHeight && maxWidth >= SideBySideMinWidth
+        val maxPanelHeight = maxHeight * MAX_PANEL_HEIGHT_FRACTION
         val photo: @Composable (Modifier) -> Unit = { photoModifier ->
             Box(modifier = photoModifier) {
                 Image(
@@ -171,6 +175,12 @@ internal fun ScanReviewStep(
                     imageWidth = capture.bitmap.width,
                     imageHeight = capture.bitmap.height,
                     crop = false,
+                    // No tag under the back button (top-left: status bar + margin + 48 dp button).
+                    keepClear = DpSize(
+                        Scan7Spacing.screenMargin + Scan7Spacing.minTouch + Scan7Spacing.xs,
+                        with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() } +
+                            Scan7Spacing.screenMargin + Scan7Spacing.minTouch + Scan7Spacing.xs,
+                    ),
                     modifier = Modifier
                         .fillMaxSize()
                         .pointerInput(capture) {
@@ -225,14 +235,23 @@ internal fun ScanReviewStep(
                 Column(
                     modifier = Modifier
                         .centeredMaxWidth()
+                        // Large font scales: the panel grows, but keeps some photo and scrolls.
+                        .heightIn(max = maxPanelHeight)
                         .clip(shape)
                         .background(colors.surface)
-                        .windowInsetsPadding(WindowInsets.navigationBars),
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .verticalScroll(rememberScrollState()),
                 ) { panel() }
             }
         }
     }
 }
+
+/** Most of the screen height the portrait review panel may take (the rest stays photo). */
+private const val MAX_PANEL_HEIGHT_FRACTION = 0.75f
+
+/** Above this font scale the Flip 7 badge sits under the subtitle instead of beside the total. */
+private const val BADGE_IN_ROW_MAX_FONT_SCALE = 1.3f
 
 /** Landscape windows at least this wide show the review photo and panel side by side. */
 private val SideBySideMinWidth = 840.dp
@@ -304,14 +323,15 @@ private fun StatusSlot(player: PlayerUi, cards: List<Card>, roundNumber: Int?, b
         verticalArrangement = Arrangement.SpaceBetween,
         modifier = Modifier
             .fillMaxWidth()
-            .height(StatusSlotHeight)
+            // At least the fixed slot (bust ↔ not bust doesn't move the chips); grows only at large font scales.
+            .heightIn(min = StatusSlotHeight)
             .background(if (bust) colors.bust else Color.Transparent)
             .padding(start = Scan7Spacing.screenMargin, end = Scan7Spacing.screenMargin, top = Scan7Spacing.l, bottom = Scan7Spacing.s),
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().height(48.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
         ) {
             if (bust) {
                 Row(
@@ -322,32 +342,36 @@ private fun StatusSlot(player: PlayerUi, cards: List<Card>, roundNumber: Int?, b
                     CloseIcon(ink, size = 32.dp, strokeWidth = 3.2f)
                     Text(stringResource(R.string.label_bust), color = ink, style = Scan7Type.total24.copy(fontSize = 28.sp), maxLines = 1)
                 }
-                Text(player.name, color = ink, style = Scan7Type.tag12.copy(fontSize = 13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                FitText(player.name, Scan7Type.tag12.copy(fontSize = 13.sp), color = ink, modifier = Modifier.weight(1f, fill = false))
                 PlayerAvatar(player.avatar, ReviewAvatar)
             } else {
                 PlayerAvatar(player.avatar, ReviewAvatar)
+                // Large font scales: the Flip 7 badge moves under the subtitle, else it and the
+                // total leave the name column only a few characters (subtitle one glyph per line).
+                val badgeInColumn = LocalDensity.current.fontScale > BADGE_IN_ROW_MAX_FONT_SCALE
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
-                    Text(player.name, color = ink, style = Scan7Type.button.copy(fontSize = 17.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    FitText(player.name, Scan7Type.button.copy(fontSize = 17.sp), color = ink, minSize = 12.dp)
                     val progress = "${player.total} → ${player.total + score.total}"
                     Text(
                         text = roundNumber?.let { stringResource(R.string.review_round_progress, it, progress) } ?: progress,
                         color = colors.textMuted,
                         style = Scan7Type.text12,
-                        maxLines = 1,
                     )
+                    if (badgeInColumn && score.flip7Bonus > 0) Flip7Badge(score.flip7Bonus)
                 }
-                if (score.flip7Bonus > 0) Flip7Badge(score.flip7Bonus)
+                if (!badgeInColumn && score.flip7Bonus > 0) Flip7Badge(score.flip7Bonus)
                 val pointsDescription = pluralStringResource(R.plurals.points, score.total, score.total)
                 Text(
                     text = score.total.toString(),
                     color = colors.accent,
-                    style = ScoreNumberStyle.copy(fontSize = 40.sp, lineHeight = 48.sp),
+                    // Capped: at font scale 2 an 80 sp total left the name no room.
+                    style = ScoreNumberStyle.copy(fontSize = 40.sp, lineHeight = 48.sp).cappedScale(1.4f),
                     maxLines = 1,
                     modifier = Modifier.semantics { contentDescription = pointsDescription },
                 )
             }
         }
-        Box(Modifier.fillMaxWidth().height(StatusLineHeight), contentAlignment = Alignment.CenterStart) {
+        Box(Modifier.fillMaxWidth().heightIn(min = StatusLineHeight), contentAlignment = Alignment.CenterStart) {
             val secondChance = score.secondChanceText()?.resolve()
             when {
                 overLimit -> NumberLimitWarning(if (bust) colors.onBust else colors.accent)
@@ -421,7 +445,7 @@ private fun EmptyPanel(player: PlayerUi, error: String?, onRetake: () -> Unit, o
     PanelContent {
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m), verticalAlignment = Alignment.CenterVertically) {
             PlayerAvatar(player.avatar, ReviewAvatar)
-            Text(player.name, color = colors.text, style = Scan7Type.button.copy(fontSize = 17.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            FitText(player.name, Scan7Type.button.copy(fontSize = 17.sp), color = colors.text, minSize = 12.dp)
         }
         Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
             Text(
@@ -472,6 +496,8 @@ internal fun FormulaText(
     maxLines: Int = Int.MAX_VALUE,
     // Line height in em (= 20 sp at 13 sp), so it shrinks with the auto-sized font below.
     style: TextStyle = Scan7Type.text13.copy(lineHeight = FormulaLineHeight),
+    // One flowing line that wraps only where needed, instead of the fixed break before the additions.
+    joinLines: Boolean = false,
 ) {
     val colors = Scan7Theme.colors
     val spoken = spokenFormula(parts).resolve()
@@ -490,6 +516,7 @@ internal fun FormulaText(
                 }
                 // Keep "× 2" and "+ 4" together: break only after " + ".
                 val text = when {
+                    joinLines && p.text == FORMULA_LINE_BREAK -> " "
                     p.text == " × " -> " ×\u00A0"
                     p.text == "+ " -> "+\u00A0"
                     p.kind == FormulaKind.BONUS -> bonusFormat.format(p.text).replace(' ', '\u00A0')
@@ -534,7 +561,7 @@ private fun ReviewChips(chips: List<ReviewChip>, onToggleExclude: (Int) -> Unit)
                 )
             }
         }
-        Text(stringResource(R.string.review_tap_hint), color = Scan7Theme.colors.textMuted, style = Scan7Type.text12, maxLines = 1)
+        Text(stringResource(R.string.review_tap_hint), color = Scan7Theme.colors.textMuted, style = Scan7Type.text12)
     }
 }
 

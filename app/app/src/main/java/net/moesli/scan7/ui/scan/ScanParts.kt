@@ -52,10 +52,10 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.moesli.scan7.detection.Box as DetectionBox
@@ -64,6 +64,7 @@ import net.moesli.scan7.detection.DisplayMapping
 import net.moesli.scan7.detection.TrackedDetection
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.scoring.CardKind
+import net.moesli.scan7.ui.components.FitText
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.dashedBorder
 import net.moesli.scan7.ui.components.scan7Clickable
@@ -157,8 +158,9 @@ internal fun PlayerHeading(player: PlayerUi, label: String, modifier: Modifier =
     ) {
         PlayerAvatar(player.avatar, avatarSizeForHeight(35.dp))
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label.uppercase(), color = colors.textMuted, style = Scan7Type.capsButton, maxLines = 1)
-            Text(player.name, color = colors.text, style = Scan7Type.button, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // The label wraps ("CARDS / FOR") rather than losing a word at large font scales.
+            Text(label.uppercase(), color = colors.textMuted, style = Scan7Type.capsButton)
+            FitText(player.name, Scan7Type.button, color = colors.text, minSize = 12.dp)
         }
     }
 }
@@ -309,6 +311,7 @@ internal fun ScanBoxesOverlay(
     imageHeight: Int,
     crop: Boolean,
     modifier: Modifier = Modifier,
+    keepClear: DpSize = DpSize.Zero,
 ) {
     val colors = Scan7Theme.colors
     val density = LocalDensity.current
@@ -326,13 +329,23 @@ internal fun ScanBoxesOverlay(
         // All boxes first, then all tags, so a neighbouring box never covers a tag (long ones like
         // "IGNORIERT" reach into the next card). Within each pass excluded, then ignored, then
         // scoring, so scoring stays on top where they overlap (one loop per layer, no sorted copy).
-        for (pass in 0..1) {
-            val tags = pass == 1
-            for (layer in 0..2) {
-                for (i in boxes.indices) {
-                    val b = boxes[i]
-                    if (b.look.layer == layer) drawScanBoxItem(b, mapping, styles, colors, measurer, labels, excludedTag, tags)
-                }
+        for (layer in 0..2) {
+            for (i in boxes.indices) {
+                val b = boxes[i]
+                if (b.look.layer == layer) drawScanBoxItem(b, mapping, styles, colors, measurer, labels, excludedTag, tag = false)
+            }
+        }
+        // Tags: scoring first so they keep their spot; later tags that would overlap a placed tag
+        // (or the back button area [keepClear], top-left) move to another edge of their box or are
+        // skipped (simple greedy, the chips below list every card anyway).
+        styles.placedCount = 0
+        if (keepClear.width > 0.dp && keepClear.height > 0.dp) {
+            styles.place(0f, 0f, keepClear.width.toPx(), keepClear.height.toPx())
+        }
+        for (layer in 2 downTo 0) {
+            for (i in boxes.indices) {
+                val b = boxes[i]
+                if (b.look.layer == layer) drawScanBoxItem(b, mapping, styles, colors, measurer, labels, excludedTag, tag = true)
             }
         }
     }
@@ -357,9 +370,31 @@ private class BoxDrawStyles(colors: Scan7Colors, density: Density) {
     val padY: Float
     val tagInset: Float
     val tagCorner: CornerRadius
-    val tagStyle = BoxTag.copy(color = colors.onAccent)
-    val tagStyleSmall = BoxTagSmall.copy(color = colors.onAccent)
+    // Font sizes in dp: the tags sit on the photo's card boxes and must not grow with the font scale.
+    val tagStyle = with(density) { BoxTag.copy(color = colors.onAccent, fontSize = BoxTagSize.toSp()) }
+    val tagStyleSmall = with(density) { BoxTag.copy(color = colors.onAccent, fontSize = BoxTagSmallSize.toSp()) }
     val tagPath = Path()
+
+    /** Rects (l, t, r, b) of the tags placed in the current frame (reused, no per-frame allocation). */
+    private var placed = FloatArray(4 * 32)
+    var placedCount = 0
+
+    fun place(l: Float, t: Float, r: Float, b: Float) {
+        if (placedCount * 4 + 4 > placed.size) placed = placed.copyOf(placed.size * 2)
+        placed[placedCount * 4] = l
+        placed[placedCount * 4 + 1] = t
+        placed[placedCount * 4 + 2] = r
+        placed[placedCount * 4 + 3] = b
+        placedCount++
+    }
+
+    fun overlaps(l: Float, t: Float, r: Float, b: Float): Boolean {
+        for (i in 0 until placedCount) {
+            val j = i * 4
+            if (l < placed[j + 2] && r > placed[j] && t < placed[j + 3] && b > placed[j + 1]) return true
+        }
+        return false
+    }
 
     init {
         with(density) {
@@ -444,9 +479,26 @@ private fun DrawScope.drawScanBoxItem(
     val tagHeight = text.size.height + 2 * s.padY
     val tagLeft = (v.left - s.tagInset).coerceIn(0f, (size.width - tagWidth).coerceAtLeast(0f))
     // Excluded: the tag sits on the bottom edge, clear of the neighbours' top-left tags (a long tag
-    // like "IGNORIERT" would otherwise run under the next card's tag).
-    val tagY = if (b.look == BoxLook.Excluded) v.bottom - tagHeight + s.tagInset else v.top - s.tagInset
-    val tagTop = tagY.coerceIn(0f, (size.height - tagHeight).coerceAtLeast(0f))
+    // like "IGNORIERT" would otherwise run under the next card's tag). If the preferred edge is
+    // taken by another tag, try the other edge, then the middle of the box; else no tag.
+    val top = v.top - s.tagInset
+    val bottom = v.bottom - tagHeight + s.tagInset
+    val middle = (v.top + v.bottom) / 2 - tagHeight / 2
+    val maxTop = (size.height - tagHeight).coerceAtLeast(0f)
+    var tagTop = Float.NaN
+    for (k in 0..2) {
+        val y = when (k) {
+            0 -> if (b.look == BoxLook.Excluded) bottom else top
+            1 -> if (b.look == BoxLook.Excluded) top else bottom
+            else -> middle
+        }.coerceIn(0f, maxTop)
+        if (!s.overlaps(tagLeft, y, tagLeft + tagWidth, y + tagHeight)) {
+            tagTop = y
+            break
+        }
+    }
+    if (tagTop.isNaN()) return
+    s.place(tagLeft, tagTop, tagLeft + tagWidth, tagTop + tagHeight)
     s.tagPath.reset()
     s.tagPath.addRoundRect(
         RoundRect(
@@ -462,5 +514,6 @@ private fun DrawScope.drawScanBoxItem(
 /** Ink alpha of ignored boxes (action cards / backs). */
 private const val IgnoredInkAlpha = 0.78f
 
-private val BoxTag = TextStyle(fontFamily = Unbounded, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-private val BoxTagSmall = TextStyle(fontFamily = Unbounded, fontWeight = FontWeight.SemiBold, fontSize = 9.sp)
+private val BoxTag = TextStyle(fontFamily = Unbounded, fontWeight = FontWeight.SemiBold)
+private val BoxTagSize = 12.dp
+private val BoxTagSmallSize = 9.dp

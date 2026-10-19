@@ -276,7 +276,7 @@
     <string name="sheet_adjustment_description">Adjustment %1$s</string>
     <string name="sheet_remove_adjustment">Remove adjustment %1$s</string>
     <string name="adjust_title">Adjust %1$s\'s total</string>
-    <string name="adjust_note_placeholder">Note (optional): penalty …</string>
+    <string name="adjust_note_placeholder">Note (optional): penalty\u00A0…</string>
     <string name="adjust_note_label">Note, optional</string>
     <string name="adjust_apply">Apply</string>
     <string name="adjust_apply_delta">Apply %1$s</string>

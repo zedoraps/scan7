@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.newgame
 
+import net.moesli.scan7.ui.components.FitText
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import net.moesli.scan7.R
@@ -43,7 +44,6 @@ import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -354,14 +354,15 @@ fun SeatingScreen(
         bottomBar = { barModifier ->
             Column(barModifier) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    Text(
+                    // "…, or just start" says arranging is optional: wraps (large font scales: shrinks
+                    // to fit the slot) instead of being cut.
+                    FitText(
                         text = error ?: stringResource(if (view == RoundView.Table) R.string.seats_hint_table else R.string.seats_hint_list),
-                        color = colors.textMuted,
                         style = Scan7Type.text12,
+                        color = colors.textMuted,
+                        minSize = 8.dp,
+                        maxLines = 4,
                         textAlign = TextAlign.Center,
-                        // "…, or just start" says arranging is optional: may wrap to a second line.
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 PrimaryButton(

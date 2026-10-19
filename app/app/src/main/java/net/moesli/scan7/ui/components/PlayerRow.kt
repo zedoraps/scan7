@@ -22,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -138,12 +137,12 @@ private fun PlayerRowContent(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f),
             ) {
-                Text(
+                // Shrinks before it ellipsizes: "Philip" stays whole at large font scales.
+                FitText(
                     text = player.name,
-                    color = look.ink,
                     style = if (size == RowSize.Regular) Scan7Type.text15 else Scan7Type.text14,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    color = look.ink,
+                    minSize = 10.dp,
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 if (player.isLeader && !narrow && showScore) LeaderBadge(size = 20.dp)

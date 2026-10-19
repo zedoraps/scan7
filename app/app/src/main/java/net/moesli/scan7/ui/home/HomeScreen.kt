@@ -338,7 +338,8 @@ private fun ResumeCard(game: ResumeGameUi, onResume: () -> Unit, onDelete: () ->
                     contentDescription = description
                 },
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // Gap: at large font scales "RESUME GAME" and "to 200" ran together.
+                Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xl), verticalAlignment = Alignment.CenterVertically) {
                     SectionLabel(stringResource(R.string.home_resume_title), Modifier.weight(1f))
                     Text(stringResource(R.string.target_short, game.target), color = colors.textMuted, style = Scan7Type.text12)
                 }

@@ -177,7 +177,8 @@ fun ScreenHeader(
                 modifier = Modifier.semantics { heading() },
             )
             if (subtitle != null) {
-                Text(subtitle, color = colors.textMuted, style = Scan7Type.text12, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // Wraps ("· tap to edit", "0 of 10") instead of ellipsizing at large font scales.
+                Text(subtitle, color = colors.textMuted, style = Scan7Type.text12)
             }
         }
         trailing()
@@ -187,7 +188,8 @@ fun ScreenHeader(
 /** Caps section label, e.g. "PLAYERS" (DM Mono 11, 0.24 em, muted). */
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier, color: Color = Scan7Theme.colors.textMuted) {
-    Text(text.uppercase(), color = color, style = Scan7Type.capsLabel, maxLines = 1, modifier = modifier)
+    // Wraps at large font scales instead of losing words ("GAME OVER · 5 ROUNDS" → "GAME").
+    Text(text.uppercase(), color = color, style = Scan7Type.capsLabel, modifier = modifier)
 }
 
 /** Text-only button (48 dp touch target), e.g. "Debug" or "Scoreboard". */
