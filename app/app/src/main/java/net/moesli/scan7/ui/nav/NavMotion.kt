@@ -17,15 +17,16 @@ import androidx.compose.animation.togetherWith
 import androidx.navigation3.scene.Scene
 
 /**
- * Screen transitions of [AppNavHost]: short and quiet on the dark ground (fade with a small
- * horizontal shift, ~220 ms like the card moves in the design handoff), plus the predictive-back
+ * Screen transitions of [AppNavHost]: short and quiet on the dark ground (a fade through of
+ * 240 ms in total, forward with a small horizontal shift), plus the predictive-back
  * preview: while the back swipe is held, the current screen shrinks a little towards the swipe
  * side and fades, revealing the screen below. Two camera screens in a row ("Scan next" from a
  * card Scan) switch without a transition, so only one camera preview is ever bound.
  */
 object NavMotion {
     private const val ENTER_MS = 220
-    private const val EXIT_MS = 120
+    private const val OUT_MS = 90
+    private const val IN_MS = 150
     private const val CAMERA = "scan7.camera"
 
     /** Entry metadata for [route] (marks camera screens, see [hasCamera]). */
@@ -41,24 +42,27 @@ object NavMotion {
 
     private val none: ContentTransform get() = EnterTransition.None togetherWith ExitTransition.None
 
-    /** Forward: the new screen fades in, shifted in slightly from the end side. */
+    /**
+     * Forward: fade through, one change at a time. The old screen fades out first, then the new one
+     * fades in with a small shift from the end side. Overlapping both looked busy at the table.
+     */
     val forward: AnimatedContentTransitionScope<Scene<Route>>.() -> ContentTransform = {
         if (cameraToCamera()) {
             none
         } else {
-            (fadeIn(tween(ENTER_MS, easing = LinearOutSlowInEasing)) + slideInHorizontally(tween(ENTER_MS, easing = FastOutSlowInEasing)) { it / 12 }) togetherWith
-                fadeOut(tween(EXIT_MS, easing = LinearEasing))
+            (fadeIn(tween(IN_MS, delayMillis = OUT_MS, easing = LinearOutSlowInEasing)) +
+                slideInHorizontally(tween(IN_MS, delayMillis = OUT_MS, easing = FastOutSlowInEasing)) { it / 24 }) togetherWith
+                fadeOut(tween(OUT_MS, easing = LinearEasing))
         }
     }
 
-    /** Back: the screen below fades in, the leaving one fades out while shifting to the end side. */
+    /** Back: the same fade through without any shift (the button or a quick swipe). */
     val pop: AnimatedContentTransitionScope<Scene<Route>>.() -> ContentTransform = {
         if (cameraToCamera()) {
             none
         } else {
-            val exit = fadeOut(tween(ENTER_MS, easing = LinearEasing)) +
-                slideOutHorizontally(tween(ENTER_MS, easing = FastOutSlowInEasing)) { it / 12 }
-            (fadeIn(tween(EXIT_MS, easing = LinearOutSlowInEasing)) togetherWith exit).below()
+            fadeIn(tween(IN_MS, delayMillis = OUT_MS, easing = LinearOutSlowInEasing)) togetherWith
+                fadeOut(tween(OUT_MS, easing = LinearEasing))
         }
     }
 
