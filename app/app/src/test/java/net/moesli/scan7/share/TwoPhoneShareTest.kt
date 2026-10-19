@@ -171,6 +171,25 @@ class TwoPhoneShareTest {
     }
 
     @Test
+    fun scansInARow_keepTheOneRadioLink() {
+        // Field test 2026-10-19: the guest linked again on every scan (new endpoint, same phone).
+        val g = Game()
+        val local = g.local
+        val requests = { onThread { g.guestPhone.radio.api.calls.count { it == "requestConnection" } } }
+        assertEquals(1, requests())
+        runBlocking { g.guestPhone.repo.scorePoints(local, g.localAnna, 12) }
+        await("first scan") { g.hostTotal(g.anna) == 12 }
+        // A guest may bust a player it doesn't scan (decided 2026-10-19).
+        runBlocking { g.guestPhone.repo.bust(local, g.localBen) }
+        await("bust") { runBlocking { g.hostPhone.repo.loadGame(g.game)!!.currentRound.result(g.ben).status } == net.moesli.scan7.game.ResultStatus.BUST }
+        Thread.sleep(300) // a relink would start within the backoff
+        assertEquals(1, requests())
+        assertEquals(1, g.guestPhone.radio.joins)
+        assertEquals(ClientStatus.JOINED, g.guestPhone.guest!!.status)
+        assertEquals(1, g.hostPhone.host!!.guests.size)
+    }
+
+    @Test
     fun guestRestart_whileTheHostIsGone_scansWaitAndArriveWhenTheHostResumes() {
         val g = Game()
         val local = g.local

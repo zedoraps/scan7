@@ -498,6 +498,34 @@ class MultiplayerSessionTest {
     }
 
     @Test
+    fun guestMayBustPlayersItDoesNotScan_evenOnesAnotherPhoneScans() {
+        // Decided 2026-10-19 (MULTI_DEVICE.md §0.1 rule 25): Bust isn't limited to the own players.
+        val t = Table()
+        val a = t.joined("anna")
+        val b = t.joined("ben")
+        t.net.deliverAll()
+        a.claim(anna.id, listOf(anna.id))
+        b.claim(ben.id, listOf(ben.id))
+        t.net.deliverAll()
+        assertTrue(a.mayPerform(Bust(cleo.id, 1))) // nobody's phone scans Cleo
+        assertTrue(a.mayPerform(Bust(ben.id, 1))) // Ben's phone scans Ben
+        a.perform(Bust(cleo.id, 1))
+        a.perform(Bust(ben.id, 1))
+        t.net.deliverAll()
+        assertEquals(emptyList<IntentRejected>(), a.view.value.rejections)
+        assertEquals(ResultStatus.BUST, t.host.state.round(1).result(cleo.id).status)
+        assertEquals(ResultStatus.BUST, t.host.state.round(1).result(ben.id).status)
+        // The bust is Anna's phone's entry now: it may undo it, Ben's phone may not change it.
+        assertEquals("anna", t.host.authors[ResultKey(1, ben.id)])
+        assertTrue(a.mayEdit(ben.id))
+        assertEquals(false, b.mayEdit(ben.id))
+        a.perform(UndoBust(cleo.id, 1))
+        t.net.deliverAll()
+        assertTrue(t.host.state.round(1).result(cleo.id).isOpen)
+        t.assertConverged(a, b)
+    }
+
+    @Test
     fun scanNext_hostSkipsGuestClaims_guestWalksOnlyItsOwn() {
         val t = Table()
         val a = t.joined("anna")

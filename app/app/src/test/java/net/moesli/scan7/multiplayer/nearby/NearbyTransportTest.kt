@@ -358,6 +358,152 @@ class NearbyTransportTest {
         assertTrue(a.transport.status.value is TransportStatus.Reconnecting)
     }
 
+    // ---- Field test 2026-10-19: the guest linked again on every scan -----------------------------
+
+    /**
+     * A guest whose [RecordingApi] keeps every connection attempt's callback. Linked, then the link
+     * drops and the guest links again: on the guest side both links have the host's one endpoint id.
+     */
+    private fun Table.relinkedGuest(): Pair<Guest, RecordingApi> {
+        val fake = medium.api()
+        val api = RecordingApi(fake)
+        val transport = NearbyClientTransport(api, service, join, scheduler)
+        val session = ClientSession(join.sessionId, join.token, "anna")
+        session.attach(transport)
+        settle()
+        medium.breakLink(hostApi, fake)
+        settle()
+        assertEquals(2, api.requests.size)
+        assertEquals(ClientStatus.JOINED, session.view.value.status)
+        return Guest(fake, transport, session) to api
+    }
+
+    @Test
+    fun aLateDisconnectOfAnEarlierLink_doesNotDropTheCurrentOne() {
+        val t = Table()
+        val (a, api) = t.relinkedGuest()
+        // Nearby reports the first link's end late (the host closed it after the rejoin). Before the
+        // fix the transport's one callback took it for the current link: a new link on every scan.
+        api.requests.first().onDisconnected(t.hostApi.id)
+        assertEquals(TransportStatus.Connected(t.hostApi.id), a.transport.status.value)
+        assertEquals(ClientStatus.JOINED, a.session.view.value.status)
+        t.settle()
+        assertEquals(2, api.requests.size) // no third link
+        a.session.perform(ScorePoints(1, 1, 17))
+        t.settle()
+        assertEquals(17, t.host.state.total(1))
+        assertEquals(setOf(a.api.id), t.hostTransport.endpoints)
+        t.assertConverged(a)
+    }
+
+    @Test
+    fun aLateSendFailureOfAnEarlierLink_doesNotDropTheCurrentOne() {
+        val t = Table()
+        val fake = t.medium.api()
+        val api = RecordingApi(fake)
+        val transport = NearbyClientTransport(api, service, join, t.scheduler)
+        val session = ClientSession(join.sessionId, join.token, "anna")
+        session.attach(transport)
+        t.settle()
+        api.holdSendResults = true
+        session.perform(ScorePoints(1, 1, 8)) // sent on the first link; its result comes late
+        api.holdSendResults = false
+        t.medium.breakLink(t.hostApi, fake)
+        t.settle()
+        assertEquals(2, api.requests.size)
+        // The first link's send reports "not connected" only now, on the second link.
+        api.held.forEach { it(ApiResult.Failed(ApiError.NOT_CONNECTED, 8011)) }
+        assertEquals(TransportStatus.Connected(t.hostApi.id), transport.status.value)
+        t.settle()
+        assertEquals(2, api.requests.size)
+        assertEquals(8, t.host.state.total(1)) // applied once (resent after the rejoin)
+        t.assertConverged(Guest(fake, transport, session))
+    }
+
+    @Test
+    fun ownSendFailure_closesTheLinkBeforeLinkingAgain() {
+        val t = Table()
+        val a = t.guest("anna")
+        t.settle()
+        t.hostApi.links.remove(a.api.id) // the host side is gone without a callback
+        a.session.perform(ScorePoints(1, 1, 3))
+        t.medium.deliverAll()
+        // Nearby's side of the dead link is closed too, so no half-open link lingers next to the new one.
+        assertTrue("disconnectFromEndpoint" in a.api.calls)
+        assertEquals(emptySet<String>(), a.api.connectedTo)
+        t.settle()
+        assertEquals(3, t.host.state.total(1))
+        t.assertConverged(a)
+    }
+
+    @Test
+    fun hostKeepsOneLinkPerPhone_whenItLinksAgainFromANewEndpoint() {
+        val t = Table()
+        val old = t.guest("anna")
+        t.settle()
+        old.session.claim(1, listOf(1))
+        t.settle()
+        // Anna's phone starts over (app restart): its old link still looks open to the host.
+        val again = t.guest("anna")
+        t.medium.deliverAll() // hello on the new endpoint; the old one is closed after the flush delay
+        assertEquals(setOf("anna"), t.host.connectedDevices)
+        // A late frame on the old link (even a Hello) must not take the phone's current link away.
+        val hello = WireCodec().encode(net.moesli.scan7.multiplayer.Hello(join.sessionId, join.token, "anna", 0))
+        FrameChunker(160).split(hello).forEach { t.hostApi.links.getValue(old.api.id).onBytes(old.api.id, it) }
+        t.medium.deliverAll()
+        old.transport.disconnect() // the old app is gone
+        t.settle()
+        assertEquals(setOf(again.api.id), t.hostTransport.endpoints)
+        assertEquals(1, again.api.calls.count { it == "requestConnection" }) // its link was never cut
+        assertEquals(listOf("host", "anna"), t.host.roster.map { it.deviceId })
+        assertEquals(true, t.host.roster.last().connected)
+        assertEquals(listOf(1L), t.host.roster.last().scans) // same phone, claims kept
+        again.session.perform(ScorePoints(1, 1, 12))
+        t.settle()
+        assertEquals(12, t.host.state.total(1))
+        t.assertConverged(again)
+    }
+
+    @Test
+    fun serialApi_runsEveryCallbackOnThePostedQueue_inOrder() {
+        val medium = FakeNearbyMedium(maxPayloadBytes = 160)
+        val scheduler = FakeScheduler()
+        val queue = ArrayDeque<() -> Unit>()
+        val post: (() -> Unit) -> Unit = { queue.addLast(it) }
+        val hostTransport = NearbyHostTransport(SerialConnectionsApi(medium.api(), post), service, join.sessionId, join.token, scheduler)
+        val host = HostSession(join.sessionId, join.token, GameState.newGame(players, startedAt = 1), players, hostTransport, { 1L }).also { it.start() }
+        val guestTransport = NearbyClientTransport(SerialConnectionsApi(medium.api(), post), service, join, scheduler)
+        val session = ClientSession(join.sessionId, join.token, "anna")
+        session.attach(guestTransport)
+        medium.deliverAll()
+        // Nearby answered, but nothing ran on its thread: it all waits on the session thread's queue.
+        assertEquals(TransportStatus.Idle, hostTransport.status.value)
+        assertTrue(queue.isNotEmpty())
+        repeat(1_000) {
+            medium.deliverAll()
+            queue.removeFirstOrNull()?.invoke() ?: return@repeat
+        }
+        assertEquals(ClientStatus.JOINED, session.view.value.status)
+        assertEquals(host.state, session.view.value.game)
+    }
+
+    /** Forwards to a fake phone, keeping every attempt's connection callback and (on request) send results. */
+    private class RecordingApi(private val inner: FakeConnectionsApi) : ConnectionsApi by inner {
+        val requests = mutableListOf<ConnectionCallback>()
+        var holdSendResults = false
+        val held = mutableListOf<(ApiResult) -> Unit>()
+
+        override fun requestConnection(localName: String, endpointId: String, callback: ConnectionCallback, done: (ApiResult) -> Unit) {
+            requests += callback
+            inner.requestConnection(localName, endpointId, callback, done)
+        }
+
+        override fun sendPayload(endpointId: String, bytes: ByteArray, done: (ApiResult) -> Unit) {
+            if (!holdSendResults) return inner.sendPayload(endpointId, bytes, done)
+            held += done // lost on the dying link; Nearby says so only later
+        }
+    }
+
     /** A ConnectionsApi whose callbacks the test fires by hand (no medium); answers `done` at once. */
     private class ManualApi(override val maxPayloadBytes: Int = 1024) : ConnectionsApi {
         val calls = mutableListOf<String>()

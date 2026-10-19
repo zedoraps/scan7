@@ -59,7 +59,8 @@ data class ResultAuthor(val round: Int, val playerId: Long, val deviceId: String
  * Shared by the host (enforcement) and the guest UI (which buttons to show), so both agree.
  *  - no round / game actions, no total adjustments, no seating ([GameAction.hostOnly]);
  *  - only the running round;
- *  - an open player may be scored by anyone (the main flow is "scan your own players");
+ *  - an open player may be scored or busted by anyone, also a player another phone scans (decided
+ *    2026-10-19; the main flow is "scan your own players");
  *  - a done result may be edited / rescanned / reset / undone **only by the device that entered
  *    it**: a value another phone (or the host) entered is never replaced by a guest, not even for a
  *    player the guest has claimed. Only the host can.

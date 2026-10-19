@@ -4,8 +4,8 @@ package net.moesli.scan7.multiplayer.nearby
  * The slice of Google Nearby Connections' `ConnectionsClient` Scan7 uses, as an interface we own
  * (docs/dev/MULTI_DEVICE.md §6). The Play implementation (`GmsConnectionsApi`, `play` flavor only)
  * forwards 1:1 and maps status codes to [ApiError]; tests use a fake. Every callback and every
- * `done` must arrive on one thread (Nearby: the main thread), which is also where the transports
- * are driven from.
+ * `done` must arrive on the thread the transports are driven from: Nearby calls them on the main
+ * thread, so the app wraps it in [SerialConnectionsApi] (posts them to the session thread).
  */
 interface ConnectionsApi {
     /** Largest BYTES payload to send; bigger frames are chunked by [FrameChunker]. */
