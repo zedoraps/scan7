@@ -49,6 +49,8 @@ data class RoundUiState(
     val players: List<RoundPlayer>,
     val view: RoundView = RoundView.Table,
     val arranging: Boolean = false,
+    /** `false` on a multiplayer guest: no long-press / drag arrange (only the host arranges seats). */
+    val canArrange: Boolean = true,
     val nextOpenId: String? = firstOpenId(players),
     val seating: Boolean = false,
     val typeEntry: Boolean = false,

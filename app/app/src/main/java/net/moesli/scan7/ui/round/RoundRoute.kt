@@ -146,6 +146,9 @@ class RoundController(
     /** Entry mode setting (set by the route like [snapshot]): Type turns every scan into manual entry. */
     var entry: EntryMode = EntryMode.SCAN
 
+    /** `false` on a multiplayer guest (set by the route like [snapshot]): only the host arranges seats. */
+    var canArrange: Boolean = true
+
     /**
      * Repository writes run via [outlivingUi]: leaving the screen (e.g. Scan next right after an
      * in-card Bust) cancels only the waiting, never the write.
@@ -176,6 +179,7 @@ class RoundController(
     override fun onToggleView(view: RoundView) = run("view") { setViewMode(gameId, view.toViewMode()) }
 
     override fun onEnterArrange() {
+        if (!canArrange) return
         flags.arranging = true
     }
 
@@ -394,6 +398,7 @@ fun RoundRoute(
     // A joined copy without its live session (e.g. after an app restart) is read-only like a guest:
     // no host actions; with a radio it rejoins the saved session by itself.
     val readOnly = guest != null || snap.isJoined
+    controller.canArrange = !readOnly
     LaunchedEffect(snap.isJoined, guest == null) {
         if (snap.isJoined && guest == null && shareRuntime.radioAvailable) {
             repository.shareSession(gameId)?.takeIf { it.role == "GUEST" }?.let { row ->
@@ -413,7 +418,7 @@ fun RoundRoute(
     val typeEntry = entry == EntryMode.TYPE
     // Type mode: the in-card / bottom scan buttons show the keypad / "Enter next".
     CompositionLocalProvider(LocalTypeEntry provides typeEntry) {
-        val base = snap.toRoundUiState(flags.arranging, typeEntry = typeEntry)
+        val base = snap.toRoundUiState(flags.arranging, typeEntry = typeEntry).copy(canArrange = !readOnly)
         RoundScreen(
             state = when {
                 guest != null -> base.joined(guest)

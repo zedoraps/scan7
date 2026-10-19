@@ -11,7 +11,10 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** Long-press time that enters arrange mode from a card (handoff: ≈ 450 ms). */
+/**
+ * Long-press time that enters arrange mode from a card (handoff: ≈ 450 ms). On a device the system
+ * long-press timeout wins when shorter (see [arrangeDrag]).
+ */
 const val ARRANGE_LONG_PRESS_MS = 450L
 
 /** Callbacks of [arrangeDrag]. */
@@ -43,7 +46,8 @@ internal class DragAnchor {
  * Seat drag for cards and rows, observed in the Initial pass so it runs before the card's own
  * click handling:
  * - in arrange mode a press starts the drag immediately (prototype `pointerdown`);
- * - otherwise a still press of [ARRANGE_LONG_PRESS_MS] enters arrange mode and the drag continues
+ * - otherwise a still press of [ARRANGE_LONG_PRESS_MS] (or the shorter system long-press timeout,
+ *   or as soon as the card's own long click entered arrange mode) enters arrange mode and the drag continues
  *   in the same gesture. A release or a move beyond the touch slop before that leaves the gesture
  *   to the card (tap, in-card buttons).
  * Once dragging, all pointer changes are consumed so the card sees no click.
@@ -68,8 +72,12 @@ internal fun Modifier.arrangeDrag(
             if (afterLongPress) {
                 // Released or moved away before the long press: the gesture belongs to the card.
                 var aborted = false
-                withTimeoutOrNull(ARRANGE_LONG_PRESS_MS) {
-                    while (!aborted) {
+                // The card's combinedClickable fires its long click (haptic tick, arrange mode) at the
+                // system timeout (400 ms by default): the drag must take over by then, else a finger
+                // that starts moving at the tick left the slop before 450 ms and lost the drag.
+                val timeout = minOf(ARRANGE_LONG_PRESS_MS, viewConfiguration.longPressTimeoutMillis)
+                withTimeoutOrNull(timeout) {
+                    while (!aborted && !arranging.value) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val change = event.changes.firstOrNull { it.id == down.id }
                         aborted = change == null ||

@@ -206,6 +206,8 @@
     <string name="seats_title">Plätze</string>
     <string name="seats_hint_table">Zieh alle an ihren Platz oder starte direkt</string>
     <string name="seats_hint_list">Zieh die Zeilen in Sitzreihenfolge oder starte direkt</string>
+    <string name="arrange_hint_table">Zieh alle an ihren Platz</string>
+    <string name="arrange_hint_list">Zieh die Zeilen in Sitzreihenfolge</string>
     <string name="seats_start">Spiel starten</string>
     <string name="seats_error_start">Spielstart hat nicht geklappt</string>
 

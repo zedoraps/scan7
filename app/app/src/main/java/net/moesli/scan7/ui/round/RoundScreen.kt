@@ -412,7 +412,7 @@ private fun TableSeat(
         modifier = Modifier
             .offset { anim.value.round() }
             .zIndex(if (dragging) 10f else 0f)
-            .arrangeDrag(arranging, anchor, callbacks),
+            .then(if (state.canArrange) Modifier.arrangeDrag(arranging, anchor, callbacks) else Modifier),
     ) {
         // The card is laid out at the table scale (see tableCardScale), text and touch areas included.
         CompositionLocalProvider(LocalDensity provides cardDensity) {
@@ -422,7 +422,7 @@ private fun TableSeat(
                 mode = mode,
                 index = index,
                 onClick = { if (!state.arranging) actions.onCardClick(rp.id) },
-                onLongClick = actions::onEnterArrange,
+                onLongClick = if (state.canArrange) actions::onEnterArrange else null,
                 onScan = { actions.onScan(rp.id) },
                 onBust = { onBust(rp) },
                 onDoubleClick = if (quickScan) ({ actions.onQuickScan(rp.id) }) else null,
@@ -635,15 +635,15 @@ private fun ListSeat(
             mode = mode,
             index = index,
             onClick = { if (!state.arranging) actions.onCardClick(rp.id) },
-            onLongClick = actions::onEnterArrange,
+            onLongClick = if (state.canArrange) actions::onEnterArrange else null,
             onScan = { actions.onScan(rp.id) },
             onBust = { onBust(rp) },
             showScore = !state.seating,
             modifier = Modifier
-                .arrangeDrag(arranging, anchor, callbacks)
+                .then(if (state.canArrange) Modifier.arrangeDrag(arranging, anchor, callbacks) else Modifier)
                 .semantics {
                     // TalkBack reorder without dragging (handoff §6).
-                    customActions = buildList {
+                    if (state.canArrange) customActions = buildList {
                         if (index > 0) {
                             add(CustomAccessibilityAction(moveUp) { actions.onMoveRow(index, index - 1); true })
                         }

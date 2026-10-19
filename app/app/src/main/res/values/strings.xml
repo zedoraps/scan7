@@ -218,6 +218,9 @@
     <string name="seats_title">Seats</string>
     <string name="seats_hint_table">Drag players to where they sit, or just start</string>
     <string name="seats_hint_list">Drag rows into seating order, or just start</string>
+    <!-- Round header in arrange mode (one line under the title; no "start" as in the seating step). -->
+    <string name="arrange_hint_table">Drag players to their seats</string>
+    <string name="arrange_hint_list">Drag rows into seating order</string>
     <string name="seats_start">Start game</string>
     <string name="seats_error_start">Couldn\'t start the game</string>
 

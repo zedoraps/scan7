@@ -2,6 +2,7 @@ package net.moesli.scan7.ui.round
 
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.ui.components.FitText
 import net.moesli.scan7.ui.components.ShareIcon
 import net.moesli.scan7.R
 import androidx.compose.foundation.Canvas
@@ -108,11 +109,12 @@ internal fun RoundHeader(
                     .weight(1f)
                     .semantics(mergeDescendants = true) {},
             ) {
-                Text(stringResource(R.string.action_rearrange), color = colors.text, style = Scan7Type.headline16, maxLines = 1)
-                Text(
-                    text = stringResource(if (view == RoundView.Table) R.string.seats_hint_table else R.string.seats_hint_list),
-                    color = colors.textMuted,
+                // Title + hint share the 48 dp header: one line each, shrinking at large font scales.
+                FitText(stringResource(R.string.action_rearrange), Scan7Type.headline16, color = colors.text)
+                FitText(
+                    text = stringResource(if (view == RoundView.Table) R.string.arrange_hint_table else R.string.arrange_hint_list),
                     style = Scan7Type.text12,
+                    color = colors.textMuted,
                 )
             }
             PrimaryButton(
