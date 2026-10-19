@@ -1,5 +1,15 @@
 package net.moesli.scan7.ui.round
 
+import androidx.compose.ui.res.stringResource
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.SnackbarVisuals
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarDuration
 import net.moesli.scan7.ui.components.scan7Clickable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.clip
@@ -75,23 +85,36 @@ private fun otherMark(label: DeviceLabel?): ShareMark {
     return ShareMark(mine = false, initial = initial, description = uiText(R.string.claim_scanned_by, ShareText.phone(label)))
 }
 
-/** Connection state over the table (guest): announced by TalkBack when it changes. */
+/** Connection status of a joined game, e.g. "Connection lost · reconnecting…"; [rejoin]: offer Join again. */
+internal data class ConnectionStatus(val message: String, val rejoin: Boolean)
+
+private class ConnectionSnackbarVisuals(val status: ConnectionStatus, override val actionLabel: String?) : SnackbarVisuals {
+    override val message: String = status.message
+    override val withDismissAction: Boolean = false
+
+    // Stays while the state lasts; a new state (or none) replaces it.
+    override val duration: SnackbarDuration = SnackbarDuration.Indefinite
+}
+
+/**
+ * A guest's connection state as a Material 3 snackbar (the Bust toast's [ToastPanel] look) at the
+ * bottom above the buttons, instead of a banner over the cards. Stays up while [status] lasts; the
+ * "not connected" state carries the Join again action ([onRejoin]).
+ */
 @Composable
-internal fun ShareBanner(text: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
-    val colors = Scan7Theme.colors
-    val shape = RoundedCornerShape(Scan7Radii.iconButton)
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(colors.surface, shape)
-            // Tappable = the "not connected" warning (warning outline, like other warnings).
-            .then(if (onClick != null) Modifier.border(1.5.dp, colors.warning, shape).scan7Clickable(onClick) else Modifier)
-            .padding(horizontal = Scan7Spacing.m, vertical = Scan7Spacing.xs)
-            .semantics { liveRegion = LiveRegionMode.Polite },
-    ) {
-        Text(text, color = colors.text, style = Scan7Type.text12, textAlign = TextAlign.Center, maxLines = 2)
+internal fun ConnectionSnackbarHost(status: ConnectionStatus?, onRejoin: () -> Unit, modifier: Modifier = Modifier) {
+    val host = remember { SnackbarHostState() }
+    val rejoin by rememberUpdatedState(onRejoin)
+    val joinAgain = stringResource(R.string.action_join_again)
+    LaunchedEffect(status) {
+        // A new key cancels the running showSnackbar, which takes that snackbar down.
+        if (status == null) return@LaunchedEffect
+        val result = host.showSnackbar(ConnectionSnackbarVisuals(status, joinAgain.takeIf { status.rejoin }))
+        if (result == SnackbarResult.ActionPerformed) rejoin()
+    }
+    SnackbarHost(hostState = host, modifier = modifier) { snackbar ->
+        val visuals = snackbar.visuals as? ConnectionSnackbarVisuals ?: return@SnackbarHost
+        ToastPanel(visuals.message, visuals.actionLabel, visuals.actionLabel.orEmpty(), onAction = snackbar::performAction)
     }
 }
 

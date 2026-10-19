@@ -563,7 +563,8 @@
     <string name="banner_connecting">Connecting…</string>
     <string name="banner_lost">Connection lost · reconnecting…</string>
     <!-- A joined game that can't reach its host: the screen shows only this phone's copy. -->
-    <string name="banner_offline">Not connected · this is only a copy. Tap to join again</string>
+    <string name="banner_offline">Not connected · this is only a copy</string>
+    <string name="action_join_again">Join again</string>
     <plurals name="banner_pending">
         <item quantity="one">%d scan waiting to be sent</item>
         <item quantity="other">%d scans waiting to be sent</item>

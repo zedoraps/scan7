@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.round
 
+import androidx.compose.foundation.layout.heightIn
 import net.moesli.scan7.ui.text.uiText
 import net.moesli.scan7.ui.text.resolve
 import net.moesli.scan7.ui.text.UiText
@@ -138,7 +139,7 @@ internal fun BustToastHost(
 @Composable
 internal fun ToastPanel(
     message: String,
-    action: String,
+    action: String?,
     actionDescription: String,
     onAction: () -> Unit,
     modifier: Modifier = Modifier,
@@ -149,7 +150,7 @@ internal fun ToastPanel(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .height(Scan7Spacing.minTouch)
+            .heightIn(min = Scan7Spacing.minTouch)
             .background(c.surface, shape)
             .border(1.5.dp, c.line, shape),
     ) {
@@ -157,13 +158,14 @@ internal fun ToastPanel(
             text = message,
             color = c.text,
             style = Scan7Type.text13,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .weight(1f)
-                .padding(start = Scan7Spacing.l),
+                .padding(start = Scan7Spacing.l, end = if (action == null) Scan7Spacing.l else 0.dp)
+                .padding(vertical = Scan7Spacing.xs),
         )
-        Box(
+        if (action != null) Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .fillMaxHeight()

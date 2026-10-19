@@ -180,13 +180,6 @@ fun RoundScreen(
                     modifier = Modifier.offset(y = m.headerTop),
                     share = state.share,
                 )
-                state.share?.banner?.let { banner ->
-                    ShareBanner(
-                        banner.resolve(),
-                        Modifier.offset(y = m.headerTop + Scan7Spacing.headerHeight).padding(horizontal = Scan7Spacing.screenMargin),
-                        onClick = if (state.share.rejoin) actions::onRejoin else null,
-                    )
-                }
             }
 
             if (bottomBar != null) {
@@ -241,6 +234,15 @@ fun RoundScreen(
                 }
             }
 
+            // Multiplayer guest: connection state as a snackbar at the toast spot (the Bust toast covers it briefly).
+            ConnectionSnackbarHost(
+                status = state.share?.banner?.let { ConnectionStatus(it.resolve(), state.share.rejoin) },
+                onRejoin = actions::onRejoin,
+                modifier = Modifier
+                    .offset(y = m.toastTop)
+                    .padding(horizontal = Scan7Spacing.screenMargin)
+                    .zIndex(19f),
+            )
             BustToastHost(
                 toast = toast,
                 onUndo = actions::onUndoBust,
