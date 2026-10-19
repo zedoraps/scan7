@@ -83,6 +83,7 @@ variants:
   weights:
     00_en_rainbow: 0.4      # English rainbow "ZERO" 0 (German 00 gets 60 %)
     back_en: 0.4            # English back, turquoise frame (German back gets 60 %)
+    second_chance_en: 0.4   # English Second Chance from the render (German gets 60 %)
   text_inner:
     00_en_rainbow: [0.065, 0.728, 0.935, 0.810]
 

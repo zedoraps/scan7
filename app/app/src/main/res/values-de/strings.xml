@@ -42,6 +42,11 @@
         <item quantity="one">%d Punkt</item>
         <item quantity="other">%d Punkte</item>
     </plurals>
+    <!-- "… mit 88 Punkten" (Dativ). -->
+    <plurals name="points_with">
+        <item quantity="one">%d Punkt</item>
+        <item quantity="other">%d Punkten</item>
+    </plurals>
     <plurals name="rounds">
         <item quantity="one">%d Runde</item>
         <item quantity="other">%d Runden</item>
@@ -110,11 +115,18 @@
         <item quantity="one">%2$s lag vorne</item>
         <item quantity="other">%2$s lagen vorne</item>
     </plurals>
+    <plurals name="history_won_points">
+        <item quantity="one">%2$s hat mit %3$s gewonnen</item>
+        <item quantity="other">%2$s haben mit %3$s gewonnen</item>
+    </plurals>
+    <plurals name="history_led_points">
+        <item quantity="one">%2$s lag mit %3$s vorne</item>
+        <item quantity="other">%2$s lagen mit %3$s vorne</item>
+    </plurals>
     <string name="history_not_finished">Nicht beendet</string>
     <string name="history_no_winner">Kein Sieger</string>
     <string name="history_ended_early">vorzeitig beendet</string>
     <string name="history_abandoned">nicht beendet</string>
-    <string name="history_with_points">%1$s mit %2$s</string>
     <plurals name="history_players">
         <item quantity="one">%1$d Spieler: %2$s</item>
         <item quantity="other">%1$d Spieler: %2$s</item>
@@ -135,6 +147,9 @@
     <string name="editor_name">Name</string>
     <string name="editor_name_placeholder">z. B. Anna</string>
     <string name="editor_name_missing">Gib einen Namen ein, um zu speichern</string>
+    <string name="editor_name_counter">%1$d/%2$d</string>
+    <string name="editor_name_counter_description">Zeichen: %1$d von %2$d</string>
+    <string name="editor_name_counter_full">Zeichen: %1$d von %2$d, Maximum erreicht</string>
     <string name="editor_shuffle">Avatar würfeln</string>
     <string name="editor_face">Gesicht</string>
     <string name="editor_pattern">Muster</string>
@@ -206,7 +221,7 @@
     <string name="scoreboard_total_label">SUMME</string>
     <string name="scoreboard_total">Summe</string>
     <string name="scoreboard_total_description">%1$s, Summe %2$d</string>
-    <string name="scoreboard_adjusted">, mit Korrekturen</string>
+    <string name="scoreboard_adjusted_legend">± Summe enthält Korrekturen</string>
     <string name="a11y_leading">, führt</string>
     <string name="scoreboard_cell_points">Runde %1$d, %2$s: %3$s</string>
     <string name="scoreboard_cell_bust">Runde %1$d, %2$s: raus</string>
@@ -240,8 +255,6 @@
     <string name="sheet_rescan_player">%1$s neu scannen</string>
     <string name="sheet_reset">Letzten Eintrag zurücksetzen</string>
     <string name="sheet_reset_description">Letzten Eintrag von %1$s zurücksetzen</string>
-    <string name="sheet_card_ignored">%1$s · zählt nicht</string>
-    <string name="sheet_card_ignored_description">%1$s, zählt nicht</string>
     <string name="sheet_card_duplicate_description">%1$s, doppelt</string>
     <string name="sheet_adjustments">Korrekturen</string>
     <string name="sheet_adjust">Summe korrigieren</string>
@@ -250,7 +263,7 @@
     <string name="sheet_adjustment_description">Korrektur %1$s</string>
     <string name="sheet_remove_adjustment">Korrektur %1$s entfernen</string>
     <string name="adjust_title">Summe von %1$s korrigieren</string>
-    <string name="adjust_note_placeholder">Notiz (optional): Strafe …</string>
+    <string name="adjust_note_placeholder">Notiz (optional): Strafe\u00A0…</string>
     <string name="adjust_note_label">Notiz, optional</string>
     <string name="adjust_apply">Übernehmen</string>
     <string name="adjust_apply_delta">%1$s übernehmen</string>
@@ -285,6 +298,8 @@
     <string name="formula_plus">plus</string>
     <string name="formula_times">mal</string>
     <string name="formula_equals">%1$s gleich %2$s</string>
+    <string name="formula_flip7">%1$s Flip 7</string>
+    <string name="formula_flip7_spoken">%1$s Flip-7-Bonus</string>
     <string name="second_chance_used">Second Chance genutzt · %1$s zählt einmal</string>
 
     <!-- Review + manual entry -->
@@ -338,6 +353,7 @@
     <string name="about_disclaimer">Inoffizieller Punktezähler für Flip 7. Keine Verbindung zu The Op Games.</string>
     <string name="about_version">Version %1$s (%2$d)</string>
     <string name="about_model">Erkennungsmodell: %1$s</string>
+    <string name="about_model_date">Kartenmodell vom %1$s</string>
     <string name="about_license_body">Scan7 ist freie Software: Du darfst sie unter der GNU Affero General Public License v3.0 nutzen, untersuchen, weitergeben und verändern. Der Quellcode ist öffentlich.</string>
     <string name="about_source">Quellcode</string>
     <string name="about_privacy">Datenschutzerklärung</string>
@@ -403,6 +419,7 @@
     <string name="camera_permission_body">Scan7 liest mit der Kamera die Karten auf dem Tisch. Die Bilder bleiben auf diesem Handy.</string>
     <string name="camera_permission_allow">Kamera erlauben</string>
     <string name="camera_permission_settings">App-Einstellungen öffnen</string>
+    <string name="camera_permission_body_settings">Der Kamerazugriff ist für Scan7 ausgeschaltet. Schalte ihn in den App-Einstellungen unter Berechtigungen → Kamera ein.</string>
     <string name="a11y_player_open">noch nicht gewertet</string>
     <plurals name="a11y_player_scored">
         <item quantity="one">diese Runde %d Punkt</item>
@@ -410,6 +427,8 @@
     </plurals>
     <string name="a11y_player_bust">diese Runde raus</string>
     <string name="a11y_player_leading">führt</string>
+    <string name="a11y_adjusted_by">korrigiert um %1$s</string>
+    <string name="a11y_adjusted">mit Korrekturen</string>
     <string name="about_tp_yolo">Detektor-Architektur + vortrainierte YOLO26n-Gewichte · AGPL-3.0</string>
     <string name="about_tp_litert">Erkennung auf dem Gerät, GPU-Delegate · Apache-2.0</string>
     <string name="about_tp_jetpack">Compose, Material 3, Activity, Core, Lifecycle, Navigation 3, CameraX, Room, SplashScreen · Apache-2.0</string>
@@ -423,6 +442,7 @@
     <string name="home_game_open_scoreboard">Tabelle öffnen</string>
     <string name="home_game_resume">Weiterspielen</string>
     <string name="home_game_delete">Spiel löschen</string>
+    <string name="home_game_same_players">Gleiche Spieler</string>
     <!-- Summary of the running game in the delete confirmation ("Heute, 21:40 · Runde 4 · Mia führt"). -->
     <string name="home_game_round">Runde&#160;%1$d</string>
     <plurals name="home_game_rounds">

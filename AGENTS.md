@@ -102,6 +102,7 @@ export JAVA_HOME="$HOME/Applications/Android Studio.app/Contents/jbr/Contents/Ho
 export PATH="$HOME/Library/Android/sdk/platform-tools:$PATH"   # adb
 ./gradlew assembleDebug            # build
 ./gradlew testDebugUnitTest        # JVM unit tests (scoring etc.)
+ANDROID_SERIAL=<serial> ./gradlew -Pscan7.idSuffix=.uitest connectedDebugAndroidTest   # instrumented: DB/migrations + Compose UI flow tests (ui/flow/*FlowTest: real AppNavHost on an in-memory DB via AppGraph.overrideForTests, synthetic capture instead of the camera; ~1 min)
 ./gradlew lintDebug                # lint
 ./gradlew installDebug             # install on the connected phone
 ANDROID_SERIAL=emulator-5554 ./gradlew -Pscan7.idSuffix=.b installDebug   # parallel agents: side-by-side copy on the shared emulator. ALWAYS set ANDROID_SERIAL: installDebug otherwise installs on every device incl. the user's phone
@@ -160,6 +161,7 @@ The emulators run at nice 5 next to training; idle they cost ~1.5 cores in total
 | 2026-10-18 | **Open source under AGPL-3.0** (LICENSE; because of Ultralytics YOLO). Release config: upload-key signing from `~/.gradle/gradle.properties`/env (never in git), versionCode = commit count, debug menu + training-scan saving debug-only, static About & licenses screen, model as a GitHub release asset (`downloadModel`, SHA-256 pinned in app/model.properties). Checklist: docs/RELEASE.md. |
 | 2026-10-18 | **Card-look variants without a photo** go to `ml/data/cards_extra/<class>_<desc>.png` (rectified RGBA 600×832; English `00_en_rainbow`, `back_en` cut from the render `paste_773e114e` by `scripts/extract_en_variants.py`); `make_cutouts.py` copies them to `out/cutouts/<class>_<n>` (map in `out/cutouts/sources.yaml`), pick rates + banner box in synth.yaml `variants`. Web test stems listed in **`ml/data/web_test/exclude.txt`** (the render and its small copy `paste_80304d69`) are training sources and must be skipped by every evaluation. |
 | 2026-10-18 | **Card size = largest that fits** the real table area (Large → Medium → Compact, then `tableCardScale`), not player count (`ui/round/RoundLayout.kt`); deviates from the handoff on purpose (user: 6 players on a tall phone = Large). List rows: Regular only when all rows fit **without scrolling** (8 players on 411×914 dp = Compact). |
+| 2026-10-19 | **Shipped model: ft_v5 @ 800 px** (fp32; `MODEL_INPUT_SIZE = 800`): best "fully correct" rate on both test sets (DE 20/29, EN web 19/47 vs ft_v1 19/29, 11/47); ~1.5× the 640 px inference cost (~105 ms est. Pixel GPU). ft_v4 @ 800 is the close runner-up. Report: ml/out/eval/OVERNIGHT_REPORT.md (not in git). |
 
 ## Branding (summary; details in brand/BRAND.md)
 - App name **Scan7**; wordmark "scan" in text color + "7" in accent (`Scan7Wordmark`).

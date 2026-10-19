@@ -71,6 +71,10 @@ interface GameDao {
     @Query("SELECT id FROM games WHERE finishedAt IS NULL AND joinedFrom IS NULL")
     suspend fun unfinishedIds(): List<Long>
 
+    /** The most recently finished or abandoned game (the first Home history entry), or null. */
+    @Query("SELECT id FROM games WHERE finishedAt IS NOT NULL ORDER BY finishedAt DESC, id DESC LIMIT 1")
+    suspend fun lastFinishedId(): Long?
+
     /** Most recent game whose (final, seated) players are exactly [ids]. */
     @Query(
         """

@@ -44,7 +44,6 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -294,12 +293,12 @@ private fun NameAndTotal(player: PlayerUi, ink: Color, nameStyle: TextStyle, tot
         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs, Alignment.CenterHorizontally),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text(
+        // Shrinks before it ellipsizes: "Philip" stays whole at large font scales.
+        FitText(
             text = player.name,
-            color = ink,
             style = nameStyle,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+            color = ink,
+            minSize = 9.dp,
             modifier = Modifier
                 .weight(1f, fill = false)
                 .alignByBaseline(),
@@ -317,13 +316,12 @@ private fun NameAndTotal(player: PlayerUi, ink: Color, nameStyle: TextStyle, tot
 
 @Composable
 private fun NameOnly(player: PlayerUi, ink: Color, style: TextStyle) {
-    Text(
+    FitText(
         text = player.name,
-        color = ink,
         style = style,
+        color = ink,
+        minSize = 9.dp,
         textAlign = TextAlign.Center,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
         modifier = Modifier.fillMaxWidth(),
     )
 }
@@ -334,13 +332,12 @@ private fun NameOnly(player: PlayerUi, ink: Color, style: TextStyle) {
  */
 @Composable
 private fun CompactNameAndTotal(player: PlayerUi, ink: Color) {
-    Text(
+    FitText(
         text = player.name,
-        color = ink,
         style = Scan7Type.text11.copy(lineHeight = 12.sp),
+        color = ink,
+        minSize = 8.dp,
         textAlign = TextAlign.Center,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
         modifier = Modifier.fillMaxWidth(),
     )
     Text(

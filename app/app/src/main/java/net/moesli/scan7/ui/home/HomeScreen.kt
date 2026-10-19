@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import net.moesli.scan7.game.AvatarCatalog
+import net.moesli.scan7.game.MIN_PLAYERS
 import net.moesli.scan7.ui.components.ContentWithBottomBar
 import net.moesli.scan7.ui.components.avatarSizeForHeight
 import net.moesli.scan7.ui.components.PlayerAvatar
@@ -38,6 +39,7 @@ import net.moesli.scan7.data.outlivingUi
 import net.moesli.scan7.ui.components.Confirmations
 import net.moesli.scan7.ui.components.Scan7ConfirmDialog
 import net.moesli.scan7.ui.components.ChevronRightIcon
+import net.moesli.scan7.ui.components.PlayersIcon
 import net.moesli.scan7.ui.components.ScoreboardIcon
 import net.moesli.scan7.ui.components.WarningIcon
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -109,6 +111,7 @@ import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.SectionLabel
 import net.moesli.scan7.ui.components.headerInsets
 import net.moesli.scan7.ui.components.openCardShadow
+import net.moesli.scan7.ui.components.centeredMaxWidth
 import net.moesli.scan7.ui.players.playerUis
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
@@ -188,6 +191,7 @@ fun HomeScreen(
     onDeleteGame: (gameId: Long) -> Unit = {},
     /** Multiplayer "Join a game"; `null` hides it (no radio in this build). */
     onJoin: (() -> Unit)? = null,
+    onSamePlayers: (game: PastGameUi) -> Unit = {},
 ) {
     val colors = Scan7Theme.colors
     val dates = rememberHomeDateFormat()
@@ -198,6 +202,7 @@ fun HomeScreen(
         modifier = modifier
             .fillMaxSize()
             .background(colors.ground)
+            .centeredMaxWidth()
             .padding(horizontal = Scan7Spacing.screenMargin),
     ) {
         Row(
@@ -263,6 +268,8 @@ fun HomeScreen(
                             dates,
                             onClick = { onPastGame(game.gameId) },
                             onDelete = { pendingDelete = game.gameId },
+                            // Only while at least two of its players are still stored (not deleted).
+                            onSamePlayers = if (game.lineup.size >= MIN_PLAYERS) ({ onSamePlayers(game) }) else null,
                             modifier = Modifier.animateItem(),
                         )
                     }
@@ -337,7 +344,8 @@ private fun ResumeCard(game: ResumeGameUi, onResume: () -> Unit, onDelete: () ->
                     contentDescription = description
                 },
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // Gap: at large font scales "RESUME GAME" and "to 200" ran together.
+                Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xl), verticalAlignment = Alignment.CenterVertically) {
                     SectionLabel(stringResource(R.string.home_resume_title), Modifier.weight(1f))
                     Text(stringResource(R.string.target_short, game.target), color = colors.textMuted, style = Scan7Type.text12)
                 }
@@ -381,21 +389,26 @@ private fun ResumeCard(game: ResumeGameUi, onResume: () -> Unit, onDelete: () ->
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PastGameRow(game: PastGameUi, now: Long, dates: HomeDateFormat, onClick: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
+private fun PastGameRow(
+    game: PastGameUi,
+    now: Long,
+    dates: HomeDateFormat,
+    onClick: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+    onSamePlayers: (() -> Unit)? = null,
+) {
     val colors = Scan7Theme.colors
     var menu by remember { mutableStateOf(false) }
     val openLabel = stringResource(R.string.home_game_open_scoreboard)
     val deleteLabel = stringResource(R.string.home_game_delete)
+    val samePlayersLabel = stringResource(R.string.home_game_same_players)
     val shape = RoundedCornerShape(Scan7Radii.card)
     val won = game.outcome != PastOutcome.ABANDONED && game.winners.isNotEmpty()
     val date = historyDate(game.finishedAt, now, dates::time, dates::date).resolve()
     val headline = game.headline.resolve()
     val detail = game.detail.resolve()
-    val withPoints = if (game.winners.isEmpty()) {
-        headline
-    } else {
-        stringResource(R.string.history_with_points, headline, pluralStringResource(R.plurals.points, game.points, game.points))
-    }
+    val withPoints = game.headlineWithPoints.resolve()
     val players = pluralStringResource(R.plurals.history_players, game.players.size, game.players.size, UiText.Names(game.players.map { it.name }).resolve())
     val description = listOf(date, withPoints, detail, players).joinToString(", ")
     Box(modifier) {
@@ -440,8 +453,11 @@ private fun PastGameRow(game: PastGameUi, now: Long, dates: HomeDateFormat, onCl
                     contentDescription = description
                     role = Role.Button
                     onClick(label = openLabel) { onClick(); true }
-                    // A long-press isn't discoverable with TalkBack: offer the menu's action directly.
-                    customActions = listOf(CustomAccessibilityAction(deleteLabel) { onDelete(); true })
+                    // A long-press isn't discoverable with TalkBack: offer the menu's actions directly.
+                    customActions = listOfNotNull(
+                        onSamePlayers?.let { same -> CustomAccessibilityAction(samePlayersLabel) { same(); true } },
+                        CustomAccessibilityAction(deleteLabel) { onDelete(); true },
+                    )
                 },
         )
         GameMenu(
@@ -451,6 +467,8 @@ private fun PastGameRow(game: PastGameUi, now: Long, dates: HomeDateFormat, onCl
             openIcon = { ScoreboardIcon(it) },
             onOpen = onClick,
             onDelete = onDelete,
+            samePlayersLabel = samePlayersLabel,
+            onSamePlayers = onSamePlayers,
         )
     }
 }
@@ -473,8 +491,9 @@ private fun Modifier.gameLongPress(onClick: () -> Unit, clickLabel: String, onLo
 /**
  * Long-press menu of a Home game: an M3 [DropdownMenu] anchored at the row, restyled like the
  * scan split-button menu (`surface`, line border, radius 12, no shadow) with round-menu rows
- * (text 15, >= 56 dp, leading icons): [openLabel] (Open scoreboard / Resume) and "Delete game" in
- * the warning style (→ [onDelete], the confirmation). Both close the menu first.
+ * (text 15, >= 56 dp, leading icons): [openLabel] (Open scoreboard / Resume), for a past game
+ * "Same players" ([onSamePlayers]: New game on the Seats step, like Game over's button) and
+ * "Delete game" in the warning style (→ [onDelete], the confirmation). All close the menu first.
  */
 @Composable
 private fun GameMenu(
@@ -484,6 +503,8 @@ private fun GameMenu(
     openIcon: (@Composable (Color) -> Unit)?,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
+    samePlayersLabel: String = "",
+    onSamePlayers: (() -> Unit)? = null,
 ) {
     val colors = Scan7Theme.colors
     DropdownMenu(
@@ -500,6 +521,12 @@ private fun GameMenu(
         GameMenuItem(openLabel, colors.text, openIcon) {
             onDismiss()
             onOpen()
+        }
+        if (onSamePlayers != null) {
+            GameMenuItem(samePlayersLabel, colors.text, { PlayersIcon(it) }) {
+                onDismiss()
+                onSamePlayers()
+            }
         }
         GameMenuItem(stringResource(R.string.home_game_delete), colors.warning, { WarningIcon(it, size = 20.dp) }) {
             onDismiss()
@@ -606,6 +633,7 @@ fun HomeRoute(
     onPastGame: (gameId: Long) -> Unit,
     onAbout: () -> Unit,
     modifier: Modifier = Modifier,
+    onSamePlayers: (seating: List<Long>, target: Int) -> Unit = { _, _ -> },
     repository: GameRepository = AppGraph.repository(LocalContext.current),
     onJoin: (() -> Unit)? = null,
 ) {
@@ -619,7 +647,8 @@ fun HomeRoute(
             resume = active?.toResumeUi(),
             playerCount = players.size,
             version = stringResource(R.string.home_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
-            past = past,
+            // "Same players" only offers the ones still stored (deleted players are archived).
+            past = players.map { it.id }.toSet().let { stored -> past.map { g -> g.copy(lineup = g.lineup.filter { it in stored }) } },
             // Relative dates ("Today") only need to be right when Home is (re)composed.
             now = System.currentTimeMillis(),
         ),
@@ -631,6 +660,7 @@ fun HomeRoute(
         modifier = modifier,
         onAbout = onAbout,
         onJoin = onJoin,
+        onSamePlayers = { game -> onSamePlayers(game.lineup, game.target) },
         onDeleteGame = { id ->
             scope.launch {
                 runCatching { outlivingUi { repository.deleteGame(id) } }.onFailure { Log.w("HomeRoute", "delete game $id failed", it) }

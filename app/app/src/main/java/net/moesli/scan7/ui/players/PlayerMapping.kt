@@ -18,6 +18,7 @@ fun Player.toUi(
     status: PlayerStatus = PlayerStatus.Open,
     target: Int = DEFAULT_TARGET,
     isLeader: Boolean = false,
+    adjustment: Int? = null,
 ): PlayerUi = PlayerUi(
     name = name,
     avatar = avatar,
@@ -26,6 +27,7 @@ fun Player.toUi(
     target = target,
     isLeader = isLeader,
     id = id.toString(),
+    adjustment = adjustment,
 )
 
 /**
@@ -47,6 +49,7 @@ fun GameState.playerUis(
             ResultStatus.SCORED -> PlayerStatus.Scored(result.points)
             ResultStatus.BUST -> PlayerStatus.Bust
         }
-        players.getValue(id).toUi(totals.getValue(id), status, target, id in leaders)
+        val adjustment = adjustmentsOf(id).takeIf { it.isNotEmpty() }?.sumOf { it.delta }
+        players.getValue(id).toUi(totals.getValue(id), status, target, id in leaders, adjustment)
     }
 }

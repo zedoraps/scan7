@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -38,7 +39,6 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -46,8 +46,10 @@ import androidx.compose.ui.unit.sp
 import net.moesli.scan7.data.GameSnapshot
 import net.moesli.scan7.ui.components.LeaderBadge
 import net.moesli.scan7.ui.components.PlayerUi
+import net.moesli.scan7.ui.components.adjustmentText
 import net.moesli.scan7.ui.components.ScoreRing
 import net.moesli.scan7.ui.components.SecondaryButton
+import net.moesli.scan7.ui.components.FitText
 import net.moesli.scan7.ui.components.SectionLabel
 import net.moesli.scan7.ui.components.TextLinkButton
 import net.moesli.scan7.ui.components.bottomButtonsInsets
@@ -113,7 +115,7 @@ fun GameOverScreen(
             modifier = Modifier
                 .headerInsets()
                 .fillMaxWidth()
-                .height(Scan7Spacing.headerHeight),
+                .heightIn(min = Scan7Spacing.headerHeight),
         ) {
             SectionLabel(
                 stringResource(R.string.gameover_title, pluralStringResource(R.plurals.rounds, state.rounds, state.rounds)),
@@ -167,8 +169,9 @@ private fun Winners(state: GameOverUi) {
     }
     val total = winners.firstOrNull()?.player?.total ?: 0
     val headline = state.headline.resolve()
-    val points = pluralStringResource(R.plurals.points, total, total)
-    val description = stringResource(R.string.gameover_headline_description, headline, points)
+    // "Lena wins with 88 points" / "Lena gewinnt mit 88 Punkten" (dative plural).
+    val points = pluralStringResource(R.plurals.points_with, total, total)
+    val description = if (winners.isEmpty()) headline else stringResource(R.string.gameover_headline_description, headline, points)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
@@ -198,7 +201,8 @@ private fun Winners(state: GameOverUi) {
             modifier = Modifier.semantics { heading() },
         )
         Text(
-            if (shared) pluralStringResource(R.plurals.gameover_points_each, total, total) else points,
+            // The visible line is nominative ("200 Punkte"); only the TalkBack sentence uses the dative.
+            if (shared) pluralStringResource(R.plurals.gameover_points_each, total, total) else pluralStringResource(R.plurals.points, total, total),
             color = colors.accent,
             style = Scan7Type.total18,
             textAlign = TextAlign.Center,
@@ -213,14 +217,15 @@ private fun StandingRow(s: StandingUi) {
     val ink = if (s.isWinner) colors.text else colors.textDone
     // A player who left mid-game has no rank: "left" instead.
     val rank = if (s.left) stringResource(R.string.gameover_left) else ordinal(s.rank).resolve()
+    val adjusted = s.player.adjustmentText()?.resolve()?.let { ", $it" }.orEmpty()
     val description = stringResource(R.string.gameover_standing_description, rank, s.player.name, pluralStringResource(R.plurals.points, s.player.total, s.player.total)) +
-        if (s.isWinner) stringResource(R.string.gameover_winner) else ""
+        adjusted + if (s.isWinner) stringResource(R.string.gameover_winner) else ""
     Row(
         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .heightIn(min = 56.dp)
             .background(if (s.isWinner) colors.surface else colors.surfaceDone, shape)
             .border(1.5.dp, if (s.isWinner) colors.line else colors.lineSubtleDone, shape)
             .padding(horizontal = Scan7Spacing.l)
@@ -236,7 +241,7 @@ private fun StandingRow(s: StandingUi) {
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.weight(1f),
         ) {
-            Text(s.player.name, color = ink, style = Scan7Type.text15, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            FitText(s.player.name, Scan7Type.text15, color = ink, modifier = Modifier.weight(1f, fill = false))
             if (s.isWinner) LeaderBadge(size = 20.dp)
         }
         Text(s.player.total.toString(), color = ink, style = Scan7Type.total18, textAlign = TextAlign.End)
@@ -252,7 +257,7 @@ private fun NewGameButton(onClick: () -> Unit, modifier: Modifier) {
     Column(
         verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
         modifier = modifier
-            .height(Scan7Spacing.bottomButtonsHeight)
+            .heightIn(min = Scan7Spacing.bottomButtonsHeight)
             .clip(shape)
             .background(colors.accent)
             .scan7Clickable(onClick)
@@ -262,8 +267,9 @@ private fun NewGameButton(onClick: () -> Unit, modifier: Modifier) {
             }
             .padding(horizontal = 20.dp),
     ) {
-        Text(stringResource(R.string.gameover_same_players), color = colors.onAccent, style = Scan7Type.capsButton, maxLines = 1)
-        Text(stringResource(R.string.action_new_game), color = colors.onAccent, style = Scan7Type.buttonName, maxLines = 1)
+        // Shrink (dp floors) instead of losing "game" at large font scales.
+        FitText(stringResource(R.string.gameover_same_players), Scan7Type.capsButton, color = colors.onAccent, minSize = 8.dp)
+        FitText(stringResource(R.string.action_new_game), Scan7Type.buttonName, color = colors.onAccent, minSize = 12.dp)
     }
 }
 

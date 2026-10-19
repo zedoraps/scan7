@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.newgame
 
+import net.moesli.scan7.ui.components.FitText
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import net.moesli.scan7.R
@@ -43,7 +44,6 @@ import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -72,6 +72,7 @@ import net.moesli.scan7.ui.components.SectionLabel
 import net.moesli.scan7.ui.components.ViewToggle
 import net.moesli.scan7.ui.components.bottomButtonsInsets
 import net.moesli.scan7.ui.components.headerInsets
+import net.moesli.scan7.ui.components.centeredMaxWidth
 import net.moesli.scan7.ui.players.AddPlayerRow
 import net.moesli.scan7.ui.players.EditorTarget
 import net.moesli.scan7.ui.players.PlayerEditorHost
@@ -136,6 +137,7 @@ fun PickPlayersScreen(
         modifier = modifier
             .fillMaxSize()
             .background(colors.ground)
+            .centeredMaxWidth()
             .padding(horizontal = Scan7Spacing.screenMargin),
     ) {
         ScreenHeader(
@@ -352,14 +354,15 @@ fun SeatingScreen(
         bottomBar = { barModifier ->
             Column(barModifier) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    Text(
+                    // "…, or just start" says arranging is optional: wraps (large font scales: shrinks
+                    // to fit the slot) instead of being cut.
+                    FitText(
                         text = error ?: stringResource(if (view == RoundView.Table) R.string.seats_hint_table else R.string.seats_hint_list),
-                        color = colors.textMuted,
                         style = Scan7Type.text12,
+                        color = colors.textMuted,
+                        minSize = 8.dp,
+                        maxLines = 4,
                         textAlign = TextAlign.Center,
-                        // "…, or just start" says arranging is optional: may wrap to a second line.
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 PrimaryButton(
@@ -407,6 +410,18 @@ fun NewGameRoute(
     var starting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+
+    // A fresh New game (step 1) starts with the last game's players ticked, in their order; the
+    // user can untick. Once only (saved), so unticking everyone doesn't tick them again.
+    var preselected by rememberSaveable { mutableStateOf(!initialSeating.isNullOrEmpty()) }
+    LaunchedEffect(Unit) {
+        if (!preselected) {
+            val last = runCatching { repository.lastLineup() }.getOrDefault(emptyList())
+            // Only if nobody was ticked meanwhile; archived / deleted players drop out (liveSelected).
+            if (selected.isEmpty()) selected = last.take(MAX_PLAYERS)
+            preselected = true
+        }
+    }
 
     // Opened on the seats step ("New game with same players"): that game's order and spots.
     LaunchedEffect(Unit) {

@@ -1,6 +1,7 @@
 package net.moesli.scan7.data
 
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -43,6 +44,15 @@ object AppGraph {
         share ?: synchronized(this) {
             share ?: ShareRuntime(context, repository(context), Radio).also { share = it }
         }
+    /**
+     * Instrumented UI tests only: every later [repository] / [database] call returns these (e.g. a
+     * fresh in-memory DB per test); `null` goes back to the app's own database on the next call.
+     */
+    @VisibleForTesting
+    fun overrideForTests(database: Scan7Database?, repository: GameRepository?) = synchronized(this) {
+        this.database = database
+        this.repository = repository
+    }
 }
 
 /**

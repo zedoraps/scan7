@@ -7,12 +7,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,16 +22,24 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.launch
 import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.data.outlivingUi
 import net.moesli.scan7.game.Avatar
+import net.moesli.scan7.game.MAX_NAME_LENGTH
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.ui.components.BottomSheetPanel
 import net.moesli.scan7.ui.components.Confirmations
@@ -129,6 +139,19 @@ fun PlayerEditorContent(
     val usedBy = remember(owners) { owners.mapValues { (_, ps) -> ps.map { it.name } } }
     val canSave = name.isNotBlank() && !busy
     val nameMissingText = stringResource(R.string.editor_name_missing)
+    // New player: the name field gets focus and the keyboard at once (once, not after rotation).
+    val nameFocus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    var focusedOnce by rememberSaveable { mutableStateOf(editing != null) }
+    LaunchedEffect(Unit) {
+        if (!focusedOnce) {
+            focusedOnce = true
+            // Let the sheet attach its window first, else the request is dropped.
+            withFrameNanos { }
+            runCatching { nameFocus.requestFocus() }
+            keyboard?.show()
+        }
+    }
 
     Column {
         AvatarEditorHeader(
@@ -158,8 +181,12 @@ fun PlayerEditorContent(
                         label = stringResource(R.string.editor_name),
                         // IME Done = Save; on an empty name it says why nothing happened (also to TalkBack).
                         onDone = { if (canSave) onSave(name.trim(), avatar) else if (name.isBlank()) nameMissing = true },
-                        modifier = Modifier.semantics { if (nameMissing) error(nameMissingText) },
+                        modifier = Modifier
+                            .focusRequester(nameFocus)
+                            .semantics { if (nameMissing) error(nameMissingText) },
                     )
+                    // Near the cap: "17/20" (the field silently stopped at the limit before).
+                    if (name.length >= NAME_COUNTER_FROM) NameCounter(name.length)
                     if (nameMissing) {
                         Text(
                             nameMissingText,
@@ -191,7 +218,29 @@ fun PlayerEditorContent(
     }
 }
 
-private const val MAX_NAME_LENGTH = 16
+/** The name counter ("17/20") shows from this many characters on. */
+private const val NAME_COUNTER_FROM = MAX_NAME_LENGTH - 4
+
+/** "17/20" under the name field, right-aligned; at the limit in the accent color with a TalkBack note. */
+@Composable
+private fun NameCounter(length: Int) {
+    val colors = Scan7Theme.colors
+    val atLimit = length >= MAX_NAME_LENGTH
+    val description = stringResource(if (atLimit) R.string.editor_name_counter_full else R.string.editor_name_counter_description, length, MAX_NAME_LENGTH)
+    Text(
+        stringResource(R.string.editor_name_counter, length, MAX_NAME_LENGTH),
+        color = if (atLimit) colors.accent else colors.textMuted,
+        style = Scan7Type.text12,
+        textAlign = TextAlign.End,
+        maxLines = 1,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clearAndSetSemantics {
+                contentDescription = description
+                liveRegion = LiveRegionMode.Polite
+            },
+    )
+}
 
 /**
  * [PlayerEditorSheet] wired to the [repository]: adds or updates the player, deletes (the

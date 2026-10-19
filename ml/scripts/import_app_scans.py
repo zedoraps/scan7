@@ -36,7 +36,8 @@ TEST_PERCENT = 20
 def phone_serial() -> str:
     out = subprocess.run([str(ADB), "devices"], capture_output=True, text=True, check=True).stdout
     devices = [l.split()[0] for l in out.splitlines()[1:] if l.strip().endswith("device")]
-    phones = [d for d in devices if not d.startswith("emulator-")]
+    # Emulators: local "emulator-55xx" and the mini emulators tunneled as "localhost:556x".
+    phones = [d for d in devices if not d.startswith(("emulator-", "localhost:", "127.0.0.1:"))]
     if not phones:
         sys.exit("No phone found via adb. Turn on Wireless debugging on the phone (same Wi-Fi) and retry, "
                  "or export the 'Scan7 Training' folder and use --from-dir.")

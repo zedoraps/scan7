@@ -2,6 +2,7 @@ package net.moesli.scan7.ui.sheet
 
 import net.moesli.scan7.ui.text.UiText
 
+import net.moesli.scan7.ui.components.FitText
 import net.moesli.scan7.ui.text.chipText
 import net.moesli.scan7.ui.text.resolve
 import androidx.compose.ui.res.pluralStringResource
@@ -354,7 +355,7 @@ private fun SheetHeader(state: PlayerSheetUi) {
     ) {
         PlayerScoreRing(player, CardSize.Large.ring, CardSize.Large.token, dimmed = false)
         Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs), modifier = Modifier.weight(1f)) {
-            Text(player.name, color = colors.text, style = Scan7Type.buttonName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            FitText(player.name, Scan7Type.buttonName, color = colors.text, minSize = 12.dp)
             Text(
                 stringResource(R.string.sheet_points_round, pluralStringResource(R.plurals.points, player.total, player.total), state.round),
                 color = colors.textMuted,
@@ -468,7 +469,7 @@ private fun ResultPanel(state: PlayerSheetUi) {
                 )
             } else {
                 // Same score formula as the review / manual entry: "(6 + 7 + 8) × 2 + 4 = 46".
-                FormulaText(breakdownFormula(counted), style = Scan7Type.text12)
+                FormulaText(breakdownFormula(counted), style = Scan7Type.text12, joinLines = true)
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs), verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xs)) {
                 state.cards.forEach { CardChip(it.card, it.ignored, duplicate = it.card in duplicates) }
@@ -483,18 +484,21 @@ private fun ResultPanel(state: PlayerSheetUi) {
     }
 }
 
-/** Card chip: number / modifier normal; duplicates outlined magenta; action cards and backs dashed grey "ignored". */
+/**
+ * Card chip: number / modifier normal; duplicates outlined magenta; action cards and backs (and a
+ * Second Chance that cancelled a duplicate) only their name, dashed and muted, like the review /
+ * manual chips (no "ignored" word; TalkBack: "Freeze, doesn't score").
+ */
 @Composable
 fun CardChip(card: Card, ignored: Boolean, modifier: Modifier = Modifier, duplicate: Boolean = false) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.tagRow)
     val label = card.chipText().resolve()
     val description = when {
-        ignored -> stringResource(R.string.sheet_card_ignored_description, label)
+        ignored -> stringResource(R.string.chip_ignored, label)
         duplicate -> stringResource(R.string.sheet_card_duplicate_description, label)
         else -> label
     }
-    val text = if (ignored) stringResource(R.string.sheet_card_ignored, label) else label
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -512,7 +516,7 @@ fun CardChip(card: Card, ignored: Boolean, modifier: Modifier = Modifier, duplic
             .semantics { contentDescription = description },
     ) {
         Text(
-            text,
+            label,
             color = when {
                 ignored -> colors.textMuted
                 duplicate -> colors.bust

@@ -172,6 +172,8 @@ private fun Screen(route: Route, stack: BackStack, debug: DebugLaunch, modelInfo
             onPastGame = { if (it == shareRuntime.state.value.guest?.localGameId) stack.push(Route.Round(it)) else stack.push(Route.Scoreboard(it)) },
             // Multiplayer: with a radio (play flavor), or the in-process demo in debug builds.
             onJoin = if (shareRuntime.radioAvailable || BuildConfig.DEBUG) ({ stack.push(Route.Join()) }) else null,
+            // Like Game over's "Same players": New game opens on Seats with that game's order and target.
+            onSamePlayers = { seating, target -> stack.push(Route.NewGame(seating, target)) },
         )
         Route.Players -> PlayersRoute(onBack = back)
         is Route.NewGame -> NewGameRoute(

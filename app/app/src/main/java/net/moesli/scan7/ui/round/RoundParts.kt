@@ -40,7 +40,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -114,8 +113,6 @@ internal fun RoundHeader(
                     text = stringResource(if (view == RoundView.Table) R.string.seats_hint_table else R.string.seats_hint_list),
                     color = colors.textMuted,
                     style = Scan7Type.text12,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
             PrimaryButton(

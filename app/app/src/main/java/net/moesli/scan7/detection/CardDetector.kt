@@ -26,7 +26,7 @@ const val LABELS_ASSET = "labels.txt"
 const val MODEL_VERSION_ASSET = "model_version.txt"
 
 /** Model input edge in px; must match the export (ml/scripts/export.py --imgsz). */
-const val MODEL_INPUT_SIZE = 640
+const val MODEL_INPUT_SIZE = 800
 const val DEFAULT_CONFIDENCE = ACCEPT_SCORE
 
 /** Result of one detector run. [imageWidth]/[imageHeight] are the upright source size. */

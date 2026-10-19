@@ -13,6 +13,7 @@ import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.ConfirmedCard
 import net.moesli.scan7.game.DEFAULT_TARGET
 import net.moesli.scan7.game.GameState
+import net.moesli.scan7.game.MAX_NAME_LENGTH
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.ResultSource
 import net.moesli.scan7.game.ScanDirection
@@ -167,7 +168,7 @@ class GameRepository(
      * player uses (else the first color). Returns the id.
      */
     suspend fun addPlayer(name: String, avatar: Avatar? = null): Long {
-        val clean = name.trim()
+        val clean = name.trim().take(MAX_NAME_LENGTH).trim()
         require(clean.isNotEmpty()) { "Name is empty" }
         return db.withTransaction {
             val a = (avatar ?: newPlayerAvatar(playerDao.activeColors(), random)).normalized()
@@ -179,7 +180,7 @@ class GameRepository(
 
     /** Renames a player / changes their avatar (colors may repeat within a game). */
     suspend fun updatePlayer(id: Long, name: String, avatar: Avatar) {
-        val clean = name.trim()
+        val clean = name.trim().take(MAX_NAME_LENGTH).trim()
         require(clean.isNotEmpty()) { "Name is empty" }
         val a = avatar.normalized()
         db.withTransaction {
@@ -207,6 +208,15 @@ class GameRepository(
         val ids = players.distinct()
         if (ids.isEmpty()) return null
         val gameId = gameDao.lastGameWithPlayers(ids, ids.size) ?: return null
+        return gameDao.seats(gameId).map { it.playerId }
+    }
+
+    /**
+     * The seated players (seating order, without the ones who left mid-game) of the most recently
+     * finished or abandoned game: New game preselects them. Empty without such a game.
+     */
+    suspend fun lastLineup(): List<Long> {
+        val gameId = gameDao.lastFinishedId() ?: return emptyList()
         return gameDao.seats(gameId).map { it.playerId }
     }
 

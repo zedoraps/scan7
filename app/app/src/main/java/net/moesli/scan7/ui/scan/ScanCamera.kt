@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.scan
 
+import net.moesli.scan7.ui.components.FitText
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import net.moesli.scan7.R
@@ -57,7 +58,6 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -78,6 +78,7 @@ import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.TorchIcon
 import net.moesli.scan7.ui.components.scan7Clickable
 import net.moesli.scan7.ui.components.expandedTouchArea
+import net.moesli.scan7.ui.components.centeredMaxWidth
 import net.moesli.scan7.ui.components.touchSlack
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -158,8 +159,11 @@ internal fun ScanCameraStep(
                         onTorchControls = { torch = it },
                         onZoomControls = { zoom = it },
                     )
-                } else if (permission.asked) {
-                    PermissionMissing(onAllow = permission.request, onOpenSettings = permission.openSettings)
+                } else if (permission.showPanel) {
+                    PermissionMissing(
+                        onAllow = permission.request.takeIf { permission.canRequest },
+                        onOpenSettings = permission.openSettings,
+                    )
                 }
                 CameraHeader(
                     player = player,
@@ -347,10 +351,8 @@ private fun PlayerBanner(player: PlayerUi, label: String, modifier: Modifier = M
                 caps,
                 color = colors.textMuted,
                 style = Scan7Type.capsLabel.copy(fontSize = 12.sp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
-            Text(player.name, color = colors.text, style = BannerName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            FitText(player.name, BannerName, color = colors.text, minSize = 12.dp)
         }
     }
 }
@@ -485,7 +487,8 @@ private fun CameraBottomBar(
             Text(seen.toString(), color = colors.text, style = Scan7Type.total15)
             Text(pluralStringResource(R.plurals.camera_cards_seen_label, seen), color = colors.textMuted, style = Scan7Type.text12)
         }
-        Box(Modifier.fillMaxWidth().height(84.dp)) {
+        // Phone width at most: on a landscape tablet Bust and Type stay near the shutter.
+        Box(Modifier.centeredMaxWidth().height(84.dp)) {
             if (onBust != null) BustButton(playerName, onBust, bustEnabled, Modifier.align(Alignment.CenterStart))
             Shutter(enabled = shutterEnabled, onClick = onShutter, modifier = Modifier.align(Alignment.Center))
             TypeButton(onType, Modifier.align(Alignment.CenterEnd))
@@ -550,26 +553,34 @@ private fun Shutter(enabled: Boolean, onClick: () -> Unit, modifier: Modifier = 
     }
 }
 
-/** Camera permission missing: explanation + allow / open settings ("Type" stays in the header). */
+/**
+ * Camera permission missing: explanation + allow / open settings ("Type" stays in the header).
+ * [onAllow] is null once the permission is permanently denied (the system dialog no longer shows):
+ * then only the app settings can turn it on, and that is the primary button.
+ */
 @Composable
-private fun BoxScope.PermissionMissing(onAllow: () -> Unit, onOpenSettings: () -> Unit) {
+private fun BoxScope.PermissionMissing(onAllow: (() -> Unit)?, onOpenSettings: () -> Unit) {
     val colors = Scan7Theme.colors
     Column(
         verticalArrangement = Arrangement.spacedBy(Scan7Spacing.l),
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .align(Alignment.Center)
-            .fillMaxWidth()
+            .centeredMaxWidth()
             .padding(horizontal = Scan7Spacing.xl),
     ) {
         Text(stringResource(R.string.camera_permission_title), color = colors.text, style = Scan7Type.headline16, textAlign = TextAlign.Center)
         Text(
-            stringResource(R.string.camera_permission_body),
+            stringResource(if (onAllow != null) R.string.camera_permission_body else R.string.camera_permission_body_settings),
             color = colors.textMuted,
             style = Scan7Type.text14,
             textAlign = TextAlign.Center,
         )
-        PrimaryButton(stringResource(R.string.camera_permission_allow), onAllow, Modifier.fillMaxWidth())
-        SecondaryButton(stringResource(R.string.camera_permission_settings), onOpenSettings, Modifier.fillMaxWidth())
+        if (onAllow != null) {
+            PrimaryButton(stringResource(R.string.camera_permission_allow), onAllow, Modifier.fillMaxWidth())
+            SecondaryButton(stringResource(R.string.camera_permission_settings), onOpenSettings, Modifier.fillMaxWidth())
+        } else {
+            PrimaryButton(stringResource(R.string.camera_permission_settings), onOpenSettings, Modifier.fillMaxWidth())
+        }
     }
 }

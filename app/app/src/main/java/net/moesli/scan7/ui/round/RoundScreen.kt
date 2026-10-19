@@ -46,6 +46,7 @@ import net.moesli.scan7.ui.text.resolve
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.keepScreenOn
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -288,16 +289,39 @@ private fun TableView(state: RoundUiState, actions: RoundActions, m: RoundMetric
             .alpha(if (state.arranging) ARRANGE_DIM else 1f),
     ) {
         val roundDescription = stringResource(R.string.round_number, state.round)
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
+        // Seat rects relative to this box: the "ROUND" label must not end up under a card (short
+        // screens: the top seat reaches down to the number). Above the number if free, else below,
+        // else left out (the number alone still reads as the round; TalkBack gets the full text).
+        val areaTopPx = with(density) { m.areaTop.toPx() }
+        val seats = state.players.map { geometry.topLeftOf(it.position) - Offset(0f, areaTopPx) }
+        val gap = with(density) { Scan7Spacing.s.roundToPx() }
+        Layout(
+            content = {
+                Text(stringResource(R.string.round_label), color = Scan7Theme.colors.textMuted, style = Scan7Type.capsLabel)
+                Text(state.round.toString(), color = Scan7Theme.colors.text, style = Scan7Type.roundNumberTable)
+            },
             modifier = Modifier.clearAndSetSemantics {
                 contentDescription = roundDescription
                 heading()
             },
-        ) {
-            Text(stringResource(R.string.round_label), color = Scan7Theme.colors.textMuted, style = Scan7Type.capsLabel)
-            Text(state.round.toString(), color = Scan7Theme.colors.text, style = Scan7Type.roundNumberTable)
+        ) { measurables, constraints ->
+            val loose = constraints.copy(minWidth = 0, minHeight = 0)
+            val label = measurables[0].measure(loose)
+            val number = measurables[1].measure(loose)
+            val width = constraints.maxWidth
+            val height = constraints.maxHeight
+            val top = (height - (label.height + gap + number.height)) / 2
+            val numberY = top + label.height + gap
+            val labelX = (width - label.width) / 2
+            fun free(y: Int) = seats.none { s ->
+                labelX < s.x + geometry.cardWidth && labelX + label.width > s.x &&
+                    y < s.y + geometry.cardHeight && y + label.height > s.y
+            }
+            val labelY = listOf(top, numberY + number.height + gap).firstOrNull(::free)
+            layout(width, height) {
+                number.place((width - number.width) / 2, numberY)
+                if (labelY != null) label.place(labelX, labelY)
+            }
         }
     }
 

@@ -5,6 +5,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -36,8 +38,8 @@ sealed interface ScanMode {
 private sealed interface Step {
     data object Camera : Step
 
-    /** [excluded]: detections the user left out (kept when coming back from Fix). */
-    data class Review(val capture: ScanCapture, val excluded: Set<Int> = emptySet()) : Step
+    /** The frozen [capture]; the left-out detections live in the flow's saveable `excluded`. */
+    data class Review(val capture: ScanCapture) : Step
 
     /** Manual entry starting from [start]; [back] is the step Cancel returns to (null = leave the flow). */
     data class Manual(val start: SplitCards, val back: Step?) : Step
@@ -91,6 +93,10 @@ internal fun ScanFlowContent(
             },
         )
     }
+    // Detections the user left out on the review (indices; kept when coming back from Fix). Saved,
+    // so a review restored after process death (same capture, e.g. the debug photo) keeps them.
+    // A new shutter photo / Retake clears them.
+    var excluded by rememberSaveable(player.id, stateSaver = IntSetSaver) { mutableStateOf(emptySet<Int>()) }
     val leave = if (mode == ScanMode.ScanNext) onBackToTable else onCancel
 
     // "Save scans for training" (on by default): every shutter photo is saved (outcome null) as
@@ -133,6 +139,7 @@ internal fun ScanFlowContent(
                         ),
                     )
                     if (saveScans) savedCapture = capture to TrainingSaver.saveCapture(context, capture)
+                    excluded = emptySet()
                     step = Step.Review(capture)
                 },
                 onTypeInstead = { step = Step.Manual(SplitCards(emptyList(), emptyList()), back = Step.Camera) },
@@ -152,14 +159,17 @@ internal fun ScanFlowContent(
                 player = player,
                 capture = s.capture,
                 roundNumber = roundNumber,
-                onRetake = { step = Step.Camera },
+                onRetake = {
+                    excluded = emptySet()
+                    step = Step.Camera
+                },
                 // Fix: left-out cards are not prefilled.
-                onFix = { step = Step.Manual(manualStart(includedCards(s.capture.detectedCards, s.excluded)), back = s) },
-                onEnterManually = { step = Step.Manual(manualStart(includedCards(s.capture.detectedCards, s.excluded)), back = s) },
+                onFix = { step = Step.Manual(manualStart(includedCards(s.capture.detectedCards, excluded)), back = s) },
+                onEnterManually = { step = Step.Manual(manualStart(includedCards(s.capture.detectedCards, excluded)), back = s) },
                 onConfirm = { confirm(it, s.capture) },
                 modifier = modifier,
-                excluded = s.excluded,
-                onToggleExclude = { i -> step = s.copy(excluded = toggleExcluded(s.excluded, i)) },
+                excluded = excluded,
+                onToggleExclude = { i -> excluded = toggleExcluded(excluded, i) },
                 afterScan = afterScan,
             )
         }
@@ -172,7 +182,7 @@ internal fun ScanFlowContent(
                 // Fix after a scan: the capture is the review this manual step came from.
                 onSave = { outcome ->
                     val review = s.back as? Step.Review
-                    confirm(if (review != null) outcome.withExcluded(review.excluded) else outcome, review?.capture)
+                    confirm(if (review != null) outcome.withExcluded(excluded) else outcome, review?.capture)
                 },
                 onCancel = cancel,
                 modifier = modifier,
@@ -181,3 +191,6 @@ internal fun ScanFlowContent(
         }
     }
 }
+
+/** [Set] of detection indices as an [IntArray] for `rememberSaveable`. */
+private val IntSetSaver = Saver<Set<Int>, IntArray>(save = { it.toIntArray() }, restore = { it.toSet() })

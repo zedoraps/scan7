@@ -177,7 +177,8 @@ fun ScreenHeader(
                 modifier = Modifier.semantics { heading() },
             )
             if (subtitle != null) {
-                Text(subtitle, color = colors.textMuted, style = Scan7Type.text12, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // Wraps ("· tap to edit", "0 of 10") instead of ellipsizing at large font scales.
+                Text(subtitle, color = colors.textMuted, style = Scan7Type.text12)
             }
         }
         trailing()
@@ -187,7 +188,8 @@ fun ScreenHeader(
 /** Caps section label, e.g. "PLAYERS" (DM Mono 11, 0.24 em, muted). */
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier, color: Color = Scan7Theme.colors.textMuted) {
-    Text(text.uppercase(), color = color, style = Scan7Type.capsLabel, maxLines = 1, modifier = modifier)
+    // Wraps at large font scales instead of losing words ("GAME OVER · 5 ROUNDS" → "GAME").
+    Text(text.uppercase(), color = color, style = Scan7Type.capsLabel, modifier = modifier)
 }
 
 /** Text-only button (48 dp touch target), e.g. "Debug" or "Scoreboard". */
@@ -313,14 +315,20 @@ internal class SheetHider(private val hide: suspend () -> Unit) {
     }
 }
 
-/** The 36×4 grab bar at the top of a sheet. */
+/**
+ * The 36×4 grab bar at the top of a sheet. Labelled like M3's `BottomSheetDefaults.DragHandle`
+ * (same string; M3's own handle forces 22 dp of padding around the bar): `ModalBottomSheet` merges
+ * it into its clickable handle box, which adds the dismiss / expand actions.
+ */
 @Composable
 private fun SheetGrabHandle(modifier: Modifier = Modifier) {
+    val description = stringResource(R.string.m3c_bottom_sheet_drag_handle_description)
     Box(
         modifier
             .padding(vertical = Scan7Spacing.s)
             .size(36.dp, 4.dp)
-            .background(Scan7Theme.colors.line, RoundedCornerShape(2.dp)),
+            .background(Scan7Theme.colors.line, RoundedCornerShape(2.dp))
+            .semantics { contentDescription = description },
     )
 }
 
