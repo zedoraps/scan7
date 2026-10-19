@@ -526,6 +526,7 @@
     <string name="permission_continue">Weiter</string>
     <string name="permission_denied">Ohne diese Berechtigung können sich die Handys nicht verbinden.</string>
     <string name="permission_settings">Einstellungen öffnen</string>
+    <string name="claim_screen_title">Dieses Handy</string>
     <string name="claim_title">Wer bist du?</string>
     <string name="claim_scans_title">Wen scannst du?</string>
     <string name="claim_helping">Ich helfe nur</string>

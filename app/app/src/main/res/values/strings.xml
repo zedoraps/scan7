@@ -546,6 +546,7 @@
     <string name="permission_continue">Continue</string>
     <string name="permission_denied">Without this permission the phones can\'t connect.</string>
     <string name="permission_settings">Open settings</string>
+    <string name="claim_screen_title">This phone</string>
     <string name="claim_title">Who are you?</string>
     <string name="claim_scans_title">Who do you scan?</string>
     <string name="claim_helping">Just helping</string>

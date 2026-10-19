@@ -1,5 +1,14 @@
 package net.moesli.scan7.ui.share
 
+import androidx.compose.ui.input.pointer.pointerInput
+import net.moesli.scan7.ui.components.centeredMaxWidth
+import net.moesli.scan7.ui.components.headerInsets
+import net.moesli.scan7.ui.components.ContentWithBottomBar
+import net.moesli.scan7.ui.components.ScreenHeader
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.activity.compose.BackHandler
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.LocalDensity
 import net.moesli.scan7.ui.components.BetaTag
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -247,12 +256,14 @@ private fun PhoneRow(d: DeviceInfo, players: Map<Long, Player>, onRemove: () -> 
 }
 
 /**
- * Guest: "Who are you? · Who do you scan?" on one sheet (P1). "Me" is ticked as scanned; players
- * another phone scans (or a "me" another phone already is) show it, and taking them over asks first.
- * "Just helping" needs a name. [onDone] gets local ids.
+ * Guest: "Who are you? · Who do you scan?" as a full screen (header + Back, scrolling lists, Done
+ * at the bottom like the setup screens; as a sheet the two lists outgrew the screen and it kept
+ * re-anchoring). "Me" is ticked as scanned; players another phone scans (or a "me" another phone
+ * already is) show it, and taking them over asks first. "Just helping" needs a name. [onDone] gets
+ * local ids.
  */
 @Composable
-fun ClaimSheet(
+fun ClaimScreen(
     guest: GuestInfo,
     onDone: (me: Long?, scans: List<Long>, helperName: String?, force: Boolean) -> Unit,
     onDismiss: () -> Unit,
@@ -267,75 +278,90 @@ fun ClaimSheet(
     var confirm by remember { mutableStateOf(false) }
     val conflicts = scans.filter { it in guest.scannedBy } + listOfNotNull(me.takeIf { it in othersMe })
     val ready = (me >= 0 && !helping) || (helping && helperName.isNotBlank())
-    val submit = { force: Boolean -> onDone(me.takeIf { !helping && it >= 0 }, scans, helperName.trim().takeIf { helping }, force) }
-    Scan7BottomSheet(onDismiss = onDismiss) { sheet ->
-        Column(
-            verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
-            modifier = Modifier
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = Scan7Spacing.screenMargin, vertical = Scan7Spacing.s),
-        ) {
-            Text(stringResource(R.string.claim_title), color = colors.text, style = Scan7Type.headline16, modifier = Modifier.semantics { heading() })
-            players.forEach { p ->
-                ChoiceRow(p, selected = !helping && me == p.id, note = if (p.id in othersMe) stringResource(R.string.claim_is, p.name) else null) {
-                    if (!helping && me != p.id && p.id !in scans) scans = scans + p.id
-                    helping = false
-                    me = p.id
+    val submit = { force: Boolean ->
+        onDone(me.takeIf { !helping && it >= 0 }, scans, helperName.trim().takeIf { helping }, force)
+        onDismiss()
+    }
+    BackHandler(onBack = onDismiss)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            // Drawn over the round screen: take every touch so none reaches the cards below.
+            .pointerInput(Unit) {}
+            .background(colors.ground)
+            .centeredMaxWidth()
+            .padding(horizontal = Scan7Spacing.screenMargin),
+    ) {
+        ScreenHeader(title = stringResource(R.string.claim_screen_title), onBack = onDismiss, modifier = Modifier.headerInsets())
+        ContentWithBottomBar(
+            bottomBar = {
+                if (helping && helperName.isBlank()) {
+                    Text(stringResource(R.string.claim_helper_name_missing), color = colors.textMuted, style = Scan7Type.text12, modifier = Modifier.padding(bottom = Scan7Spacing.s))
                 }
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+                PrimaryButton(
+                    stringResource(R.string.action_done),
+                    { if (conflicts.isNotEmpty()) confirm = true else submit(false) },
+                    Modifier.fillMaxWidth(),
+                    enabled = ready,
+                )
+            },
+        ) { bottomPadding ->
+            Column(
+                verticalArrangement = Arrangement.spacedBy(Scan7Spacing.s),
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .selectable(selected = helping, role = Role.RadioButton) { helping = true },
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = Scan7Spacing.l, bottom = Scan7Spacing.l + bottomPadding),
             ) {
-                RadioButton(selected = helping, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = colors.accent))
-                Text(stringResource(R.string.claim_helping), color = colors.text, style = Scan7Type.text15, modifier = Modifier.padding(start = Scan7Spacing.s))
-            }
-            if (helping) {
-                Scan7TextField(helperName, { helperName = it.take(24) }, Modifier.fillMaxWidth(), placeholder = stringResource(R.string.claim_helper_name))
-            }
-            Text(
-                stringResource(R.string.claim_scans_title),
-                color = colors.text,
-                style = Scan7Type.headline16,
-                modifier = Modifier.padding(top = Scan7Spacing.m).semantics { heading() },
-            )
-            players.forEach { p ->
-                val by = guest.scannedBy[p.id]?.let { guest.labels[it.deviceId] }
-                CheckRow(p, checked = p.id in scans, note = by?.let { stringResource(R.string.claim_scanned_by, ShareText.phone(it).resolve()) }) {
-                    scans = if (p.id in scans) scans - p.id else scans + p.id
+                Text(stringResource(R.string.claim_title), color = colors.text, style = Scan7Type.headline16, modifier = Modifier.semantics { heading() })
+                players.forEach { p ->
+                    ChoiceRow(p, selected = !helping && me == p.id, note = if (p.id in othersMe) stringResource(R.string.claim_is, p.name) else null) {
+                        if (!helping && me != p.id && p.id !in scans) scans = scans + p.id
+                        helping = false
+                        me = p.id
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .selectable(selected = helping, role = Role.RadioButton) { helping = true },
+                ) {
+                    RadioButton(selected = helping, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = colors.accent))
+                    Text(stringResource(R.string.claim_helping), color = colors.text, style = Scan7Type.text15, modifier = Modifier.padding(start = Scan7Spacing.s))
+                }
+                if (helping) {
+                    Scan7TextField(helperName, { helperName = it.take(24) }, Modifier.fillMaxWidth(), placeholder = stringResource(R.string.claim_helper_name))
+                }
+                Text(
+                    stringResource(R.string.claim_scans_title),
+                    color = colors.text,
+                    style = Scan7Type.headline16,
+                    modifier = Modifier.padding(top = Scan7Spacing.m).semantics { heading() },
+                )
+                players.forEach { p ->
+                    val by = guest.scannedBy[p.id]?.let { guest.labels[it.deviceId] }
+                    CheckRow(p, checked = p.id in scans, note = by?.let { stringResource(R.string.claim_scanned_by, ShareText.phone(it).resolve()) }) {
+                        scans = if (p.id in scans) scans - p.id else scans + p.id
+                    }
                 }
             }
-            PrimaryButton(
-                stringResource(R.string.action_done),
-                {
-                    if (conflicts.isNotEmpty()) confirm = true else sheet.hideThen({ submit(false) })
-                },
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = Scan7Spacing.m),
-                enabled = ready,
-            )
-            if (helping && helperName.isBlank()) {
-                Text(stringResource(R.string.claim_helper_name_missing), color = colors.textMuted, style = Scan7Type.text12)
-            }
         }
-        if (confirm) {
-            val first = conflicts.first()
-            val who = guest.scannedBy[first]?.let { guest.labels[it.deviceId] } ?: othersMe[first]
-            Scan7ConfirmDialog(
-                title = stringResource(R.string.claim_take_over_title, conflicts.mapNotNull { guest.players[it]?.name }.distinct().joinToString(", ")),
-                confirmLabel = stringResource(R.string.claim_take_over_action),
-                body = stringResource(R.string.claim_take_over_body, ShareText.phone(who).resolve()),
-                onConfirm = {
-                    confirm = false
-                    sheet.hideThen({ submit(true) })
-                },
-                onCancel = { confirm = false },
-            )
-        }
+    }
+    if (confirm) {
+        val first = conflicts.first()
+        val who = guest.scannedBy[first]?.let { guest.labels[it.deviceId] } ?: othersMe[first]
+        Scan7ConfirmDialog(
+            title = stringResource(R.string.claim_take_over_title, conflicts.mapNotNull { guest.players[it]?.name }.distinct().joinToString(", ")),
+            confirmLabel = stringResource(R.string.claim_take_over_action),
+            body = stringResource(R.string.claim_take_over_body, ShareText.phone(who).resolve()),
+            onConfirm = {
+                confirm = false
+                submit(true)
+            },
+            onCancel = { confirm = false },
+        )
     }
 }
 

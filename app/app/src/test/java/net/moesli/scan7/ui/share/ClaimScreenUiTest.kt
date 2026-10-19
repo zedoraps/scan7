@@ -25,7 +25,7 @@ import org.robolectric.annotation.Config
 /** "Who are you · Who do you scan" on the JVM (Robolectric). */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [34], qualifiers = "w411dp-h891dp")
-class ClaimSheetUiTest {
+class ClaimScreenUiTest {
     @get:Rule
     val compose = createComposeRule()
 
@@ -44,7 +44,7 @@ class ClaimSheetUiTest {
     fun pickingMe_ticksMeAsScanned_andDoneSendsTheClaim() {
         var claim: List<Any?>? = null
         compose.setContent {
-            Scan7Theme { ClaimSheet(guest(), onDone = { me, scans, helper, force -> claim = listOf(me, scans, helper, force) }, onDismiss = {}) }
+            Scan7Theme { ClaimScreen(guest(), onDone = { me, scans, helper, force -> claim = listOf(me, scans, helper, force) }, onDismiss = {}) }
         }
         compose.onNodeWithText("Done").assertIsNotEnabled()
         compose.onNodeWithText("Ben is on another phone").assertExists()
@@ -59,7 +59,7 @@ class ClaimSheetUiTest {
     fun justHelping_needsAName() {
         var claim: List<Any?>? = null
         compose.setContent {
-            Scan7Theme { ClaimSheet(guest(), onDone = { me, scans, helper, force -> claim = listOf(me, scans, helper, force) }, onDismiss = {}) }
+            Scan7Theme { ClaimScreen(guest(), onDone = { me, scans, helper, force -> claim = listOf(me, scans, helper, force) }, onDismiss = {}) }
         }
         compose.onNodeWithText("Just helping").performClick()
         compose.onNodeWithText("Enter your name").assertExists()

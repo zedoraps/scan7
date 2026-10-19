@@ -50,7 +50,7 @@ import net.moesli.scan7.R
 import net.moesli.scan7.multiplayer.ClientStatus
 import net.moesli.scan7.share.LinkMode
 import net.moesli.scan7.share.ShareText
-import net.moesli.scan7.ui.share.ClaimSheet
+import net.moesli.scan7.ui.share.ClaimScreen
 import net.moesli.scan7.ui.share.RefusalDialog
 import net.moesli.scan7.ui.share.ShareSheet
 import net.moesli.scan7.ui.share.rememberRadioPermissionRequest
@@ -569,7 +569,7 @@ fun RoundRoute(
         )
     }
     if (guest != null && flags.claimSheet) {
-        ClaimSheet(
+        ClaimScreen(
             guest = guest,
             onDone = { me, scans, helper, force -> shareRuntime.claim(me, scans, helper, force) },
             onDismiss = { flags.claimSheet = false },
