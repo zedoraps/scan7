@@ -475,6 +475,8 @@ internal fun FormulaText(
 ) {
     val colors = Scan7Theme.colors
     val spoken = spokenFormula(parts).resolve()
+    // The bonus is labelled ("+ 15 Flip 7"), else "+ 7 + 15" reads like a 15 card.
+    val bonusFormat = stringResource(R.string.formula_flip7)
     // A finite [maxLines] marks a fixed-height slot (two lines): large font scales / narrow phones
     // shrink the formula until it fits the slot instead of wrapping into a cut third line.
     BasicText(
@@ -487,9 +489,10 @@ internal fun FormulaText(
                     FormulaKind.OPERATOR -> colors.textMuted
                 }
                 // Keep "× 2" and "+ 4" together: break only after " + ".
-                val text = when (p.text) {
-                    " × " -> " ×\u00A0"
-                    "+ " -> "+\u00A0"
+                val text = when {
+                    p.text == " × " -> " ×\u00A0"
+                    p.text == "+ " -> "+\u00A0"
+                    p.kind == FormulaKind.BONUS -> bonusFormat.format(p.text).replace(' ', '\u00A0')
                     else -> p.text
                 }
                 withStyle(SpanStyle(color = color)) { append(text) }

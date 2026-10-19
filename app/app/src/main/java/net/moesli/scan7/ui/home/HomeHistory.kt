@@ -29,7 +29,8 @@ enum class PastOutcome {
  * One finished / abandoned game in the Home history. [players] in seating order (then the ones
  * who left mid-game); [winners] the
  * winner(s), or for an [PastOutcome.ABANDONED] game the leader(s) when it stopped (may be empty);
- * [points] their total; [rounds] = closed rounds.
+ * [points] their total; [rounds] = closed rounds; [lineup] = the players seated at the end, in
+ * seating order (Home's "Same players" starts a new game with them).
  */
 data class PastGameUi(
     val gameId: Long,
@@ -40,6 +41,7 @@ data class PastGameUi(
     val rounds: Int,
     val target: Int,
     val outcome: PastOutcome,
+    val lineup: List<Long> = emptyList(),
 ) {
     /** "Mia won", "Ben and Mia won", "Mia led" (abandoned), "Not finished" (abandoned, no points). */
     val headline: UiText
@@ -50,6 +52,19 @@ data class PastGameUi(
                 winners.isEmpty() -> uiText(R.string.history_no_winner)
                 else -> uiPlural(R.plurals.history_won, winners.size, winners.size, names)
             }
+        }
+
+    /**
+     * [headline] with the points for TalkBack: "Mia won with 88 points" / "Mia hat mit 88 Punkten
+     * gewonnen" (dative, natural German word order); without winners just the [headline].
+     */
+    val headlineWithPoints: UiText
+        get() {
+            if (winners.isEmpty()) return headline
+            val names = UiText.Names(winners.map { it.name })
+            val points = uiPlural(R.plurals.points_with, points)
+            val id = if (outcome == PastOutcome.ABANDONED) R.plurals.history_led_points else R.plurals.history_won_points
+            return uiPlural(id, winners.size, winners.size, names, points)
         }
 
     /** "6 rounds", plus "ended early" / "not finished". */
@@ -84,6 +99,7 @@ fun GameState.toPastGameUi(players: Map<Long, Player>): PastGameUi {
         rounds = rounds.count { it.isClosed },
         target = target,
         outcome = outcome,
+        lineup = playerIds,
     )
 }
 

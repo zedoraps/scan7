@@ -144,6 +144,8 @@ private fun Screen(route: Route, stack: BackStack, debug: DebugLaunch, modelInfo
             onDebug = { stack.push(Route.Debug(DebugScreen.HOME)) },
             onAbout = { stack.push(Route.About()) },
             onPastGame = { stack.push(Route.Scoreboard(it)) },
+            // Like Game over's "Same players": New game opens on Seats with that game's order and target.
+            onSamePlayers = { seating, target -> stack.push(Route.NewGame(seating, target)) },
         )
         Route.Players -> PlayersRoute(onBack = back)
         is Route.NewGame -> NewGameRoute(

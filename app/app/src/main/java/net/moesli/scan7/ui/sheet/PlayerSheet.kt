@@ -472,18 +472,21 @@ private fun ResultPanel(state: PlayerSheetUi) {
     }
 }
 
-/** Card chip: number / modifier normal; duplicates outlined magenta; action cards and backs dashed grey "ignored". */
+/**
+ * Card chip: number / modifier normal; duplicates outlined magenta; action cards and backs (and a
+ * Second Chance that cancelled a duplicate) only their name, dashed and muted, like the review /
+ * manual chips (no "ignored" word; TalkBack: "Freeze, doesn't score").
+ */
 @Composable
 fun CardChip(card: Card, ignored: Boolean, modifier: Modifier = Modifier, duplicate: Boolean = false) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.tagRow)
     val label = card.chipText().resolve()
     val description = when {
-        ignored -> stringResource(R.string.sheet_card_ignored_description, label)
+        ignored -> stringResource(R.string.chip_ignored, label)
         duplicate -> stringResource(R.string.sheet_card_duplicate_description, label)
         else -> label
     }
-    val text = if (ignored) stringResource(R.string.sheet_card_ignored, label) else label
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -501,7 +504,7 @@ fun CardChip(card: Card, ignored: Boolean, modifier: Modifier = Modifier, duplic
             .semantics { contentDescription = description },
     ) {
         Text(
-            text,
+            label,
             color = when {
                 ignored -> colors.textMuted
                 duplicate -> colors.bust

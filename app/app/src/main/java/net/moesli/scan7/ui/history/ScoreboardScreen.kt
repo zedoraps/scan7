@@ -49,6 +49,7 @@ import net.moesli.scan7.data.GameSnapshot
 import net.moesli.scan7.game.ResultStatus
 import net.moesli.scan7.ui.components.CappedFontScale
 import net.moesli.scan7.ui.components.PlayerUi
+import net.moesli.scan7.ui.components.adjustmentText
 import net.moesli.scan7.ui.components.ScreenHeader
 import net.moesli.scan7.ui.components.bottomButtonsInsets
 import net.moesli.scan7.ui.components.centeredMaxWidth
@@ -128,34 +129,49 @@ fun ScoreboardScreen(
                 .padding(top = Scan7Spacing.l)
                 .bottomButtonsInsets()
                 .weight(1f, fill = false)
-                .fillMaxWidth()
-                .clip(shape)
-                .background(colors.surfaceDone)
-                .border(1.5.dp, colors.line, shape)
-                // TalkBack: a table ("row 3, column 2"); rows = header, rounds, totals.
-                .semantics { collectionInfo = CollectionInfo(rowCount = rounds + 2, columnCount = state.players.size + 1) },
+                .fillMaxWidth(),
         ) {
-            // Fixed-width columns (up to 10 players): cap the font scale like the table cards (2.0 broke "BUST" and the totals).
-            CappedFontScale {
-                HeaderRow(state.players, table)
-                Divider()
-                Column(
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .verticalScroll(rememberScrollState()),
-                ) {
-                    table.rows.forEachIndexed { i, row ->
-                        if (i > 0) Divider()
-                        RoundRow(row, i + 1, state.players, table.playerIds, onEditResult.takeUnless { state.abandoned })
+            Column(
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .fillMaxWidth()
+                    .clip(shape)
+                    .background(colors.surfaceDone)
+                    .border(1.5.dp, colors.line, shape)
+                    // TalkBack: a table ("row 3, column 2"); rows = header, rounds, totals.
+                    .semantics { collectionInfo = CollectionInfo(rowCount = rounds + 2, columnCount = state.players.size + 1) },
+            ) {
+                // Fixed-width columns (up to 10 players): cap the font scale like the table cards (2.0 broke "BUST" and the totals).
+                CappedFontScale {
+                    HeaderRow(state.players, table)
+                    Divider()
+                    Column(
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        table.rows.forEachIndexed { i, row ->
+                            if (i > 0) Divider()
+                            RoundRow(row, i + 1, state.players, table.playerIds, onEditResult.takeUnless { state.abandoned })
+                        }
                     }
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(1.5.dp)
+                            .background(colors.line),
+                    )
+                    TotalsRow(table, rounds + 1, state.players)
                 }
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(1.5.dp)
-                        .background(colors.line),
+            }
+            // Explains the "±" on adjusted totals (there is no adjustments row).
+            if (table.adjusted.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.scoreboard_adjusted_legend),
+                    color = colors.textMuted,
+                    style = Scan7Type.text12,
+                    modifier = Modifier.padding(top = Scan7Spacing.s, start = Scan7Spacing.xs),
                 )
-                TotalsRow(table, rounds + 1, state.players)
             }
         }
     }
@@ -293,7 +309,8 @@ private fun Cell(cell: ScoreCell, description: String, onClick: (() -> Unit)?, c
     val editLabel = stringResource(R.string.action_edit)
     val text = cell.text().resolve()
     Box(
-        contentAlignment = if (cell.status == ResultStatus.SCORED) Alignment.CenterEnd else Alignment.Center,
+        // Centred like the avatar + name header above (right-aligned numbers sat off-centre under it).
+        contentAlignment = Alignment.Center,
         modifier = modifier
             .fillMaxHeight()
             .then(if (onClick != null) Modifier.scan7Clickable(onClick, onClickLabel = editLabel) else Modifier)
@@ -319,9 +336,8 @@ private fun Cell(cell: ScoreCell, description: String, onClick: (() -> Unit)?, c
                 text,
                 color = colors.text,
                 style = Scan7Type.text14,
-                textAlign = TextAlign.End,
+                textAlign = TextAlign.Center,
                 maxLines = 1,
-                modifier = Modifier.padding(end = Scan7Spacing.xs),
             )
             ResultStatus.OPEN -> Text(text, color = colors.textMuted, style = Scan7Type.text14)
         }
@@ -332,7 +348,6 @@ private fun Cell(cell: ScoreCell, description: String, onClick: (() -> Unit)?, c
 private fun TotalsRow(table: ScoreTable, rowIndex: Int, players: List<PlayerUi>) {
     val colors = Scan7Theme.colors
     val totalDescription = stringResource(R.string.scoreboard_total)
-    val adjustedText = stringResource(R.string.scoreboard_adjusted)
     val leadingText = stringResource(R.string.a11y_leading)
     val totalFormat = stringResource(R.string.scoreboard_total_description)
     Row(
@@ -355,26 +370,29 @@ private fun TotalsRow(table: ScoreTable, rowIndex: Int, players: List<PlayerUi>)
         table.totals.forEachIndexed { i, total ->
             val leader = table.playerIds[i] in table.leaders
             val adjusted = table.playerIds[i] in table.adjusted
+            // "Anna, total 63, adjusted by minus 5, leading".
+            val adjustedText = (players[i].adjustmentText() ?: if (adjusted) adjustmentText(0) else null)?.resolve()?.let { ", $it" }.orEmpty()
+            val narrow = players.size > NAMES_UP_TO
             Row(
-                horizontalArrangement = Arrangement.spacedBy(1.dp, Alignment.End),
+                horizontalArrangement = Arrangement.spacedBy(if (narrow) 0.dp else 1.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(end = if (players.size <= NAMES_UP_TO) Scan7Spacing.s - 1.dp else 2.dp)
+                    .padding(horizontal = if (narrow) 1.dp else Scan7Spacing.xxs)
                     .clearAndSetSemantics {
                         contentDescription = totalFormat.format(players[i].name, total) +
-                            (if (adjusted) adjustedText else "") +
+                            adjustedText +
                             if (leader) leadingText else ""
                     }
                     .tableCell(rowIndex, i + 1),
             ) {
-                // Tiny "±": the total includes manual adjustments (no separate row, see ScoreTable.adjusted).
-                if (adjusted) Text("±", color = colors.textMuted, style = Scan7Type.tag10.copy(fontSize = 9.sp), maxLines = 1)
+                // "±": the total includes manual adjustments (no separate row; the legend under the table explains it).
+                if (adjusted) Text("±", color = colors.textMuted, style = if (narrow) Scan7Type.text11 else Scan7Type.text13, maxLines = 1)
                 // Shrinks to fit: 3-digit totals in 10 narrow columns (or a large font scale) were clipped.
-                val style = if (players.size <= NAMES_UP_TO) Scan7Type.total15 else Scan7Type.total13.copy(fontSize = 11.sp)
+                val style = if (!narrow) Scan7Type.total15 else Scan7Type.total13.copy(fontSize = 11.sp)
                 BasicText(
                     total.toString(),
-                    style = style.copy(color = if (leader) colors.accent else colors.text, textAlign = TextAlign.End),
+                    style = style.copy(color = if (leader) colors.accent else colors.text, textAlign = TextAlign.Center),
                     maxLines = 1,
                     softWrap = false,
                     autoSize = TextAutoSize.StepBased(minFontSize = 6.sp, maxFontSize = style.fontSize),

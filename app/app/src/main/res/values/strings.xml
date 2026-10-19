@@ -48,6 +48,11 @@
         <item quantity="one">%d point</item>
         <item quantity="other">%d points</item>
     </plurals>
+    <!-- "… with 88 points" (German: dative "mit 88 Punkten"). -->
+    <plurals name="points_with">
+        <item quantity="one">%d point</item>
+        <item quantity="other">%d points</item>
+    </plurals>
     <plurals name="rounds">
         <item quantity="one">%d round</item>
         <item quantity="other">%d rounds</item>
@@ -119,12 +124,20 @@
         <item quantity="one">%2$s led</item>
         <item quantity="other">%2$s led</item>
     </plurals>
+    <!-- TalkBack: %2$s winner names, %3$s "88 points" (points_with). -->
+    <plurals name="history_won_points">
+        <item quantity="one">%2$s won with %3$s</item>
+        <item quantity="other">%2$s won with %3$s</item>
+    </plurals>
+    <plurals name="history_led_points">
+        <item quantity="one">%2$s led with %3$s</item>
+        <item quantity="other">%2$s led with %3$s</item>
+    </plurals>
     <string name="history_not_finished">Not finished</string>
     <string name="history_no_winner">No winner</string>
     <string name="history_ended_early">ended early</string>
     <string name="history_abandoned">not finished</string>
     <!-- TalkBack for a past game: "Today, 21:40, Mia won with 214 points, 7 rounds, 4 players: …". -->
-    <string name="history_with_points">%1$s with %2$s</string>
     <plurals name="history_players">
         <item quantity="one">%1$d player: %2$s</item>
         <item quantity="other">%1$d players: %2$s</item>
@@ -145,6 +158,9 @@
     <string name="editor_name">Name</string>
     <string name="editor_name_placeholder">e.g. Anna</string>
     <string name="editor_name_missing">Enter a name to save</string>
+    <string name="editor_name_counter">%1$d/%2$d</string>
+    <string name="editor_name_counter_description">Characters: %1$d of %2$d</string>
+    <string name="editor_name_counter_full">Characters: %1$d of %2$d, limit reached</string>
     <string name="editor_shuffle">Shuffle avatar</string>
     <string name="editor_face">Face</string>
     <string name="editor_pattern">Pattern</string>
@@ -218,7 +234,7 @@
     <string name="scoreboard_total_label">TOTAL</string>
     <string name="scoreboard_total">Total</string>
     <string name="scoreboard_total_description">%1$s, total %2$d</string>
-    <string name="scoreboard_adjusted">, includes total adjustments</string>
+    <string name="scoreboard_adjusted_legend">± Total includes adjustments</string>
     <string name="a11y_leading">, leading</string>
     <string name="scoreboard_cell_points">Round %1$d, %2$s: %3$s</string>
     <string name="scoreboard_cell_bust">Round %1$d, %2$s: bust</string>
@@ -252,8 +268,6 @@
     <string name="sheet_rescan_player">Rescan %1$s</string>
     <string name="sheet_reset">Reset last entry</string>
     <string name="sheet_reset_description">Reset the last entry for %1$s</string>
-    <string name="sheet_card_ignored">%1$s · ignored</string>
-    <string name="sheet_card_ignored_description">%1$s, ignored</string>
     <string name="sheet_card_duplicate_description">%1$s, duplicate</string>
     <string name="sheet_adjustments">Total adjustments</string>
     <string name="sheet_adjust">Adjust total</string>
@@ -300,6 +314,8 @@
     <string name="formula_plus">plus</string>
     <string name="formula_times">times</string>
     <string name="formula_equals">%1$s equals %2$s</string>
+    <string name="formula_flip7">%1$s Flip 7</string>
+    <string name="formula_flip7_spoken">%1$s Flip 7 bonus</string>
     <string name="second_chance_used">Second Chance used · %1$s counted once</string>
 
     <!-- Review + manual entry (ui/scan) -->
@@ -429,6 +445,8 @@
     </plurals>
     <string name="a11y_player_bust">bust this round</string>
     <string name="a11y_player_leading">leading</string>
+    <string name="a11y_adjusted_by">adjusted by %1$s</string>
+    <string name="a11y_adjusted">includes total adjustments</string>
     <string name="about_tp_yolo">Detector architecture + pretrained YOLO26n weights · AGPL-3.0</string>
     <string name="about_tp_litert">On-device inference, GPU delegate · Apache-2.0</string>
     <string name="about_tp_jetpack">Compose, Material 3, Activity, Core, Lifecycle, Navigation 3, CameraX, Room, SplashScreen · Apache-2.0</string>
@@ -441,6 +459,7 @@
     <string name="home_game_open_scoreboard">Open scoreboard</string>
     <string name="home_game_resume">Resume</string>
     <string name="home_game_delete">Delete game</string>
+    <string name="home_game_same_players">Same players</string>
     <!-- Summary of the running game in the delete confirmation ("Today, 21:40 · Round 4 · Mia leads"). -->
     <string name="home_game_round">Round&#160;%1$d</string>
     <plurals name="home_game_rounds">

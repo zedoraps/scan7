@@ -11,7 +11,7 @@ is configured and what the user still has to do by hand.
 |---|---|---|
 | versionCode | `git rev-list --count HEAD` (commit count; full clone needed), override `-Pscan7.versionCode=N`, fallback 1 | `app/app/build.gradle.kts` |
 | versionName | `scan7.versionName` (bump per release), override `-Pscan7.versionName=…` | `app/gradle.properties` |
-| Source / privacy links | `scan7.sourceUrl`, `scan7.privacyUrl` → `BuildConfig.SOURCE_URL` / `PRIVACY_URL`, shown in About | `app/gradle.properties` (placeholders `OWNER`) |
+| Source / privacy links | `scan7.sourceUrl`, `scan7.privacyUrl` → `BuildConfig.SOURCE_URL` / `PRIVACY_URL`, shown in About | `app/gradle.properties` (`zedoraps/scan7`) |
 | Release signing | `signingConfigs.release` from `scan7.upload.*` Gradle properties or `SCAN7_UPLOAD_*` env vars; unsigned (with a warning) when absent | `app/app/build.gradle.kts` |
 | Detector model | not in git; `./gradlew downloadModel` fetches the released `model.tflite` and checks its SHA-256; `checkModelAsset` fails the build early with that hint | `app/model.properties` |
 | License texts | `copyLicenseTexts` copies `LICENSE` + `docs/third_party/*.txt` into the APK (`assets/licenses/`) for About & licenses | `app/app/build.gradle.kts` |
@@ -57,10 +57,10 @@ app), upload `app/app/src/main/assets/model.tflite` to a new release (tag e.g. `
       describe the `PRIVATE_*` photos (e.g. "a short note"); shorten them if they say
       more than you want public. The commit author name/e-mail become public too.
 - [ ] Create the public GitHub repository and push `main` (and tags).
-- [ ] Replace the `OWNER` placeholders: `app/gradle.properties` (`scan7.sourceUrl`,
+- [x] Repository set to `zedoraps/scan7` in `app/gradle.properties` (`scan7.sourceUrl`,
       `scan7.privacyUrl`), `app/model.properties` (`model.url`), `docs/store/listing-en.md`.
 - [ ] Enable **GitHub Pages** (Settings → Pages → deploy from branch `main`, folder `/docs`). The
-      privacy policy is then at `https://OWNER.github.io/scan7/privacy.html` (`docs/privacy.md`,
+      privacy policy is then at `https://zedoraps.github.io/scan7/privacy.html` (`docs/privacy.md`,
       English + German). Note: the other files in `docs/` are published too (they're public in
       the repo anyway).
 - [ ] Create the model release: `gh release create model-ft_v1 app/app/src/main/assets/model.tflite --title "Detector model ft_v1" --notes "YOLO26n fp32, 640 px (AGPL-3.0)"`,
