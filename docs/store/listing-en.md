@@ -1,6 +1,6 @@
 # Google Play listing – English (en-US, default)
 
-Limits: app name ≤ 30, short description ≤ 80, full description ≤ 4000 characters (now 1710;
+Limits: app name ≤ 30, short description ≤ 80, full description ≤ 4000 characters (now 1907;
 count the text blocks again after editing).
 "Flip 7" is only used descriptively (what the app is for). Never use The Op Games' artwork, card
 images, logo or name styling in the listing, the icon, the screenshots or the feature graphic.
@@ -30,6 +30,7 @@ THE WHOLE GAME
 • Running totals, the leader, the target score (200 by default) and the end of the game are handled for you.
 • Scoreboard with every round; fix a past result any time.
 • Past games stay on Home: winner, points, rounds.
+• Beta: play one game on several phones. Share it with a QR code; everyone scans their own players, directly phone to phone over Bluetooth and Wi-Fi, without internet (needs Google Play services).
 
 PRIVATE BY DESIGN
 • Card recognition runs entirely on your phone. No photo ever leaves the device.

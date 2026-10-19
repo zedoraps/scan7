@@ -16,6 +16,7 @@ is configured and what the user still has to do by hand.
 | Detector model | not in git; `./gradlew downloadModel` fetches the released `model.tflite` and checks its SHA-256; `checkModelAsset` fails the build early with that hint | `app/model.properties` |
 | License texts | `copyLicenseTexts` copies `LICENSE` + `docs/third_party/*.txt` into the APK (`assets/licenses/`) for About & licenses | `app/app/build.gradle.kts` |
 | Debug features | debug menu (5 taps on the wordmark), launch hooks (`debug_*` extras) and "Save scans for training" exist in **debug builds only**; release builds never write training photos | `BuildConfig.DEBUG` checks |
+| Play / FOSS build | the flavorless default is the **Play build** with Google Play services Nearby (multiplayer *Share this game* / *Join a game*, beta); `-Pscan7.foss=true` builds without Play services (no multiplayer; F-Droid); `-Pscan7.flavors=true` adds both as flavors `play` (default) / `foss` instead | `app/app/build.gradle.kts`, `src/play/`, `src/foss/` |
 | Backup | Auto Backup / device transfer include only the Room database and shared preferences; not `files/`, caches or the shared-storage training folders | `res/xml/backup_rules.xml`, `data_extraction_rules.xml` |
 
 Build commands (from `app/`):
@@ -23,6 +24,7 @@ Build commands (from `app/`):
 ./gradlew bundleRelease      # app/build/outputs/bundle/release/app-release.aab  (Play)
 ./gradlew assembleRelease    # app/build/outputs/apk/release/app-release(-unsigned).apk  (GitHub / sideload)
 ./gradlew downloadModel      # fresh clone: fetch assets/model.tflite (SHA-256 checked)
+./gradlew -Pscan7.foss=true assembleRelease   # without Play services / multiplayer (F-Droid)
 ```
 
 ### Why a static About screen (not AboutLibraries / oss-licenses)
@@ -115,7 +117,7 @@ stay opted in for 14 days in a row** before they can apply for production access
 Answers are drafted in [store/README.md](store/README.md).
 - [ ] Privacy policy URL (GitHub Pages, step 1).
 - [ ] Ads: No. App access: everything available without login.
-- [ ] **Data safety**: "No data collected / shared".
+- [ ] **Data safety**: "No data collected / shared" (multiplayer game data goes only phone to phone, see store/README.md).
 - [ ] **Content rating** (IARC questionnaire): expected Everyone / PEGI 3 / USK 0.
 - [ ] Target audience: 13+ (avoids the Families policy for now).
 - [ ] Government / financial / health / news declarations: none.
@@ -138,7 +140,8 @@ Answers are drafted in [store/README.md](store/README.md).
 - [ ] Bump `scan7.versionName` in `app/gradle.properties`, commit, tag `vX.Y.Z`, push.
 - [ ] `cd app && ./gradlew testDebugUnitTest lintRelease bundleRelease assembleRelease`.
 - [ ] Check the merged release manifest (`app/app/build/outputs/logs/manifest-merger-release-report.txt`):
-      no `INTERNET`, no new permissions without updating the Data safety answers.
+      no `INTERNET`, no permissions beyond the list in *Permissions of the release build* below
+      without updating the Data safety answers and the permission declarations.
 - [ ] Sideload the release APK on a test device once: no debug menu on 5 wordmark taps, About shows
       the right version and links, scanning works, nothing appears in `Pictures/Scan7 Training`.
 - [ ] Upload the AAB to internal → closed → production (staged rollout, e.g. 20 %).
@@ -162,18 +165,47 @@ Answers are drafted in [store/README.md](store/README.md).
 - **Proprietary dependencies (F-Droid NonFreeDep): solved.** `litert-api` 2.3.0 pulls in
   `com.google.android.play:ai-delivery` (AI Pack / Play-delivered models, unused by Scan7), which
   brings `asset-delivery`, `androidx.work` and the proprietary `play-services-basement` /
-  `play-services-tasks`. `app/app/build.gradle.kts` excludes `ai-delivery` for all configurations
-  (no separate `foss` flavor needed): the LiteRT jars and native libraries don't reference those
+  `play-services-tasks`. `app/app/build.gradle.kts` excludes `ai-delivery` for all configurations:
+  the LiteRT jars and native libraries don't reference those
   classes, and the bundled model loads and detects without them (checked on the API 37 emulator,
   GPU accelerator → CPU fallback, no ClassNotFound / NoClassDefFound). Check
   `./gradlew :app:dependencies --configuration releaseRuntimeClasspath` for
   `com.google.android.gms` / `com.google.android.play` after every LiteRT update.
+- **F-Droid builds with `-Pscan7.foss=true`** (e.g. `gradleprops: [scan7.foss=true, scan7.versionCode=<code>]`):
+  the default Play build links `play-services-nearby` (proprietary) for multiplayer. The FOSS build
+  has no Nearby, no Share / Join, none of the radio permissions and no foreground service; check
+  `./gradlew -Pscan7.foss=true :app:dependencies --configuration releaseRuntimeClasspath` shows no
+  `com.google.android.gms`. Multiplayer is not an F-Droid target (user decision).
 - Store texts for F-Droid can live in `fastlane/metadata/android/<lang>/` (title, short and full
   description, images); copy them from `docs/store/` when doing this.
 
+## Permissions of the release build
+Check with `aapt2 dump badging app/build/outputs/apk/release/app-release*.apk | grep permission`
+(or the merged manifest, `app/app/build/intermediates/merged_manifests/release/*/AndroidManifest.xml`).
+**No `INTERNET`** in either build.
+
+| Permission | Build | Why | Asked at runtime |
+|---|---|---|---|
+| `CAMERA` | both | scanning the cards; also the QR code on *Join a game* | first scan / first join |
+| `ACCESS_WIFI_STATE`, `CHANGE_WIFI_STATE` | Play | Nearby checks them on every API level (8032) | no (install-time) |
+| `BLUETOOTH`, `BLUETOOTH_ADMIN` (`maxSdkVersion=30`) | Play | Nearby on Android 10–11 | no |
+| `ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION` | Play | Nearby discovery refuses without both, even on Android 17 (8034 / 8036). Scan7 never reads or stores the location | on Share / Join |
+| `BLUETOOTH_ADVERTISE` / `CONNECT` / `SCAN`, `NEARBY_WIFI_DEVICES` | Play | Nearby on Android 12+ / 13+ ("Nearby devices") | on Share / Join |
+| `ACCESS_LOCAL_NETWORK` | Play | Android 17 local network protection (Wi-Fi LAN medium) | on Share / Join |
+| `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_CONNECTED_DEVICE` | Play | `ShareService` keeps the link alive while sharing / joined (screen off, camera open) | no |
+| `POST_NOTIFICATIONS` | Play | the "sharing a game" notification of that service (optional) | on Share / Join |
+| `ACCESS_NETWORK_STATE` | Play | added by `play-services-nearby` | no |
+| `net.moesli.scan7.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | both | AndroidX's own signature-level permission | no |
+
+Hardware features `bluetooth`, `bluetooth_le`, `location` (+ `.gps`, `.network`) and `wifi` are
+declared `required="false"`, so phones without them can still install Scan7 (multiplayer then
+can't reach other phones). Runtime permissions are requested only when the user taps *Share this
+game* or *Join a game*, never at startup. In the Play Console the location permission needs the
+declaration / explanation from [store/README.md](store/README.md).
+
 ## Follow-ups (not blocking)
-- Done: `WAKE_LOCK`, `ACCESS_NETWORK_STATE`, `RECEIVE_BOOT_COMPLETED` and WorkManager's boot
-  receiver / services are gone with the `ai-delivery` exclusion (see F-Droid above); the release
-  APK's `aapt2 dump badging` lists only `CAMERA` (plus AndroidX's own signature-level
-  `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`). LiteRT's own `FOREGROUND_SERVICE*` entries are
-  still removed with `tools:node="remove"` in the app manifest.
+- Done: `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED` and WorkManager's boot receiver / services are gone
+  with the `ai-delivery` exclusion (see F-Droid above). LiteRT's own `FOREGROUND_SERVICE_DATA_SYNC`
+  is still removed with `tools:node="remove"` in the main manifest; the Play manifest
+  (`src/play/AndroidManifest.xml`) declares `FOREGROUND_SERVICE` + `_CONNECTED_DEVICE` again for
+  `ShareService`. The FOSS build should list only `CAMERA` (plus the AndroidX signature permission), as before multiplayer; re-check with aapt2 when building it.

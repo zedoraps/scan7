@@ -1,6 +1,6 @@
 # Google-Play-Eintrag – Deutsch (de-DE)
 
-Grenzen: App-Name ≤ 30, Kurzbeschreibung ≤ 80, Beschreibung ≤ 4000 Zeichen (jetzt 1953).
+Grenzen: App-Name ≤ 30, Kurzbeschreibung ≤ 80, Beschreibung ≤ 4000 Zeichen (jetzt 2143).
 "Flip 7" nur beschreibend verwenden; nie Grafiken, Kartenbilder, Logo oder Schriftzug von
 The Op Games.
 
@@ -29,6 +29,7 @@ DAS GANZE SPIEL
 • Zwischenstände, Führende, Zielpunktzahl (standardmäßig 200) und Spielende macht Scan7 für dich.
 • Tabelle mit allen Runden; frühere Ergebnisse lassen sich jederzeit korrigieren.
 • Vergangene Spiele bleiben auf dem Startbildschirm: Sieger, Punkte, Runden.
+• Beta: ein Spiel auf mehreren Handys. Teil es per QR-Code; jeder scannt seine eigenen Spieler, direkt von Handy zu Handy über Bluetooth und WLAN, ohne Internet (braucht die Google-Play-Dienste).
 
 PRIVAT VON ANFANG AN
 • Die Kartenerkennung läuft komplett auf deinem Handy. Kein Foto verlässt das Gerät.

@@ -24,7 +24,8 @@ screens, which show no card art at all.
 
 ## Data safety form (Play Console → App content → Data safety)
 Basis: the release build has no internet permission, no SDKs that collect data, no ads, no
-analytics, no crash reporter; training-scan saving is compiled out of release behaviour
+analytics, no crash reporter; multiplayer (beta, Play build) sends the shared game only directly
+between the phones at the table over Nearby Connections, never to the developer or a server; training-scan saving is compiled out of release behaviour
 (debug builds only). Re-check these answers whenever a dependency or permission changes
 (`app/app/build/outputs/logs/manifest-merger-release-report.txt`).
 
@@ -38,19 +39,44 @@ analytics, no crash reporter; training-scan saving is compiled out of release be
 Why "No" is correct: Play counts data as *collected* only when it is transmitted off the device.
 Camera frames are processed on-device and never stored or sent; players, games and settings stay
 in the app's private storage. Android's own Auto Backup (user-controlled, Google account) is a
-system feature and is not collection by the app.
+system feature and is not collection by the app. Multiplayer: player names, avatars and scores go
+from phone to phone at the table (end-to-end between the users' own devices, encrypted by Nearby),
+never to the developer or a third party, so it is neither *collected* nor *shared* in Play's sense.
+**Location: No** (neither collected nor shared): the location permission exists only because
+Nearby discovery requires it; Scan7 never reads or stores a location. Play services itself may send
+its own diagnostics under the user's device settings; that is Google's system service, not an SDK
+collecting for the app (re-check Google's current Data safety guidance for Nearby before
+submitting).
 
-Permissions to declare / explain: **Camera** (core feature: scanning the cards; asked at the first
-scan, with an explanation screen; after a permanent denial the screen links to the app settings).
-It is the only permission of the release build: the WorkManager / Play AI delivery dependencies
-that LiteRT pulls in are excluded (see RELEASE.md, F-Droid).
+Permissions to declare / explain (full list: RELEASE.md, *Permissions of the release build*):
+- **Camera** (core feature: scanning the cards; asked at the first scan, with an explanation
+  screen; after a permanent denial the screen links to the app settings). Also reads the QR code
+  on *Join a game*.
+- **Nearby devices: Bluetooth (advertise / connect / scan), Wi-Fi (`NEARBY_WIFI_DEVICES`, Wi-Fi
+  state), local network (Android 17)**: multiplayer (beta) finds and connects the phones at the
+  table with Google Nearby Connections. Asked only when the user taps *Share this game* or *Join a
+  game*, with a one-line rationale.
+- **Location (coarse + fine)**: required by Android / Nearby to discover nearby devices over
+  Bluetooth and Wi-Fi, even on Android 17. Not used for location, never read or stored, not in
+  the background. Play may still ask for a location permission declaration in the Console; explain
+  it as "needed only to find nearby phones for a shared game (Nearby Connections); the app never
+  accesses your location". Asked only on Share / Join.
+- **Foreground service `connectedDevice`** (+ notification): keeps the connection to the other
+  phones alive while a game is shared or joined (screen off, camera open). Play asks for a
+  foreground service declaration (type *connected device*, short description, possibly a video of
+  the Share flow).
+- The F-Droid / FOSS build (`-Pscan7.foss=true`) has only Camera: no Nearby, no radio permissions.
+  The WorkManager / Play AI delivery dependencies that LiteRT pulls in are excluded in both builds
+  (see RELEASE.md, F-Droid).
 
 ## Content rating (Play Console → App content → Content ratings, IARC questionnaire)
 - Category: **Utility, Productivity, Communication or Other** (it is a score keeper, not a game).
 - Violence, sexuality, language, controlled substances, crude humour: **No**.
 - Gambling or simulated gambling: **No** (Flip 7 has points, no stakes; the app has no betting,
   no currency).
-- Users can interact or exchange content: **No** (no network, no chat, no sharing).
+- Users can interact or exchange content: **No** (no chat, no user-generated content; multiplayer
+  only syncs the score sheet between the phones at the same table, which people already share
+  face to face; re-check the wording of the current questionnaire).
 - Shares the user's location: **No**. Digital purchases: **No**. Ads: **No**.
 - Expected result: **Everyone / PEGI 3 / USK 0**.
 

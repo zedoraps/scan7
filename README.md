@@ -35,6 +35,7 @@ Run any script with `uv run python scripts/<name>.py` from `ml/`.
   ```
 - Test on a real phone over USB (enable USB debugging, then `adb devices`).
 - The detector model isn't in git: after cloning run `cd app && ./gradlew downloadModel` (or export your own, stage 5).
+- The default build is the Play build with multiplayer (beta, Google Play services Nearby: *Share this game* / *Join a game*, spec [docs/MULTI_DEVICE.md](docs/MULTI_DEVICE.md)); `./gradlew -Pscan7.foss=true …` builds without Play services and without multiplayer (F-Droid).
 - Releases (signing, versioning, Play / GitHub / F-Droid): [docs/RELEASE.md](docs/RELEASE.md).
 
 ## License
@@ -50,6 +51,8 @@ Third-party components:
 | [LiteRT](https://github.com/google-ai-edge/LiteRT) (Google AI Edge) | on-device inference (GPU / CPU) | Apache-2.0 |
 | Android Jetpack: Compose, Material 3, CameraX, Room, Lifecycle, Navigation 3, Core, Activity, SplashScreen | app UI, camera, database | Apache-2.0 |
 | Kotlin, kotlinx.coroutines, kotlinx.serialization | language + libraries | Apache-2.0 |
+| [ZXing](https://github.com/zxing/zxing) core | QR code for joining a shared game | Apache-2.0 |
+| Google Play services Nearby (Play build only, not in `-Pscan7.foss=true`) | multiplayer: phone-to-phone connection | proprietary (Google APIs terms) |
 | Unbounded, DM Mono fonts | app typography | SIL OFL 1.1 ([docs/third_party/](docs/third_party/)) |
 
 The app shows these notices with the full texts under Home → version footer → *About & licenses*.

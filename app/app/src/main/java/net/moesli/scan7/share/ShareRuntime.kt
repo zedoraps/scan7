@@ -164,6 +164,9 @@ class ShareRuntime(
         scope.launch {
             if (hosting?.gameId == gameId && hosting?.mode == mode) return@launch
             stopHostingNow()
+            // Over the radio a phone is host or guest, not both (Nearby refuses the second role with
+            // STATUS_OUT_OF_ORDER_API_CALL): sharing leaves a joined game. The debug demo does both in-process.
+            if (mode == LinkMode.RADIO && joined?.mode == LinkMode.RADIO) leaveNow()
             val game = repository.loadGame(gameId) ?: return@launch
             val players = repository.observeGame(gameId).first()?.everyone.orEmpty()
             val saved = repository.shareSession(gameId)?.takeIf { it.role == ROLE_HOST }
@@ -266,6 +269,9 @@ class ShareRuntime(
             // Scanning the same code again retries a join the host refused (e.g. this phone was removed).
             if (joined?.link == link && joined?.session?.view?.value?.status != ClientStatus.REJECTED) return@launch
             leaveNow()
+            // Joining over the radio ends this phone's own sharing (field test: the 8 Pro still hosted
+            // its game and every connection request failed with 8009). Its game stays on the phone.
+            if (mode == LinkMode.RADIO && hosting?.mode == LinkMode.RADIO) stopHostingNow()
             val deviceId = repository.deviceId().let { if (mode == LinkMode.IN_PROCESS) "demo-$it" else it }
             val saved = repository.shareSessions().firstOrNull { it.role == ROLE_GUEST && it.sessionId == link.sessionId }
             val savedState = saved?.let { runCatching { json.decodeFromString(GuestSaved.serializer(), it.stateJson) }.getOrNull() }

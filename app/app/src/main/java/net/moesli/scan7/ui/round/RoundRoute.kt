@@ -423,7 +423,8 @@ fun RoundRoute(
     // The host app restarted (update, killed in the background) while sharing: share again with the
     // saved session and code, so the guests' rejoin finds it. "Stop sharing" deletes that session.
     LaunchedEffect(snap.isJoined, host == null) {
-        if (!snap.isJoined && host == null && !snap.state.isOver && shareRuntime.radioAvailable && permissions.missing().isEmpty()) {
+        // Not while this phone is a guest elsewhere: over the radio it can't be both.
+        if (!snap.isJoined && host == null && shareState.guest == null && !snap.state.isOver && shareRuntime.radioAvailable && permissions.missing().isEmpty()) {
             if (repository.shareSession(gameId)?.role == "HOST") shareRuntime.host(gameId, LinkMode.RADIO)
         }
     }

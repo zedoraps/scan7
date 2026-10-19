@@ -41,10 +41,10 @@ app/                   Android Gradle root; module app/, package net.moesli.scan
     ui/about/          About & licenses (Home: tap the version footer): version, AGPL + source link, privacy link, third-party notices (static list; texts from LICENSE + docs/third_party/ copied into assets at build time)
     ui/theme/          Scan7 theme, colors, fonts, wordmark
     ui/text/           UiText (string ids for plain-Kotlin text), GameText (card/avatar names), AppLocales (app language)
-    multiplayer/       (multiplayer branch only) plain-Kotlin multi-phone protocol: GameAction, Host/ClientSession, GuestRules, FakeNetwork; nearby/ = Nearby adapter on an owned ConnectionsApi (+ permissions, QR link)
-    share/             (multiplayer branch) ShareRuntime: the phone's sessions on one thread, host store = GameRepository.applyLocal, guest = read-only joined copy; RadioSupport (src/foss: none, also the default build; src/play: Nearby + ShareService)
-    ui/share/          (multiplayer branch) share sheet (QR), claim sheet, Join screen (QR reader), permission request, save players
-  app/src/play/        (multiplayer branch, only with -Pscan7.flavors=true) GmsConnectionsApi, Radio + ShareService, Nearby permissions + scan7://join manifest
+    multiplayer/       (beta) plain-Kotlin multi-phone protocol: GameAction, Host/ClientSession, GuestRules, FakeNetwork; nearby/ = Nearby adapter on an owned ConnectionsApi (+ permissions, QR link)
+    share/             ShareRuntime: the phone's sessions on one thread, host store = GameRepository.applyLocal, guest = read-only joined copy; RadioSupport (src/play: Nearby + ShareService, the default build; src/foss: none, -Pscan7.foss=true)
+    ui/share/          share sheet (QR), claim sheet, Join screen (QR reader), permission request, save players
+  app/src/play/        (default build; src/foss/ = no radio) GmsConnectionsApi, Radio + ShareService, Nearby permissions + scan7://join manifest
   app/schemas/         exported Room schemas (committed; bump the DB version + add a migration on change)
 ```
 
@@ -106,7 +106,9 @@ ANDROID_SERIAL=<serial> ./gradlew -Pscan7.idSuffix=.uitest connectedDebugAndroid
 ./gradlew lintDebug                # lint
 ./gradlew installDebug             # install on the connected phone
 ANDROID_SERIAL=emulator-5554 ./gradlew -Pscan7.idSuffix=.b installDebug   # parallel agents: side-by-side copy on the shared emulator. ALWAYS set ANDROID_SERIAL: installDebug otherwise installs on every device incl. the user's phone
-./gradlew -Pscan7.flavors=true assembleDebug testPlayDebugUnitTest lintPlayDebug   # multiplayer branch: foss/play flavors (play = Play services Nearby); without the flag the build is flavorless + Play-free
+./gradlew -Pscan7.foss=true assembleDebug   # without Play services (no multiplayer; F-Droid). The flavorless default is the Play build with Nearby (Share / Join, BETA); same task names
+./gradlew -Pscan7.flavors=true assemblePlayDebug assembleFossDebug   # instead: both flavors `play` (default) + `foss` (tasks get the flavor name)
+adb logcat -s Scan7Nearby Scan7Frames   # multiplayer field test: every Nearby call/callback + every game message as JSON
 ./gradlew --stop                   # stops ALL Gradle daemons of this version on the Mac, incl. other agents' running builds: only when no other agent is building
 ```
 The test phone (Pixel 10 Pro) is connected over **wireless debugging** (adb-tls-connect via
@@ -154,7 +156,7 @@ The emulators run at nice 5 next to training; idle they cost ~1.5 cores in total
 | 2026-10-18 | **Platform audit adopted** ([docs/PLATFORM_AUDIT.md](docs/PLATFORM_AUDIT.md)): batches A (components/theme/manifest/deps) → B (round/scan/camera) + C (setup/sheet/data/debug) in parallel → D alone later: **switch to Navigation 3**. Screen stays on in the camera **and the round screen**. Sheets close with their slide-down animation before running the action (Save, Delete, menu items). |
 | 2026-10-18 | **Confirmations:** one `Scan7ConfirmDialog` (centred, never inline in a sheet; Cancel + action; 400 ms arm delay instead of press-and-hold); destructive = **warning style** (text-colour outline + ⚠), never cyan or bust magenta. Catalogue in `ui/components/Confirmations.kt` + docs/APP_FLOW.md. Round menu = M3 list + segmented scan direction. |
 | 2026-10-18 | **int8 (milestone 5):** `export.py --int8 static_e2e` keeps [1,300,6], same accuracy, 3 MB; on the Pixel GPU no faster than fp32 (~70 ms), so the app ships **fp32** for now; int8 kept for CPU-only devices / smaller APK. Report: ml/out/export/INT8_REPORT.md (not in git). |
-| 2026-10-18 | **Multi-phone play (later):** Google Nearby Connections (P2P_STAR, host-authoritative, QR join), fully local, no online service. Spec in [docs/MULTI_DEVICE.md](docs/MULTI_DEVICE.md): host shares by QR, guests pick who they are + whom they scan, guests only edit their own entries of the running round, no totals / round ending; Play services OK (`play` flavor), guests keep a "joined" history copy. Protocol spike on a separate branch, not in main. |
+| 2026-10-18 | **Multi-phone play:** Google Nearby Connections (P2P_STAR, host-authoritative, QR join), fully local, no online service. Spec in [docs/MULTI_DEVICE.md](docs/MULTI_DEVICE.md): host shares by QR, guests pick who they are + whom they scan, guests only edit their own entries of the running round, no totals / round ending; Play services OK (Play build), guests keep a "joined" history copy. Merged as beta on 2026-10-19 (below). |
 | 2026-10-18 | **App flow agreed** — spec in [docs/APP_FLOW.md](docs/APP_FLOW.md): players stored locally (no groups), select who plays; scan with the **shutter button only** (no auto-capture); bust shown in magenta **plus** the word; the game ends only after a full round is scored, highest total wins. |
 | 2026-10-18 | **Total adjustments** ("Adjust total" in the player sheet): own table `score_adjustments` (DB v3, AutoMigration 2→3, MigrationTest in androidTest), counted in `GameState.totals`; no scoreboard row, only a "±" mark on the total. |
 | 2026-10-18 | **Player avatars** (design/avatars/AVATARS.md): `Avatar(face, pattern, color)` ids on the player (DB v4, manual `MIGRATION_3_4` in data/Migrations.kt: old palette index → nearest catalog color, face + pattern seeded by player id; MigrationTest 3→4 and 1→4); `PlayerAvatar` replaces the initial token everywhere; colors may repeat within a game (editor dot hint, no New game blocking). Debug menu → Avatars shows the kit examples. |
@@ -162,6 +164,7 @@ The emulators run at nice 5 next to training; idle they cost ~1.5 cores in total
 | 2026-10-18 | **Card-look variants without a photo** go to `ml/data/cards_extra/<class>_<desc>.png` (rectified RGBA 600×832; English `00_en_rainbow`, `back_en` cut from the render `paste_773e114e` by `scripts/extract_en_variants.py`); `make_cutouts.py` copies them to `out/cutouts/<class>_<n>` (map in `out/cutouts/sources.yaml`), pick rates + banner box in synth.yaml `variants`. Web test stems listed in **`ml/data/web_test/exclude.txt`** (the render and its small copy `paste_80304d69`) are training sources and must be skipped by every evaluation. |
 | 2026-10-18 | **Card size = largest that fits** the real table area (Large → Medium → Compact, then `tableCardScale`), not player count (`ui/round/RoundLayout.kt`); deviates from the handoff on purpose (user: 6 players on a tall phone = Large). List rows: Regular only when all rows fit **without scrolling** (8 players on 411×914 dp = Compact). |
 | 2026-10-19 | **Shipped model: ft_v5 @ 800 px** (fp32; `MODEL_INPUT_SIZE = 800`): best "fully correct" rate on both test sets (DE 20/29, EN web 19/47 vs ft_v1 19/29, 11/47); ~1.5× the 640 px inference cost (~105 ms est. Pixel GPU). ft_v4 @ 800 is the close runner-up. Report: ml/out/eval/OVERNIGHT_REPORT.md (not in git). |
+| 2026-10-19 | **Multiplayer merged as beta** (Nearby, [docs/MULTI_DEVICE.md](docs/MULTI_DEVICE.md)): the Play build is the default, `-Pscan7.foss=true` builds without Play services (no multiplayer); runtime permissions asked only on Share / Join, incl. precise location (required by Nearby discovery, never read or stored). |
 
 ## Branding (summary; details in brand/BRAND.md)
 - App name **Scan7**; wordmark "scan" in text color + "7" in accent (`Scan7Wordmark`).

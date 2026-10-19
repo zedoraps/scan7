@@ -1,7 +1,7 @@
 # Scan7 – Multiple phones in one game (spec)
 
-> Spec, 2026-10-19. Status: **flow and rules agreed with the user; the remaining proposals in §0.2 still need confirming. M1 (protocol / sessions), M2 (Nearby adapter) and M3 (wiring + UI on the existing screens) are built and JVM-tested; nothing has run on a device yet (M4). The design pass for the new UI pieces is still open (§8).**
-> The code lives on the branch `worktree-agent-a50dec2812cd0b47a` (main merged in, DB v6; see §9). It is **not merged into main**.
+> Spec, 2026-10-19. Status: **merged into main as a beta feature** (Share this game / Join a game, both labelled BETA; DB v6). M1–M3 are built and JVM-tested; a first field test on 2 phones (Pixel 10 Pro, Android 17 + Pixel 8 Pro, Android 16) is done and its fixes are in (§8, M4). Still open: the remaining proposals in §0.2, the design pass (§8), a full game night with 3–4 phones and older API levels.
+> Build: the flavorless default is the Play build with Nearby; `-Pscan7.foss=true` builds without Play services (no multiplayer, F-Droid). Field-test log: `adb logcat -s Scan7Nearby Scan7Frames` (every Nearby call / callback and every game message as JSON).
 > Context: [APP_FLOW.md](APP_FLOW.md) (game flow), [../design/DESIGN_HANDOFF.md](../design/DESIGN_HANDOFF.md) (look), [../AGENTS.md](../AGENTS.md). App: `minSdk 29`, `targetSdk 37` (Android 17).
 
 ---
@@ -32,7 +32,7 @@
 21. **Test hardware:** 2–3 real phones are available later. Until then, everything is covered by unit tests with fakes (FakeNetwork, a fake `ConnectionsApi`).
 22. **The host always plays in practice.** If it hasn't picked a player, its label stays **"Host"**. There is no helper name for the host.
 23. **"Save players" matches by name only** (trimmed, ignoring case). The avatar doesn't count.
-24. **When multiplayer ships, the `play` flavor becomes the default build** (`installPlayDebug`, …). The **`foss` flavor without Play services stays buildable.** This is done in M3, not now. Until then the flavors stay opt-in (`-Pscan7.flavors=true`).
+24. **When multiplayer ships, the `play` flavor becomes the default build** (`installPlayDebug`, …). The **`foss` flavor without Play services stays buildable.** **Done:** the flavorless default is the Play build; `-Pscan7.foss=true` (or `-Pscan7.flavors=true` → `foss`) builds without Play services.
 
 ### 0.2 Proposals (please confirm or change)
 - **P1. One screen for steps 3 + 4**, "Who are you? · Who do you scan?". "Me" is preselected as scanned. You can add extra players, e.g. a neighbour without a phone. "Just helping" asks for a name instead. A player another device already scans shows that device's badge. Claiming them anyway asks first ("Take over Cleo from Anna's phone?"), and then they move to you. The same goes for "I am Anna" when another phone already is Anna (e.g. a new phone).
@@ -103,7 +103,7 @@ Everything new uses existing components: `Scan7ConfirmDialog`, the M3 bottom she
 - Own players are highlighted (P7). Others' players have badges.
 - Bottom: **Scan next · <my next open player>** (P6). Close round is left out. When all my players are done, **Scan next** gives way to "Waiting for Philip to close the round" (muted text), or to "All your players are done" while others are still open.
 - Player sheet: an open player has Scan · Enter manually · Bust. My own done entry has Edit · Rescan · Reset to open. Someone else's entry shows the result + "Scored by Ben's phone", read-only. Adjust total is left out.
-- Banner states: "Connection lost · reconnecting…" (non-blocking), "Removed by the host" (blocking, → Home).
+- Banner states: "Connection lost · reconnecting…" (non-blocking); after 20 s without a connection "Not connected · this is only a copy · Join again"; "Removed by the host" (blocking, → Home; the phone can rejoin by scanning the QR).
 
 **Scan flow (both)**
 - Unchanged camera, review and manual screens. On a guest, OK sends the intent and returns as usual. The card shows a **hollow ✓ (pending)** until the host's event arrives.
@@ -241,7 +241,7 @@ The domain classes (`GameState`, `PlayerResult`, …) are **not** annotated. The
 - **Owned interface:** `ConnectionsApi` (`multiplayer/nearby/`) is the slice of `ConnectionsClient` we use (advertise, discover, request, accept/reject, send BYTES, disconnect, lifecycle callbacks). `GmsConnectionsApi` (`src/play/`) forwards it 1:1 and maps status codes to `ApiError`. All logic lives in plain Kotlin:
   - `NearbyHostTransport` / `NearbyClientTransport` implement `HostTransport` / `ClientTransport`.
   - `FrameChunker` splits frames above the BYTES limit (9-byte header: magic, message id, index, count) and drops lost, foreign or oversized frames. The session then resyncs.
-  - The client transport **keeps its link**: after a drop it reports `onDisconnected`, rediscovers with backoff (1, 2, 4, 8, 16, 30 s) and reports `onConnected` again, so `ClientSession` sends a fresh `hello`. An `onEndpointLost` before the handshake also retries. A connection the host rejected is not retried.
+  - The client transport **keeps its link**: after a drop it reports `onDisconnected`, rediscovers with backoff (1, 2, 4, 8, 16, 30 s; a connection attempt times out after 30 s) and reports `onConnected` again, so `ClientSession` sends a fresh `hello`. An `onEndpointLost` before the handshake also retries. A connection the host rejected is not retried.
   - The `missingPermissions` check runs before Nearby is touched, and `MISSING_PERMISSION` from Nearby shows as `TransportStatus.MissingPermissions` (no retry loop).
   - Graceful disconnects wait 300 ms, so `hello_rejected` or `leave` frames still get out.
   - Callbacks are expected on one thread (Nearby: the main thread).
@@ -254,20 +254,20 @@ The domain classes (`GameState`, `PlayerResult`, …) are **not** annotated. The
 ### 6.3 Permissions (requested only on Share or Join, with a one-line rationale)
 | API level | Runtime permissions Nearby needs | Manifest |
 |---|---|---|
-| 29–30 (Android 10–11) | `ACCESS_COARSE_LOCATION` + `ACCESS_FINE_LOCATION` (and the location setting must be on) | `BLUETOOTH`, `BLUETOOTH_ADMIN` (`maxSdkVersion=30`), `ACCESS_WIFI_STATE`, `CHANGE_WIFI_STATE` (`maxSdkVersion=31`) |
-| 31 (Android 12) | `BLUETOOTH_SCAN`, `BLUETOOTH_ADVERTISE`, `BLUETOOTH_CONNECT` + coarse + fine location | location with `maxSdkVersion=31` |
-| 32 (Android 12L) | the three Bluetooth permissions | — |
-| 33+ (Android 13+) | the three Bluetooth permissions + `NEARBY_WIFI_DEVICES`; no location | — |
-| 37 (Android 17, our target) | + `ACCESS_LOCAL_NETWORK` for the Wi-Fi LAN medium (same "Nearby devices" group, no extra dialog; **verify on a device**, then declare it in the manifest) | — |
+| all | `ACCESS_COARSE_LOCATION` + `ACCESS_FINE_LOCATION` (field test: Play services Nearby refuses discovery without both even on Android 17, status 8034 / 8036; on 10–11 the location setting must be on) | `ACCESS_WIFI_STATE`, `CHANGE_WIFI_STATE` on **all** API levels (Nearby checks them, 8032); location without `maxSdkVersion` |
+| 29–30 (Android 10–11) | location only | `BLUETOOTH`, `BLUETOOTH_ADMIN` (`maxSdkVersion=30`) |
+| 31–32 (Android 12 / 12L) | + `BLUETOOTH_SCAN`, `BLUETOOTH_ADVERTISE`, `BLUETOOTH_CONNECT` | — |
+| 33+ (Android 13+) | + `NEARBY_WIFI_DEVICES` | — |
+| 37 (Android 17, our target) | + `ACCESS_LOCAL_NETWORK` for the Wi-Fi LAN medium (declared) | — |
 | all (M3) | `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_CONNECTED_DEVICE` (34+), `POST_NOTIFICATIONS` (33+, optional) | — |
 
 This is implemented as `NearbyPermissions.required(sdk)` / `missing(sdk, isGranted)` / `rationale(sdk)` and unit-tested per API level. The `play` manifest (`src/play/AndroidManifest.xml`) follows the Nearby get-started guide.
 
-On 12+ these mostly show as **one "Nearby devices" dialog**. On 10–11 it is the location dialog, which needs a clear rationale ("Android needs location access to find nearby phones; Scan7 never uses your location"). The exact list is checked against the current [Nearby get-started guide](https://developers.google.com/nearby/connections/android/get-started) when M2 starts.
+On 12+ the radio permissions show as **one "Nearby devices" dialog**, followed by the location dialog (precise). Location needs a clear rationale on every API level ("Android needs location access to find nearby phones; Scan7 never uses your location"). The exact list is checked against the current [Nearby get-started guide](https://developers.google.com/nearby/connections/android/get-started) when M2 starts.
 
 ### 6.4 Dependency, flavors, license
 - `com.google.android.gms:play-services-nearby` is **proprietary** (Play services) and needs Play services on the phone (excludes de-Googled ROMs and Huawei).
-- **Build flavors (built, opt-in):** `-Pscan7.flavors=true` adds the dimension `distribution` with `foss` (default, no Play services; Share and Join will be hidden) and `play` (`com.google.android.gms:play-services-nearby:19.5.1` + `GmsConnectionsApi` + the permission manifest). **Without the property the build stays flavorless and Play-free**, exactly like main (same task names: `assembleDebug`, `installDebug`, `testDebugUnitTest`, …; the APK has no Nearby classes). With it, the tasks are `assemblePlayDebug`, `testFossDebugUnitTest`, `lintPlayDebug`, and so on. Everything except `GmsConnectionsApi` is plain Kotlin in `main`, so all the tests run in every build. F-Droid (optional, docs/RELEASE.md) builds `foss`. The user decided multiplayer isn't an F-Droid target.
+- **Builds:** the flavorless default is the **Play build** (`com.google.android.gms:play-services-nearby:19.5.1` + `GmsConnectionsApi` + the permission manifest from `src/play/`), with the usual task names (`assembleDebug`, `installDebug`, `testDebugUnitTest`, `lintDebug`). `-Pscan7.foss=true` compiles `src/foss/` instead: no Play services, Share and Join hidden. `-Pscan7.flavors=true` instead adds the dimension `distribution` with `play` (default) and `foss`; the tasks then carry the flavor (`assemblePlayDebug`, `testFossDebugUnitTest`, …). Everything except `GmsConnectionsApi` is plain Kotlin in `main`, so all the tests run in every build. F-Droid (optional, docs/RELEASE.md) builds `foss`. The user decided multiplayer isn't an F-Droid target.
 - **AGPL:** linking a proprietary library into an AGPL app is fine for the copyright holder. To let others redistribute the `play` build, add an **AGPL §7 additional permission** for Google Play services to the license notice (a standard pattern). The About screen lists Play services Nearby in the third-party notices (`ThirdPartyNotices`).
 - Privacy note: the Play services SDK may send usage diagnostics (users can turn this off in system settings). Say so in the privacy policy.
 
@@ -281,7 +281,7 @@ On 12+ these mostly show as **one "Nearby devices" dialog**. On 10–11 it is th
 
 ## 7. Security and privacy
 - **Local only:** no account, no server, no internet. Nearby encrypts the link.
-- **Join token:** 128 random bits per share session, only in the QR. It is compared in constant time in `hello`; a wrong token → `BAD_TOKEN` + disconnect. Stop sharing invalidates it. Removed phones are blocked for the session.
+- **Join token:** 128 random bits per share session, only in the QR. It is compared in constant time in `hello`; a wrong token → `BAD_TOKEN` + disconnect. Stop sharing invalidates it. Removing a phone disconnects it without a ban: it can rejoin by scanning the QR again.
 - **Data exchanged:** player **names + avatar ids**, seats, results (status, points, **card labels**), adjustments (delta + note), helper names, a random per-install device id, and timestamps. Device models and device names are never sent. **No photos, no training JPEGs, no other games, no player stats.** Guests store the joined game (and those players) only as their read-only history copy, unless they save the players to their own list (U17).
 - **Input from guests is untrusted:** frames are size-limited (32 KB); malformed or unknown messages are dropped; every intent is validated by `GameState` and `GuestRules`; a guest can't name another guest's `deviceId` (the host fills `by` from the link).
 - `PRIVATE_*` photo rules are unaffected (nothing image-like is sent).
@@ -294,8 +294,8 @@ On 12+ these mostly show as **one "Nearby devices" dialog**. On 10–11 it is th
 |---|---|---|---|
 | **M1 Protocol + session layer** | `GameAction` + DTOs + codec, `HostSession` / `ClientSession`, `GuestRules`, `ScanOrder`, claims + roster + labels, leave / remove / the 11-phone limit, new game, lineup changes, export / restore, `PlayerImport`, `FakeNetwork` | **Done** | JVM: `MultiplayerSessionTest`, `WireCodecTest`, `HostStoreTest` |
 | **M2 Nearby transport (no device)** | Owned `ConnectionsApi`, Nearby host / client transports, `FrameChunker`, `JoinLink` / `JoinAuth`, `NearbyPermissions`, opt-in `foss` / `play` flavors | **Done** (`GmsConnectionsApi` not run on hardware yet) | JVM: `NearbyTransportTest`, `NearbyPartsTest` |
-| **M3 Wiring + UX** | **Wiring:** merge of main (DB v5, strings, round menu); `GameRepository.apply` + `ActionRouter`; new actions; DB v6 + migration; `ShareRuntime` (session thread, host store, guest joined copy, saved sessions, `hostMovedTo`); `RadioSupport` (foss: none, also the default build; play: Nearby + `ShareService` foreground service `connectedDevice`, notification, `scan7://join` deep link, permissions manifest); permission rationale + request; ZXing QR encode + CameraX / ZXing QR reader. **UI** (existing components): Home "Join a game"; header share icon + menu row + share sheet (QR, code, "You are", phones with claims, online / offline, remove, stop sharing); "Who are you · Who do you scan" sheet (+ "Just helping" name, ask before taking over); guest round screen (host actions hidden, own players highlighted, other phones' badges, Scan next over own players, waiting line, connection banner, refusal dialog, sheet "Scored by …" read-only, no Adjust total); guests follow the host to game over and into the next game; joined history rows + read-only scoreboard + "Save players to my list"; EN + DE strings; Debug → "Multiplayer (experimental)" in-process demo | **Built, JVM-tested; not run on a device yet.** Still open: the **design pass** (below); **flip the build default** (rule 24: `play` default + `foss` kept, then update scripts / AGENTS.md / README / RELEASE.md); screenshot-matrix scenarios; a Compose test for the Join screen (camera); TalkBack pass; a joined copy opened with no session and no radio still shows Scan buttons that fail silently (hide them) | JVM (Robolectric 4.16): `RepositoryActionPathTest` (Room), `ShareRuntimeTest` (host + in-process guest through the real repository calls: claims, badges, Scan next, refusals, round close, adjustments, removed player, Same players new game, leave), `RoundShareTest`, `RoundScreenShareUiTest` + `ClaimSheetUiTest` + `ShareSheetUiTest` (Compose on the JVM), `ShareTextTest`; androidTest: `MigrationTest.v5ToV6` (needs an emulator) |
-| **M4 Field test with 2–4 phones** | A real game night with 1 host + 1–3 guests, mixed OEMs if possible. The first run of `GmsConnectionsApi` + `ShareService` on hardware | Open | See "Verify on devices" below |
+| **M3 Wiring + UX** | **Wiring:** merge of main (DB v5, strings, round menu); `GameRepository.apply` + `ActionRouter`; new actions; DB v6 + migration; `ShareRuntime` (session thread, host store, guest joined copy, saved sessions, `hostMovedTo`); `RadioSupport` (foss: none, also the default build; play: Nearby + `ShareService` foreground service `connectedDevice`, notification, `scan7://join` deep link, permissions manifest); permission rationale + request; ZXing QR encode + CameraX / ZXing QR reader. **UI** (existing components): Home "Join a game"; header share icon + menu row + share sheet (QR, code, "You are", phones with claims, online / offline, remove, stop sharing); "Who are you · Who do you scan" sheet (+ "Just helping" name, ask before taking over); guest round screen (host actions hidden, own players highlighted, other phones' badges, Scan next over own players, waiting line, connection banner, refusal dialog, sheet "Scored by …" read-only, no Adjust total); guests follow the host to game over and into the next game; joined history rows + read-only scoreboard + "Save players to my list"; EN + DE strings; Debug → "Multiplayer (experimental)" in-process demo | **Built, JVM-tested, merged into main as beta**; build default flipped (Play default, `-Pscan7.foss=true`). Still open: the **design pass** (below); screenshot-matrix scenarios; a Compose test for the Join screen (camera); TalkBack pass; a joined copy opened with no session and no radio still shows Scan buttons that fail silently (hide them) | JVM (Robolectric 4.16): `RepositoryActionPathTest` (Room), `ShareRuntimeTest` (host + in-process guest through the real repository calls: claims, badges, Scan next, refusals, round close, adjustments, removed player, Same players new game, leave), `RoundShareTest`, `RoundScreenShareUiTest` + `ClaimSheetUiTest` + `ShareSheetUiTest` (Compose on the JVM), `ShareTextTest`; androidTest: `MigrationTest.v5ToV6` (needs an emulator) |
+| **M4 Field test with 2–4 phones** | A real game night with 1 host + 1–3 guests, mixed OEMs if possible. The first run of `GmsConnectionsApi` + `ShareService` on hardware | **2-phone test done** (Pixel 10 Pro, Android 17 host / guest + Pixel 8 Pro, Android 16). Fixes from it: Wi-Fi state permissions on all API levels, coarse + fine location on all API levels, `ACCESS_LOCAL_NETWORK` declared; connect timeout 30 s; rejoin routing; the host resumes sharing automatically (same QR) after a restart. Open: 3–4 phones, other OEMs, API 29–31 | See "Verify on devices" below |
 
 **Design pass (handoff rule, before shipping):**
 - the share sheet layout and QR framing;
@@ -307,33 +307,35 @@ On 12+ these mostly show as **one "Nearby devices" dialog**. On 10–11 it is th
 - the Home "Join a game" text button;
 - the refusal dialog. It currently reuses `Scan7ConfirmDialog`, so it shows Cancel + OK; a single-button info dialog would be cleaner.
 
-**Verify on devices later (no emulator was free; Nearby doesn't run between emulators anyway):**
+**Behaviour confirmed in the field test:** the host shares a QR; guests join, pick who they are and whom they scan; a host restart resumes sharing with the same code; guests rejoin automatically; a guest that can't reconnect within 20 s shows "Not connected · this is only a copy · Join again"; removing a phone disconnects it without a ban (it can rejoin by scanning).
+
+**Still to verify on devices (Nearby doesn't run between emulators):**
 1. Debug build on one phone: Debug → Multiplayer → host the running game → join as a virtual guest → open both round screens. Then check claims, badges, guest limits, waiting line, refusal dialog, Same players new game, leave and the joined history row. No radio needed.
 2. `migration`: `./gradlew connectedDebugAndroidTest --tests '*MigrationTest*'` on an emulator (v5 → v6).
-3. Play build (`-Pscan7.flavors=true installPlayDebug`) on 2–3 phones:
+3. Play build (default `installDebug`) on 3–4 phones (2 done):
    - share → permission rationale → system dialog; the notification appears;
    - QR join from Scan7's Join screen **and** from the system camera (deep link);
    - parallel scans, screen off for 5 min, airplane-mode toggle, host app killed → share again (same QR);
    - remove a phone; an 11th phone gets "game full".
-4. API 29/30 (location rationale + location setting), 31, 33+, and **37 (`ACCESS_LOCAL_NETWORK`: needed? then declare it)**.
+4. API 29/30 (location rationale + location setting), 31, 33 (16 + 17 done; `ACCESS_LOCAL_NETWORK` is declared).
 5. `ShareService` stays alive with the screen off and the camera open; battery per hour.
 
 ---
 
-## 9. What is on this branch
+## 9. Where the code lives
 
 - **`multiplayer/`** (plain Kotlin): protocol and sessions (M1), id mapping (`IdMapping.kt`), session state (`SessionState.kt`).
 - **`multiplayer/nearby/`** (plain Kotlin): the Nearby adapter (M2).
 - **`share/`**: `ShareRuntime` (sessions on the phone), `RadioSupport`, `ShareText`.
-  - `src/foss/…/share/Radio.kt`: no radio; also compiled into the flavorless default build.
-  - `src/play/…/share/Radio.kt` + `ShareService.kt` + `multiplayer/nearby/GmsConnectionsApi.kt` + `AndroidManifest.xml`: the play flavor.
+  - `src/play/…/share/Radio.kt` + `ShareService.kt` + `multiplayer/nearby/GmsConnectionsApi.kt` + `AndroidManifest.xml`: Nearby; compiled into the flavorless default build.
+  - `src/foss/…/share/Radio.kt`: no radio (`-Pscan7.foss=true` or the `foss` flavor).
 - **`ui/share/`**: share sheet, claim sheet, refusal dialog, Join screen (QR reader), permission request, save-players dialog.
 - **`ui/round/RoundShare.kt`**: the round-screen mapping, banner and waiting line. Small hooks went into the round screen, header, menu, player sheet, cards / rows (`ShareMark` / `ShareBadge`), Home, history, scoreboard, game over and navigation (`Route.Join`, `DebugScreen.MULTIPLAYER`).
 - **`data/`**: action path + routers, DB v6, joined copies, share sessions, device id.
 - **`debug/MultiplayerDemoScreen.kt`**: the in-process demo.
 
-**Builds checked:**
-- the default flavorless `assembleDebug testDebugUnitTest lintDebug`;
+**Builds checked (before the default flip; re-check `-Pscan7.foss=true` too):**
+- the flavorless `assembleDebug testDebugUnitTest lintDebug`;
 - with `-Pscan7.flavors=true`: `assembleDebug` (foss + play), `testFossDebugUnitTest`, `testPlayDebugUnitTest`, `lintFossDebug`, `lintPlayDebug`.
 
-Only the play APK contains Nearby, the service and the deep link.
+Only the Play build contains Nearby, the service and the deep link.
