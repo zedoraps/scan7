@@ -30,7 +30,8 @@ val PlayerStatus.isDone: Boolean get() = this != PlayerStatus.Open
 
 /**
  * UI model for one player in the round screen components. [total] is the game total so far,
- * [target] the winning total (ring progress = total / target).
+ * [target] the winning total (ring progress = total / target). [adjustment] = the sum of the
+ * player's total adjustments ("Adjust total", counted in [total]), `null` without any.
  */
 @Immutable
 data class PlayerUi(
@@ -41,6 +42,7 @@ data class PlayerUi(
     val target: Int = 200,
     val isLeader: Boolean = false,
     val id: String = name,
+    val adjustment: Int? = null,
 ) {
     val initial: String get() = name.take(1).uppercase()
 
@@ -123,8 +125,18 @@ internal fun PlayerUi.accessibilityLabel(): UiText {
         is PlayerStatus.Scored -> uiPlural(R.plurals.a11y_player_scored, s.points)
         PlayerStatus.Bust -> uiText(R.string.a11y_player_bust)
     }
-    val parts = listOf(UiText.Raw(name), uiPlural(R.plurals.points, total), state)
+    val parts = listOfNotNull(UiText.Raw(name), uiPlural(R.plurals.points, total), adjustmentText(), state)
     return UiText.Join(if (isLeader) parts + uiText(R.string.a11y_player_leading) else parts, ", ")
+}
+
+/** TalkBack note on the total: "adjusted by minus 5" / "korrigiert um minus 5"; null without adjustments. */
+fun PlayerUi.adjustmentText(): UiText? = adjustment?.let(::adjustmentText)
+
+/** "adjusted by plus 10" / "adjusted by minus 5"; adjustments that cancel out: "includes adjustments". */
+fun adjustmentText(sum: Int): UiText = when {
+    sum > 0 -> uiText(R.string.a11y_adjusted_by, uiText(R.string.adjust_plus, sum))
+    sum < 0 -> uiText(R.string.a11y_adjusted_by, uiText(R.string.adjust_minus, -sum))
+    else -> uiText(R.string.a11y_adjusted)
 }
 
 /** The avatar kit's example preset of [name] (Philip, Anna, … Sara), else the fallback avatar. */

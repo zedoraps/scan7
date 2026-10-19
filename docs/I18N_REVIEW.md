@@ -54,6 +54,7 @@ imperatives / verbs, headers nouns.
 | `names_and` | Name lists (shared) (text) | %1$s and %2$s | %1$s und %2$s | |
 | `points_short` | Camera (text); Home (text) | PTS | PKT | |
 | `points` | Camera (text); Game over (TalkBack); Game over (text); Home (text); Manual entry (text); New game / Seats (TalkBack); Player sheet / adjust (text); Review (text); Scoreboard (TalkBack); Shared component (text) | one: %d point | other: %d points | one: %d Punkt | other: %d Punkte | |
+| `points_with` | Game over (TalkBack); Home (TalkBack) | one: %d point | other: %d points | one: %d Punkt | other: %d Punkten | New (UX fix): dative after "mit" ("mit 88 Punkten"). |
 | `rounds` | Game over (header); Home (text); Scoreboard (header) | one: %d round | other: %d rounds | one: %d Runde | other: %d Runden | |
 | `target_short` | Home (header) | to %1$d | bis %1$d | |
 | `round_label` | Home (text); Round (text) | ROUND | RUNDE | |
@@ -101,11 +102,12 @@ imperatives / verbs, headers nouns.
 | `history_yesterday` | Home (text) | Yesterday, %1$s | Gestern, %1$s | |
 | `history_won` | Home (text) | one: %2$s won | other: %2$s won | one: %2$s hat gewonnen | other: %2$s haben gewonnen | Split into plurals: "Anna und Ben haben gewonnen" (EN "won" works for both, DE does not). |
 | `history_led` | Home (text) | one: %2$s led | other: %2$s led | one: %2$s lag vorne | other: %2$s lagen vorne | Split into plurals: "lagen vorne" for a shared lead. |
+| `history_won_points` | Home (TalkBack) | one: %2$s won with %3$s | other: %2$s won with %3$s | one: %2$s hat mit %3$s gewonnen | other: %2$s haben mit %3$s gewonnen | New (UX fix), replaces `history_with_points` ("Lena hat gewonnen mit 88 Punkte" → "Lena hat mit 88 Punkten gewonnen"). |
+| `history_led_points` | Home (TalkBack) | one: %2$s led with %3$s | other: %2$s led with %3$s | one: %2$s lag mit %3$s vorne | other: %2$s lagen mit %3$s vorne | New (UX fix), abandoned games. |
 | `history_not_finished` | Home (text) | Not finished | Nicht beendet | Changed "Nicht fertig gespielt" → "Nicht beendet" (same term on the scoreboard). |
 | `history_no_winner` | Home (text) | No winner | Kein Sieger | |
 | `history_ended_early` | Home (text) | ended early | vorzeitig beendet | |
 | `history_abandoned` | Home (text) | not finished | nicht beendet | Changed to "nicht beendet" (consistent). |
-| `history_with_points` | Home (text) | %1$s with %2$s | %1$s mit %2$s | |
 | `history_players` | Home (text) | one: %1$d player: %2$s | other: %1$d players: %2$s | one: %1$d Spieler: %2$s | other: %1$d Spieler: %2$s | |
 | `players_title` | Players / editor (header) | Players | Spieler | |
 | `players_subtitle` | Players / editor (header) | one: %d stored · tap to edit | other: %d stored · tap to edit | one: %d gespeichert · tippen zum Bearbeiten | other: %d gespeichert · tippen zum Bearbeiten | |
@@ -118,6 +120,9 @@ imperatives / verbs, headers nouns.
 | `editor_name` | Players / editor (text field) | Name | Name | |
 | `editor_name_placeholder` | Players / editor (text field) | e.g. Anna | z. B. Anna | |
 | `editor_name_missing` | Players / editor (text) | Enter a name to save | Gib einen Namen ein, um zu speichern | |
+| `editor_name_counter` | Players / editor (text) | %1$d/%2$d | %1$d/%2$d | New (UX fix): name counter from 16 of 20 characters. |
+| `editor_name_counter_description` | Players / editor (TalkBack) | Characters: %1$d of %2$d | Zeichen: %1$d von %2$d | New (UX fix). |
+| `editor_name_counter_full` | Players / editor (TalkBack) | Characters: %1$d of %2$d, limit reached | Zeichen: %1$d von %2$d, Maximum erreicht | New (UX fix). |
 | `editor_shuffle` | Players / editor (TalkBack) | Shuffle avatar | Avatar würfeln | |
 | `editor_face` | Players / editor (text) | Face | Gesicht | |
 | `editor_pattern` | Players / editor (text) | Pattern | Muster | |
@@ -185,7 +190,7 @@ imperatives / verbs, headers nouns.
 | `scoreboard_total_label` | Scoreboard (text) | TOTAL | SUMME | |
 | `scoreboard_total` | Scoreboard (text) | Total | Summe | |
 | `scoreboard_total_description` | Scoreboard (TalkBack) | %1$s, total %2$d | %1$s, Summe %2$d | |
-| `scoreboard_adjusted` | Scoreboard (text) | , includes total adjustments | , mit Korrekturen | |
+| `scoreboard_adjusted_legend` | Scoreboard (text) | ± Total includes adjustments | ± Summe enthält Korrekturen | New (UX fix): legend under the table when a total is adjusted (replaces `scoreboard_adjusted`). |
 | `a11y_leading` | Scoreboard (text) | , leading | , führt | |
 | `scoreboard_cell_points` | Scoreboard (TalkBack) | Round %1$d, %2$s: %3$s | Runde %1$d, %2$s: %3$s | |
 | `scoreboard_cell_bust` | Scoreboard (text) | Round %1$d, %2$s: bust | Runde %1$d, %2$s: raus | |
@@ -197,7 +202,7 @@ imperatives / verbs, headers nouns.
 | `gameover_share` | Game over (text) | %1$s share the win | %1$s teilen sich den Sieg | |
 | `gameover_no_winner` | Game over (text) | No winner | Kein Sieger | |
 | `gameover_points_each` | Game over (text) | one: %d point each | other: %d points each | one: je %d Punkt | other: je %d Punkte | |
-| `gameover_headline_description` | Game over (TalkBack) | %1$s with %2$s | %1$s mit %2$s | |
+| `gameover_headline_description` | Game over (TalkBack) | %1$s with %2$s | %1$s mit %2$s | %2$s = `points_with` ("Lena gewinnt mit 88 Punkten"). |
 | `gameover_standing_description` | Game over (TalkBack) | %1$s, %2$s, %3$s | %1$s, %2$s, %3$s | |
 | `gameover_winner` | Game over (TalkBack) | , winner | , Sieger | |
 | `gameover_same_players` | Game over (text) | SAME PLAYERS | GLEICHE SPIELER | |
@@ -212,8 +217,6 @@ imperatives / verbs, headers nouns.
 | `sheet_rescan_player` | Player sheet / adjust (TalkBack) | Rescan %1$s | %1$s neu scannen | |
 | `sheet_reset` | Player sheet / adjust (button) | Reset last entry | Letzten Eintrag zurücksetzen | Was "Reset to open"; fits the full-width sheet button (screenshot opts_sheet_reset_de). |
 | `sheet_reset_description` | Player sheet / adjust (TalkBack) | Reset the last entry for %1$s | Letzten Eintrag von %1$s zurücksetzen | |
-| `sheet_card_ignored` | Player sheet / adjust (text) | %1$s · ignored | %1$s · zählt nicht | |
-| `sheet_card_ignored_description` | Player sheet / adjust (TalkBack) | %1$s, ignored | %1$s, zählt nicht | |
 | `sheet_card_duplicate_description` | Player sheet / adjust (TalkBack) | %1$s, duplicate | %1$s, doppelt | |
 | `sheet_adjustments` | Player sheet / adjust (header) | Total adjustments | Korrekturen | |
 | `sheet_adjust` | Player sheet / adjust (button) | Adjust total | Summe korrigieren | |
@@ -254,6 +257,8 @@ imperatives / verbs, headers nouns.
 | `formula_plus` | Manual / review (hints) (text) | plus | plus | |
 | `formula_times` | Manual / review (hints) (text) | times | mal | |
 | `formula_equals` | Manual / review (hints) (text) | %1$s equals %2$s | %1$s gleich %2$s | |
+| `formula_flip7` | Review / manual / player sheet (formula text) | %1$s Flip 7 | %1$s Flip 7 | New (UX fix): the bonus is labelled ("+ 15 Flip 7"); card name stays as printed. |
+| `formula_flip7_spoken` | Review / manual / player sheet (TalkBack) | %1$s Flip 7 bonus | %1$s Flip-7-Bonus | New (UX fix): "plus 15 Flip-7-Bonus". |
 | `second_chance_used` | Cards / avatars (shared) (text) | Second Chance used · %1$s counted once | Second Chance genutzt · %1$s zählt einmal | |
 | `review_photo` | Review (TalkBack) | Frozen photo of %1$s's cards | Standbild der Karten von %1$s | |
 | `review_back_to_camera` | Review (TalkBack) | Back to camera | Zurück zur Kamera | |
@@ -364,6 +369,8 @@ imperatives / verbs, headers nouns.
 | `a11y_player_scored` | Shared component (text) | one: scored %d this round | other: scored %d this round | one: diese Runde %d Punkt | other: diese Runde %d Punkte | |
 | `a11y_player_bust` | Shared component (text) | bust this round | diese Runde raus | |
 | `a11y_player_leading` | Shared component (text) | leading | führt | |
+| `a11y_adjusted_by` | Shared component; Scoreboard; Game over (TalkBack) | adjusted by %1$s | korrigiert um %1$s | New (UX fix): "korrigiert um minus 5" (uses `adjust_plus` / `adjust_minus`). |
+| `a11y_adjusted` | Shared component; Scoreboard; Game over (TalkBack) | includes total adjustments | mit Korrekturen | New (UX fix): adjustments that cancel out. |
 | `about_tp_yolo` | About (text) | Detector architecture + pretrained YOLO26n weights · AGPL-3.0 | Detektor-Architektur + vortrainierte YOLO26n-Gewichte · AGPL-3.0 | |
 | `about_tp_litert` | About (text) | On-device inference, GPU delegate · Apache-2.0 | Erkennung auf dem Gerät, GPU-Delegate · Apache-2.0 | |
 | `about_tp_jetpack` | About (text) | Compose, Material 3, Activity, Core, Lifecycle, Navigation 3, CameraX, Room, SplashScreen · Apache-2.0 | Compose, Material 3, Activity, Core, Lifecycle, Navigation 3, CameraX, Room, SplashScreen · Apache-2.0 | |
@@ -374,6 +381,7 @@ imperatives / verbs, headers nouns.
 | `home_game_open_scoreboard` | Home (TalkBack) | Open scoreboard | Tabelle öffnen | Long-press menu: "Tabelle öffnen" (same as the row tap label). |
 | `home_game_resume` | Home (TalkBack) | Resume | Weiterspielen | |
 | `home_game_delete` | Home (TalkBack); Home (text) | Delete game | Spiel löschen | Long-press menu item + TalkBack action: "Spiel löschen". |
+| `home_game_same_players` | Home (text); Home (TalkBack) | Same players | Gleiche Spieler | New (UX fix): history long-press menu item + TalkBack action, opens New game on Seats. |
 | `home_game_round` | Home (text) | Round %1$d | Runde %1$d | Delete dialog summary; non-breaking space keeps "Runde 6" together. |
 | `home_game_rounds` | Home (text) | one: %1$d round | other: %1$d rounds | one: %1$d Runde | other: %1$d Runden | |
 | `confirm_delete_game_title` | Confirm dialogs (header) | Delete this game? | Dieses Spiel löschen? | |

@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import net.moesli.scan7.data.GameSnapshot
 import net.moesli.scan7.ui.components.LeaderBadge
 import net.moesli.scan7.ui.components.PlayerUi
+import net.moesli.scan7.ui.components.adjustmentText
 import net.moesli.scan7.ui.components.ScoreRing
 import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.SectionLabel
@@ -162,8 +163,9 @@ private fun Winners(state: GameOverUi) {
     }
     val total = winners.firstOrNull()?.player?.total ?: 0
     val headline = state.headline.resolve()
-    val points = pluralStringResource(R.plurals.points, total, total)
-    val description = stringResource(R.string.gameover_headline_description, headline, points)
+    // "Lena wins with 88 points" / "Lena gewinnt mit 88 Punkten" (dative plural).
+    val points = pluralStringResource(R.plurals.points_with, total, total)
+    val description = if (winners.isEmpty()) headline else stringResource(R.string.gameover_headline_description, headline, points)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
@@ -208,8 +210,9 @@ private fun StandingRow(s: StandingUi) {
     val ink = if (s.isWinner) colors.text else colors.textDone
     // A player who left mid-game has no rank: "left" instead.
     val rank = if (s.left) stringResource(R.string.gameover_left) else ordinal(s.rank).resolve()
+    val adjusted = s.player.adjustmentText()?.resolve()?.let { ", $it" }.orEmpty()
     val description = stringResource(R.string.gameover_standing_description, rank, s.player.name, pluralStringResource(R.plurals.points, s.player.total, s.player.total)) +
-        if (s.isWinner) stringResource(R.string.gameover_winner) else ""
+        adjusted + if (s.isWinner) stringResource(R.string.gameover_winner) else ""
     Row(
         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
         verticalAlignment = Alignment.CenterVertically,
