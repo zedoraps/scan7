@@ -1,0 +1,16 @@
+Additional permission under GNU AGPL version 3 section 7
+
+Scan7 is licensed under the GNU Affero General Public License version 3 (see LICENSE), with the
+following additional permission granted by the Scan7 authors for their own code:
+
+If you modify Scan7, or any covered work, by linking or combining it with Google Play services
+(com.google.android.gms, including play-services-nearby) or a modified version of those
+libraries, containing parts covered by the terms of Google's license for Google Play services,
+the licensors of Scan7 grant you additional permission to convey the resulting work.
+Corresponding Source for a non-source form of such a combination shall not include the source
+code for the parts of Google Play services used, but shall include the source code for the parts
+of Scan7 used.
+
+This permission applies only to the Scan7 authors' own code. The build without Play services
+(`./gradlew -Pscan7.foss=true assembleRelease`) contains no Google Play services and needs no
+additional permission.

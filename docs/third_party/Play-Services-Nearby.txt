@@ -1,0 +1,20 @@
+Google Play services Nearby Connections (com.google.android.gms:play-services-nearby)
+
+Used for: playing one game on several phones (Share this game / Join a game, beta), phone to
+phone over Bluetooth and Wi-Fi. Only in the Play build; the build without Play services
+(-Pscan7.foss=true) does not contain it.
+
+License: proprietary, provided by Google LLC under the Google APIs Terms of Service
+(https://developers.google.com/terms) and the Android Software Development Kit License
+(https://developer.android.com/studio/terms).
+
+Scan7 itself is free software under the GNU AGPL v3.0, with this additional permission under
+section 7:
+
+If you modify Scan7, or any covered work, by linking or combining it with Google Play services
+(com.google.android.gms, including play-services-nearby) or a modified version of those
+libraries, containing parts covered by the terms of Google's license for Google Play services,
+the licensors of Scan7 grant you additional permission to convey the resulting work.
+Corresponding Source for a non-source form of such a combination shall not include the source
+code for the parts of Google Play services used, but shall include the source code for the parts
+of Scan7 used.

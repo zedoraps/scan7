@@ -42,6 +42,9 @@ Run any script with `uv run python scripts/<name>.py` from `ml/`.
 Scan7 is free software under the **GNU Affero General Public License v3.0** ([LICENSE](LICENSE)):
 the app ships a detector trained with Ultralytics YOLO, which is AGPL-3.0. If you distribute a
 modified version (or offer it over a network), you must publish its source under the same license.
+The Play build links Google Play services (Nearby, for playing on several phones); an additional
+permission under AGPL section 7 allows that ([LICENSE-EXCEPTION.txt](LICENSE-EXCEPTION.txt)).
+`-Pscan7.foss=true` builds the app without Play services.
 
 Third-party components:
 

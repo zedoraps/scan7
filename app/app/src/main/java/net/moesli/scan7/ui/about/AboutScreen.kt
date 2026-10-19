@@ -68,6 +68,8 @@ enum class LicenseText(val id: String, val title: String) {
     APACHE("apache-2.0", "Apache License 2.0"),
     OFL_UNBOUNDED("unbounded-ofl", "SIL Open Font License 1.1 (Unbounded)"),
     OFL_DM_MONO("dmmono-ofl", "SIL Open Font License 1.1 (DM Mono)"),
+    /** Proprietary (Google terms) + Scan7's AGPL §7 permission to link it: notice, not a license text. */
+    PLAY_SERVICES("play-services-nearby", "Google Play services"),
     ;
 
     companion object {
@@ -93,6 +95,7 @@ val ThirdPartyNotices = listOf(
     ThirdParty("Android Jetpack", R.string.about_tp_jetpack, LicenseText.APACHE),
     ThirdParty("Kotlin", R.string.about_tp_kotlin, LicenseText.APACHE),
     ThirdParty("ZXing", R.string.about_tp_zxing, LicenseText.APACHE),
+    ThirdParty("Google Play services Nearby", R.string.about_tp_nearby, LicenseText.PLAY_SERVICES),
     ThirdParty("Unbounded", R.string.about_tp_unbounded, LicenseText.OFL_UNBOUNDED),
     ThirdParty("DM Mono", R.string.about_tp_dmmono, LicenseText.OFL_DM_MONO),
 )
