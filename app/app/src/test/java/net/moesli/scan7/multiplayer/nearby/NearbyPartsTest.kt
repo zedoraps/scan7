@@ -30,6 +30,8 @@ class NearbyPartsTest {
         assertEquals(coarse + bt + NEARBY_WIFI_DEVICES, NearbyPermissions.required(33))
         assertEquals(coarse + bt + NEARBY_WIFI_DEVICES, NearbyPermissions.required(36))
         assertEquals(coarse + bt + NEARBY_WIFI_DEVICES + ACCESS_LOCAL_NETWORK, NearbyPermissions.required(37))
+        assertEquals(emptyList<String>(), NearbyPermissions.optional(32))
+        assertEquals(listOf(NearbyPermissions.POST_NOTIFICATIONS), NearbyPermissions.optional(33))
     }
 
     @Test

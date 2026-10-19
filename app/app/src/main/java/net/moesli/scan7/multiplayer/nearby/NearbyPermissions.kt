@@ -30,6 +30,14 @@ object NearbyPermissions {
 
     fun missing(sdk: Int, isGranted: (String) -> Boolean): List<String> = required(sdk).filterNot(isGranted)
 
+    const val POST_NOTIFICATIONS = "android.permission.POST_NOTIFICATIONS"
+
+    /**
+     * Asked together with [required] but not needed to play: the ongoing "sharing a game" notification
+     * of the foreground service (hidden on Android 13+ without it). Denying it doesn't block Share / Join.
+     */
+    fun optional(sdk: Int): List<String> = if (sdk >= 33) listOf(POST_NOTIFICATIONS) else emptyList()
+
     /** Which explanation the rationale line gives before the system dialog. */
     fun rationale(sdk: Int): Rationale = if (sdk <= 30) Rationale.LOCATION else Rationale.NEARBY_DEVICES
 

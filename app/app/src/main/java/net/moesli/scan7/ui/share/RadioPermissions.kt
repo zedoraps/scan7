@@ -39,6 +39,11 @@ class RadioPermissionRequest internal constructor(private val context: Context) 
         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
     }
 
+    /** [missing] plus the optional ones not granted yet (the notification), for the system dialog. */
+    internal fun toRequest(): List<String> = missing() + NearbyPermissions.optional(Build.VERSION.SDK_INT).filterNot {
+        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+    }
+
     fun run(onCancel: () -> Unit = {}, then: () -> Unit) {
         if (missing().isEmpty()) return then()
         pending = then
@@ -77,7 +82,7 @@ fun rememberRadioPermissionRequest(): RadioPermissionRequest {
             confirmLabel = stringResource(R.string.permission_continue),
             onConfirm = {
                 request.rationale = false
-                request.launch(request.missing().toTypedArray())
+                request.launch(request.toRequest().toTypedArray())
             },
             onCancel = {
                 request.rationale = false

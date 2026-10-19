@@ -39,7 +39,9 @@ class ShareService : Service() {
             .build()
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE else 0
         ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type)
-        return START_STICKY
+        // Not sticky: after the system kills the process there is no session to keep alive, and
+        // ShareRuntime starts the service again when it restores one.
+        return START_NOT_STICKY
     }
 
     private companion object {

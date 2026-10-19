@@ -4,7 +4,8 @@
      Share / Join), the foreground service that keeps a session alive, and the scan7://join deep
      link. Every runtime permission requested must be declared here (NearbyPartsTest checks it),
      else Android denies it without asking. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Install-time; Nearby still checks them on every API level (8032 MISSING_PERMISSION_ACCESS_WIFI_STATE). -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -39,6 +40,13 @@
             android:name=".share.ShareService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
+
+        <!-- Merged in by play-services-nearby for Exposure Notifications (a restricted API family
+             Scan7 doesn't use): removed so the release declares only what the app needs. -->
+        <service
+            android:name="com.google.android.gms.nearby.exposurenotification.WakeUpService"
+            tools:node="remove"
+            tools:ignore="MissingClass" />
 
         <activity
             android:name=".MainActivity"
