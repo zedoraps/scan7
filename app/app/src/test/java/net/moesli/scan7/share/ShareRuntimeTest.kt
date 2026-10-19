@@ -28,7 +28,16 @@ class ShareRuntimeTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val db = Room.inMemoryDatabaseBuilder(context, Scan7Database::class.java).allowMainThreadQueries().build()
     private val repo = GameRepository(db)
-    private val runtime = ShareRuntime(context, repo, Radio)
+    private val runtime = ShareRuntime(context, repo, NoRadio)
+
+    /** Both flavors: these tests use the in-process network only. */
+    private object NoRadio : RadioSupport {
+        override val available = false
+        override fun missingPermissions(context: Context) = emptyList<String>()
+        override fun host(context: Context, link: net.moesli.scan7.multiplayer.nearby.JoinLink, scheduler: net.moesli.scan7.multiplayer.nearby.Scheduler) = null
+        override fun join(context: Context, link: net.moesli.scan7.multiplayer.nearby.JoinLink, scheduler: net.moesli.scan7.multiplayer.nearby.Scheduler) = null
+        override fun sessionActive(context: Context, active: Boolean) = Unit
+    }
 
     @After
     fun close() {
@@ -52,7 +61,7 @@ class ShareRuntimeTest {
             val c = repo.addPlayer("Cleo")
             listOf(repo.startGame(listOf(a, b, c)), a, b, c)
         }
-        assertTrue(!runtime.radioAvailable) // foss / default build
+        assertTrue(!runtime.radioAvailable)
 
         runtime.host(game, LinkMode.IN_PROCESS)
         await("hosting") { runtime.state.value.host != null }
