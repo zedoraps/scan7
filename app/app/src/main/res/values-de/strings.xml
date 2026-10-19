@@ -338,6 +338,7 @@
     <string name="about_disclaimer">Inoffizieller Punktezähler für Flip 7. Keine Verbindung zu The Op Games.</string>
     <string name="about_version">Version %1$s (%2$d)</string>
     <string name="about_model">Erkennungsmodell: %1$s</string>
+    <string name="about_model_date">Kartenmodell vom %1$s</string>
     <string name="about_license_body">Scan7 ist freie Software: Du darfst sie unter der GNU Affero General Public License v3.0 nutzen, untersuchen, weitergeben und verändern. Der Quellcode ist öffentlich.</string>
     <string name="about_source">Quellcode</string>
     <string name="about_privacy">Datenschutzerklärung</string>
@@ -403,6 +404,7 @@
     <string name="camera_permission_body">Scan7 liest mit der Kamera die Karten auf dem Tisch. Die Bilder bleiben auf diesem Handy.</string>
     <string name="camera_permission_allow">Kamera erlauben</string>
     <string name="camera_permission_settings">App-Einstellungen öffnen</string>
+    <string name="camera_permission_body_settings">Der Kamerazugriff ist für Scan7 ausgeschaltet. Schalte ihn in den App-Einstellungen unter Berechtigungen → Kamera ein.</string>
     <string name="a11y_player_open">noch nicht gewertet</string>
     <plurals name="a11y_player_scored">
         <item quantity="one">diese Runde %d Punkt</item>

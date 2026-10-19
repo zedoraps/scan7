@@ -8,6 +8,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +37,7 @@ data class SavedSample(val imageUri: Uri, val jsonUri: Uri, val stem: String, va
  * (no storage permission on API 29+). Every shutter photo is saved when its review opens
  * ([saveCapture]); a confirm then only fills in the outcome ([saveOutcome]). IO runs on its own
  * process-wide scope, so a save keeps going after the scan screen is gone; failures only show a toast.
+ * Debug-hook captures (photo file, synthetic) are skipped ([isTrainingOrigin]).
  */
 object TrainingSaver {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -64,6 +66,7 @@ object TrainingSaver {
      * The result (null if saving failed) is what [saveOutcome] later updates.
      */
     fun saveCapture(context: Context, capture: ScanCapture): Deferred<SavedSample?> {
+        if (!isTrainingOrigin(capture.meta.origin)) return CompletableDeferred(null)
         val app = context.applicationContext
         val sample = sample(app, capture, outcome = null)
         return scope.async { runCatching { save(app, capture.bitmap, sample) }.onFailure { failed(app, it) }.getOrNull() }
@@ -75,6 +78,7 @@ object TrainingSaver {
      * without it (or if that save failed) image and JSON are saved now.
      */
     fun saveOutcome(context: Context, capture: ScanCapture, outcome: ScanOutcome, saved: Deferred<SavedSample?>?) {
+        if (!isTrainingOrigin(capture.meta.origin)) return
         val app = context.applicationContext
         val sample = sample(app, capture, outcome)
         scope.launch {

@@ -1,5 +1,12 @@
 package net.moesli.scan7.ui.scan
 
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import net.moesli.scan7.ui.text.resolve
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -145,61 +152,93 @@ internal fun ScanReviewStep(
     val toggle by rememberUpdatedState(onToggleExclude)
     val currentBoxes by rememberUpdatedState(boxes)
 
-    Column(modifier = modifier.fillMaxSize().background(colors.ground)) {
-        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            Image(
-                bitmap = remember(capture) { capture.bitmap.asImageBitmap() },
-                contentDescription = stringResource(R.string.review_photo, player.name),
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize(),
-            )
-            // Dim the photo so boxes and labels read better (more on bust: the panel is the message).
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = if (bust) 0.45f else 0.2f)))
-            ScanBoxesOverlay(
-                boxes = boxes,
-                imageWidth = capture.bitmap.width,
-                imageHeight = capture.bitmap.height,
-                crop = false,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(capture) {
-                        // Tap a box: leave that card out / include it again (smallest box wins).
-                        detectTapGestures { tap ->
-                            val mapping = DisplayMapping.of(
-                                capture.bitmap.width, capture.bitmap.height, size.width.toFloat(), size.height.toFloat(), crop = false,
-                            )
-                            val hits = currentBoxes.map { b ->
-                                val v = mapping.toView(b.box)
-                                HitBox(b.index, v.left, v.top, v.right, v.bottom)
+    // Landscape on a large screen (Android 16+ ignores the portrait lock at sw >= 600 dp): photo
+    // left, panel right at phone width, instead of a small photo strip above a wide panel.
+    BoxWithConstraints(modifier = modifier.fillMaxSize().background(colors.ground)) {
+        val sideBySide = maxWidth > maxHeight && maxWidth >= SideBySideMinWidth
+        val photo: @Composable (Modifier) -> Unit = { photoModifier ->
+            Box(modifier = photoModifier) {
+                Image(
+                    bitmap = remember(capture) { capture.bitmap.asImageBitmap() },
+                    contentDescription = stringResource(R.string.review_photo, player.name),
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                // Dim the photo so boxes and labels read better (more on bust: the panel is the message).
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = if (bust) 0.45f else 0.2f)))
+                ScanBoxesOverlay(
+                    boxes = boxes,
+                    imageWidth = capture.bitmap.width,
+                    imageHeight = capture.bitmap.height,
+                    crop = false,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(capture) {
+                            // Tap a box: leave that card out / include it again (smallest box wins).
+                            detectTapGestures { tap ->
+                                val mapping = DisplayMapping.of(
+                                    capture.bitmap.width, capture.bitmap.height, size.width.toFloat(), size.height.toFloat(), crop = false,
+                                )
+                                val hits = currentBoxes.map { b ->
+                                    val v = mapping.toView(b.box)
+                                    HitBox(b.index, v.left, v.top, v.right, v.bottom)
+                                }
+                                pickBox(hits, tap.x, tap.y, minTouchPx)?.let(toggle)
                             }
-                            pickBox(hits, tap.x, tap.y, minTouchPx)?.let(toggle)
-                        }
-                    },
-            )
-            IconButton(
-                onClick = onRetake,
-                contentDescription = stringResource(R.string.review_back_to_camera),
-                modifier = Modifier
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(Scan7Spacing.screenMargin),
-            ) { BackIcon(colors.text) }
+                        },
+                )
+                IconButton(
+                    onClick = onRetake,
+                    contentDescription = stringResource(R.string.review_back_to_camera),
+                    modifier = Modifier
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .padding(Scan7Spacing.screenMargin),
+                ) { BackIcon(colors.text) }
+            }
         }
-        val shape = RoundedCornerShape(topStart = Scan7Radii.cardLarge, topEnd = Scan7Radii.cardLarge)
-        Column(
-            modifier = Modifier
-                .centeredMaxWidth()
-                .clip(shape)
-                .background(colors.surface)
-                .windowInsetsPadding(WindowInsets.navigationBars),
-        ) {
+        val panel: @Composable () -> Unit = {
             when (variant) {
                 ReviewVariant.Scored, ReviewVariant.Bust ->
                     ResultPanel(player, included, chips, roundNumber, bust, overLimit, onRetake, onFix, confirm, onToggleExclude, afterScan)
                 ReviewVariant.Empty -> EmptyPanel(player, capture.error, onRetake, onEnterManually)
             }
         }
+        if (sideBySide) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                photo(Modifier.weight(1f).fillMaxHeight())
+                // Full-height side panel, content at the bottom (thumb reach); scrolls if too short.
+                Box(
+                    contentAlignment = Alignment.BottomCenter,
+                    modifier = Modifier
+                        .width(SidePanelWidth)
+                        .fillMaxHeight()
+                        .background(colors.surface)
+                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical + WindowInsetsSides.End)),
+                ) {
+                    Column(Modifier.verticalScroll(rememberScrollState())) { panel() }
+                }
+            }
+        } else {
+            Column(modifier = Modifier.fillMaxSize()) {
+                photo(Modifier.weight(1f).fillMaxWidth())
+                val shape = RoundedCornerShape(topStart = Scan7Radii.cardLarge, topEnd = Scan7Radii.cardLarge)
+                Column(
+                    modifier = Modifier
+                        .centeredMaxWidth()
+                        .clip(shape)
+                        .background(colors.surface)
+                        .windowInsetsPadding(WindowInsets.navigationBars),
+                ) { panel() }
+            }
+        }
     }
 }
+
+/** Landscape windows at least this wide show the review photo and panel side by side. */
+private val SideBySideMinWidth = 840.dp
+
+/** Width of the review panel beside the photo (about a phone's width). */
+private val SidePanelWidth = 440.dp
 
 /**
  * Result panel for a scored or busted scan. Its height doesn't depend on the variant: a fixed

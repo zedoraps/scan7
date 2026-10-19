@@ -159,16 +159,21 @@ Answers are drafted in [store/README.md](store/README.md).
   in `prebuild` with the checksum, or committed for their builds; training photos are not
   public, so the model isn't reproducible from source alone), and the LiteRT binaries from
   Google Maven (Apache-2.0).
-- **Blocker for the main F-Droid repo (not for Play / IzzyOnDroid):** `litert-api` 2.3.0 pulls in
-  the proprietary `com.google.android.gms:play-services-basement` / `play-services-tasks` and
-  `com.google.android.play:asset-delivery` (for AI Pack / Play-delivered models, unused by Scan7).
-  F-Droid rejects or flags these (NonFreeDep). Fix before an F-Droid submission: a `foss` build
-  flavor that `exclude`s those groups, then verify on a device that `CompiledModel` (GPU + CPU
-  fallback) still loads the bundled asset without them.
+- **Proprietary dependencies (F-Droid NonFreeDep): solved.** `litert-api` 2.3.0 pulls in
+  `com.google.android.play:ai-delivery` (AI Pack / Play-delivered models, unused by Scan7), which
+  brings `asset-delivery`, `androidx.work` and the proprietary `play-services-basement` /
+  `play-services-tasks`. `app/app/build.gradle.kts` excludes `ai-delivery` for all configurations
+  (no separate `foss` flavor needed): the LiteRT jars and native libraries don't reference those
+  classes, and the bundled model loads and detects without them (checked on the API 37 emulator,
+  GPU accelerator → CPU fallback, no ClassNotFound / NoClassDefFound). Check
+  `./gradlew :app:dependencies --configuration releaseRuntimeClasspath` for
+  `com.google.android.gms` / `com.google.android.play` after every LiteRT update.
 - Store texts for F-Droid can live in `fastlane/metadata/android/<lang>/` (title, short and full
   description, images); copy them from `docs/store/` when doing this.
 
 ## Follow-ups (not blocking)
-- `WAKE_LOCK`, `ACCESS_NETWORK_STATE`, `RECEIVE_BOOT_COMPLETED` come from `androidx.work`, which
-  LiteRT pulls in for AI Pack downloads that Scan7 doesn't use: remove them with
-  `tools:node="remove"` in the manifest (like the FOREGROUND_SERVICE ones) after testing on a device.
+- Done: `WAKE_LOCK`, `ACCESS_NETWORK_STATE`, `RECEIVE_BOOT_COMPLETED` and WorkManager's boot
+  receiver / services are gone with the `ai-delivery` exclusion (see F-Droid above); the release
+  APK's `aapt2 dump badging` lists only `CAMERA` (plus AndroidX's own signature-level
+  `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`). LiteRT's own `FOREGROUND_SERVICE*` entries are
+  still removed with `tools:node="remove"` in the app manifest.

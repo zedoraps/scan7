@@ -1,6 +1,14 @@
 package net.moesli.scan7.ui.about
 
 import androidx.annotation.StringRes
+import net.moesli.scan7.ui.components.centeredMaxWidth
+import java.time.format.DateTimeFormatter
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
+import android.text.format.DateFormat
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -109,6 +117,7 @@ fun AboutScreen(
         modifier = modifier
             .fillMaxSize()
             .background(colors.ground)
+            .centeredMaxWidth()
             .padding(horizontal = Scan7Spacing.screenMargin),
     ) {
         ScreenHeader(title = stringResource(R.string.about_title), onBack = onBack, modifier = Modifier.headerInsets())
@@ -128,7 +137,7 @@ fun AboutScreen(
                         color = colors.text,
                         style = Scan7Type.text13,
                     )
-                    Text(stringResource(R.string.about_model, modelInfo), color = colors.textMuted, style = Scan7Type.text12)
+                    ModelLines(modelInfo)
                     Text(
                         stringResource(R.string.about_disclaimer),
                         color = colors.textMuted,
@@ -167,6 +176,27 @@ fun AboutScreen(
     }
 }
 
+/**
+ * The model in words ("Card model 18 Oct 2026", from the date in its version line) and the
+ * technical line (file, training run, precision, size) small below it; only the technical line
+ * when the version has no date.
+ */
+@Composable
+private fun ModelLines(modelInfo: String) {
+    val colors = Scan7Theme.colors
+    val locale = LocalConfiguration.current.locales[0]
+    val date = remember(modelInfo) { modelDate(modelInfo) }
+    if (date == null) {
+        Text(stringResource(R.string.about_model, modelInfo), color = colors.textMuted, style = Scan7Type.text12)
+        return
+    }
+    val formatted = remember(date, locale) {
+        DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "dMMMy"), locale).format(date)
+    }
+    Text(stringResource(R.string.about_model_date, formatted), color = colors.textMuted, style = Scan7Type.text12)
+    Text(modelInfo, color = colors.textMuted.copy(alpha = 0.7f), style = Scan7Type.text10)
+}
+
 /** An M3 `ListItem` on the done surface (outlined, like the Home history rows) with a chevron. */
 @Composable
 private fun LinkRow(title: String, supporting: String, onClick: () -> Unit, onClickLabel: String? = null) {
@@ -189,29 +219,50 @@ private fun LinkRow(title: String, supporting: String, onClick: () -> Unit, onCl
     )
 }
 
-/** Full text of one bundled [license] (monospace, selectable, scrolls). */
+/**
+ * Full text of one bundled [license] (monospace, selectable, scrolls). The 80-column hard breaks
+ * are unwrapped into paragraphs ([reflowLicense]) that wrap to the screen; indented items keep
+ * their indent.
+ */
 @Composable
 fun LicenseTextScreen(license: LicenseText, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors
     val context = LocalContext.current
-    val text by produceState(initialValue = "", license) { value = readLicense(context, license) }
+    val paragraphs by produceState(initialValue = emptyList<LicenseParagraph>(), license) {
+        value = reflowLicense(readLicense(context, license))
+    }
+    val style = Scan7Type.text11
+    // DM Mono: every character is 0.6 em wide.
+    val charWidth = with(LocalDensity.current) { (style.fontSize * 0.6f).toDp() }
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(colors.ground)
+            .centeredMaxWidth()
             .padding(horizontal = Scan7Spacing.screenMargin),
     ) {
         ScreenHeader(title = license.title, onBack = onBack, modifier = Modifier.headerInsets())
         SelectionContainer(Modifier.weight(1f)) {
-            Text(
-                text = text,
-                color = colors.text,
-                style = Scan7Type.text11,
+            Column(
                 modifier = Modifier
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .padding(top = Scan7Spacing.l, bottom = Scan7Spacing.xl)
                     .padding(WindowInsets.navigationBars.asPaddingValues()),
-            )
+            ) {
+                paragraphs.forEach { p ->
+                    if (p.text.isEmpty()) {
+                        Spacer(Modifier.height(Scan7Spacing.m))
+                    } else {
+                        Text(
+                            text = p.text,
+                            color = colors.text,
+                            style = style,
+                            modifier = Modifier.padding(start = charWidth * p.indent),
+                        )
+                    }
+                }
+            }
         }
     }
 }

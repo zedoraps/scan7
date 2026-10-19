@@ -5,6 +5,7 @@ import java.time.ZoneOffset
 import net.moesli.scan7.detection.Box
 import net.moesli.scan7.detection.Detection
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -97,5 +98,12 @@ class TrainingSampleTest {
         assertEquals(json.count { it == '{' }, json.count { it == '}' })
         assertEquals(json.count { it == '[' }, json.count { it == ']' })
         assertTrue(json.trim().startsWith("{") && json.trim().endsWith("}"))
+    }
+
+    @Test
+    fun onlyCameraCapturesAreTrainingData() {
+        assertTrue(isTrainingOrigin(ORIGIN_CAMERA))
+        assertFalse(isTrainingOrigin("photo"))
+        assertFalse(isTrainingOrigin("synthetic"))
     }
 }

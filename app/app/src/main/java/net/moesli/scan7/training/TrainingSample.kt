@@ -11,6 +11,16 @@ import net.moesli.scan7.detection.Detection
  * dependencies (manual JSON, no org.json) so it is JVM unit tested (TrainingSampleTest).
  */
 
+/** [TrainingSample.origin] of a real shutter photo. */
+const val ORIGIN_CAMERA = "camera"
+
+/**
+ * Only real shutter photos are training data. Captures from the debug hooks (`debug_game_photo`,
+ * `debug_scan_photo`: "photo"; the scan-flow demo: "synthetic") are never saved, so emulator
+ * end-to-end runs don't fill the shared "Scan7 Training" folder with copies of one photo.
+ */
+fun isTrainingOrigin(origin: String): Boolean = origin == ORIGIN_CAMERA
+
 /** What the user confirmed for the scan; `null` in a sample saved from the review before confirming. */
 data class TrainingOutcome(
     /** "scored" or "bust". */
