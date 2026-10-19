@@ -37,7 +37,7 @@ app/                   Android Gradle root; module app/, package net.moesli.scan
     game/              plain-Kotlin game state + rules (GameState: rounds, bust, close, seating; JVM unit tests)
     data/              Room DB (entities, DAOs), GameRepository (Flows + actions), AppGraph container
     camera/ detection/ CameraX preview, detector, overlay
-    ui/nav/            app navigation: Navigation 3 (NavDisplay in AppNavHost; @Serializable Route keys, pure Stack ops, NavMotion transitions + predictive back; Home is the start screen)
+    ui/nav/            app navigation: Navigation 3 (NavDisplay in AppNavHost; @Serializable Route keys, pure Stack ops, NavMotion fade-through transitions, a back swipe follows the same fade; Home is the start screen)
     ui/round/          Round screen + RoundRoute/RoundController (snapshot → RoundUiState, actions → repository)
     training/          "Save scans for training" (JPEG + JSON sidecar via MediaStore; setting, default on in debug builds, always off in release)
     debug/             debug menu (Detector: live camera, detect from photo, model/backend info · Training data: save-scans toggle), hidden: tap the Home wordmark 5× (debug builds only, BuildConfig.DEBUG; TalkBack action "Open debug menu"); the scan-flow demo has no menu entry (only the debug_scan_demo / debug_scan_photo hooks)

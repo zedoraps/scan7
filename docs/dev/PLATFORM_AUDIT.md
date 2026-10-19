@@ -77,7 +77,7 @@ Effort: **S** is under half a day, **M** half a day to 2 days, **L** more than 2
 ### 4. Predictive back (P1, S, replace now: manifest flag)
 - **Custom / missing:** `app/app/src/main/AndroidManifest.xml:12` `<application>` has no `android:enableOnBackInvokedCallback="true"`. With `targetSdk = 37`, predictive back is the default on Android 16+. On API 33–35 devices (inside `minSdk 29`) the system back-to-home animation needs the flag. Every back path already goes through Compose `BackHandler` (no `onBackPressed` overrides), so the flag is safe.
 - **In-app predictive back** (the previous screen peeks in while the user swipes): not possible with the self-made stack, which swaps screens instantly with no transition (`AppNavHost.kt:123-126`). Navigation 3's `NavDisplay` gives this (#5). Building it ourselves with `PredictiveBackHandler` and `SeekableTransitionState` would reinvent Navigation 3. Not recommended.
-- **Done 2026-10-19:** manifest flag set (batch A); in-app predictive back via Navigation 3's `NavDisplay` (`ui/nav/NavMotion.kt`: the screen shrinks to 90 % towards the swipe edge and stays opaque, the screen below brightens under it).
+- **Done 2026-10-19:** manifest flag set (batch A); in-app predictive back via Navigation 3's `NavDisplay` (`ui/nav/NavMotion.kt`: a back swipe runs the same fade as the back button, driven by the swipe progress; a shrinking page preview was tried and dropped on the user's feedback as busy and slow).
 - Inner back handlers (arrange mode `RoundScreen.kt:171`, scan steps `ScanFlow.kt:133/172/189`, new-game step `NewGameScreens.kt:469`) work with predictive back as they are (no animation, which is fine for in-screen state).
 
 ### 5. Navigation: self-made back stack vs. Navigation 3 (P2, M, needs a decision)
