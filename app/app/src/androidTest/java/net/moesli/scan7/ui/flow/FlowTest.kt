@@ -112,8 +112,9 @@ abstract class FlowTest {
     private fun Localized(locale: Locale?, content: @Composable () -> Unit) {
         if (locale == null) return content()
         val base = LocalContext.current
-        val localized = remember(base, locale) {
-            val config = Configuration(base.resources.configuration).apply { setLocale(locale) }
+        val baseConfig = LocalConfiguration.current
+        val localized = remember(base, baseConfig, locale) {
+            val config = Configuration(baseConfig).apply { setLocale(locale) }
             base.createConfigurationContext(config)
         }
         CompositionLocalProvider(
