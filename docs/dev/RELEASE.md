@@ -74,7 +74,8 @@ v=$(uvx tenzir-ship release version --bare); v=${v#v}                # e.g. 0.1.
 sed -i '' "s/^scan7.versionName=.*/scan7.versionName=$v/" app/gradle.properties
 git add changelog app/gradle.properties && git commit -m "Release v$v"
 ```
-tenzir-ship picks the next version from the entry types. In 0.x, feature, change and breaking bump
+The title is only the name (e.g. "Smoother and steadier"); tenzir-ship adds "Scan7 vX.Y.Z: " itself. To
+choose the version yourself, pass it: `release create v0.1.1 …`. tenzir-ship picks the next version from the entry types. In 0.x, feature, change and breaking bump
 the minor version and bugfix bumps the patch version; the first release is 0.1.0. tenzir-ship can't
 edit `gradle.properties`, hence the `sed`. Then write the Play "What's new" (≤ 500 characters per language) from
 `changelog/releases/vX.Y.Z/notes.md` into [store/whats-new.md](../store/whats-new.md).
