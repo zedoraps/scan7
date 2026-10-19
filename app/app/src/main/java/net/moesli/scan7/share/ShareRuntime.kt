@@ -34,12 +34,15 @@ import net.moesli.scan7.multiplayer.HostSessionState
 import net.moesli.scan7.multiplayer.HostTransport
 import net.moesli.scan7.multiplayer.IntentRejected
 import net.moesli.scan7.multiplayer.JoinRejection
+import net.moesli.scan7.multiplayer.PlayerAction
 import net.moesli.scan7.multiplayer.ScanOrder
 import net.moesli.scan7.multiplayer.mapPlayerIds
 import net.moesli.scan7.multiplayer.nearby.Cancellable
 import net.moesli.scan7.multiplayer.nearby.JoinLink
 import net.moesli.scan7.multiplayer.nearby.Scheduler
 import net.moesli.scan7.multiplayer.nearby.TransportStatus
+import kotlinx.coroutines.cancel
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /** How the phones talk: the radio ([RadioSupport], `play` flavor) or the debug in-process network. */
@@ -92,8 +95,11 @@ data class GuestInfo(
     val labels: Map<String, DeviceLabel>,
 )
 
-/** A refused guest action, ready for the dialog ("Already scored by Anna's phone"). */
-data class RefusalUi(val reject: IntentRejected, val by: DeviceLabel?)
+/**
+ * A refused guest action, ready for the dialog ("Already scored by Anna's phone"). [roundClosed]:
+ * it was for a round the host has closed since ("The round was closed in the meantime").
+ */
+data class RefusalUi(val reject: IntentRejected, val by: DeviceLabel?, val roundClosed: Boolean = false)
 
 data class ShareState(val host: HostInfo? = null, val guest: GuestInfo? = null)
 
@@ -117,9 +123,11 @@ class ShareRuntime(
     context: Context,
     private val repository: GameRepository,
     private val radio: RadioSupport,
+    /** Test seam: phones simulated in one JVM test share one session thread with their fake radio. */
+    executor: ExecutorService = Executors.newSingleThreadExecutor { r -> Thread(r, "scan7-share") },
 ) {
     private val context = context.applicationContext
-    private val dispatcher = Executors.newSingleThreadExecutor { r -> Thread(r, "scan7-share") }.asCoroutineDispatcher()
+    private val dispatcher = executor.asCoroutineDispatcher()
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
 
     private val _state = MutableStateFlow(ShareState())
@@ -152,6 +160,9 @@ class ShareRuntime(
         var transportStatus: TransportStatus? = null
         var lastPlayers: Map<Long, Player> = emptyMap()
         val jobs = mutableListOf<Job>()
+
+        /** The radio link's status collector (replaced with the link on "Join again"). */
+        var statusJob: Job? = null
     }
 
     private var hosting: Hosting? = null
@@ -189,10 +200,7 @@ class ShareRuntime(
             )
             h = Hosting(gameId, link, mode, session)
             hosting = h
-            session.onChange = {
-                updateHostFilter(h)
-                publish()
-            }
+            session.onChange = { hostChanged(h) }
             repository.route(gameId) { build -> withContext(dispatcher) { session.perform(build(session.state)) } }
             radioLink?.let { r -> h.jobs += scope.launch { r.status.collect { h.transportStatus = it; publish() } } }
             session.start()
@@ -217,10 +225,7 @@ class ShareRuntime(
             hosting = moved
             h.session.newGame(game, players)
             repository.route(gameId) { build -> withContext(dispatcher) { h.session.perform(build(h.session.state)) } }
-            h.session.onChange = {
-                updateHostFilter(moved)
-                publish()
-            }
+            h.session.onChange = { hostChanged(moved) }
             saveHost(moved)
             updateHostFilter(moved)
             publish()
@@ -249,16 +254,29 @@ class ShareRuntime(
         publish()
     }
 
+    /**
+     * After every game / roster change. Saving here (not only after applied actions) keeps joins,
+     * claims and removals across a host restart: a guest's "I am Anna" before the first score was lost.
+     */
+    private fun hostChanged(h: Hosting) {
+        saveHost(h)
+        updateHostFilter(h)
+        publish()
+    }
+
     private fun updateHostFilter(h: Hosting) {
         repository.setScanFilter(h.gameId, ScanOrder.playersOf(h.session.state, h.session.roster, HOST_DEVICE))
     }
 
     private fun saveHost(h: Hosting) {
-        runBlocking {
-            repository.saveShareSession(
-                ShareSessionEntity(h.gameId, ROLE_HOST, h.link.sessionId, h.link.token, h.session.exportState().toJson(), System.currentTimeMillis()),
-            )
-        }
+        if (hosting !== h) return // stopped (or moved on): don't write its session back
+        runCatching {
+            runBlocking {
+                repository.saveShareSession(
+                    ShareSessionEntity(h.gameId, ROLE_HOST, h.link.sessionId, h.link.token, h.session.exportState().toJson(), System.currentTimeMillis()),
+                )
+            }
+        }.onFailure { Log.w(TAG, "saving the host session failed", it) }
     }
 
     // ---- Guest -----------------------------------------------------------------------------
@@ -266,8 +284,20 @@ class ShareRuntime(
     /** Join the game of [link] (a scanned QR / deep link, or the debug demo's host). */
     fun join(link: JoinLink, mode: LinkMode) {
         scope.launch {
-            // Scanning the same code again retries a join the host refused (e.g. this phone was removed).
-            if (joined?.link == link && joined?.session?.view?.value?.status != ClientStatus.REJECTED) return@launch
+            val current = joined
+            if (current?.link == link && current.mode == mode) {
+                when (current.session.view.value.status) {
+                    ClientStatus.JOINED -> return@launch
+                    // "Join again" (same code) while not connected: a fresh radio link for the same
+                    // session; outbox, claims and copy stay (leaving would release the claims).
+                    ClientStatus.CONNECTING, ClientStatus.DISCONNECTED -> {
+                        transportFor(current)?.let(current.session::attach)
+                        return@launch
+                    }
+                    // Refused (e.g. this phone was removed): scanning the code again joins afresh.
+                    ClientStatus.REJECTED, ClientStatus.LEFT -> Unit
+                }
+            }
             leaveNow()
             // Joining over the radio ends this phone's own sharing (field test: the 8 Pro still hosted
             // its game and every connection request failed with 8009). Its game stays on the phone.
@@ -287,28 +317,50 @@ class ShareRuntime(
                 repository.route(saved.gameId, guestRouter(j))
             }
             joined = j
-            val transport: ClientTransport = if (mode == LinkMode.RADIO) {
-                val r = radio.join(context, link, scheduler) ?: return@launch
-                j.jobs += scope.launch { r.status.collect { j.transportStatus = it; publish() } }
-                radio.sessionActive(context, true)
-                r.transport
-            } else {
-                network().connect()
-            }
+            val transport = transportFor(j) ?: return@launch
+            if (mode == LinkMode.RADIO) radio.sessionActive(context, true)
             j.jobs += scope.launch {
                 session.view.collect { v ->
-                    // Removed by the host: end this session (and its saved rejoin) so the phone stops
-                    // knocking; its copy stays, and scanning the code again joins afresh.
-                    if (v.status == ClientStatus.REJECTED && v.joinRejection == JoinRejection.REMOVED && j.localGameId != null) {
-                        leaveNow()
-                        return@collect
+                    // Removed by the host: forget its saved rejoin so the phone stops knocking (also
+                    // after a restart); the copy stays read-only, the round screen says "removed",
+                    // and scanning the code again joins afresh. (Calling leaveNow() here cancelled
+                    // this very collector before the saved session was deleted.)
+                    if (v.status == ClientStatus.REJECTED && v.joinRejection == JoinRejection.REMOVED) {
+                        forgetRemoved(j)
+                    } else {
+                        mirror(j)
                     }
-                    mirror(j)
                     publish()
                 }
             }
             session.attach(transport)
         }
+    }
+
+    /** A new link to [j]'s host (first join or "Join again"); the radio's status follows it. */
+    private fun transportFor(j: Joined): ClientTransport? {
+        if (j.mode != LinkMode.RADIO) return network().connect()
+        val r = radio.join(context, j.link, scheduler) ?: return null
+        j.statusJob?.cancel()
+        j.statusJob = scope.launch { r.status.collect { j.transportStatus = it; publish() } }
+        return r.transport
+    }
+
+    private suspend fun forgetRemoved(j: Joined) {
+        val id = j.localGameId ?: return
+        repository.route(id, null)
+        repository.setScanFilter(id, null)
+        repository.deleteShareSession(id)
+        if (j.mode == LinkMode.RADIO && hosting?.mode != LinkMode.RADIO) radio.sessionActive(context, false)
+    }
+
+    /**
+     * Home → Delete game, before the game is deleted: a hosted game stops sharing and a joined copy
+     * leaves its game (otherwise the live mirror wrote the deleted copy back as a new game).
+     */
+    suspend fun forgetGame(gameId: Long) = withContext(dispatcher) {
+        if (hosting?.gameId == gameId) stopHostingNow()
+        if (joined?.localGameId == gameId) leaveNow()
     }
 
     /** "Who are you · who do you scan?" ([me] / [scans] are local ids; `null` me = just helping). */
@@ -328,6 +380,7 @@ class ShareRuntime(
         joined = null
         j.session.leave()
         j.jobs.forEach { it.cancel() }
+        j.statusJob?.cancel()
         j.localGameId?.let {
             repository.route(it, null)
             repository.setScanFilter(it, null)
@@ -359,6 +412,8 @@ class ShareRuntime(
             j.localGameId?.let {
                 repository.route(it, null)
                 repository.setScanFilter(it, null)
+                // The previous copy ("Same players, new game") must not be rejoined with an old outbox.
+                repository.deleteShareSession(it)
             }
             j.localGameId = id
             repository.route(id, guestRouter(j))
@@ -388,7 +443,11 @@ class ShareRuntime(
             val action = build(local)
             val localToHost = j.hostToLocal.entries.associate { (h, l) -> l to h }
             val hostAction: GameAction = action.mapPlayerIds { localToHost[it] ?: error("Unknown player $it") }
-            check(j.session.mayPerform(hostAction)) { "Not allowed for a guest" }
+            // Host-only actions are never offered on a guest. Anything else goes to the host even if
+            // this copy says no (someone scored first, the round was closed, no snapshot yet after a
+            // restart): the host decides and its refusal is explained. A local check here made
+            // these actions fail silently, e.g. every scan after a restart while the host was away.
+            check(!hostAction.hostOnly) { "Not allowed for a guest" }
             j.session.perform(hostAction)
             runCatching { action.apply(local, System.currentTimeMillis(), 0) }.getOrDefault(local)
         }
@@ -420,8 +479,12 @@ class ShareRuntime(
         val local = { id: Long -> map[id] }
         val me = v.roster.firstOrNull { it.deviceId == j.deviceId }
         val labels = v.roster.associate { it.deviceId to it.label(v.players) }
-        val refusal = v.rejections.firstOrNull()?.let { r -> RefusalUi(r, r.author?.let(labels::get)) }
         val game = v.game
+        val refusal = v.rejections.firstOrNull()?.let { r ->
+            val round = (v.rejectedActions[r.intentId] as? PlayerAction)?.round
+            val closed = game != null && round != null && round in 1..game.rounds.size && game.round(round).isClosed
+            RefusalUi(r, r.author?.let(labels::get), closed)
+        }
         val myEntries = if (game == null) emptySet() else {
             v.authors.filter { (k, d) -> d == j.deviceId && k.round == game.currentRound.number }.keys.mapNotNull { local(it.playerId) }.toSet()
         }
@@ -447,6 +510,9 @@ class ShareRuntime(
             labels = labels,
         )
     }
+
+    /** Test seam: the process dies (nothing is cleaned up or sent; a new runtime on the same database restarts it). */
+    internal fun killForTest() = scope.cancel()
 
     /** Local player id of the host's [hostPlayerId] on the joined copy (claim conflicts), if known. */
     fun localPlayerId(hostPlayerId: Long): Long? = joined?.hostToLocal?.get(hostPlayerId)

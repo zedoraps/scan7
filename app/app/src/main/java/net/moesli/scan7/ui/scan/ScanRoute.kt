@@ -35,6 +35,7 @@ import net.moesli.scan7.ui.nav.ScanStart
 import net.moesli.scan7.ui.nav.nextPlayer
 import net.moesli.scan7.ui.players.playerUis
 import net.moesli.scan7.ui.round.BustToastState
+import net.moesli.scan7.ui.share.ResumeSavedSession
 import net.moesli.scan7.ui.theme.Scan7Theme
 
 private const val TAG = "ScanRoute"
@@ -93,10 +94,13 @@ fun ScanRoute(
         Box(modifier.fillMaxSize().background(Scan7Theme.colors.ground))
         return
     }
+    ResumeSavedSession(gameId, snap.isJoined, state.isOver, repository)
     // The ▾ menu only selects (stores the setting); OK is a separate tap, so `choice` is current then.
     val choice = AfterScan.fromSetting(stored)
     val entry = EntryMode.fromSetting(storedEntry)
-    val roundNumber = round ?: state.currentRound.number
+    // The round the screen opened in, kept: on a shared game the host may close it meanwhile, and
+    // the confirmed scan must then be refused for that round, not land in the next one.
+    val roundNumber = round ?: remember(gameId, playerId, start) { state.currentRound.number }
     val players = state.playerUis(snap.players, roundNumber, state.everyoneIds)
     val player = players[index]
     val nextName = Route.Scan(gameId, playerId, start, round).nextPlayer(state)
@@ -132,7 +136,7 @@ fun ScanRoute(
     ScanFlowContent(
         player = player,
         onResult = { outcome ->
-            save("saving the result", { scoreCards(gameId, playerId, outcome.toConfirmedCards(), outcome.resultSource, round) }) {
+            save("saving the result", { scoreCards(gameId, playerId, outcome.toConfirmedCards(), outcome.resultSource, roundNumber) }) {
                 onSaved(it, choice, entry)
             }
         },
@@ -157,7 +161,7 @@ fun ScanRoute(
                     scope.launch {
                         val saved = runCatching {
                             bustWithOverlay(
-                                bust = { outlivingUi { repository.bust(gameId, playerId) } },
+                                bust = { outlivingUi { repository.bust(gameId, playerId, roundNumber) } },
                                 undoBust = {
                                     runCatching { outlivingUi { repository.undoBust(gameId, playerId) } }
                                         .onFailure { if (it !is CancellationException) Log.w(TAG, "undo bust failed", it) }

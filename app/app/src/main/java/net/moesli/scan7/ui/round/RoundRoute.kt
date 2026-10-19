@@ -598,7 +598,7 @@ fun RoundRoute(
         )
     }
     guest?.refusal?.let { refusal ->
-        RefusalDialog(refusal, roundClosed = false, onDismiss = { shareRuntime.clearRefusal() })
+        RefusalDialog(refusal, roundClosed = refusal.roundClosed, onDismiss = { shareRuntime.clearRefusal() })
     }
     if (guest != null && flags.confirmLeave) {
         Scan7ConfirmDialog(

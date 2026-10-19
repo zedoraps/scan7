@@ -5,7 +5,11 @@ package net.moesli.scan7.multiplayer.nearby
  * sides must accept), exchange BYTES payloads (enforcing [maxPayloadBytes]) and drop links. Every
  * callback is queued and delivered by [deliverAll], like Nearby posting to the main thread.
  */
-class FakeNearbyMedium(val maxPayloadBytes: Int = 1024) {
+class FakeNearbyMedium(
+    val maxPayloadBytes: Int = 1024,
+    /** Runs each queued callback by itself on this executor (app-level tests); `null` = [deliverAll] only. */
+    private val autoPost: ((() -> Unit) -> Unit)? = null,
+) {
     private val queue = ArrayDeque<() -> Unit>()
     private val phones = mutableListOf<FakeConnectionsApi>()
     private var nextId = 1
@@ -14,6 +18,16 @@ class FakeNearbyMedium(val maxPayloadBytes: Int = 1024) {
 
     fun post(block: () -> Unit) {
         queue.addLast(block)
+        autoPost?.invoke { queue.removeFirstOrNull()?.invoke() }
+    }
+
+    /** The phone's app process dies: its advertising and links vanish (the others hear a disconnect), it is never found again. */
+    fun kill(phone: FakeConnectionsApi) {
+        phone.stopAdvertising()
+        phone.stopDiscovery()
+        phones -= phone
+        phones.forEach { other -> if (other.links.remove(phone.id) != null) post { other.connectionCallbacks[phone.id]?.onDisconnected(phone.id) } }
+        phone.links.clear()
     }
 
     fun deliverAll(limit: Int = 100_000) {

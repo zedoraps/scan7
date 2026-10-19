@@ -656,6 +656,7 @@ fun HomeRoute(
     repository: GameRepository = AppGraph.repository(LocalContext.current),
     onJoin: (() -> Unit)? = null,
 ) {
+    val context = LocalContext.current
     val active by repository.resumeGame.collectAsStateWithLifecycle(initialValue = null)
     val players by repository.players.collectAsStateWithLifecycle(initialValue = emptyList())
     val pastFlow = remember(repository) { repository.pastGames.map { list -> list.map { it.toPastGameUi() } } }
@@ -685,7 +686,13 @@ fun HomeRoute(
         onSamePlayers = { game -> onSamePlayers(game.lineup, game.target) },
         onDeleteGame = { id ->
             scope.launch {
-                runCatching { outlivingUi { repository.deleteGame(id) } }.onFailure { Log.w("HomeRoute", "delete game $id failed", it) }
+                runCatching {
+                    outlivingUi {
+                        // A shared game stops sharing, a joined one leaves first (its live mirror wrote it back).
+                        AppGraph.share(context).forgetGame(id)
+                        repository.deleteGame(id)
+                    }
+                }.onFailure { Log.w("HomeRoute", "delete game $id failed", it) }
             }
         },
     )
