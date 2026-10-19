@@ -148,7 +148,7 @@ internal fun RoundHeader(
                     actions.onToggleView(it)
                 },
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
                 // Multiplayer (host): share this game; cyan while phones are connected.
                 if (share != null && !share.guest) {
                     IconButton(

@@ -15,7 +15,7 @@ object NearbyPermissions {
     const val BLUETOOTH_CONNECT = "android.permission.BLUETOOTH_CONNECT"
     const val NEARBY_WIFI_DEVICES = "android.permission.NEARBY_WIFI_DEVICES"
 
-    /** Android 17 local network protection (Wi-Fi LAN medium); in the "Nearby devices" group. Verify on a device. */
+    /** Android 17 local network protection (Wi-Fi LAN medium); in the "Nearby devices" group. */
     const val ACCESS_LOCAL_NETWORK = "android.permission.ACCESS_LOCAL_NETWORK"
 
     /** Runtime permissions to request on API [sdk] (29 = minSdk). */

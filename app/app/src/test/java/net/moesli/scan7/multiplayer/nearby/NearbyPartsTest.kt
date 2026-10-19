@@ -32,6 +32,16 @@ class NearbyPartsTest {
     }
 
     @Test
+    fun permissions_allDeclaredInThePlayManifest() {
+        // An undeclared runtime permission is denied without a dialog ("declined" right after Allow).
+        val manifest = java.io.File("src/play/AndroidManifest.xml").readText()
+        val declared = Regex("""uses-permission android:name="([^"]+)"""").findAll(manifest).map { it.groupValues[1] }.toSet()
+        for (sdk in 29..37) {
+            assertEquals("API $sdk", emptyList<String>(), NearbyPermissions.required(sdk) - declared)
+        }
+    }
+
+    @Test
     fun permissions_missingAndRationale() {
         val granted = setOf(BLUETOOTH_SCAN, BLUETOOTH_CONNECT)
         assertEquals(listOf(BLUETOOTH_ADVERTISE, NEARBY_WIFI_DEVICES), NearbyPermissions.missing(34) { it in granted })

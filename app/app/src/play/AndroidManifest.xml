@@ -2,7 +2,8 @@
 <!-- `play` flavor only (docs/MULTI_DEVICE.md §6): the permission set of the Nearby Connections
      get-started guide (runtime set in multiplayer/nearby/NearbyPermissions.kt, requested only on
      Share / Join), the foreground service that keeps a session alive, and the scan7://join deep
-     link. ACCESS_LOCAL_NETWORK (API 37) is added once verified on a device. -->
+     link. Every runtime permission requested must be declared here (NearbyPartsTest checks it),
+     else Android denies it without asking. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" android:maxSdkVersion="31" />
@@ -16,6 +17,8 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+    <!-- Android 17 local network protection (Wi-Fi LAN medium); "Nearby devices" group. -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
