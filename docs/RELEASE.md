@@ -70,7 +70,7 @@ second one for the same feature.
 ```sh
 uvx tenzir-ship release create --title "<title>" --intro "<2–3 sentences for players>"   # dry run
 uvx tenzir-ship release create --title "<title>" --intro "<…>" --yes   # writes releases/vX.Y.Z/
-v=$(uvx tenzir-ship release version --bare)                           # e.g. 0.1.0
+v=$(uvx tenzir-ship release version --bare); v=${v#v}                # e.g. 0.1.0 (it prints v0.1.0)
 sed -i '' "s/^scan7.versionName=.*/scan7.versionName=$v/" app/gradle.properties
 git add changelog app/gradle.properties && git commit -m "Release v$v"
 ```
@@ -80,8 +80,9 @@ bugfix → patch; the first release is 0.1.0); tenzir-ship can't edit `gradle.pr
 `changelog/releases/vX.Y.Z/notes.md` into [store/whats-new.md](store/whats-new.md). Publishing
 (tag `vX.Y.Z`, push, GitHub release with `notes.md` as the body) is
 `uvx tenzir-ship release publish --tag --yes` and **pushes**: only with the user's OK; attach the
-APK to the GitHub release afterwards (`gh release upload vX.Y.Z …`). `.github/workflows/release.yaml`
-does the same from GitHub Actions (manual trigger only, not tested yet).
+APK to the GitHub release afterwards (`gh release upload vX.Y.Z …`). No CI release workflow yet
+(tenzir-ship offers one; add it once CI can build and attach the APK). No root CHANGELOG.md: the
+notes live in `changelog/releases/` and on the GitHub releases.
 
 ## Checklist (manual steps)
 
