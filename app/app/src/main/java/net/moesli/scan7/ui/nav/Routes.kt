@@ -23,7 +23,7 @@ enum class ScanStart {
  * Debug screens (debug menu + the screens it opens). [SCAN_DEMO] has no menu entry: only the
  * `debug_scan_demo` / `debug_scan_photo` launch hooks open it.
  */
-enum class DebugScreen { HOME, CAMERA, PHOTO, SCAN_DEMO, AVATARS }
+enum class DebugScreen { HOME, CAMERA, PHOTO, SCAN_DEMO, AVATARS, MULTIPLAYER }
 
 /**
  * One entry of the app's back stack. Plain data, encoded to a string for `rememberSaveable`
@@ -53,6 +53,9 @@ sealed interface Route {
     data class About(val license: String? = null) : Route
 
     data class Debug(val screen: DebugScreen) : Route
+
+    /** Multiplayer: join a game by scanning its QR code; [link] = a scanned / deep-linked `scan7://join…`. */
+    data class Join(val link: String? = null) : Route
 }
 
 /**
@@ -135,6 +138,7 @@ fun Route.encode(): String = when (this) {
     is Route.GameOver -> "gameover:$gameId"
     is Route.About -> "about:${license.orEmpty()}"
     is Route.Debug -> "debug:${screen.name}"
+    is Route.Join -> "join:" + link?.let { java.net.URLEncoder.encode(it, "UTF-8") }.orEmpty()
 }
 
 /** Inverse of [encode]; `null` for anything it can't read. */
@@ -155,6 +159,7 @@ fun decodeRoute(text: String): Route? = runCatching {
         "gameover" -> Route.GameOver(parts[1].toLong())
         "about" -> Route.About(parts.getOrNull(1)?.takeIf { it.isNotEmpty() })
         "debug" -> Route.Debug(DebugScreen.valueOf(parts[1]))
+        "join" -> Route.Join(parts.getOrNull(1)?.takeIf { it.isNotEmpty() }?.let { java.net.URLDecoder.decode(it, "UTF-8") })
         else -> null
     }
 }.getOrNull()

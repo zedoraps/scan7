@@ -84,6 +84,7 @@ val ThirdPartyNotices = listOf(
     ThirdParty("LiteRT (Google AI Edge)", R.string.about_tp_litert, LicenseText.APACHE),
     ThirdParty("Android Jetpack", R.string.about_tp_jetpack, LicenseText.APACHE),
     ThirdParty("Kotlin", R.string.about_tp_kotlin, LicenseText.APACHE),
+    ThirdParty("ZXing", R.string.about_tp_zxing, LicenseText.APACHE),
     ThirdParty("Unbounded", R.string.about_tp_unbounded, LicenseText.OFL_UNBOUNDED),
     ThirdParty("DM Mono", R.string.about_tp_dmmono, LicenseText.OFL_DM_MONO),
 )

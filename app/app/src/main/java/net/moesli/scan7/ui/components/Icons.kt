@@ -108,7 +108,28 @@ private object Vectors {
     private const val TORCH = "M8 9h8l-2 4v8h-4v-8zM8 9V7h8v2M12 15v2"
     val torchOff by lazy { vector("TorchOff", TORCH, 2f) }
     val torchOn by lazy { vector("TorchOn", TORCH + "M12 2v2M6 3.5l1.2 1.6M18 3.5l-1.2 1.6", 2f) }
+
+    /** Three linked dots (multiplayer: share this game). */
+    val share by lazy { vector("Share", circle(17.5f, 5.5f, 2.5f) + circle(6.5f, 12f, 2.5f) + circle(17.5f, 18.5f, 2.5f) + "M8.7 10.7l6.6-3.9M8.7 13.3l6.6 3.9", 2f) }
+
+    /** A phone (multiplayer badges: scanned on another phone). */
+    val phone by lazy { vector("Phone", roundRect(7f, 3f, 10f, 18f, 2f) + "M11 17.5h2", 2f) }
+
+    /** Door with an arrow (leave the joined game). */
+    val leave by lazy { vector("Leave", "M14 4H6v16h8M10 12h10M17 9l3 3-3 3", 2f, autoMirror = true) }
 }
+
+/** Multiplayer: share this game. */
+@Composable
+fun ShareIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) = VectorIcon(Vectors.share, color, size, modifier)
+
+/** Multiplayer: a phone (who scans whom). */
+@Composable
+fun PhoneIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 14.dp) = VectorIcon(Vectors.phone, color, size, modifier)
+
+/** Multiplayer: leave the joined game. */
+@Composable
+fun LeaveIcon(color: Color, modifier: Modifier = Modifier, size: Dp = 20.dp) = VectorIcon(Vectors.leave, color, size, modifier)
 
 /** Back arrow (mirrored in RTL). */
 @Composable

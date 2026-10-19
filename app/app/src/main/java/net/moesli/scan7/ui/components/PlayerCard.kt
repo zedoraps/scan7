@@ -283,6 +283,7 @@ fun PlayerCard(
                         .offset(x = 6.dp, y = (-6).dp),
                 )
             }
+            player.share?.let { ShareBadge(it, Modifier.align(Alignment.TopStart).offset(x = (-6).dp, y = (-6).dp)) }
         }
     }
 }

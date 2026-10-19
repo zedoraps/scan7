@@ -41,6 +41,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import net.moesli.scan7.ui.components.ScanNextButton
+import net.moesli.scan7.ui.text.resolve
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.keepScreenOn
@@ -175,7 +177,11 @@ fun RoundScreen(
                     arranging = state.arranging,
                     actions = actions,
                     modifier = Modifier.offset(y = m.headerTop),
+                    share = state.share,
                 )
+                state.share?.banner?.let { banner ->
+                    ShareBanner(banner.resolve(), Modifier.offset(y = m.headerTop + Scan7Spacing.headerHeight).padding(horizontal = Scan7Spacing.screenMargin))
+                }
             }
 
             if (bottomBar != null) {
@@ -205,7 +211,16 @@ fun RoundScreen(
                     .then(if (state.arranging) Modifier.clearAndSetSemantics {} else Modifier),
             ) {
                 val enabled = !state.arranging
-                if (state.allDone) {
+                val share = state.share
+                if (share != null && share.guest) {
+                    // A guest never ends the round: Scan next over its own players, else the waiting line.
+                    val next = state.nextOpen?.player
+                    if (next != null) {
+                        ScanNextButton(next, { if (enabled) actions.onScanNext() }, Modifier.fillMaxWidth())
+                    } else {
+                        WaitingLine(share.waiting?.resolve().orEmpty(), Modifier.fillMaxSize())
+                    }
+                } else if (state.allDone) {
                     // Closes the round and starts the next one (or Game over) in one tap.
                     PrimaryButton(
                         text = stringResource(R.string.round_next),

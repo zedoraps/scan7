@@ -82,6 +82,7 @@ fun DebugHomeScreen(
     modifier: Modifier = Modifier,
     onLoadDetector: () -> Unit = {},
     onAvatars: () -> Unit = {},
+    onMultiplayer: () -> Unit = {},
 ) {
     val colors = Scan7Theme.colors
     DebugScaffold(title = "Debug", subtitle = "Detector, training data, tools", onBack = onBack, modifier = modifier) { padding ->
@@ -117,6 +118,7 @@ fun DebugHomeScreen(
 
             Section("Design")
             NavCard("Avatars", "Kit layers + example presets (compare with avatar_preview.png)", onAvatars)
+            NavCard("Multiplayer (experimental)", "Host this phone's game and join it as a virtual guest over the in-process network (no radio)", onMultiplayer)
 
 
 

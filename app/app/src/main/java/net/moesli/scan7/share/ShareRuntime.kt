@@ -70,6 +70,10 @@ data class GuestInfo(
     /** Host's label, e.g. OfPlayer("Philip"). */
     val host: DeviceLabel,
     val me: DeviceInfo?,
+    /** Local id of the player this phone is (`null` = not picked yet, or just helping). */
+    val myPlayer: Long?,
+    /** Local player id → the other phone that *is* that player (claim screen: "Anna is on another phone"). */
+    val othersMe: Map<Long, DeviceInfo>,
     /** Local player ids this phone scans. */
     val myScans: Set<Long>,
     /** Local player id → the other phone that scans them (badges). */
@@ -406,6 +410,8 @@ class ShareRuntime(
             localGameId = j.localGameId,
             host = labels[HOST_DEVICE] ?: DeviceLabel.Host,
             me = me,
+            myPlayer = me?.me?.let(local),
+            othersMe = v.roster.filter { it.deviceId != j.deviceId && it.me != null }.mapNotNull { d -> local(d.me!!)?.let { it to d } }.toMap(),
             myScans = me?.scans.orEmpty().mapNotNull(local).toSet(),
             scannedBy = v.roster.filter { it.deviceId != j.deviceId }.flatMap { d -> d.scans.mapNotNull(local).map { it to d } }.toMap(),
             myEntries = myEntries,

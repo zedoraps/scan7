@@ -43,6 +43,17 @@ import net.moesli.scan7.ui.sheet.CloseRoundDialog
 import net.moesli.scan7.ui.sheet.PlayerSheet
 import net.moesli.scan7.ui.sheet.PlayerSheetUi
 import net.moesli.scan7.ui.theme.Scan7Theme
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.BuildConfig
+import net.moesli.scan7.R
+import net.moesli.scan7.multiplayer.ClientStatus
+import net.moesli.scan7.share.LinkMode
+import net.moesli.scan7.share.ShareText
+import net.moesli.scan7.ui.share.ClaimSheet
+import net.moesli.scan7.ui.share.RefusalDialog
+import net.moesli.scan7.ui.share.ShareSheet
+import net.moesli.scan7.ui.share.rememberRadioPermissionRequest
+import net.moesli.scan7.ui.text.uiText
 
 private const val TAG = "RoundRoute"
 
@@ -70,6 +81,9 @@ class RoundFlags(
     menu: Boolean = false,
     confirmEnd: Boolean = false,
     confirmTarget: Int? = null,
+    shareSheet: Boolean = false,
+    claimSheet: Boolean = false,
+    confirmLeave: Boolean = false,
 ) {
     var arranging by mutableStateOf(arranging)
     var sheetPlayer by mutableStateOf(sheetPlayer)
@@ -82,10 +96,18 @@ class RoundFlags(
     /** "Lower the target to N?" confirmation (round menu; the new target), `null` = not asking. */
     var confirmTarget by mutableStateOf(confirmTarget)
 
+    /** Multiplayer: share sheet (host), "Who are you · Who do you scan" (guest), "Leave game?" (guest). */
+    var shareSheet by mutableStateOf(shareSheet)
+    var claimSheet by mutableStateOf(claimSheet)
+    var confirmLeave by mutableStateOf(confirmLeave)
+
     companion object {
         val Saver = listSaver<RoundFlags, Any>(
             save = {
-                listOf(it.arranging, it.sheetPlayer ?: -1L, it.confirmClose, it.menu, it.confirmEnd, it.confirmTarget ?: -1)
+                listOf(
+                    it.arranging, it.sheetPlayer ?: -1L, it.confirmClose, it.menu, it.confirmEnd, it.confirmTarget ?: -1,
+                    it.shareSheet, it.claimSheet, it.confirmLeave,
+                )
             },
             restore = {
                 RoundFlags(
@@ -95,6 +117,9 @@ class RoundFlags(
                     menu = it[3] as Boolean,
                     confirmEnd = it[4] as Boolean,
                     confirmTarget = (it[5] as Int).takeIf { t -> t > 0 },
+                    shareSheet = it[6] as Boolean,
+                    claimSheet = it[7] as Boolean,
+                    confirmLeave = it[8] as Boolean,
                 )
             },
         )
@@ -268,6 +293,13 @@ class RoundController(
         flags.menu = true
     }
 
+    /** Multiplayer host: header share icon / menu row → the share sheet (the route starts sharing). */
+    override fun onShare() {
+        flags.menu = false
+        flags.arranging = false
+        flags.shareSheet = true
+    }
+
     /** Menu "Players" → the players picker (leaves arrange mode). */
     fun onManagePlayers() {
         flags.arranging = false
@@ -344,6 +376,15 @@ fun RoundRoute(
     val haptics = LocalHapticFeedback.current
     controller.snapshot = snapshot
     controller.entry = entry
+    // Multiplayer (docs/MULTI_DEVICE.md §2): this phone hosts this game, or it is a joined copy.
+    val context = LocalContext.current
+    val shareRuntime = remember { AppGraph.share(context) }
+    val shareState by shareRuntime.state.collectAsStateWithLifecycle()
+    val host = shareState.host?.takeIf { it.gameId == gameId }
+    val guest = shareState.guest?.takeIf { it.localGameId == gameId }
+    val permissions = rememberRadioPermissionRequest()
+    // Sharing is possible with a radio (play flavor) or, in debug builds, over the in-process demo network.
+    val canShare = shareRuntime.radioAvailable || BuildConfig.DEBUG
 
     val snap = snapshot
     if (snap == null) {
@@ -351,12 +392,24 @@ fun RoundRoute(
         return
     }
     val roundClosed = snap.state.currentRound.isClosed
-    LaunchedEffect(roundClosed) { if (roundClosed) controller.settleClosedRound() }
+    // Only the host settles a closed round (a guest's copy follows the host's next round).
+    LaunchedEffect(roundClosed) { if (roundClosed && !snap.isJoined) controller.settleClosedRound() }
+    // A guest follows the host to Game over.
+    val joinedOver = snap.isJoined && snap.state.isOver
+    LaunchedEffect(joinedOver) { if (joinedOver) navigator.gameOver() }
+    // A guest that hasn't said who it is yet: the claim sheet opens once it is connected.
+    val needsClaim = guest != null && guest.status == ClientStatus.JOINED && guest.myPlayer == null && guest.me?.helperName == null
+    LaunchedEffect(needsClaim) { if (needsClaim) flags.claimSheet = true }
     val typeEntry = entry == EntryMode.TYPE
     // Type mode: the in-card / bottom scan buttons show the keypad / "Enter next".
     CompositionLocalProvider(LocalTypeEntry provides typeEntry) {
+        val base = snap.toRoundUiState(flags.arranging, typeEntry = typeEntry)
         RoundScreen(
-            state = snap.toRoundUiState(flags.arranging, typeEntry = typeEntry),
+            state = when {
+                guest != null -> base.joined(guest)
+                host != null || (canShare && !snap.isJoined) -> base.hosted(host, snap.players)
+                else -> base
+            },
             actions = controller,
             // The phone lies on the table during a game: keep the screen on.
             modifier = modifier.keepScreenOn(),
@@ -370,8 +423,16 @@ fun RoundRoute(
         val player = uis[id]
         if (player != null) {
             val closed = snap.state.round(round).isClosed
+            val done = snap.state.result(id, round).isDone
+            // A guest only changes its own entries; others show "Scored by …" read-only.
+            val scoredBy = if (guest != null && done && id !in guest.myEntries) {
+                ShareText.phone(guest.scannedBy[id]?.let { guest.labels[it.deviceId] } ?: guest.host)
+                    .let { uiText(R.string.sheet_scored_by, it) }
+            } else {
+                null
+            }
             PlayerSheet(
-                state = PlayerSheetUi(player, round, snap.state.result(id, round).cards, snap.state.adjustmentsOf(id)),
+                state = PlayerSheetUi(player, round, snap.state.result(id, round).cards, snap.state.adjustmentsOf(id), scoredBy),
                 onScan = { controller.sheetAction(id, SheetAction.Scan) },
                 onEnterManually = { controller.sheetAction(id, SheetAction.Manual) },
                 onBust = {
@@ -383,7 +444,8 @@ fun RoundRoute(
                 // A closed round has no open players: "Reset to open" would mean reopening the round.
                 onResetToOpen = if (closed) null else ({ controller.sheetAction(id, SheetAction.Reset) }),
                 onDismiss = { flags.sheetPlayer = null },
-                adjust = remember(id) { controller.adjustActions(id) },
+                // Guests can't change totals.
+                adjust = remember(id) { controller.adjustActions(id) }.takeIf { guest == null },
                 typeEntry = entry == EntryMode.TYPE,
             )
         }
@@ -412,21 +474,68 @@ fun RoundRoute(
             RoundMenuContent(
                 settings = RoundMenuSettings(
                     // A finished game (end-of-round view) keeps its target: changing it would reopen / end it.
-                    target = snap.state.target.takeUnless { snap.state.isOver },
+                    // Guests don't change game settings.
+                    target = snap.state.target.takeUnless { snap.state.isOver || guest != null },
                     direction = snap.state.scanDirection,
                     afterScan = AfterScan.fromSetting(afterScan),
                     entry = entry,
                 ),
                 onScoreboard = { sheet.hideThen(navigator::scoreboard) },
-                onArrange = { sheet.hideThen(controller::onEnterArrange) },
+                onArrange = if (guest != null) null else ({ sheet.hideThen(controller::onEnterArrange) }),
                 onHome = { sheet.hideThen(navigator::home) },
-                onEndGame = if (snap.state.isOver) null else ({ sheet.hideThen(controller::onEndGame) }),
+                onEndGame = if (snap.state.isOver || guest != null) null else ({ sheet.hideThen(controller::onEndGame) }),
                 onTarget = controller::onTarget,
                 onDirection = controller::onScanDirection,
                 onAfterScan = controller::onAfterScan,
                 onEntry = controller::onEntryMode,
-                onPlayers = if (snap.state.canChangePlayers) ({ sheet.hideThen(controller::onManagePlayers) }) else null,
+                onPlayers = if (snap.state.canChangePlayers && guest == null) ({ sheet.hideThen(controller::onManagePlayers) }) else null,
+                onShare = if (guest == null && !snap.isJoined && canShare) ({ sheet.hideThen(controller::onShare) }) else null,
+                onWhoScan = if (guest != null) ({ sheet.hideThen({ flags.claimSheet = true }) }) else null,
+                onLeave = if (guest != null) ({ sheet.hideThen({ flags.confirmLeave = true }) }) else null,
             )
         }
     }
+
+    // ---- Multiplayer ------------------------------------------------------------------------
+    if (flags.shareSheet) {
+        // Opening the sheet starts sharing (radio after the permission, else the debug demo network).
+        LaunchedEffect(Unit) {
+            if (host == null) {
+                if (shareRuntime.radioAvailable) permissions.run { shareRuntime.host(gameId, LinkMode.RADIO) } else shareRuntime.host(gameId, LinkMode.IN_PROCESS)
+            }
+        }
+        ShareSheet(
+            host = host,
+            players = snap.players,
+            radioAvailable = shareRuntime.radioAvailable || BuildConfig.DEBUG,
+            onRemove = { shareRuntime.removeGuest(it.deviceId) },
+            onStop = { shareRuntime.stopHosting() },
+            onDismiss = { flags.shareSheet = false },
+        )
+    }
+    if (guest != null && flags.claimSheet) {
+        ClaimSheet(
+            guest = guest,
+            onDone = { me, scans, helper, force -> shareRuntime.claim(me, scans, helper, force) },
+            onDismiss = { flags.claimSheet = false },
+        )
+    }
+    guest?.refusal?.let { refusal ->
+        RefusalDialog(refusal, roundClosed = false, onDismiss = { shareRuntime.clearRefusal() })
+    }
+    if (guest != null && flags.confirmLeave) {
+        Scan7ConfirmDialog(
+            title = stringResource(R.string.leave_title),
+            confirmLabel = stringResource(R.string.leave_action),
+            body = stringResource(R.string.leave_body),
+            destructive = true,
+            onConfirm = {
+                flags.confirmLeave = false
+                shareRuntime.leave()
+                navigator.home()
+            },
+            onCancel = { flags.confirmLeave = false },
+        )
+    }
+
 }

@@ -105,6 +105,8 @@ fun ScoreboardScreen(
     onEditResult: (round: Int, playerId: Long) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Header actions (a joined game: "Save players to my list"). */
+    trailing: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
 ) {
     val colors = Scan7Theme.colors
     val table = state.table
@@ -122,6 +124,7 @@ fun ScoreboardScreen(
             subtitle = state.subtitle().resolve(),
             onBack = onBack,
             modifier = Modifier.headerInsets(),
+            trailing = trailing,
         )
         Column(
             modifier = Modifier

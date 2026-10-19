@@ -40,6 +40,8 @@ data class PastGameUi(
     val rounds: Int,
     val target: Int,
     val outcome: PastOutcome,
+    /** Multiplayer: joined on another phone (the host's name; "" = unknown), `null` = this phone's game. */
+    val joinedFrom: String? = null,
 ) {
     /** "Mia won", "Ben and Mia won", "Mia led" (abandoned), "Not finished" (abandoned, no points). */
     val headline: UiText
@@ -56,20 +58,23 @@ data class PastGameUi(
     val detail: UiText
         get() {
             val r = uiPlural(R.plurals.rounds, rounds)
-            return when (outcome) {
+            val base = when (outcome) {
                 PastOutcome.WON -> r
                 PastOutcome.ENDED_EARLY -> UiText.Join(listOf(r, uiText(R.string.history_ended_early)))
                 PastOutcome.ABANDONED -> UiText.Join(listOf(r, uiText(R.string.history_abandoned)))
             }
+            val joined = joinedFrom?.let { if (it.isBlank()) uiText(R.string.history_joined_plain) else uiText(R.string.history_joined, it) }
+            return if (joined == null) base else UiText.Join(listOf(base, joined))
         }
 }
 
 /** History entry for a finished or abandoned game ([GameState.finishedAt] set). */
-fun GameState.toPastGameUi(players: Map<Long, Player>): PastGameUi {
+fun GameState.toPastGameUi(players: Map<Long, Player>, joinedFrom: String? = null): PastGameUi {
     // Everyone who played, also the players who left mid-game.
     val uis = playerUis(players, ids = everyoneIds)
     val outcome = when {
-        abandoned -> PastOutcome.ABANDONED
+        // A joined copy the host never finished reads like an abandoned game ("Mia led").
+        abandoned || (joinedFrom != null && !isOver) -> PastOutcome.ABANDONED
         endedEarly -> PastOutcome.ENDED_EARLY
         else -> PastOutcome.WON
     }
@@ -84,10 +89,11 @@ fun GameState.toPastGameUi(players: Map<Long, Player>): PastGameUi {
         rounds = rounds.count { it.isClosed },
         target = target,
         outcome = outcome,
+        joinedFrom = joinedFrom,
     )
 }
 
-fun GameSnapshot.toPastGameUi(): PastGameUi = state.toPastGameUi(players)
+fun GameSnapshot.toPastGameUi(): PastGameUi = state.toPastGameUi(players, joinedFrom)
 
 /** How a past game's date is shown relative to today (the words and formats come from the screen). */
 enum class HistoryDay {

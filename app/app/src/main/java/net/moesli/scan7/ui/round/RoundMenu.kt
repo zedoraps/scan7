@@ -39,6 +39,9 @@ import androidx.compose.ui.unit.dp
 import net.moesli.scan7.R
 import net.moesli.scan7.game.ScanDirection
 import net.moesli.scan7.ui.components.ArrangeIcon
+import net.moesli.scan7.ui.components.LeaveIcon
+import net.moesli.scan7.ui.components.PhoneIcon
+import net.moesli.scan7.ui.components.ShareIcon
 import net.moesli.scan7.ui.components.BottomSheetPanel
 import net.moesli.scan7.ui.components.HomeIcon
 import net.moesli.scan7.ui.components.PlayersIcon
@@ -85,7 +88,8 @@ data class RoundMenuSettings(
 fun RoundMenuContent(
     settings: RoundMenuSettings,
     onScoreboard: () -> Unit,
-    onArrange: () -> Unit,
+    /** `null` hides it (multiplayer guest: only the host arranges). */
+    onArrange: (() -> Unit)?,
     onHome: () -> Unit,
     onEndGame: (() -> Unit)?,
     onTarget: (Int) -> Unit,
@@ -94,13 +98,21 @@ fun RoundMenuContent(
     onEntry: (EntryMode) -> Unit,
     /** "Players": add / remove players mid-game; `null` hides it (game over). */
     onPlayers: (() -> Unit)? = null,
+    /** Multiplayer host: "Share this game" (share sheet); `null` hides it. */
+    onShare: (() -> Unit)? = null,
+    /** Multiplayer guest: "Who do you scan?" and "Leave game"; `null` hides them. */
+    onWhoScan: (() -> Unit)? = null,
+    onLeave: (() -> Unit)? = null,
 ) {
     val colors = Scan7Theme.colors
     Column(Modifier.verticalScroll(rememberScrollState())) {
         MenuRow(stringResource(R.string.scoreboard_title), onScoreboard) { ScoreboardIcon(colors.text) }
-        MenuRow(stringResource(R.string.action_rearrange), onArrange) { ArrangeIcon(colors.text) }
+        if (onArrange != null) MenuRow(stringResource(R.string.action_rearrange), onArrange) { ArrangeIcon(colors.text) }
         if (onPlayers != null) MenuRow(stringResource(R.string.menu_players), onPlayers) { PlayersIcon(colors.text) }
+        if (onShare != null) MenuRow(stringResource(R.string.share_action), onShare) { ShareIcon(colors.text) }
+        if (onWhoScan != null) MenuRow(stringResource(R.string.menu_who_scan), onWhoScan) { PhoneIcon(colors.text, size = 20.dp) }
         MenuRow(stringResource(R.string.action_home), onHome) { HomeIcon(colors.text) }
+        if (onLeave != null) MenuRow(stringResource(R.string.menu_leave), onLeave) { LeaveIcon(colors.text) }
         if (onEndGame != null) {
             HorizontalDivider(color = colors.line, modifier = Modifier.padding(horizontal = Scan7Spacing.l, vertical = Scan7Spacing.xs))
             MenuRow(stringResource(R.string.action_end_game), onEndGame, ink = colors.warning) { WarningIcon(colors.warning, size = 20.dp) }

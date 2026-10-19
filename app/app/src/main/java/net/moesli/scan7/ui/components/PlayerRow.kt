@@ -71,6 +71,7 @@ fun PlayerRow(
                 onScan = onScan,
                 onBust = onBust,
             )
+            player.share?.let { ShareBadge(it, Modifier.align(Alignment.TopStart).offset(x = (-4).dp, y = (-6).dp)) }
         }
     }
 }

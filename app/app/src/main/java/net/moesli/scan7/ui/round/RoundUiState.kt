@@ -7,6 +7,7 @@ import net.moesli.scan7.ui.components.PlayerStatus
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.RoundView
 import net.moesli.scan7.ui.components.isDone
+import net.moesli.scan7.ui.text.UiText
 
 /**
  * One seat on the Round screen.
@@ -51,6 +52,8 @@ data class RoundUiState(
     val nextOpenId: String? = firstOpenId(players),
     val seating: Boolean = false,
     val typeEntry: Boolean = false,
+    /** Multiplayer: the share icon (host) or the guest's limits; `null` = a plain local game. */
+    val share: RoundShareUi? = null,
 ) {
     /** The player for "Scan next", or null when nobody is open. */
     val nextOpen: RoundPlayer?
@@ -63,6 +66,23 @@ data class RoundUiState(
 
     val playerCount: Int get() = players.size
 }
+
+/**
+ * Multiplayer parts of the Round screen (docs/MULTI_DEVICE.md §2).
+ *
+ * @param guest this phone joined the game: no Close round / Next round (only the host ends a
+ *   round), the bottom shows [waiting] instead when none of its players is open.
+ * @param phones host: phones connected (share icon in the header; 0 = not shared yet / nobody).
+ * @param waiting guest bottom text ("Waiting for Philip to close the round").
+ * @param banner connection state over the table ("Connection lost · reconnecting…"), `null` = fine.
+ */
+@Immutable
+data class RoundShareUi(
+    val guest: Boolean,
+    val phones: Int = 0,
+    val waiting: UiText? = null,
+    val banner: UiText? = null,
+)
 
 /**
  * Everything the Round screen can ask for. All callbacks default to no-ops so previews and partial
@@ -126,6 +146,9 @@ interface RoundActions {
 
     /** Header menu button. */
     fun onMenu() {}
+
+    /** Multiplayer (host): header share icon → share sheet. */
+    fun onShare() {}
 }
 
 /** No-op actions (previews). */

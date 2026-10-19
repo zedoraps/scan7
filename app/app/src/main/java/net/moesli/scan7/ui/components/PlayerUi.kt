@@ -41,12 +41,21 @@ data class PlayerUi(
     val target: Int = 200,
     val isLeader: Boolean = false,
     val id: String = name,
+    /** Multiplayer: which phone scans this player (badge), `null` = not shared / nobody. */
+    val share: ShareMark? = null,
 ) {
     val initial: String get() = name.take(1).uppercase()
 
     /** The avatar's player color (ring progress, progress strip). */
     val color: Color get() = avatar.colorValue
 }
+
+/**
+ * Multiplayer badge on a card / row (docs/MULTI_DEVICE.md §2): [mine] = this phone scans the
+ * player (highlight), else [initial] of the person whose phone does. [description] for TalkBack.
+ */
+@Immutable
+data class ShareMark(val mine: Boolean, val initial: String, val description: UiText)
 
 /** Interaction mode of a card or row. */
 enum class CardMode {

@@ -430,6 +430,7 @@
     <string name="about_tp_litert">On-device inference, GPU delegate · Apache-2.0</string>
     <string name="about_tp_jetpack">Compose, Material 3, Activity, Core, Lifecycle, Navigation 3, CameraX, Room, SplashScreen · Apache-2.0</string>
     <string name="about_tp_kotlin">Standard library, kotlinx.coroutines, kotlinx.serialization · Apache-2.0</string>
+    <string name="about_tp_zxing">QR codes for joining a game · Apache-2.0</string>
     <string name="about_tp_unbounded">Font · © 2022 The Unbounded Project Authors · SIL OFL 1.1</string>
     <string name="about_tp_dmmono">Font · © 2020 The DM Mono Project Authors · SIL OFL 1.1</string>
     <string name="home_more_options">More options</string>

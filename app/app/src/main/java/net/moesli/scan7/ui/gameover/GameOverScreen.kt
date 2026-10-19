@@ -94,7 +94,8 @@ fun GameSnapshot.toGameOverUi(): GameOverUi {
 @Composable
 fun GameOverScreen(
     state: GameOverUi,
-    onNewGameSamePlayers: () -> Unit,
+    /** `null` hides it (a joined game: only the host starts the next game; the guest follows). */
+    onNewGameSamePlayers: (() -> Unit)?,
     onHome: () -> Unit,
     onScoreboard: () -> Unit,
     modifier: Modifier = Modifier,
@@ -123,8 +124,12 @@ fun GameOverScreen(
         ContentWithBottomBar(
             bottomBar = {
                 Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
-                    SecondaryButton(stringResource(R.string.gameover_home), onHome, Modifier.width(88.dp), textStyle = Scan7Type.button.copy(fontSize = 13.sp))
-                    NewGameButton(onNewGameSamePlayers, Modifier.weight(1f))
+                    if (onNewGameSamePlayers != null) {
+                        SecondaryButton(stringResource(R.string.gameover_home), onHome, Modifier.width(88.dp), textStyle = Scan7Type.button.copy(fontSize = 13.sp))
+                        NewGameButton(onNewGameSamePlayers, Modifier.weight(1f))
+                    } else {
+                        SecondaryButton(stringResource(R.string.gameover_home), onHome, Modifier.fillMaxWidth())
+                    }
                 }
             },
         ) { bottomPadding ->

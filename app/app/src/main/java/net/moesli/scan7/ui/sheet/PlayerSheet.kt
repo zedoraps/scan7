@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.sheet
 
+import net.moesli.scan7.ui.text.UiText
+
 import net.moesli.scan7.ui.text.chipText
 import net.moesli.scan7.ui.text.resolve
 import androidx.compose.ui.res.pluralStringResource
@@ -90,6 +92,11 @@ data class PlayerSheetUi(
     val cards: List<ConfirmedCard> = emptyList(),
     /** This player's total adjustments in this game, oldest first ([PlayerUi.total] includes them). */
     val adjustments: List<ScoreAdjustment> = emptyList(),
+    /**
+     * Multiplayer guest: someone else entered this result ("Scored by Anna's phone"); the sheet
+     * then shows it read-only (no Edit / Rescan / Reset: guests only change their own entries).
+     */
+    val scoredBy: UiText? = null,
 )
 
 /**
@@ -299,6 +306,10 @@ fun PlayerSheetContent(
             OpenActions(player.name, onScan, onEnterManually, onBust, typeEntry)
         } else {
             ResultPanel(state)
+            state.scoredBy?.let { by ->
+                Text(by.resolve(), color = Scan7Theme.colors.textMuted, style = Scan7Type.text15)
+                return@Column
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s)) {
                 SecondaryButton(
                     stringResource(R.string.action_edit),

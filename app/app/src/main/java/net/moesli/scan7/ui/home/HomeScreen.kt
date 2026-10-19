@@ -83,6 +83,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.Alignment
+import net.moesli.scan7.ui.components.TextLinkButton
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
@@ -185,6 +186,8 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onAbout: () -> Unit = {},
     onDeleteGame: (gameId: Long) -> Unit = {},
+    /** Multiplayer "Join a game"; `null` hides it (no radio in this build). */
+    onJoin: (() -> Unit)? = null,
 ) {
     val colors = Scan7Theme.colors
     val dates = rememberHomeDateFormat()
@@ -210,9 +213,12 @@ fun HomeScreen(
         }
         ContentWithBottomBar(
             bottomBar = {
-                Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
-                    SecondaryButton(stringResource(R.string.home_players), onPlayers, Modifier.width(128.dp))
-                    PrimaryButton(stringResource(R.string.action_new_game), onNewGame, Modifier.weight(1f))
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth()) {
+                        SecondaryButton(stringResource(R.string.home_players), onPlayers, Modifier.width(128.dp))
+                        PrimaryButton(stringResource(R.string.action_new_game), onNewGame, Modifier.weight(1f))
+                    }
+                    if (onJoin != null) TextLinkButton(stringResource(R.string.home_join), onJoin)
                 }
             },
         ) { bottomPadding ->
@@ -601,6 +607,7 @@ fun HomeRoute(
     onAbout: () -> Unit,
     modifier: Modifier = Modifier,
     repository: GameRepository = AppGraph.repository(LocalContext.current),
+    onJoin: (() -> Unit)? = null,
 ) {
     val active by repository.activeGame.collectAsStateWithLifecycle(initialValue = null)
     val players by repository.players.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -623,6 +630,7 @@ fun HomeRoute(
         onPastGame = onPastGame,
         modifier = modifier,
         onAbout = onAbout,
+        onJoin = onJoin,
         onDeleteGame = { id ->
             scope.launch {
                 runCatching { outlivingUi { repository.deleteGame(id) } }.onFailure { Log.w("HomeRoute", "delete game $id failed", it) }

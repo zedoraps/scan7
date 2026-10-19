@@ -48,6 +48,12 @@ import net.moesli.scan7.ui.round.rememberBustToastState
 import net.moesli.scan7.ui.scan.ScanCapture
 import net.moesli.scan7.ui.scan.ScanRoute
 import net.moesli.scan7.ui.theme.Scan7Theme
+import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.R
+import net.moesli.scan7.debug.MultiplayerDemoScreen
+import net.moesli.scan7.ui.components.TextLinkButton
+import net.moesli.scan7.ui.share.JoinRoute
+import net.moesli.scan7.ui.share.SavePlayersDialog
 
 /**
  * The app's back stack: a list of [Route]s with Home at the bottom, saved as strings so it
@@ -110,8 +116,10 @@ fun initialStack(debug: DebugLaunch): List<Route> = when {
  * precedence), each entry keeps its saved UI state while it is on the stack.
  */
 @Composable
-fun AppNavHost(debug: DebugLaunch, modelInfo: String) {
-    val stack = rememberSaveable(saver = BackStack.Saver) { BackStack(initialStack(debug)) }
+fun AppNavHost(debug: DebugLaunch, modelInfo: String, joinLink: String? = null) {
+    val stack = rememberSaveable(saver = BackStack.Saver) {
+        BackStack(if (joinLink != null) listOf(Route.Home, Route.Join(joinLink)) else initialStack(debug))
+    }
     val holder = rememberSaveableStateHolder()
     val keys = stack.entries.map { it.stateKey }.toSet()
     var previousKeys by remember { mutableStateOf(keys) }
@@ -127,6 +135,22 @@ fun AppNavHost(debug: DebugLaunch, modelInfo: String) {
     // Bust tap can show it on the next player's camera or after returning to the round screen.
     val bustToast = rememberBustToastState()
 
+    // Multiplayer guest: the host started the next game ("Same players, new game") → follow it.
+    val context = LocalContext.current
+    val share = remember { AppGraph.share(context) }
+    val shareState by share.state.collectAsStateWithLifecycle()
+    val joinedId = shareState.guest?.localGameId
+    var lastJoinedId by remember { mutableStateOf(joinedId) }
+    LaunchedEffect(joinedId) {
+        val top = stack.top
+        if (joinedId != null && lastJoinedId != null && joinedId != lastJoinedId &&
+            ((top is Route.Round && top.gameId == lastJoinedId) || (top is Route.GameOver && top.gameId == lastJoinedId))
+        ) {
+            stack.reset(Route.Home, Route.Round(joinedId))
+        }
+        lastJoinedId = joinedId
+    }
+
     val route = stack.top
     holder.SaveableStateProvider(route.stateKey) {
         Screen(route, stack, debug, modelInfo, bustToast)
@@ -136,6 +160,7 @@ fun AppNavHost(debug: DebugLaunch, modelInfo: String) {
 @Composable
 private fun Screen(route: Route, stack: BackStack, debug: DebugLaunch, modelInfo: String, bustToast: BustToastState) {
     val back: () -> Unit = { stack.pop() }
+    val shareRuntime = AppGraph.share(LocalContext.current)
     when (route) {
         Route.Home -> HomeRoute(
             onResume = { stack.push(Route.Round(it)) },
@@ -143,12 +168,19 @@ private fun Screen(route: Route, stack: BackStack, debug: DebugLaunch, modelInfo
             onPlayers = { stack.push(Route.Players) },
             onDebug = { stack.push(Route.Debug(DebugScreen.HOME)) },
             onAbout = { stack.push(Route.About()) },
-            onPastGame = { stack.push(Route.Scoreboard(it)) },
+            // The live joined game opens its round screen; other past games their scoreboard.
+            onPastGame = { if (it == shareRuntime.state.value.guest?.localGameId) stack.push(Route.Round(it)) else stack.push(Route.Scoreboard(it)) },
+            // Multiplayer: with a radio (play flavor), or the in-process demo in debug builds.
+            onJoin = if (shareRuntime.radioAvailable || BuildConfig.DEBUG) ({ stack.push(Route.Join()) }) else null,
         )
         Route.Players -> PlayersRoute(onBack = back)
         is Route.NewGame -> NewGameRoute(
             onBack = back,
-            onGameStarted = { stack.replaceTop(Route.Round(it)) },
+            onGameStarted = {
+                stack.replaceTop(Route.Round(it))
+                // "Same players, new game" while sharing: the guests move along.
+                shareRuntime.hostMovedTo(it)
+            },
             initialSeating = route.seating,
             initialTarget = route.target,
         )
@@ -175,6 +207,7 @@ private fun Screen(route: Route, stack: BackStack, debug: DebugLaunch, modelInfo
         }
         // Release builds have no debug menu (nothing pushes a debug route there; just in case: Home).
         is Route.Debug -> if (BuildConfig.DEBUG) DebugRoute(route.screen, stack, debug) else LaunchedEffect(Unit) { stack.reset(Route.Home) }
+        is Route.Join -> JoinRoute(route.link, onBack = back, onJoined = { stack.replaceTop(Route.Round(it)) })
     }
 }
 
@@ -200,11 +233,15 @@ private fun ScoreboardRoute(gameId: Long, stack: BackStack) {
     val repository = AppGraph.repository(LocalContext.current)
     val game by remember(gameId) { repository.observeGame(gameId) }.collectAsStateWithLifecycle(initialValue = null)
     val snap = game ?: return Loading()
+    var saving by remember { mutableStateOf(false) }
     ScoreboardScreen(
         state = snap.toScoreboardUi(),
-        onEditResult = { round, playerId -> stack.push(Route.Scan(gameId, playerId, ScanStart.EDIT, round)) },
+        // A joined game is a read-only copy.
+        onEditResult = { round, playerId -> if (!snap.isJoined) stack.push(Route.Scan(gameId, playerId, ScanStart.EDIT, round)) },
         onBack = { stack.pop() },
+        trailing = { if (snap.isJoined) TextLinkButton(stringResource(R.string.save_players_action), { saving = true }) },
     )
+    if (saving) SavePlayersDialog(snap, onDone = { saving = false })
 }
 
 @Composable
@@ -220,7 +257,8 @@ private fun GameOverRoute(gameId: Long, stack: BackStack) {
     }
     GameOverScreen(
         state = snap.toGameOverUi(),
-        onNewGameSamePlayers = { stack.reset(Route.Home, Route.NewGame(snap.state.playerIds, snap.state.target)) },
+        // A joined game: only the host starts the next one (this phone follows it).
+        onNewGameSamePlayers = if (snap.isJoined) null else ({ stack.reset(Route.Home, Route.NewGame(snap.state.playerIds, snap.state.target)) }),
         onHome = { stack.reset(Route.Home) },
         onScoreboard = { stack.push(Route.Scoreboard(gameId)) },
     )
@@ -244,11 +282,17 @@ private fun DebugRoute(screen: DebugScreen, stack: BackStack, debug: DebugLaunch
                 onSaveScansChange = { on -> scope.launch { repository.setSaveScansForTraining(on) } },
                 onLoadDetector = home::loadDetector,
                 onAvatars = { open(DebugScreen.AVATARS) },
+                onMultiplayer = { open(DebugScreen.MULTIPLAYER) },
             )
         }
         DebugScreen.CAMERA -> CameraScreen(onBack = back)
         DebugScreen.PHOTO -> PhotoDetectScreen(onBack = back, initialUri = debug.photo)
         DebugScreen.SCAN_DEMO -> ScanFlowDemoScreen(onBack = back, launch = debug.scanDemo)
         DebugScreen.AVATARS -> AvatarGalleryScreen(onBack = back)
+        DebugScreen.MULTIPLAYER -> MultiplayerDemoScreen(
+            onBack = back,
+            onOpenRound = { stack.push(Route.Round(it)) },
+            onJoinScreen = { stack.push(Route.Join()) },
+        )
     }
 }

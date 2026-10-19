@@ -83,12 +83,14 @@ class MainActivity : ComponentActivity() {
         )
         // Seed only on a fresh start (not on recreation: the saved back stack wins then).
         val seedNow = seed?.takeIf { savedInstanceState == null }
+        // Multiplayer: the host's QR read by the system camera (scan7://join, play flavor manifest).
+        val joinLink = intent?.data?.takeIf { it.scheme == "scan7" && savedInstanceState == null }?.toString()
         setContent {
             Scan7Theme {
                 val context = LocalContext.current
                 val modelInfo = remember { readModelInfo(context) }
                 if (seedNow == null) {
-                    AppNavHost(debug = debug, modelInfo = modelInfo)
+                    AppNavHost(debug = debug, modelInfo = modelInfo, joinLink = joinLink)
                 } else {
                     val stack by produceState<List<Route>?>(null) { value = seedAndOpen(context, seedNow) }
                     val seeded = stack

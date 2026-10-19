@@ -24,6 +24,8 @@ playServicesNearby = "19.5.1"
 # JVM tests of Room code (GameRepository) without a device.
 robolectric = "4.16"
 androidxTestCore = "1.6.1"
+# QR codes for multiplayer (encode + decode; Apache-2.0, pure Java, no Play services).
+zxing = "3.5.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -60,6 +62,7 @@ androidx-navigation3-runtime = { group = "androidx.navigation3", name = "navigat
 androidx-navigation3-ui = { group = "androidx.navigation3", name = "navigation3-ui", version.ref = "navigation3" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 play-services-nearby = { group = "com.google.android.gms", name = "play-services-nearby", version.ref = "playServicesNearby" }
 
 [plugins]

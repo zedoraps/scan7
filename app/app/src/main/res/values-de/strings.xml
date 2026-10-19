@@ -414,6 +414,7 @@
     <string name="about_tp_litert">Erkennung auf dem Gerät, GPU-Delegate · Apache-2.0</string>
     <string name="about_tp_jetpack">Compose, Material 3, Activity, Core, Lifecycle, Navigation 3, CameraX, Room, SplashScreen · Apache-2.0</string>
     <string name="about_tp_kotlin">Standardbibliothek, kotlinx.coroutines, kotlinx.serialization · Apache-2.0</string>
+    <string name="about_tp_zxing">QR-Codes zum Beitreten · Apache-2.0</string>
     <string name="about_tp_unbounded">Schrift · © 2022 The Unbounded Project Authors · SIL OFL 1.1</string>
     <string name="about_tp_dmmono">Schrift · © 2020 The DM Mono Project Authors · SIL OFL 1.1</string>
     <string name="home_more_options">Weitere Optionen</string>
