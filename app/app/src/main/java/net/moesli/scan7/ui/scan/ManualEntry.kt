@@ -73,7 +73,7 @@ import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
-import net.moesli.scan7.ui.theme.Unbounded
+import net.moesli.scan7.ui.theme.DisplayFont
 
 private const val NUMBER_COLUMNS = 5
 private const val MODIFIER_COLUMNS = 6
@@ -438,4 +438,4 @@ internal fun SecondChanceInfo(text: String, modifier: Modifier = Modifier) {
 /** The grid tiles have a fixed height: their label grows with the font scale only up to this. */
 private const val GRID_LABEL_MAX_SCALE = 1.3f
 
-private val GridLabel = TextStyle(fontFamily = Unbounded, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+private val GridLabel = TextStyle(fontFamily = DisplayFont, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)

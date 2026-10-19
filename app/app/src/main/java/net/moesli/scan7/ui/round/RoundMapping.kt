@@ -58,6 +58,7 @@ fun GameSnapshot.toRoundUiState(arranging: Boolean = false, typeEntry: Boolean =
         arranging = arranging,
         nextOpenId = s.nextOpenPlayer(after = s.lastDonePlayer())?.toString(),
         typeEntry = typeEntry,
+        lowestWins = s.rules.lowestWins,
     )
 }
 

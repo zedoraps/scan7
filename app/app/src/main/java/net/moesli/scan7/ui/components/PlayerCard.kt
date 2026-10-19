@@ -328,7 +328,7 @@ private fun NameOnly(player: PlayerUi, ink: Color, style: TextStyle) {
 
 /**
  * Compact cards (72×96, 7–10 players): name on its own line (full 60 dp width), total below in
- * Unbounded. Tight line heights so ring 36 + name 12 + total 13 + gaps fit the 63 dp above the tag.
+ * DisplayFont. Tight line heights so ring 36 + name 12 + total 13 + gaps fit the 63 dp above the tag.
  */
 @Composable
 private fun CompactNameAndTotal(player: PlayerUi, ink: Color) {

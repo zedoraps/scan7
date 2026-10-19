@@ -19,7 +19,7 @@ import net.moesli.scan7.ui.theme.Scan7Theme
 
 /**
  * Debug screen frame in the Scan7 look: ground background, the app's [ScreenHeader] (back button,
- * Unbounded title, optional muted [subtitle]) and the content below it. [content] gets the padding
+ * DisplayFont title, optional muted [subtitle]) and the content below it. [content] gets the padding
  * for the space under the header and above the navigation bar.
  */
 @Composable

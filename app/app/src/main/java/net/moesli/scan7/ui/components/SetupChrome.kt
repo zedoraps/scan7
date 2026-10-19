@@ -145,7 +145,7 @@ fun ColumnScope.ContentWithBottomBar(
 }
 
 /**
- * Screen header (height 48): optional back button (48 dp icon button), title in Unbounded 16 and
+ * Screen header (height 48): optional back button (48 dp icon button), title in DisplayFont 16 and
  * an optional muted [subtitle] (like "Arrange seats" + hint), [trailing] content on the right.
  */
 @Composable

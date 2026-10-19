@@ -65,11 +65,11 @@ internal fun Modifier.scan7Clickable(
     onClickLabel: String? = null,
 ): Modifier = clickable(enabled = enabled, onClickLabel = onClickLabel, role = role, onClick = onClick)
 
-/** "Close round" label in the 88 dp secondary button (Unbounded 600 12, line height 1.3). */
+/** "Close round" label in the 88 dp secondary button (DisplayFont 600 12, line height 1.3). */
 private val SmallButtonStyle = Scan7Type.button.copy(fontSize = 12.sp, lineHeight = 15.6.sp)
 
 /**
- * Primary button: cyan fill, `onAccent` label in Unbounded 600. Default is the 64 dp bottom
+ * Primary button: cyan fill, `onAccent` label in DisplayFont 600. Default is the 64 dp bottom
  * button (radius 16); the header "Done" uses height 48, radius 12, 15 sp.
  */
 @Composable
@@ -98,7 +98,7 @@ fun PrimaryButton(
     }
 }
 
-/** Secondary button: transparent with a 1.5 dp `line` border, text color label (Unbounded 600). */
+/** Secondary button: transparent with a 1.5 dp `line` border, text color label (DisplayFont 600). */
 @Composable
 fun SecondaryButton(
     text: String,

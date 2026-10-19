@@ -58,7 +58,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="scan7" android:host="join" />
+                <data android:scheme="${joinScheme}" android:host="join" />
             </intent-filter>
         </activity>
     </application>

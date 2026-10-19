@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scanjo logo</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: {{px}}; height: {{px}}; border-radius: {{rad}}; background: {{tile}}; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0">
+<svg width="{{px}}" height="{{px}}" viewBox="0 0 100 100" role="img" aria-label="Scanjo icon">
+<g transform="translate(0 {{dy}}) rotate(-8 50 50)">
+<sc-for list="{{cells}}" as="c" hint-placeholder-count="12">
+<rect x="{{c.x}}" y="{{c.y}}" width="13" height="17" rx="3" fill="{{c.fill}}" stroke="{{c.stroke}}" stroke-width="{{c.sw}}" stroke-dasharray="{{c.dash}}"></rect>
+</sc-for>
+<rect x="38.5" y="40.2" width="6" height="2.6" rx="1.3" fill="{{mark}}"></rect>
+<rect x="72.5" y="19.2" width="6" height="2.6" rx="1.3" fill="{{mark}}"></rect>
+<rect x="10" y="{{barY}}" width="80" height="6" rx="3" fill="{{beam}}" stroke="{{beamLine}}" stroke-width="2"></rect>
+</g>
+</svg>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"size":{"editor":"int","default":200},"radius":{"editor":"int","default":46},"tile":{"editor":"color","default":"#2A6FD8"},"ink":{"editor":"color","default":"#FFFFFF"},"mark":{"editor":"color","default":"#2A6FD8"},"beam":{"editor":"color","default":"#12233D"},"beamLine":{"editor":"color","default":"#2A6FD8"},"bar":{"editor":"enum","options":["below","lastrow"],"default":"lastrow"},"center":{"editor":"bool","default":true},"$preview":{"width":200,"height":200}}'>
+class Component extends DCLogic {
+renderVals() {
+const size = parseInt(this.props.size ?? 200, 10) || 200;
+const ink = this.props.ink ?? '#FFFFFF';
+const xs = [18, 35, 52, 69], ys = [12, 33, 54];
+const cells = [];
+ys.forEach((y) => xs.forEach((x) => {
+const cleared = x === 52;
+cells.push({ x, y, fill: cleared ? 'none' : ink, stroke: cleared ? ink : 'none', sw: cleared ? 2.2 : 0, dash: cleared ? '3 2.5' : 'none' });
+}));
+// Grid rows: 12–29, 33–50, 54–71. Last row middle = 62.5.
+const lastRow = (this.props.bar ?? 'lastrow') === 'lastrow';
+const barY = lastRow ? 59.5 : 77; // bar is 6 tall → centre 62.5 or 80
+const top = 12, bottom = lastRow ? 71 : 83; // vertical extent of the whole mark
+const centerOn = !(this.props.center === false || this.props.center === 'false');
+const dy = centerOn ? 50 - (top + bottom) / 2 : 0;
+return {
+barY, dy,
+cells, px: size + 'px', rad: (this.props.radius ?? Math.round(size * 0.23)) + 'px',
+tile: this.props.tile ?? '#2A6FD8', mark: this.props.mark ?? '#2A6FD8',
+beam: this.props.beam ?? '#12233D', beamLine: this.props.beamLine ?? '#2A6FD8'
+};
+}
+}
+</script>
+</body>
+</html>

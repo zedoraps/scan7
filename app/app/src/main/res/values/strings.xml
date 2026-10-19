@@ -71,6 +71,7 @@
     <string name="status_scored">Scored %1$d</string>
     <string name="status_bust">Bust</string>
     <!-- Progress strip: "2 of 4 scored · to 200". -->
+    <string name="progress_scored_lowest">%1$d/%2$d · lowest wins · ends at %3$d</string>
     <plurals name="progress_scored">
         <item quantity="one">%1$d of %2$d scored · to %3$d</item>
         <item quantity="other">%1$d of %2$d scored · to %3$d</item>
@@ -497,6 +498,7 @@
     <string name="about_tp_zxing">QR codes for joining a game · Apache-2.0</string>
     <string name="about_tp_nearby">Playing on several phones · proprietary (Google terms)</string>
     <string name="about_tp_unbounded">Font · © 2022 The Unbounded Project Authors · SIL OFL 1.1</string>
+    <string name="about_tp_fredoka">Font · © 2016 The Fredoka Project Authors · SIL OFL 1.1</string>
     <string name="about_tp_dmmono">Font · © 2020 The DM Mono Project Authors · SIL OFL 1.1</string>
     <string name="home_more_options">More options</string>
 

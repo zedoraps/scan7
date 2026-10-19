@@ -72,7 +72,7 @@ import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
-import net.moesli.scan7.ui.theme.Unbounded
+import net.moesli.scan7.ui.theme.DisplayFont
 import net.moesli.scan7.ui.theme.drawScanBox
 
 // ---------------------------------------------------------------------------------------------
@@ -249,7 +249,7 @@ internal fun CardChip(
     }
 }
 
-private val ChipLabelStyle = TextStyle(fontFamily = Unbounded, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+private val ChipLabelStyle = TextStyle(fontFamily = DisplayFont, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
 
 // ---------------------------------------------------------------------------------------------
 // Detection boxes over the camera preview / frozen frame.
@@ -514,6 +514,6 @@ private fun DrawScope.drawScanBoxItem(
 /** Ink alpha of ignored boxes (action cards / backs). */
 private const val IgnoredInkAlpha = 0.78f
 
-private val BoxTag = TextStyle(fontFamily = Unbounded, fontWeight = FontWeight.SemiBold)
+private val BoxTag = TextStyle(fontFamily = DisplayFont, fontWeight = FontWeight.SemiBold)
 private val BoxTagSize = 12.dp
 private val BoxTagSmallSize = 9.dp

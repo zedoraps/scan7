@@ -3,6 +3,7 @@ package net.moesli.scan7.ui.newgame
 import net.moesli.scan7.ui.components.FitText
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import net.moesli.scan7.Brand
 import net.moesli.scan7.R
 import net.moesli.scan7.ui.text.resolve
 import net.moesli.scan7.ui.text.description
@@ -205,11 +206,12 @@ fun PickPlayersScreen(
 }
 
 /**
- * Which game (Flip 7 | Skyjo) and, for a game with a round ender (Skyjo), its [EnderPenalty] with a
- * line on what it does. Above the target row; only while Skyjo is offered (debug preview).
+ * Which game ([games]: Flip 7 | Skyjo, only with more than one) and, for a game with a round ender
+ * (Skyjo), its [EnderPenalty] with a line on what it does. Above the target row.
  */
 @Composable
 fun GameOptions(
+    games: List<GameKind>,
     kind: GameKind,
     penalty: EnderPenalty,
     onKind: (GameKind) -> Unit,
@@ -218,10 +220,12 @@ fun GameOptions(
 ) {
     val colors = Scan7Theme.colors
     Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xs), modifier = modifier.padding(bottom = Scan7Spacing.m)) {
-        SectionLabel(stringResource(R.string.newgame_game))
-        SegmentedChoice(GameKind.entries, kind, { it.title() }, onKind)
+        if (games.size > 1) {
+            SectionLabel(stringResource(R.string.newgame_game))
+            SegmentedChoice(games, kind, { it.title() }, onKind)
+        }
         if (kind.rules.hasRoundEnder) {
-            SectionLabel(stringResource(R.string.newgame_round_ender), Modifier.padding(top = Scan7Spacing.s))
+            SectionLabel(stringResource(R.string.newgame_round_ender), Modifier.padding(top = if (games.size > 1) Scan7Spacing.s else 0.dp))
             SegmentedChoice(EnderPenaltyChoices, penalty, { it.label() }, onPenalty)
             Text(penalty.description().resolve(), color = colors.textMuted, style = Scan7Type.text12)
         }
@@ -428,8 +432,8 @@ fun NewGameRoute(
     onGameStarted: (gameId: Long) -> Unit,
     modifier: Modifier = Modifier,
     initialSeating: List<Long>? = null,
-    initialTarget: Int = DEFAULT_TARGET,
-    initialKind: GameKind = GameKind.FLIP7,
+    initialTarget: Int = Brand.games.first().rules.defaultTarget,
+    initialKind: GameKind = Brand.games.first(),
     initialPenalty: EnderPenalty = EnderPenalty.OFFICIAL,
     repository: GameRepository = AppGraph.repository(LocalContext.current),
 ) {
@@ -440,9 +444,11 @@ fun NewGameRoute(
     var selected by rememberSaveable(stateSaver = LongListSaver) { mutableStateOf(initialSeating.orEmpty()) }
     var draft by rememberSaveable(stateSaver = DraftSaver) { mutableStateOf<SeatingDraft?>(null) }
     var target by rememberSaveable { mutableIntStateOf(initialTarget) }
-    var kind by rememberSaveable { mutableStateOf(initialKind) }
-    var penalty by rememberSaveable { mutableStateOf(initialPenalty) }
+    // The brand's games (Scanjo: Skyjo only); Scan7 debug builds can add the Skyjo preview.
     val skyjoPreview by repository.skyjoPreview.collectAsStateWithLifecycle(initialValue = false)
+    val games = (Brand.games + listOfNotNull(GameKind.SKYJO.takeIf { skyjoPreview })).distinct()
+    var kind by rememberSaveable { mutableStateOf(initialKind.takeIf { it in Brand.games || it == GameKind.SKYJO } ?: Brand.games.first()) }
+    var penalty by rememberSaveable { mutableStateOf(initialPenalty) }
     // Saved as a key, so an open editor survives rotation / process death.
     var editorKey by rememberSaveable { mutableStateOf<Long?>(null) }
     var confirmFrom by rememberSaveable { mutableIntStateOf(CONFIRM_NONE) }
@@ -515,9 +521,10 @@ fun NewGameRoute(
             onToggle = { selected = toggleSelection(liveSelected, it) },
             onNewPlayer = { editorKey = EditorTarget.New.key },
             onTargetChange = { target = it },
-            gameOptions = if (skyjoPreview || kind != GameKind.FLIP7) {
+            gameOptions = if (games.size > 1 || kind.rules.hasRoundEnder) {
                 {
                     GameOptions(
+                        games = games,
                         kind = kind,
                         penalty = penalty,
                         // Each game starts on its own default target (Flip 7 200, Skyjo 100).

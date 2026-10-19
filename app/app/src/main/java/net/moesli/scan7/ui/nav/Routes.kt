@@ -2,7 +2,7 @@ package net.moesli.scan7.ui.nav
 
 import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
-import net.moesli.scan7.game.DEFAULT_TARGET
+import net.moesli.scan7.Brand
 import net.moesli.scan7.game.EnderPenalty
 import net.moesli.scan7.game.GameKind
 import net.moesli.scan7.game.GameState
@@ -48,8 +48,8 @@ sealed interface Route : NavKey {
     @Serializable
     data class NewGame(
         val seating: List<Long>? = null,
-        val target: Int = DEFAULT_TARGET,
-        val kind: GameKind = GameKind.FLIP7,
+        val target: Int = Brand.games.first().rules.defaultTarget,
+        val kind: GameKind = Brand.games.first(),
         val enderPenalty: EnderPenalty = EnderPenalty.OFFICIAL,
     ) : Route {
         companion object {

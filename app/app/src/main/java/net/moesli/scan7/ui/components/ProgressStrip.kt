@@ -1,6 +1,7 @@
 package net.moesli.scan7.ui.components
 
 import net.moesli.scan7.ui.text.uiPlural
+import net.moesli.scan7.ui.text.uiText
 import net.moesli.scan7.ui.text.resolve
 import net.moesli.scan7.ui.text.UiText
 import net.moesli.scan7.R
@@ -42,10 +43,10 @@ import net.moesli.scan7.ui.theme.Scan7Type
 /** Segment skew (CSS skewX(−20deg)). */
 private const val SKEW_DEGREES = 20.0
 
-/** "2 of 4 scored · to 200" (finished = scored or bust). */
-fun progressText(players: List<PlayerUi>, target: Int): UiText {
+/** "2 of 4 scored · to 200" (finished = scored or bust); [lowestWins] (Skyjo): "2/4 · lowest wins · ends at 100". */
+fun progressText(players: List<PlayerUi>, target: Int, lowestWins: Boolean = false): UiText {
     val done = players.count { it.status.isDone }
-    return uiPlural(R.plurals.progress_scored, done, done, players.size, target)
+    return if (lowestWins) uiText(R.string.progress_scored_lowest, done, players.size, target) else uiPlural(R.plurals.progress_scored, done, done, players.size, target)
 }
 
 /**
@@ -58,9 +59,10 @@ fun ProgressStrip(
     players: List<PlayerUi>,
     target: Int,
     modifier: Modifier = Modifier,
+    lowestWins: Boolean = false,
 ) {
     val colors = Scan7Theme.colors
-    val text = progressText(players, target).resolve()
+    val text = progressText(players, target, lowestWins).resolve()
     val n = players.size.coerceAtLeast(1)
     val segment = (120 / n).coerceIn(8, 24).dp
     val gap = Scan7Spacing.xxs

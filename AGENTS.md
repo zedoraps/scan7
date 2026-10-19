@@ -24,7 +24,7 @@ README.md              public project page (screenshots, download, license)
 changelog/             tenzir-ship changelog: unreleased/ entries, releases/vX.Y.Z/ (notes.md); docs/dev/RELEASE.md
 docs/                  privacy.md (Pages), store/ (Play listing), third_party/ (licence texts), readme/ (README images)
 docs/dev/              DEVELOPMENT.md (setup, stages), BRIEF.md (plan), APP_FLOW.md, SCREENS.md, MULTI_DEVICE.md, RELEASE.md, PLATFORM_AUDIT.md
-brand/                 logo SVG/PNG, colors.xml, BRAND.md
+brand/                 logo SVG/PNG, colors.xml, BRAND.md (Scan7); scanjo/ = the Scanjo brand kit (BRAND.md is its spec, tokens.json)
 ml/                    Python (uv project): data, synthetic generator, training, export
   config/              cards.yaml (class list, geometry), synth.yaml (generator)
   scripts/             make_cutouts, gen_synth, preview_synth, train, predict, export
@@ -48,7 +48,8 @@ app/                   Android Gradle root; module app/, package net.moesli.scan
     multiplayer/       (beta) plain-Kotlin multi-phone protocol: GameAction, Host/ClientSession, GuestRules, FakeNetwork; nearby/ = Nearby adapter on an owned ConnectionsApi (+ permissions, QR link)
     share/             ShareRuntime: the phone's sessions on one thread, host store = GameRepository.applyLocal, guest = read-only joined copy; RadioSupport (src/play: Nearby + ShareService, the default build; src/foss: none, -Pscan7.foss=true)
     ui/share/          share sheet (QR), claim sheet, Join screen (QR reader), permission request, save players
-  app/src/play/        (default build; src/foss/ = no radio) GmsConnectionsApi, Radio + ShareService, Nearby permissions + scan7://join manifest
+  app/src/play/        (default build; src/foss/ = no radio) GmsConnectionsApi, Radio + ShareService, Nearby permissions + scan7:// / scanjo://join manifest
+  app/src/scan7/, app/src/scanjo/   brand pieces (Brand object: games, join scheme, theme mode; ui/theme/BrandTheme.kt: colors, M3 scheme, display font, AppIcon; scanjo/res overrides icon, name, window theme, app-naming strings)
   app/schemas/         exported Room schemas (committed; bump the DB version + add a migration on change)
 ```
 
@@ -110,6 +111,7 @@ ANDROID_SERIAL=<serial> ./gradlew -Pscan7.idSuffix=.uitest connectedDebugAndroid
 ./gradlew installDebug             # install on the connected phone
 ANDROID_SERIAL=emulator-5554 ./gradlew -Pscan7.idSuffix=.b installDebug   # parallel agents: side-by-side copy on the shared emulator. ALWAYS set ANDROID_SERIAL: installDebug otherwise installs on every device incl. the user's phone
 ./gradlew -Pscan7.foss=true assembleDebug   # without Play services (no multiplayer; F-Droid). The flavorless default is the Play build with Nearby (Share / Join, BETA); same task names
+./gradlew -Pscan7.brand=scanjo assembleDebug   # Scanjo (Skyjo score counter, net.moesli.scanjo): own icon, name, Sky Day/Night theme, Fredoka, Skyjo only; same task names, combines with -Pscan7.foss / idSuffix
 ./gradlew -Pscan7.flavors=true assemblePlayDebug assembleFossDebug   # instead: both flavors `play` (default) + `foss` (tasks get the flavor name)
 adb logcat -s Scan7Nearby Scan7Frames   # multiplayer field test: every Nearby call/callback + every game message as JSON
 ./gradlew --stop                   # stops ALL Gradle daemons of this version on the Mac, incl. other agents' running builds: only when no other agent is building
@@ -171,6 +173,7 @@ The emulators run at nice 5 next to training; idle they cost ~1.5 cores in total
 | 2026-10-19 | **Shipped model is ft_v5 @ 800 px** (fp32; `MODEL_INPUT_SIZE = 800`). It has the best "fully correct" rate on both test sets (DE 20/29, EN web 19/47 vs ft_v1 19/29, 11/47). It has ~1.5× the 640 px inference cost (~105 ms est. on the Pixel GPU). ft_v4 @ 800 is the close runner-up. Report: ml/out/eval/OVERNIGHT_REPORT.md (not in git). |
 | 2026-10-19 | **Multiplayer merged as beta** (Nearby, [docs/dev/MULTI_DEVICE.md](docs/dev/MULTI_DEVICE.md)): the Play build is the default, `-Pscan7.foss=true` builds without Play services (no multiplayer); runtime permissions asked only on Share / Join, incl. precise location (required by Nearby discovery, never read or stored). |
 | 2026-10-19 | **Skyjo (preview, branch feature/skyjo).** Plan: one repo, shared modules, a second app "Scanjo" later; first Skyjo as a second `GameKind` in Scan7 behind the debug toggle (release builds never offer it). `GameRules` per game (highest/lowest wins, bust, card set, round ender); Skyjo = sum of the 3 × 4 grid (columns of three are removed on the table before scoring), lowest wins, ends at 100; the round ender is asked on closing the round and penalised per game (`EnderPenalty`: Official = ×2 if not strictly lowest and > 0 · Always ×2 · Crazy ×2 = double the round's highest · Off). No Skyjo detector yet: cards are typed into the grid (or "Total only"). DB v7; wire fields with defaults, protocol stays 1 until Skyjo ships. |
+| 2026-10-19 | **Scanjo brand** (brand/scanjo/, user's kit): the same app module built with `-Pscan7.brand=scanjo` (app ID `net.moesli.scanjo`, join scheme `scanjo://`), not a separate module yet. Shared screens read only the theme tokens; each brand's `BrandTheme.kt` maps its palette onto `Scan7Colors` (Scanjo: Sky Day light by default, Sky Night in dark mode; Scan7 stays always dark). Scanjo offers Skyjo only. Kit rules not followed yet: ✓ is still the font glyph, the scoreboard marks penalties with "*" + legend instead of a "×2 PENALTY" tag, no "LOWEST" badge. |
 | 2026-10-19 | **Navigation 3** replaces the self-made back stack (audit batch D, #4/#5/#13; supersedes the 2026-10-18 navigation row, the swap/seating parts stay): `NavDisplay` on a `NavBackStack<Route>` saved with the sealed `Route` serializer (`rememberSerializable`, no reflection), entry decorators for saveable state + a ViewModel store per entry. Each `stateKey` is at most once on the stack (pushing an existing one goes back to it); a "Scan next" chain shares one key so the camera stays bound. Subtle transitions + in-app predictive back (`ui/nav/NavMotion.kt`), none between two camera screens. Still no ViewModels: DB writes stay on `AppGraph.appScope` (`outlivingUi`); add an entry-scoped ViewModel only where it clearly simplifies a screen. No Hilt/Koin. |
 
 ## Branding (summary; details in brand/BRAND.md)

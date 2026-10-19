@@ -69,6 +69,8 @@ data class Scan7Colors(
     val accent: Color = Scan7Accent,
     /** Scored tag background. */
     val accentTint: Color = Scan7AccentTint,
+    /** Accent-colored text on [accentTint] (scored tags); Scan7 uses [accent] itself. */
+    val accentText: Color = Scan7Accent,
     /** Text/icons on cyan or magenta. */
     val onAccent: Color = Scan7Ground,
     val bust: Color = Scan7Bust,

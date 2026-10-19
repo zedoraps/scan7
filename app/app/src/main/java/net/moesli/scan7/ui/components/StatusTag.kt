@@ -67,7 +67,7 @@ fun StatusTag(
     val description = status.tagDescription()
     val (bg, ink) = when (status) {
         PlayerStatus.Open -> colors.ground.copy(alpha = 0f) to colors.textMuted
-        is PlayerStatus.Scored -> colors.accentTint to colors.accent
+        is PlayerStatus.Scored -> colors.accentTint to colors.accentText
         PlayerStatus.Bust -> colors.bust to colors.onAccent
     }
     val full = status.tagText()

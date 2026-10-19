@@ -85,7 +85,7 @@ import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
-import net.moesli.scan7.ui.theme.Unbounded
+import net.moesli.scan7.ui.theme.DisplayFont
 
 /** Value pad: −2 … 12 in rows of five. */
 private const val PAD_COLUMNS = 5
@@ -374,8 +374,8 @@ private fun TotalDialog(name: String, onCancel: () -> Unit, onSave: (Int) -> Uni
     }
 }
 
-private val SlotLabel = TextStyle(fontFamily = Unbounded, fontWeight = FontWeight.SemiBold, fontSize = 22.sp)
-private val PadLabel = TextStyle(fontFamily = Unbounded, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+private val SlotLabel = TextStyle(fontFamily = DisplayFont, fontWeight = FontWeight.SemiBold, fontSize = 22.sp)
+private val PadLabel = TextStyle(fontFamily = DisplayFont, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
 
 @Preview(widthDp = 390, heightDp = 860)
 @Composable

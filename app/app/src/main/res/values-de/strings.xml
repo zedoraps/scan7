@@ -64,6 +64,7 @@
     <string name="status_open">Noch nicht gewertet</string>
     <string name="status_scored">%1$d Punkte</string>
     <string name="status_bust">Raus</string>
+    <string name="progress_scored_lowest">%1$d/%2$d · niedrigste gewinnt · Ende bei %3$d</string>
     <plurals name="progress_scored">
         <item quantity="one">%1$d von %2$d fertig · bis %3$d</item>
         <item quantity="other">%1$d von %2$d fertig · bis %3$d</item>
@@ -475,6 +476,7 @@
     <string name="about_tp_zxing">QR-Codes zum Beitreten · Apache-2.0</string>
     <string name="about_tp_nearby">Spielen auf mehreren Handys · proprietär (Google-Bedingungen)</string>
     <string name="about_tp_unbounded">Schrift · © 2022 The Unbounded Project Authors · SIL OFL 1.1</string>
+    <string name="about_tp_fredoka">Schrift · © 2016 The Fredoka Project Authors · SIL OFL 1.1</string>
     <string name="about_tp_dmmono">Schrift · © 2020 The DM Mono Project Authors · SIL OFL 1.1</string>
     <string name="home_more_options">Weitere Optionen</string>
 

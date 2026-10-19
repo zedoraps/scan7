@@ -1,5 +1,6 @@
 package net.moesli.scan7.multiplayer.nearby
 
+import net.moesli.scan7.Brand
 import net.moesli.scan7.multiplayer.PROTOCOL_VERSION
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -19,7 +20,8 @@ data class JoinLink(val sessionId: String, val token: String, val version: Int =
     fun toUri(): String = "$SCHEME://join?v=$version&s=${enc(sessionId)}&t=${enc(token)}"
 
     companion object {
-        const val SCHEME = "scan7"
+        /** `scan7` / `scanjo` ([Brand]): each app only reads its own codes. */
+        const val SCHEME = Brand.JOIN_SCHEME
 
         /** A new session: 10-char id + 128-bit token. */
         fun create(random: SecureRandom = SecureRandom()): JoinLink {

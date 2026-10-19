@@ -193,6 +193,7 @@ fun RoundScreen(
             } else ProgressStrip(
                 players = state.players.map { it.player },
                 target = state.target,
+                lowestWins = state.lowestWins,
                 modifier = Modifier
                     .offset(y = m.stripTop)
                     .padding(horizontal = Scan7Spacing.screenMargin)
