@@ -1,6 +1,7 @@
 package net.moesli.scan7.multiplayer.nearby
 
 import android.content.Context
+import android.util.Log
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Status
 import com.google.android.gms.nearby.Nearby
@@ -31,7 +32,8 @@ class GmsConnectionsApi(private val client: ConnectionsClient) : ConnectionsApi 
 
     override fun startAdvertising(localName: String, serviceId: String, callback: ConnectionCallback, done: (ApiResult) -> Unit) {
         val options = AdvertisingOptions.Builder().setStrategy(Strategy.P2P_STAR).build()
-        client.startAdvertising(localName, serviceId, lifecycle(callback), options).report(done)
+        log("startAdvertising $localName on $serviceId")
+        client.startAdvertising(localName, serviceId, lifecycle(callback), options).report("startAdvertising", done)
     }
 
     override fun stopAdvertising() = client.stopAdvertising()
@@ -39,18 +41,28 @@ class GmsConnectionsApi(private val client: ConnectionsClient) : ConnectionsApi 
     override fun startDiscovery(serviceId: String, callback: DiscoveryCallback, done: (ApiResult) -> Unit) {
         val options = DiscoveryOptions.Builder().setStrategy(Strategy.P2P_STAR).build()
         val discovery = object : EndpointDiscoveryCallback() {
-            override fun onEndpointFound(endpointId: String, info: DiscoveredEndpointInfo) =
+            override fun onEndpointFound(endpointId: String, info: DiscoveredEndpointInfo) {
+                log("found $endpointId ${info.endpointName} on ${info.serviceId}")
                 callback.onEndpointFound(endpointId, info.endpointName, info.serviceId)
+            }
 
-            override fun onEndpointLost(endpointId: String) = callback.onEndpointLost(endpointId)
+            override fun onEndpointLost(endpointId: String) {
+                log("lost $endpointId")
+                callback.onEndpointLost(endpointId)
+            }
         }
-        client.startDiscovery(serviceId, discovery, options).report(done)
+        log("startDiscovery on $serviceId")
+        client.startDiscovery(serviceId, discovery, options).report("startDiscovery", done)
     }
 
-    override fun stopDiscovery() = client.stopDiscovery()
+    override fun stopDiscovery() {
+        log("stopDiscovery")
+        client.stopDiscovery()
+    }
 
     override fun requestConnection(localName: String, endpointId: String, callback: ConnectionCallback, done: (ApiResult) -> Unit) {
-        client.requestConnection(localName, endpointId, lifecycle(callback)).report(done)
+        log("requestConnection $endpointId")
+        client.requestConnection(localName, endpointId, lifecycle(callback)).report("requestConnection", done)
     }
 
     override fun acceptConnection(endpointId: String, payloads: PayloadCallback, done: (ApiResult) -> Unit) {
@@ -61,35 +73,48 @@ class GmsConnectionsApi(private val client: ConnectionsClient) : ConnectionsApi 
 
             override fun onPayloadTransferUpdate(endpointId: String, update: PayloadTransferUpdate) = Unit
         }
-        client.acceptConnection(endpointId, payloadCallback).report(done)
+        log("acceptConnection $endpointId")
+        client.acceptConnection(endpointId, payloadCallback).report("acceptConnection", done)
     }
 
     override fun rejectConnection(endpointId: String) {
+        log("rejectConnection $endpointId")
         client.rejectConnection(endpointId)
     }
 
     override fun sendPayload(endpointId: String, bytes: ByteArray, done: (ApiResult) -> Unit) {
-        client.sendPayload(endpointId, Payload.fromBytes(bytes)).report(done)
+        client.sendPayload(endpointId, Payload.fromBytes(bytes)).report("sendPayload", done)
     }
 
-    override fun disconnectFromEndpoint(endpointId: String) = client.disconnectFromEndpoint(endpointId)
+    override fun disconnectFromEndpoint(endpointId: String) {
+        log("disconnectFromEndpoint $endpointId")
+        client.disconnectFromEndpoint(endpointId)
+    }
 
     override fun stopAllEndpoints() = client.stopAllEndpoints()
 
     private fun lifecycle(callback: ConnectionCallback) = object : ConnectionLifecycleCallback() {
-        override fun onConnectionInitiated(endpointId: String, info: ConnectionInfo) =
+        override fun onConnectionInitiated(endpointId: String, info: ConnectionInfo) {
+            log("connectionInitiated $endpointId incoming=${info.isIncomingConnection}")
             callback.onConnectionInitiated(endpointId, info.endpointName)
+        }
 
-        override fun onConnectionResult(endpointId: String, resolution: ConnectionResolution) =
+        override fun onConnectionResult(endpointId: String, resolution: ConnectionResolution) {
+            log("connectionResult $endpointId ${ConnectionsStatusCodes.getStatusCodeString(resolution.status.statusCode)}")
             callback.onConnectionResult(endpointId, resolution.status.toResult())
+        }
 
-        override fun onDisconnected(endpointId: String) = callback.onDisconnected(endpointId)
+        override fun onDisconnected(endpointId: String) {
+            log("disconnected $endpointId")
+            callback.onDisconnected(endpointId)
+        }
     }
 
-    private fun Task<Void>.report(done: (ApiResult) -> Unit) {
+    private fun Task<Void>.report(what: String, done: (ApiResult) -> Unit) {
         addOnSuccessListener { done(ApiResult.Ok) }
         addOnFailureListener { e ->
             val code = (e as? ApiException)?.statusCode ?: -1
+            Log.w(TAG, "$what failed: ${ConnectionsStatusCodes.getStatusCodeString(code)} ${e.message}")
             done(failure(code, e.message))
         }
     }
@@ -97,6 +122,13 @@ class GmsConnectionsApi(private val client: ConnectionsClient) : ConnectionsApi 
     private fun Status.toResult(): ApiResult = if (isSuccess) ApiResult.Ok else failure(statusCode, statusMessage)
 
     private companion object {
+        /** Field-test trail of every radio call and callback: `adb logcat -s Scan7Nearby`. */
+        const val TAG = "Scan7Nearby"
+
+        fun log(message: String) {
+            Log.i(TAG, message)
+        }
+
         fun failure(code: Int, message: String?): ApiResult.Failed {
             val name = ConnectionsStatusCodes.getStatusCodeString(code)
             val error = when {

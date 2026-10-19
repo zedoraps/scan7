@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.content.ContextCompat
 import net.moesli.scan7.multiplayer.ClientTransport
 import net.moesli.scan7.multiplayer.HostTransport
@@ -32,6 +33,7 @@ object Radio : RadioSupport {
     }
 
     override fun host(context: Context, link: JoinLink, scheduler: Scheduler): RadioLink<HostTransport> {
+        Log.i("Scan7Nearby", "host session ${link.sessionId}")
         val t = NearbyHostTransport(
             api(context), nearbyServiceId(context.packageName), link.sessionId, link.token, scheduler,
             missingPermissions = { missingPermissions(context) },
@@ -40,6 +42,7 @@ object Radio : RadioSupport {
     }
 
     override fun join(context: Context, link: JoinLink, scheduler: Scheduler): RadioLink<ClientTransport> {
+        Log.i("Scan7Nearby", "join session ${link.sessionId}")
         val t = NearbyClientTransport(
             api(context), nearbyServiceId(context.packageName), link, scheduler,
             missingPermissions = { missingPermissions(context) },
