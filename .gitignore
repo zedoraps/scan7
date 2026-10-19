@@ -38,6 +38,7 @@ ml/*.log
 # Local agent tooling (worktrees, settings); only the CLAUDE.md pointer to AGENTS.md is shared
 .claude/*
 !.claude/CLAUDE.md
+!.claude/skills
 
 # Raw app scans pulled from the phone (images + JSON sidecars)
 ml/data/app_scans/

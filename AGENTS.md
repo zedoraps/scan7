@@ -19,6 +19,7 @@ score is saved. It is a personal, open-source project.
 ## Repo layout
 ```
 AGENTS.md              agent instructions for every tool (tool-specific files such as .claude/CLAUDE.md only point here)
+.agents/skills/        third-party agent skills (Navigation 3, CameraX, LiteRT, Play policy, R8, YOLO export); sources and project overrides in its README.md
 README.md              public project page (screenshots, download, license)
 changelog/             tenzir-ship changelog: unreleased/ entries, releases/vX.Y.Z/ (notes.md); docs/dev/RELEASE.md
 docs/                  privacy.md (Pages), store/ (Play listing), third_party/ (licence texts), readme/ (README images)
@@ -138,6 +139,7 @@ The emulators run at nice 5 next to training; idle they cost ~1.5 cores in total
 - **Photos are not in git** (`ml/data/`, index `ml/data/manifest.csv`, both local only). Some show personal info: never upload, share, paste or send any of them anywhere.
 - **The real test set** (`ml/data/real_photos/test`, Label Studio project "scan7 test") is never used for training and never pre-labeled.
 - **Never stop or kill running training jobs** (or their python processes); don't touch `ml/runs/` of a running job.
+- **No Ultralytics Platform.** Never use `ul cloud`, `ul://` datasets or models, or set `ULTRALYTICS_API_KEY`: training and export stay local (the `yolo-export` skill suggests the Platform first; ignore that).
 - **Instrumented tests** (`connectedDebugAndroidTest`): always with `ANDROID_SERIAL` set, and **never** with `-Pandroid.experimental.androidTest.builtin_test_platform=true` (that runner ignores ANDROID_SERIAL and installs/runs on every device, the user's phone included). Uninstall your `.suffix` copies when done. On `localhost:556x` serials AGP 9.4 always reports "There were failing tests" (serial-encoding bug): read `app/app/build/outputs/androidTest-results/connected/debug/*.xml` or run `adb -s <serial> shell am instrument -w -e class <Test> net.moesli.scan7.<suffix>.test/androidx.test.runner.AndroidJUnitRunner`. The 2 GB mini emulators can OOM-kill a test run (empty `<failure>`, missing tests): free memory (uninstall stale copies) and rerun.
 - The Mac has **16 GB RAM**: keep memory use modest (one Gradle build at a time, moderate `--workers`/`--batch`, stop daemons when done).
 - Android Studio may hold `.git/index.lock` briefly: **retry** the git command, never delete the lock.
