@@ -21,6 +21,9 @@ object NearbyPermissions {
     /** Runtime permissions to request on API [sdk] (29 = minSdk). */
     fun required(sdk: Int): List<String> = buildList {
         if (sdk <= 31) addAll(listOf(ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION))
+        // Play services Nearby 19.5 still refuses discovery without coarse location on API 32+
+        // (8034 MISSING_PERMISSION_ACCESS_COARSE_LOCATION, seen on Android 17); approximate is enough.
+        else add(ACCESS_COARSE_LOCATION)
         if (sdk >= 31) addAll(listOf(BLUETOOTH_SCAN, BLUETOOTH_ADVERTISE, BLUETOOTH_CONNECT))
         if (sdk >= 33) add(NEARBY_WIFI_DEVICES)
         if (sdk >= 37) add(ACCESS_LOCAL_NETWORK)

@@ -25,10 +25,11 @@ class NearbyPartsTest {
         assertEquals(listOf(ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION), NearbyPermissions.required(29))
         assertEquals(listOf(ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION), NearbyPermissions.required(30))
         assertEquals(listOf(ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION) + bt, NearbyPermissions.required(31))
-        assertEquals(bt, NearbyPermissions.required(32))
-        assertEquals(bt + NEARBY_WIFI_DEVICES, NearbyPermissions.required(33))
-        assertEquals(bt + NEARBY_WIFI_DEVICES, NearbyPermissions.required(36))
-        assertEquals(bt + NEARBY_WIFI_DEVICES + ACCESS_LOCAL_NETWORK, NearbyPermissions.required(37))
+        val coarse = listOf(ACCESS_COARSE_LOCATION)
+        assertEquals(coarse + bt, NearbyPermissions.required(32))
+        assertEquals(coarse + bt + NEARBY_WIFI_DEVICES, NearbyPermissions.required(33))
+        assertEquals(coarse + bt + NEARBY_WIFI_DEVICES, NearbyPermissions.required(36))
+        assertEquals(coarse + bt + NEARBY_WIFI_DEVICES + ACCESS_LOCAL_NETWORK, NearbyPermissions.required(37))
     }
 
     @Test
@@ -47,7 +48,7 @@ class NearbyPartsTest {
 
     @Test
     fun permissions_missingAndRationale() {
-        val granted = setOf(BLUETOOTH_SCAN, BLUETOOTH_CONNECT)
+        val granted = setOf(ACCESS_COARSE_LOCATION, BLUETOOTH_SCAN, BLUETOOTH_CONNECT)
         assertEquals(listOf(BLUETOOTH_ADVERTISE, NEARBY_WIFI_DEVICES), NearbyPermissions.missing(34) { it in granted })
         assertEquals(emptyList<String>(), NearbyPermissions.missing(34) { true })
         assertEquals(NearbyPermissions.Rationale.LOCATION, NearbyPermissions.rationale(29))
