@@ -1,0 +1,9 @@
+created: 2026-10-19
+title: 'Scan7 v0.1.1: Smoother and steadier'
+intro: >-
+  This update keeps phones in a shared game connected while you scan, makes screen
+  changes calmer and the app smaller. Sharing a game now also shows its notification
+  on newer Android versions.
+source:
+  mode: sync-stable-queue
+  previous_stable: v0.1.0

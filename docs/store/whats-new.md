@@ -5,6 +5,23 @@ Play shows at most **500 characters per language**. Write them from the release 
 into Play Console → release → *Release notes* (the `<en-US>` / `<de-DE>` tags are Play's format).
 Newest version on top.
 
+## 0.1.1
+
+```text
+<en-US>
+• Shared games: joined phones stay connected while you scan
+• Calmer screen changes; going back by button or swipe looks the same
+• Sharing a game shows its notification on Android 13 and newer
+• About 6 MB smaller
+</en-US>
+<de-DE>
+• Geteilte Spiele: Beigetretene Handys bleiben beim Scannen verbunden
+• Ruhigere Bildschirmwechsel; Zurück per Taste oder Wischen sieht gleich aus
+• Ein geteiltes Spiel zeigt seine Benachrichtigung ab Android 13
+• Rund 6 MB kleiner
+</de-DE>
+```
+
 ## 0.1.0
 
 ```text
