@@ -412,6 +412,13 @@ fun RoundRoute(
             }
         }
     }
+    // The host app restarted (update, killed in the background) while sharing: share again with the
+    // saved session and code, so the guests' rejoin finds it. "Stop sharing" deletes that session.
+    LaunchedEffect(snap.isJoined, host == null) {
+        if (!snap.isJoined && host == null && !snap.state.isOver && shareRuntime.radioAvailable && permissions.missing().isEmpty()) {
+            if (repository.shareSession(gameId)?.role == "HOST") shareRuntime.host(gameId, LinkMode.RADIO)
+        }
+    }
     // Reconnecting a joined game failed for a while (host gone, radio off, permission declined):
     // say that this is only this phone's copy and offer Join again.
     var offline by remember(gameId) { mutableStateOf(false) }
