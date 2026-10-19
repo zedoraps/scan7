@@ -243,6 +243,7 @@ def init_worker(cfg, cards_cfg, bg_paths):
     G["number"] = set(cards_cfg["number_classes"])
     G["cutouts"] = load_cutouts(cards_cfg["classes"])
     G["variant_p"], G["variant_inner"] = variant_table(cards_cfg["classes"], cfg)
+    G["class_p"] = class_probs(cards_cfg["classes"], cfg)
     G["bgs"] = bg_paths
     G["fonts"] = [p for p in cfg["text"]["fonts"] if Path(p).exists()]
     G["font_cache"] = {}
@@ -346,8 +347,39 @@ def randomize_text(rng, rgba, cfg, inner=None):
 # lists are in z order (bottom first).
 
 
+def class_probs(classes, cfg) -> np.ndarray:
+    """Pick probability per class: synth.yaml class_weights (relative, default 1.0 each)."""
+    cw = {str(k): float(v) for k, v in (cfg.get("class_weights") or {}).items()}
+    unknown = set(cw) - set(classes)
+    if unknown:
+        raise ValueError(f"class_weights: unknown classes {sorted(unknown)}")
+    p = np.array([cw.get(c, 1.0) for c in classes], np.float64)
+    return p / p.sum()
+
+
 def sample_class(rng):
-    return G["classes"][rng.integers(len(G["classes"]))]
+    p = G["class_p"]
+    if p.max() - p.min() < 1e-12:  # uniform: same random stream as before class_weights existed
+        return G["classes"][rng.integers(len(G["classes"]))]
+    return G["classes"][int(rng.choice(len(G["classes"]), p=p))]
+
+
+def make_deck(rng, d, aspect, w, h, card_w, avoid=None):
+    """A small stack of face-down cards (draw / discard pile) somewhere in the image: backs with a
+    small messy offset, so mostly only the top card and slivers of the others show."""
+    n = RI(rng, d["n_cards"])
+    cw = card_w * U(rng, d["scale"])
+    ch = cw / aspect
+    for _ in range(30):
+        center = np.array([rng.uniform(0.05, 0.95) * w, rng.uniform(0.05, 0.95) * h])
+        if avoid is None or np.linalg.norm(center - avoid) > 1.2 * ch:
+            break
+    base = rng.uniform(0, 360)
+    cards = []
+    for _ in range(n):
+        p = center + rng.normal(0, U(rng, d["offset"]), 2) * cw
+        cards.append(["back", p[0], p[1], cw, base + rng.uniform(-d["rot"], d["rot"])])
+    return cards
 
 
 def make_row(rng, c, aspect, w, h, center, theta, n, card_w=None, span=None):
@@ -402,6 +434,9 @@ def layout_row(rng, cfg, aspect, w, h):
         th2 = theta + rng.uniform(-c["neighbour_angle"], c["neighbour_angle"]) + (180 if rng.random() < 0.5 else 0)
         nb, _ = make_row(rng, c, aspect, w, h, nc, th2, RI(rng, c["neighbour_n"]), card_w=cw2)
         cards = nb + cards
+    d = cfg.get("deck")
+    if d and rng.random() < d["p_row"]:
+        cards = make_deck(rng, d, aspect, w, h, cw, avoid=center) + cards
     return cards
 
 
@@ -425,6 +460,9 @@ def layout_pile(rng, cfg, aspect, w, h):
     c = cfg["pile"]
     cards = []
     for _ in range(RI(rng, c["n_piles"])):
+        if rng.random() < c.get("p_back_pile", 0.0):  # a face-down deck instead of a face-up pile
+            cards += make_deck(rng, cfg["deck"], aspect, w, h, U(rng, c["card_w"]) * min(w, h))
+            continue
         n = RI(rng, c["n_cards"])
         cw = U(rng, c["card_w"]) * min(w, h)
         ch = cw / aspect
@@ -844,6 +882,9 @@ def main():
 
     load_cutouts(classes)  # fail early
     vp, _ = variant_table(classes, cfg)
+    cp = class_probs(classes, cfg)
+    if cp.max() - cp.min() > 1e-9:
+        print("class pick rates: " + ", ".join(f"{c} {q:.1%}" for c, q in zip(classes, cp)))
     for c, p in vp.items():
         if len(p) > 1:
             src = [f.stem for f in cutout_files(classes)[c]]

@@ -51,3 +51,6 @@ ml/data/app_scans/
 
 # Play screenshots (scripts/store-screenshots.sh): regenerated before each listing update
 docs/store/screenshots/
+
+# Photos the user must review/delete (private content); never commit or sync.
+ml/data/quarantine/

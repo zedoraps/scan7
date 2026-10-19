@@ -35,6 +35,8 @@ OUT = ML / "data" / "cards_extra"
 CARDS = {
     "00_en_rainbow": ((405.0, 679.5, 697.5, 1136.5), (681.0, 0, 9999, 1114.0), "mirror"),
     "back_en": ((116.0, 642.0, 408.0, 1101.0), (395.0, 670.0, 9999, 9999), "extend"),
+    # lies on top of Freeze, nothing covered (empty cover rect)
+    "second_chance_en": ((1787.0, 2147.5, 2078.0, 2606.0), (0, 0, 0, 0), "mirror"),
 }
 EXTEND_SLOPE = 0.31  # back: banner edges rise ~0.31 px per px to the right (cutout px)
 RENDER_RADIUS = 40.0  # source px, render corner radius (measured ~31) plus a safety margin
