@@ -37,7 +37,7 @@ app/                   Android Gradle root; module app/, package net.moesli.scan
     game/              plain-Kotlin game state + rules (GameState: rounds, bust, close, seating; JVM unit tests)
     data/              Room DB (entities, DAOs), GameRepository (Flows + actions), AppGraph container
     camera/ detection/ CameraX preview, detector, overlay
-    ui/nav/            app navigation: Route sealed class + self-made back stack (AppNavHost; Home is the start screen)
+    ui/nav/            app navigation: Navigation 3 (NavDisplay in AppNavHost; @Serializable Route keys, pure Stack ops, NavMotion transitions + predictive back; Home is the start screen)
     ui/round/          Round screen + RoundRoute/RoundController (snapshot → RoundUiState, actions → repository)
     training/          "Save scans for training" (JPEG + JSON sidecar via MediaStore; setting, default on in debug builds, always off in release)
     debug/             debug menu (Detector: live camera, detect from photo, model/backend info · Training data: save-scans toggle), hidden: tap the Home wordmark 5× (debug builds only, BuildConfig.DEBUG; TalkBack action "Open debug menu"); the scan-flow demo has no menu entry (only the debug_scan_demo / debug_scan_photo hooks)
@@ -169,6 +169,7 @@ The emulators run at nice 5 next to training; idle they cost ~1.5 cores in total
 | 2026-10-18 | **Card size = largest that fits** the real table area (Large → Medium → Compact, then `tableCardScale`), not player count (`ui/round/RoundLayout.kt`); deviates from the handoff on purpose (user: 6 players on a tall phone = Large). List rows: Regular only when all rows fit **without scrolling** (8 players on 411×914 dp = Compact). |
 | 2026-10-19 | **Shipped model is ft_v5 @ 800 px** (fp32; `MODEL_INPUT_SIZE = 800`). It has the best "fully correct" rate on both test sets (DE 20/29, EN web 19/47 vs ft_v1 19/29, 11/47). It has ~1.5× the 640 px inference cost (~105 ms est. on the Pixel GPU). ft_v4 @ 800 is the close runner-up. Report: ml/out/eval/OVERNIGHT_REPORT.md (not in git). |
 | 2026-10-19 | **Multiplayer merged as beta** (Nearby, [docs/dev/MULTI_DEVICE.md](docs/dev/MULTI_DEVICE.md)): the Play build is the default, `-Pscan7.foss=true` builds without Play services (no multiplayer); runtime permissions asked only on Share / Join, incl. precise location (required by Nearby discovery, never read or stored). |
+| 2026-10-19 | **Navigation 3** replaces the self-made back stack (audit batch D, #4/#5/#13; supersedes the 2026-10-18 navigation row, the swap/seating parts stay): `NavDisplay` on a `NavBackStack<Route>` saved with the sealed `Route` serializer (`rememberSerializable`, no reflection), entry decorators for saveable state + a ViewModel store per entry. Each `stateKey` is at most once on the stack (pushing an existing one goes back to it); a "Scan next" chain shares one key so the camera stays bound. Subtle transitions + in-app predictive back (`ui/nav/NavMotion.kt`), none between two camera screens. Still no ViewModels: DB writes stay on `AppGraph.appScope` (`outlivingUi`); add an entry-scoped ViewModel only where it clearly simplifies a screen. No Hilt/Koin. |
 
 ## Branding (summary; details in brand/BRAND.md)
 - App name **Scan7**; wordmark "scan" in text color + "7" in accent (`Scan7Wordmark`).
