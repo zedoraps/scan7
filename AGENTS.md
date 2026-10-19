@@ -19,7 +19,7 @@ score is saved. It is a personal, open-source project.
 ## Repo layout
 ```
 AGENTS.md              agent instructions for every tool (tool-specific files such as .claude/CLAUDE.md only point here)
-.agents/skills/        third-party agent skills (Navigation 3, CameraX, LiteRT, Play policy, R8, YOLO export); sources and project overrides in its README.md
+.agents/skills/        third-party agent skills, managed with `npx skills` (skills-lock.json; .claude/skills links here). Overrides: see Code conventions
 README.md              public project page (screenshots, download, license)
 changelog/             tenzir-ship changelog: unreleased/ entries, releases/vX.Y.Z/ (notes.md); docs/dev/RELEASE.md
 docs/                  privacy.md (Pages), store/ (Play listing), third_party/ (licence texts), readme/ (README images)
@@ -180,6 +180,7 @@ The emulators run at nice 5 next to training; idle they cost ~1.5 cores in total
 - **Never use Flip 7's artwork, fonts, logo or name styling.**
 
 ## Code conventions
+- **Agent skills** (`.agents/skills/`: navigation-3, camerax, litert-runtime, play-policy-insights, r8-analyzer from android/skills; yolo-export from ultralytics/skills). Add with `npx skills add <repo> --skill <name> --agent claude-code codex`, update with `npx skills update -p`, commit the result with skills-lock.json. AGENTS.md wins over a skill. Ignore their Hilt, Koin, `hiltViewModel()` and ML Kit recipes (we keep `AppGraph` and our own LiteRT model), don't add Truth or MockK without asking, and run play-policy-insights once per Play release, not on every change.
 - **Platform first.** Before building a UI behaviour or system feature yourself, use the Android / Jetpack / Material 3 component that already does it (bottom sheets, dialogs, snackbars, drag & drop, pull/scroll, text fields, permissions, haptics, back handling, accessibility actions, photo picker, settings storage …) and **restyle it** with the Scan7 tokens. Write custom code only when the platform can't do it, and add a one-line comment saying why.
 - Kotlin/Compose: follow the existing style (4-space indent, trailing commas, `modifier: Modifier = Modifier` as the first optional parameter, small private composables, `@Preview` wrapped in `Scan7Theme`). Use theme colors/typography, no hardcoded colors.
 - Game logic (scoring, smoothing, …) is plain Kotlin without Android dependencies, covered by JVM unit tests in `app/app/src/test`.

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "skills": {
+    "camerax": {
+      "source": "android/skills",
+      "sourceType": "github",
+      "skillPath": "camera/camerax/SKILL.md",
+      "computedHash": "d61c2d99e7403b7d22da3f673809c607d93e75b9b2e23038752e022f50834977"
+    },
+    "litert-runtime": {
+      "source": "android/skills",
+      "sourceType": "github",
+      "skillPath": "device-ai/litert/litert-runtime/SKILL.md",
+      "computedHash": "803a37024c5e7a73852ed6c1d68e209f544d3602a2230b21dfe5610939660cc2"
+    },
+    "navigation-3": {
+      "source": "android/skills",
+      "sourceType": "github",
+      "skillPath": "navigation/navigation-3/SKILL.md",
+      "computedHash": "6aa8d6f7460e3c9b4c2c85cbd84720e990b03b2f0c594d31a1dbed0def247fe6"
+    },
+    "play-policy-insights": {
+      "source": "android/skills",
+      "sourceType": "github",
+      "skillPath": "play/play-policy-insights/SKILL.md",
+      "computedHash": "37c64bfcb566dc5814c27350311b05acd9cba996bc0d0c30e8b04842096051b5"
+    },
+    "r8-analyzer": {
+      "source": "android/skills",
+      "sourceType": "github",
+      "skillPath": "performance/r8-analyzer/SKILL.md",
+      "computedHash": "69fdd394fe2b5658833a10a711511ac0ae422dfbbf1d981ce08a7fa9bbcf54df"
+    },
+    "yolo-export": {
+      "source": "ultralytics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/yolo-export/SKILL.md",
+      "computedHash": "92583a72fa325a466d5f65c282ec0c69414c48181123df56a2e95b7493b7f4f4"
+    }
+  }
+}
