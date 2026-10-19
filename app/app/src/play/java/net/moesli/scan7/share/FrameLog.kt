@@ -45,6 +45,8 @@ internal class LoggingHostTransport(private val inner: HostTransport) : HostTran
     }
 
     override fun disconnect(peer: PeerId) = inner.disconnect(peer)
+
+    override fun stop() = inner.stop()
 }
 
 internal class LoggingClientTransport(private val inner: ClientTransport) : ClientTransport {

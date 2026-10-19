@@ -17,6 +17,9 @@ interface HostTransport {
     /** Closes the link to [peer]; [Listener.onPeerDisconnected] follows. */
     fun disconnect(peer: PeerId)
 
+    /** Stop sharing: no new links (e.g. stop advertising). Without it a stopped session kept letting guests in. */
+    fun stop() = Unit
+
     interface Listener {
         fun onPeerConnected(peer: PeerId)
 

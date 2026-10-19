@@ -37,6 +37,11 @@ class FakeNetwork(private val random: Random = Random(0), private val post: ((()
         override fun disconnect(peer: PeerId) {
             if (links[peer]?.open == true) enqueue(peer, toHost = false) { drop(peer) }
         }
+
+        /** The stopped session hears nothing more (a new one may [start] on this network). */
+        override fun stop() {
+            hostListeners.clear()
+        }
     }
 
     /** A new phone connecting; its link opens once the connect events are delivered. */

@@ -56,8 +56,9 @@ class HostSession(
      * Last seq that changed each result (staleness check). Results not touched in this session (or
      * this game) count as changed at [floorSeq]: after a host restart, intents based on older state are stale.
      */
-    private val lastTouched = mutableMapOf<ResultKey, Long>()
-    private var floorSeq = seq
+    private val lastTouched: MutableMap<ResultKey, Long> =
+        restored?.touched.orEmpty().associate { ResultKey(it.round, it.playerId) to it.seq }.toMutableMap()
+    private var floorSeq = restored?.floorSeq ?: seq
 
     /** Guest device that entered each result of the running round (absent = host / open). */
     private val entryAuthors: MutableMap<ResultKey, String> =
@@ -91,6 +92,8 @@ class HostSession(
         roster = roster,
         authors = entryAuthors.map { (k, d) -> ResultAuthor(k.round, k.playerId, d) },
         outcomes = seenIntents.values.toList(),
+        touched = lastTouched.map { (k, s) -> TouchedResult(k.round, k.playerId, s) },
+        floorSeq = floorSeq,
     )
 
     /** Guest device ids currently linked (one entry per phone). */
@@ -177,6 +180,7 @@ class HostSession(
     fun stop() {
         links.keys.toList().forEach(transport::disconnect)
         links.clear()
+        transport.stop()
     }
 
     // ---- Transport callbacks ---------------------------------------------------------------
