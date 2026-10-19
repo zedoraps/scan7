@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -165,6 +166,8 @@ fun WarningButton(
  */
 @Composable
 private fun FitText(text: String, style: TextStyle) {
+    // The floor is in dp, not sp: an 8 sp floor doubles at font scale 2 and "Runde / beenden" got cut.
+    val minSize = with(LocalDensity.current) { MIN_LABEL_TEXT.toSp() }
     BasicText(
         text,
         style = style.copy(textAlign = TextAlign.Center),
@@ -172,9 +175,11 @@ private fun FitText(text: String, style: TextStyle) {
         // Only the explicit line breaks: a wrapped word ("Enter / manually") would be cut by maxLines
         // instead of shrinking.
         softWrap = false,
-        autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = style.fontSize),
+        autoSize = TextAutoSize.StepBased(minFontSize = minSize, maxFontSize = if (style.fontSize.value > minSize.value) style.fontSize else minSize),
     )
 }
+
+private val MIN_LABEL_TEXT = 8.dp
 
 /** Square icon button on `surface` (48 dp, radius 12), e.g. Arrange and Menu in the header. */
 @Composable

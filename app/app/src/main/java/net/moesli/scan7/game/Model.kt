@@ -11,6 +11,12 @@ const val MAX_PLAYERS = 10
 const val MIN_PLAYERS = 2
 const val DEFAULT_TARGET = 200
 
+/**
+ * Longest player name (characters). Cards / rows / the scoreboard ellipsize long names; the
+ * editor shows a counter near the limit and the repository cuts longer names (debug seeds too).
+ */
+const val MAX_NAME_LENGTH = 20
+
 /** Player count up to which the table view is the default (more players → list view). */
 const val TABLE_VIEW_MAX_PLAYERS = 6
 

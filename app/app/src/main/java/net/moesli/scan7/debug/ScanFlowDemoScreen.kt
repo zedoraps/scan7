@@ -155,10 +155,7 @@ private fun demoCapture(demo: ScanDemo, photoPath: String?): DemoCapture {
         ScanDemo.EMPTY -> remember { DemoCapture.Ready(syntheticCapture(emptyList())) }
         ScanDemo.PHOTO -> {
             val state by produceState<DemoCapture>(DemoCapture.Loading, photoPath) {
-                // A missing / unreadable photo opens the flow without a capture instead of crashing.
-                value = runCatching { photoCapture(context, photoPath!!) }
-                    .onFailure { Log.w("ScanFlowDemo", "photo $photoPath unreadable", it) }
-                    .fold({ DemoCapture.Ready(it) }, { DemoCapture.None })
+                value = DemoCapture.Ready(photoCapture(context, photoPath!!))
             }
             state
         }
@@ -168,7 +165,17 @@ private fun demoCapture(demo: ScanDemo, photoPath: String?): DemoCapture {
 
 /** Decodes the photo and runs the real detector on it (detector thread). */
 internal suspend fun photoCapture(context: Context, path: String): ScanCapture {
-    val bitmap = withContext(Dispatchers.IO) { decodeUpright(context, Uri.fromFile(File(path))) }
+    // A missing / unreadable photo (debug hooks) gives an empty capture with the error, not a crash.
+    val decoded = withContext(Dispatchers.IO) { runCatching { decodeUpright(context, Uri.fromFile(File(path))) } }
+    val bitmap = decoded.getOrElse { e ->
+        Log.w("ScanFlowDemo", "photo $path unreadable", e)
+        return ScanCapture(
+            bitmap = createBitmap(1, 1),
+            detections = emptyList(),
+            error = "photo unreadable: $path",
+            meta = CaptureMeta(origin = "photo", backend = null, threshold = null),
+        )
+    }
     val detector = DetectorHolder.get(context)
     val result = detector.mapCatching { d -> withContext(DetectorHolder.dispatcher) { d.detect(bitmap) } }
     return ScanCapture(

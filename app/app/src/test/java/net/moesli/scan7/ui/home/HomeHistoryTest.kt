@@ -42,6 +42,10 @@ class HomeHistoryTest {
         assertEquals("2 rounds", ui.detail.en)
         assertEquals("Anna hat gewonnen", ui.headline.de)
         assertEquals("2 Runden", ui.detail.de)
+        // TalkBack: dative plural and natural German word order.
+        assertEquals("Anna won with 210 points", ui.headlineWithPoints.en)
+        assertEquals("Anna hat mit 210 Punkten gewonnen", ui.headlineWithPoints.de)
+        assertEquals(listOf(1L, 2L, 3L), ui.lineup)
     }
 
     @Test
@@ -53,6 +57,7 @@ class HomeHistoryTest {
         assertEquals("1 round", ui.detail.en)
         assertEquals("1 Runde", ui.detail.de)
         assertEquals("Anna und Ben haben gewonnen", ui.headline.de)
+        assertEquals("Anna und Ben haben mit 200 Punkten gewonnen", ui.headlineWithPoints.de)
     }
 
     @Test
@@ -73,6 +78,8 @@ class HomeHistoryTest {
         val ui = g.toPastGameUi(players)
         assertEquals(PastOutcome.ABANDONED, ui.outcome)
         assertEquals("Anna led", ui.headline.en) // 30 + 99 in the unfinished round
+        assertEquals("Anna led with 129 points", ui.headlineWithPoints.en)
+        assertEquals("Anna lag mit 129 Punkten vorne", ui.headlineWithPoints.de)
         assertEquals(129, ui.points)
         assertEquals(1, ui.rounds)
         assertEquals("1 round · not finished", ui.detail.en)
@@ -82,6 +89,7 @@ class HomeHistoryTest {
     fun abandoned_withoutPoints() {
         val ui = start.abandon(now = 300).toPastGameUi(players)
         assertEquals("Not finished", ui.headline.en)
+        assertEquals("Not finished", ui.headlineWithPoints.en)
         assertEquals(emptyList<String>(), ui.winners.map { it.name })
         assertEquals(0, ui.rounds)
     }

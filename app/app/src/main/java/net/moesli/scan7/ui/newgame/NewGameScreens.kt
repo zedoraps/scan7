@@ -408,6 +408,18 @@ fun NewGameRoute(
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
+    // A fresh New game (step 1) starts with the last game's players ticked, in their order; the
+    // user can untick. Once only (saved), so unticking everyone doesn't tick them again.
+    var preselected by rememberSaveable { mutableStateOf(!initialSeating.isNullOrEmpty()) }
+    LaunchedEffect(Unit) {
+        if (!preselected) {
+            val last = runCatching { repository.lastLineup() }.getOrDefault(emptyList())
+            // Only if nobody was ticked meanwhile; archived / deleted players drop out (liveSelected).
+            if (selected.isEmpty()) selected = last.take(MAX_PLAYERS)
+            preselected = true
+        }
+    }
+
     // Opened on the seats step ("New game with same players"): that game's order and spots.
     LaunchedEffect(Unit) {
         if (step == 2 && draft == null) {

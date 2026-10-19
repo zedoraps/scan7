@@ -106,8 +106,8 @@ const val FORMULA_LINE_BREAK = "\n"
  * The row's score in up to two lines, without "= total" (the big number shows it):
  * - line 1, the number cards and ×2: `6 + 7 + 8`, `(0 + 6 + 11 + 12) × 2` (parentheses only
  *   with ×2 around several numbers), `0` without number cards;
- * - line 2, the additions: plus modifiers, then the Flip 7 bonus: `+ 2 + 4 + 15`; no line 2
- *   without them.
+ * - line 2, the additions: plus modifiers, then the Flip 7 bonus: `+ 2 + 4 + 15` (shown labelled,
+ *   `+ 15 Flip 7`); no line 2 without them.
  * A single value stays alone (`7`); nothing at all is `0`. A duplicate cancelled by a Second
  * Chance counts once; plus modifiers count once each, as in [scoreRow]; action cards / backs add
  * nothing. The last part is the hidden [FormulaKind.TOTAL] for TalkBack ([spokenFormula]).
@@ -154,7 +154,10 @@ fun breakdownFormula(cards: List<Card>): List<FormulaPart> {
     return parts + FormulaPart(score.total.toString(), FormulaKind.TOTAL)
 }
 
-/** The formula as shown, the lines joined with "\n": "(6 + 7 + 8) × 2\n+ 4"; empty for a bust row. */
+/**
+ * The formula's values and operators, the lines joined with "\n": "(6 + 7 + 8) × 2\n+ 4"; empty
+ * for a bust row. On screen the Flip 7 bonus also gets its label ("+ 15 Flip 7", [FormulaText]).
+ */
 fun breakdownText(cards: List<Card>): String =
     breakdownFormula(cards).filter { it.kind != FormulaKind.TOTAL }.joinToString("") { it.text }
 
@@ -166,7 +169,8 @@ fun spokenFormula(parts: List<FormulaPart>): UiText {
             " + ", "+ " -> uiText(R.string.formula_plus)
             " × " -> uiText(R.string.formula_times)
             "(", ")", FORMULA_LINE_BREAK -> null
-            else -> UiText.Raw(p.text)
+            // "plus 15 Flip 7 bonus" / "plus 15 Flip-7-Bonus".
+            else -> if (p.kind == FormulaKind.BONUS) uiText(R.string.formula_flip7_spoken, p.text) else UiText.Raw(p.text)
         }
     }
     val text = UiText.Join(words, " ")

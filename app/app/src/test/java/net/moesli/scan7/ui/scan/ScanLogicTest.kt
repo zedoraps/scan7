@@ -72,6 +72,9 @@ class ScanLogicTest {
         assertEquals(21 + 8 + 15, scoreRow(cards).total)
         val bonus = breakdownFormula(cards).single { it.kind == FormulaKind.BONUS }
         assertEquals("15", bonus.text)
+        // TalkBack names the bonus (the screen shows "+ 15 Flip 7").
+        assertEquals("0 plus 1 plus 2 plus 3 plus 4 plus 5 plus 6 plus 2 plus 6 plus 15 Flip 7 bonus equals 44", spokenFormula(breakdownFormula(cards)).en)
+        assertEquals("0 plus 1 plus 2 plus 3 plus 4 plus 5 plus 6 plus 2 plus 6 plus 15 Flip-7-Bonus gleich 44", spokenFormula(breakdownFormula(cards)).de)
     }
 
     @Test
