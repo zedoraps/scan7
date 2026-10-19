@@ -650,4 +650,156 @@ class MultiplayerSessionTest {
         assertEquals(18, t.host.state.total(anna.id))
         assertEquals(2L, t.host.seq)
     }
+
+    // ---- Edge cases & robustness (docs/MULTI_DEVICE.md §10) --------------------------------
+
+    @Test
+    fun leaveAndJoinAgain_newIntentsAreNotSwallowedAsRetries() {
+        val t = Table()
+        val a = t.joined("anna")
+        t.net.deliverAll()
+        a.perform(ScorePoints(anna.id, 1, 5))
+        t.net.deliverAll()
+        a.leave()
+        t.net.deliverAll()
+        // A new session of the same phone (Leave / removal deleted the saved one) counts from 1 again.
+        val again = t.joined("anna")
+        t.net.deliverAll()
+        again.perform(ScorePoints(ben.id, 1, 9))
+        t.net.deliverAll()
+        assertEquals(9, t.host.state.total(ben.id))
+        t.assertConverged(again)
+    }
+
+    @Test
+    fun hostRestart_offlineScanOfAnUntouchedPlayer_isStillAccepted() {
+        val t = Table()
+        val a = t.joined("anna")
+        t.net.deliverAll()
+        t.net.drop(t.lastLink.getValue(a))
+        t.host.perform(ScorePoints(ben.id, 1, 4)) // Anna's phone misses these
+        t.host.perform(ScorePoints(dan.id, 1, 6))
+        a.perform(ScorePoints(anna.id, 1, 17)) // offline, based on seq 0
+
+        t.restartHost()
+        t.connect(a)
+        t.net.deliverAll()
+        t.assertConverged(a)
+        assertEquals(17, t.host.state.total(anna.id))
+        assertEquals(emptyList<IntentRejected>(), a.view.value.rejections)
+
+        // A result the host did change after the guest's base stays stale across a restart.
+        t.net.drop(t.lastLink.getValue(a))
+        a.perform(ScorePoints(ben.id, 1, 30), baseSeq = 0)
+        t.restartHost()
+        t.connect(a)
+        t.net.deliverAll()
+        assertEquals(RejectReason.STALE, a.view.value.rejections.single().reason)
+        assertEquals(4, t.host.state.total(ben.id))
+    }
+
+    @Test
+    fun gameOverAndNewGame_whileAGuestIsOffline_itsOldScanDoesNotLandInTheNewGame() {
+        val t = Table()
+        val a = t.joined("anna")
+        t.net.deliverAll()
+        a.claim(anna.id, listOf(anna.id))
+        t.net.deliverAll()
+        t.net.drop(t.lastLink.getValue(a))
+        a.perform(ScorePoints(anna.id, 1, 12)) // round 1 of the old game, still in the outbox
+        t.host.perform(EndGame(1))
+        t.host.newGame(GameState.newGame(players, startedAt = 5_000, id = 2), players)
+
+        t.connect(a)
+        t.net.deliverAll()
+        t.assertConverged(a)
+        assertEquals(2L, a.view.value.game!!.id)
+        assertTrue(t.host.state.result(anna.id).isOpen)
+        assertEquals(RejectReason.STALE, a.view.value.rejections.single().reason)
+        assertEquals(listOf(anna.id), a.myScans) // claims kept
+    }
+
+    @Test
+    fun seatsRearrangedByTheHost_reachTheGuest_andGuestsCantArrange() {
+        val t = Table()
+        val a = t.joined("anna")
+        t.net.deliverAll()
+        t.host.perform(SwapSeats(0, 3))
+        t.host.perform(MoveSeat(1, 2))
+        t.host.perform(ReorderSeats(t.host.state.playerIds.reversed()))
+        t.host.perform(MovePosition(anna.id, 0.2f, 0.8f))
+        a.perform(SwapSeats(0, 1))
+        t.net.deliverAll()
+        t.assertConverged(a)
+        assertEquals(RejectReason.NOT_ALLOWED, a.view.value.rejections.single().reason)
+    }
+
+    @Test
+    fun undoAcrossPhones_onlyTheDeviceThatBusted_orTheHost() {
+        val t = Table()
+        val a = t.joined("anna")
+        val b = t.joined("ben")
+        t.net.deliverAll()
+        a.perform(Bust(anna.id, 1))
+        t.net.deliverAll()
+        b.perform(UndoBust(anna.id, 1)) // Ben's phone can't undo Anna's phone's bust
+        t.net.deliverAll()
+        assertEquals(RejectReason.NOT_ALLOWED, b.view.value.rejections.single().reason)
+        assertEquals("anna", b.view.value.rejections.single().author)
+        val base = a.view.value.seq
+        t.host.perform(ScorePoints(anna.id, 1, 11)) // the host corrects it
+        a.perform(UndoBust(anna.id, 1), baseSeq = base) // the bust toast's Undo, after the host's change
+        t.net.deliverAll()
+        assertEquals(RejectReason.STALE, a.view.value.rejections.single().reason)
+        assertEquals(11, t.host.state.total(anna.id))
+        t.assertConverged(a, b)
+    }
+
+    @Test
+    fun aRefusal_remembersWhatWasRefused() {
+        val t = Table()
+        val a = t.joined("anna")
+        t.net.deliverAll()
+        val id = a.perform(ScorePoints(anna.id, 1, 25))
+        t.host.perform(CloseRoundAndStartNext(1))
+        t.net.deliverAll()
+        assertEquals(1, (a.view.value.rejectedActions.getValue(id) as PlayerAction).round)
+        a.clearRejections()
+        assertEquals(emptyMap<String, GameAction>(), a.view.value.rejectedActions)
+    }
+
+    @Test
+    fun stoppedSession_letsNobodyIn() {
+        val t = Table()
+        val a = t.joined("anna")
+        t.net.deliverAll()
+        t.host.stop()
+        t.net.deliverAll()
+        assertEquals(ClientStatus.DISCONNECTED, a.view.value.status)
+        t.connect(a)
+        a.perform(ScorePoints(anna.id, 1, 3))
+        t.net.deliverAll()
+        assertEquals(ClientStatus.CONNECTING, a.view.value.status)
+        assertEquals(0L, t.host.seq)
+    }
+
+    @Test
+    fun duplicateAndReplayedEvents_areIgnored_aGapResyncs() {
+        val t = Table()
+        val a = t.joined("anna")
+        t.net.deliverAll()
+        t.host.perform(ScorePoints(ben.id, 1, 4))
+        t.net.deliverAll()
+        val before = a.view.value.game
+        val codec = WireCodec()
+        val peer = t.lastLink.getValue(a)
+        // The same seq again (a replay): nothing changes.
+        t.net.host.send(peer, codec.encode(Event(1, 1, ScorePoints(ben.id, 1, 40))))
+        t.net.deliverAll()
+        assertEquals(before, a.view.value.game)
+        // An event from the future (one lost): a resync brings the guest back to the host's state.
+        t.net.host.send(peer, codec.encode(Event(7, 1, ScorePoints(cleo.id, 1, 40))))
+        t.net.deliverAll()
+        t.assertConverged(a)
+    }
 }

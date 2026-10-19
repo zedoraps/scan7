@@ -110,7 +110,7 @@ class NearbyHostTransport(
     }
 
     /** Stop sharing: no more advertising, every link closed. */
-    fun stop() {
+    override fun stop() {
         api.stopAdvertising()
         api.stopAllEndpoints()
         connected.toList().forEach(::lost)

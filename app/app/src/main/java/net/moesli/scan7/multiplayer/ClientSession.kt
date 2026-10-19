@@ -21,6 +21,8 @@ data class ClientView(
     val pending: List<Intent> = emptyList(),
     /** Refused intents, oldest first, until [ClientSession.clearRejections] (the UI explains them). */
     val rejections: List<IntentRejected> = emptyList(),
+    /** What each refused intent asked for, by intent id (e.g. "the round was closed" needs its round). */
+    val rejectedActions: Map<String, GameAction> = emptyMap(),
     /** The last [Claim] was refused (ask, then claim with force; or fix the [ClaimRejected.problem]). */
     val claimRejection: ClaimRejected? = null,
     /** Set when the host refused the join or removed this phone (status [ClientStatus.REJECTED]). */
@@ -54,6 +56,7 @@ class ClientSession(
 
     private var transport: ClientTransport? = null
     private var nextIntent = restored?.nextIntent ?: 1L
+    private val nonce = restored?.nonce ?: newNonce()
     private var awaitingResync = false
 
     /** This phone's roster entry (who it is, whom it scans), once joined. */
@@ -65,6 +68,9 @@ class ClientSession(
     /** Connects over [link] (first join, or a new link after a drop). */
     fun attach(link: ClientTransport) {
         if (_view.value.status == ClientStatus.REJECTED) return
+        // A new link replaces the old one for good (e.g. "Join again"): the old one must stop
+        // searching, or two radio links would race for the same host.
+        transport?.takeIf { it !== link }?.disconnect()
         transport = link
         _view.update { it.copy(status = ClientStatus.CONNECTING) }
         link.start(Listener(link))
@@ -84,7 +90,7 @@ class ClientSession(
      * the outbox. [baseSeq] is the seq the user saw when they started (e.g. opened the camera).
      */
     fun perform(action: GameAction, baseSeq: Long = _view.value.seq): String {
-        val intent = Intent("$deviceId:${nextIntent++}", baseSeq, action)
+        val intent = Intent("$deviceId:$nonce:${nextIntent++}", baseSeq, action)
         _view.update { it.copy(pending = it.pending + intent) }
         if (_view.value.status == ClientStatus.JOINED) send(intent)
         return intent.intentId
@@ -108,10 +114,10 @@ class ClientSession(
     /** How to name [device] ("Anna's phone"); `null` if it isn't in the roster. */
     fun label(device: String): DeviceLabel? = _view.value.roster.firstOrNull { it.deviceId == device }?.label(_view.value.players)
 
-    fun clearRejections() = _view.update { it.copy(rejections = emptyList()) }
+    fun clearRejections() = _view.update { it.copy(rejections = emptyList(), rejectedActions = emptyMap()) }
 
     /** Saved after each change and passed back after an app restart (the outbox survives). */
-    fun exportState() = ClientSessionState(nextIntent, _view.value.pending, _view.value.seq)
+    fun exportState() = ClientSessionState(nextIntent, _view.value.pending, _view.value.seq, nonce)
 
     /** "Leave game": releases this phone's claims; the outbox is dropped. */
     fun leave() {
@@ -148,8 +154,16 @@ class ClientSession(
                 is ClaimRejected -> _view.update { it.copy(claimRejection = msg) }
                 is IntentAck -> settle(msg.intentId)
                 is IntentRejected -> {
+                    // The same refusal twice (the outbox was resent on two quick reconnects): explain it once.
+                    if (_view.value.rejections.any { it.intentId == msg.intentId }) return
+                    val action = _view.value.pending.firstOrNull { it.intentId == msg.intentId }?.action
                     settle(msg.intentId)
-                    _view.update { it.copy(rejections = it.rejections + msg) }
+                    _view.update {
+                        it.copy(
+                            rejections = it.rejections + msg,
+                            rejectedActions = action?.let { a -> it.rejectedActions + (msg.intentId to a) } ?: it.rejectedActions,
+                        )
+                    }
                 }
                 is HelloRejected -> {
                     _view.update { it.copy(status = ClientStatus.REJECTED, joinRejection = msg.reason) }
@@ -217,5 +231,9 @@ class ClientSession(
 
     private fun send(msg: ClientMessage) {
         transport?.send(codec.encode(msg))
+    }
+
+    private companion object {
+        fun newNonce(): String = java.util.UUID.randomUUID().toString().take(8)
     }
 }

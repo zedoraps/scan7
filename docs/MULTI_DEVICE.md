@@ -182,15 +182,15 @@ There are no merges and no CRDT. Order of arrival at the host decides, and every
   - table `share_sessions(gameId, role HOST|GUEST, sessionId, token, stateJson, updatedAt)`.
   
   Joined games are excluded from "the game to resume", from "abandon other unfinished games", from previous-seating lookups and from the Players list. They are included in the history, even while unfinished ("Joined · Philip").
-- **Host:** game state as today. `HostSessionState` (seq, roster, removed phones, entry authors, the last 1024 intent outcomes) is saved in `share_sessions` after each change. Sharing the same game again (e.g. after an app restart) **resumes the same session**: same QR, nothing applied twice, claims kept, older intents stale (`floorSeq`).
-- **Guest:** `ShareRuntime` writes the `ClientSession` mirror into a **read-only joined copy** (`saveJoinedGame`), using hidden local players (`joinedPlayers`). `applyLocal` refuses joined games; only the session's router changes them, and the view mode stays per phone. `share_sessions` holds the outbox, intent counter and id map (`GuestSaved`), so a scan made offline survives an app restart. "Save players to my list" turns hidden players into normal ones (`keepJoinedPlayers`, matched by name).
+- **Host:** game state as today. `HostSessionState` (seq, roster with claims, entry authors, the last 1024 intent outcomes, the seq that last changed each result + `floorSeq`) is saved in `share_sessions` after **every** game or roster change (joins and claims too). Sharing the same game again (e.g. after an app restart) **resumes the same session**: same QR, nothing applied twice, claims kept, and only intents for results changed after their `baseSeq` are stale.
+- **Guest:** `ShareRuntime` writes the `ClientSession` mirror into a **read-only joined copy** (`saveJoinedGame`), using hidden local players (`joinedPlayers`). `applyLocal` refuses joined games; only the session's router changes them, and the view mode stays per phone. `share_sessions` holds the outbox, intent counter + a random per-session nonce (intent ids are `device:nonce:n`, so a phone that left or was removed and joins again never reuses an old id) and the id map (`GuestSaved`), so a scan made offline survives an app restart. The restored copy is routed to the session at once, and its actions go to the outbox even before the first snapshot arrives. "Save players to my list" turns hidden players into normal ones (`keepJoinedPlayers`, matched by name).
 
 ### 4.6 Lifecycles
 - **Late join / reconnect:** `Hello{lastSeq}` → `Welcome{seq, snapshot, roster}` → the guest resends its outbox (same ids).
 - **Guest drop:** the host marks it offline and keeps its claims. The Nearby client transport rediscovers the same session with backoff (1 s … 30 s) and says hello again.
 - **Host app killed / phone dies:** guests show the banner (P5) and keep queueing, and their phones keep a full copy. When the host shares again, the session resumes from `share_sessions` and guests reconnect. If the host phone is gone for good, the guests keep their read-only history copy. Host migration is not in v1.
 - **Same players, new game:** `ShareRuntime.hostMovedTo(newGameId)` → `HostSession.newGame`. The seq continues, staleness and authors reset, and claims are kept for players still in the game. Each guest gets a new joined copy and is moved to its round screen.
-- **Stop sharing / remove a phone:** removed phones get `HelloRejected(REMOVED)` and are disconnected; they can't rejoin this session. Stop sharing drops the session row, so the next share is a new QR.
+- **Stop sharing / remove a phone:** removed phones get `HelloRejected(REMOVED)` and are disconnected; their saved session is deleted (no knocking after a restart), and scanning the QR again lets them back in. Stop sharing stops the radio (`HostTransport.stop`: no advertising) and drops the session row, so the next share is a new QR.
 
 ### 4.7 Managing players during a game (built on main's `withLineup`)
 - Adding or removing players goes through main's Players flow (`changePlayers` / `addPlayerToGame` / `removePlayerFromGame`), which is now the host-only `ChangeLineup` action on `GameState.withLineup`. The event carries the new players' names and avatars. A player who already played stays in the scoreboard as `DepartedPlayer`.
@@ -339,3 +339,85 @@ On 12+ the radio permissions show as **one "Nearby devices" dialog**, followed b
 - with `-Pscan7.flavors=true`: `assembleDebug` (foss + play), `testFossDebugUnitTest`, `testPlayDebugUnitTest`, `lintFossDebug`, `lintPlayDebug`.
 
 Only the Play build contains Nearby, the service and the deep link.
+
+---
+
+## 10. Edge cases & robustness
+
+Tests: **MST** = `multiplayer/MultiplayerSessionTest` (sessions on `FakeNetwork`), **NTT** = `multiplayer/nearby/NearbyTransportTest` (Nearby adapters on `FakeNearbyMedium`), **NPT** = `NearbyPartsTest`, **WCT** = `WireCodecTest`, **SRT** = `share/ShareRuntimeTest` (one phone, host + in-process guest), **TPS** = `share/TwoPhoneShareTest` (two phones = two databases + two `ShareRuntime`s over the fake Nearby radio; a restart = the old runtime and its radio vanish, a new `GameRepository` + runtime start on the same database, then the round screen's rejoin / resume call). "Manual" rows go on the two-phone checklist. Status: ✅ covered, 🛠 fixed in this pass (the test fails without the fix), ⚠ known gap / open question.
+
+### Process death and restart
+| Case | Expected | Covered by | Status |
+|---|---|---|---|
+| Guest restarts mid-round, host reachable | Round screen rejoins the saved session (same copy, claims, outbox); Bust / scans reach the host | TPS `guestRestart_itsScansReachTheHostAgain` (field bug 1) | ✅ |
+| Guest restarts while the host is gone | Scans go to the outbox even before the first snapshot; sent when the host is back | TPS `guestRestart_whileTheHostIsGone_…` | 🛠 (every action failed "Not allowed" until a snapshot arrived) |
+| Guest restarts with a scan pending | Outbox survives (same intent ids, applied once) | MST `guestRestart_keepsItsOutbox` | ✅ |
+| Guest restarts before claiming | Rejoin → "This phone" opens again once connected | Manual (UI) | ✅ |
+| App restored straight onto the camera (guest or host) | The scan screen resumes the saved session silently (permissions granted), so the confirmed scan isn't lost on the read-only copy / missed by the guests | `ResumeSavedSession` in `ScanRoute`; manual (needs process death on a device) | 🛠 manual |
+| Host restarts before any score (guests joined + claimed) | Same QR; joins and claims kept | TPS `hostRestart_beforeAnyScore_keepsTheGuestsClaims` | 🛠 (state was saved only after applied actions) |
+| Host restarts mid-round | Same session, guests reconnect by themselves, nothing applied twice | MST `hostRestart_resumesTheSameSession`, NTT `hostAppRestarts_…`, TPS `guestRestart_whileTheHostIsGone_…` | ✅ (field bug 2) |
+| Host restarts while a guest intent is pending (guest was behind) | Intent for a result nobody touched is applied; one for a result changed after its base is STALE | MST `hostRestart_offlineScanOfAnUntouchedPlayer_isStillAccepted` | 🛠 (every older intent was stale after a restart) |
+| Host edits while not sharing (restarted into another screen) | Guests get the current state on rejoin (Welcome snapshot) | — | ⚠ those edits aren't in the staleness log; a guest's own older entry for that player could still be replaced by its pending retry (narrow) |
+| Permission revoked mid-session | Android kills the app → like a restart; the host resumes only with permissions (the share sheet's Allow), the guest asks on the round screen | Manual | manual |
+
+### Drops and reconnects
+| Case | Expected | Covered by | Status |
+|---|---|---|---|
+| Short drop | Offline badge on the host, claims kept; reconnect → snapshot, outbox resent | MST `reconnectAfterADrop_…`, NTT `droppedLink_reconnectsWithBackoff_…` | ✅ |
+| Long drop (host gone) | Backoff 1…30 s; banner; after 20 s "only a copy · Join again" | NTT backoff tests; 20 s warning manual | ✅ / manual |
+| Drop during the handshake (no result) | Request times out after 30 s, host found again | NTT `unansweredRequest_timesOut_…`, `endpointLostWhileConnecting_…` | ✅ (field bug 3) |
+| Drop during a snapshot / half-received chunked frame | Half frame forgotten; the reconnect's Welcome carries a full snapshot | NTT `hostAcceptsOnlyTokenHolders_andForgetsHalfFramesOnDrop`, NPT `chunker_dropsLostOrForeignChunks` | ✅ |
+| Lost event (seq gap) | Resync → snapshot | MST `lostEvent_triggersAResync` | ✅ |
+| Duplicate / replayed / future event | Same or older seq ignored, gap → resync | MST `duplicateAndReplayedEvents_…` | ✅ |
+| Retried intent (same id) | Applied once; the original outcome is sent back | MST `retriedIntent_isAppliedOnce` | ✅ |
+| Same refusal twice (outbox resent on two reconnects) | Explained once | `ClientSession` guard (no fake can reorder it) | 🛠 |
+| Rejoin from a new endpoint | Old link dropped, same device | MST `rejoinFromANewEndpoint_…` | ✅ |
+| Send fails "not connected" | Counts as a drop | NTT `sendFailing_notConnected_countsAsADrop` | ✅ |
+
+### Conflicts and stale intents
+| Case | Expected | Covered by | Status |
+|---|---|---|---|
+| Two phones score the same player | First confirmed wins; the other gets "Already scored by …" | MST `staleIntent_isRejected_firstConfirmedScoreWins`, SRT `aRefusedScan_…` | ✅ |
+| Guest scores / busts a player the host already scored (race: its copy already showed it) | Sent anyway; the host refuses → dialog "Already scored by Host" (was a silent failure on the phone) | SRT `hostAndGuest_playARound…`, MST `guestNeverReplacesAnotherDevicesValue_…` | 🛠 |
+| Host closes the round while a guest's camera is open | The scan keeps the round it started in → refused, dialog "The round was closed in the meantime", nothing lands in the next round | TPS `aScanForARoundTheHostClosed_…`, MST `scanForAClosedRound_…`, `aRefusal_remembersWhatWasRefused` | 🛠 (the scan screen used the copy's *current* round, so it landed in the next round) |
+| Undo across phones | Only the phone that busted (or the host) may undo; an Undo after the host changed it is STALE | MST `undoAcrossPhones_…`, `guestEditsOnlyItsOwnRecentEntries` | ✅ |
+| Host-only action from a guest | NOT_ALLOWED; never offered in the UI | MST `hostOnlyActionFromAClient_…`, `guestCannotEndARoundOrChangeTotals` | ✅ |
+| Invalid action (unknown player, game over) | INVALID, nothing changes | MST `invalidIntent_…`, HostStoreTest `aRefusingStore_changesNothing` | ✅ |
+| `baseSeq` = seq when the action was *sent*, not when the camera opened (§4.2.3) | A result changed while the camera was open is already done in the copy, so GuestRules refuse it (same dialog) | — | ⚠ only differs if the event hadn't reached the guest yet |
+
+### Claims and devices
+| Case | Expected | Covered by | Status |
+|---|---|---|---|
+| Two guests claim the same "me" / scans | Second is asked, then takes over with force | MST `claimConflict_…`, `samePersonOnTwoPhones_…` | ✅ |
+| Host claims a guest's player | Host always wins | MST `claimConflict_…` (host part), `scanNext_…` | ✅ |
+| Guest leaves and rejoins | Claims released; rejoin = new session whose intents aren't mistaken for old retries | MST `leave_releasesTheClaims`, `leaveAndJoinAgain_newIntentsAreNotSwallowedAsRetries` | 🛠 (its first new scans were acked as old ones and dropped) |
+| Removed, then rejoins by scanning | Removed banner; saved rejoin deleted, radio service off; scanning the code joins again into the same copy | MST `removedDevice_…`, TPS `removedPhone_forgetsItsSavedRejoin_…` | 🛠 (the removal handler cancelled itself: the saved session stayed and the UI kept showing "joined") |
+| Helper ("just helping") | Needs a name; counts as a phone | MST `phonesAreNamedAfterPeople_…` | ✅ |
+| Session full (11th phone) | SESSION_FULL; a known phone still gets back in | MST `elevenPhones_…` | ✅ |
+| Wrong token / other session nearby | Refused before any game data; other Scan7 games ignored | MST `wrongToken_…`, NTT `wrongToken_…`, `otherSessionsOnTheSameService_…` | ✅ |
+| Version mismatch | `hello_rejected` (frozen) arrives before the disconnect → "Update Scan7" | MST `protocolVersionMismatch_…`, NTT `versionMismatch_…`, WCT | ✅ |
+
+### Game lifecycle
+| Case | Expected | Covered by | Status |
+|---|---|---|---|
+| Player added / removed / left mid-game | Event carries names; claims and entries of leavers dropped; late intents STALE / INVALID | MST `playerRemovedMidGame_…`, SRT `samePlayersNewGame_andRemovingAPlayer_…` | ✅ |
+| Seats rearranged by the host | Guests follow; a guest can't arrange | MST `seatsRearrangedByTheHost_…` | ✅ |
+| Same players, new game (guests connected) | Guests move to a new copy, claims kept | MST `samePlayersNewGame_keepsGuestsConnected`, SRT | ✅ |
+| Game over + new game while a guest is offline | On reconnect it gets the new game; its old outbox scan is STALE, not put into the new game | MST `gameOverAndNewGame_whileAGuestIsOffline_…` | ✅ |
+| Guest restarts after a new game | Rejoins the new copy; the old copy's saved session is deleted | TPS `samePlayersNewGame_thenAGuestRestart_…` | 🛠 (old row kept, could be rejoined with an old outbox) |
+| Host stops sharing | Radio stops, every phone disconnected, nobody gets back in with the old code | TPS `stopSharing_…`, MST `stoppedSession_letsNobodyIn` | 🛠 (advertising kept running and the stopped session let the guest back in and applied its scan) |
+| Host deletes the shared game / guest deletes the joined copy | Sharing stops / the guest leaves first; the deleted copy stays deleted | TPS `deletingTheGames_…` | 🛠 (the live mirror wrote a deleted copy back; the host kept sharing a deleted game) |
+| Host ends the game | Guests follow to Game over | SRT; UI manual | ✅ |
+
+### Roles, codes and UI paths
+| Case | Expected | Covered by | Status |
+|---|---|---|---|
+| Role switch: a host joins another game / a guest shares its own game | Over the radio one role: joining stops sharing (its saved code is dropped), sharing leaves the joined game; the debug demo does both in-process | TPS `roleSwitch_…` | ✅ (field bug 4) ⚠ see questions |
+| Same code scanned twice | Joined: nothing happens; not connected ("Join again"): a fresh radio link for the same session, no Leave, outbox and claims kept; refused / removed: joins afresh | TPS `joinAgain_withTheSameCode_…`, `removedPhone_…` | 🛠 (Join again was a no-op while disconnected; field bug 5 covered only REJECTED) |
+| Guest Home → Resume card → reconnect | Opens the joined round screen, which rejoins | Manual (UI) | manual |
+| 20 s offline warning, Join again | "Not connected · this is only a copy" + Join again → QR → reconnect | Manual (timing + camera) | manual |
+| Permissions declined, then granted in the settings | Share sheet / Join screen show Allow / Try again; back from the settings it connects by itself (`LifecycleResumeEffect`) | Manual | manual |
+| App language changed mid-session | Activity recreated, sessions live in the app-scoped `ShareRuntime`; texts switch | Manual | manual |
+| Two games on one phone (host one, open another) | Sharing follows the game it was started for; sharing another stops the first | Manual | manual |
+
+**Two-phone checklist (manual only):** camera-restore after process death (guest and host; e.g. `adb shell am kill` with the camera open); permission revoked mid-session; 20 s warning + Join again (host app force-stopped, then started); Resume card on the guest; declined permissions → settings → back; language switch mid-game; role switch host ↔ guest over the radio; stop sharing → guest stays out; remove a phone → rejoin by scanning.

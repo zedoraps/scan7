@@ -92,8 +92,13 @@ class ShareRuntimeTest {
         runBlocking { repo.scorePoints(game, ben, 7) }
         await("guest sees Ben") { repo.loadGame(local)!!.total(localBen) == 7 }
 
-        // Guests can't replace the host's value, and can't end the round.
-        assertTrue(runCatching { runBlocking { repo.scorePoints(local, localBen, 30) } }.isFailure)
+        // Guests can't replace the host's value (the host refuses it, the guest is told why), and
+        // can't end the round (never offered: fails on the phone).
+        runBlocking { repo.scorePoints(local, localBen, 30) }
+        await("refused by the host") { runtime.state.value.guest?.refusal?.reject?.author == "host" }
+        runtime.clearRefusal()
+        await("cleared") { runtime.state.value.guest?.refusal == null }
+        assertEquals(7, runBlocking { repo.loadGame(game)!!.total(ben) })
         assertTrue(runCatching { runBlocking { repo.closeRoundAndStartNext(local) } }.isFailure)
         // A stale double scan comes back as a refusal for the dialog.
         runBlocking { repo.bust(game, cleo) }
