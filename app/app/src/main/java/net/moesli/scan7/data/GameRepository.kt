@@ -381,7 +381,7 @@ class GameRepository(
     suspend fun loadGame(gameId: Long): GameState? =
         gameDao.load(gameId)?.toState()?.copy(scanDirection = parseScanDirection(settingsDao.get(KEY_SCAN_DIRECTION)))?.filtered()
 
-    // ---- Action path (docs/MULTI_DEVICE.md §4.1) -----------------------------------------
+    // ---- Action path (docs/dev/MULTI_DEVICE.md §4.1) -----------------------------------------
 
     /** Where a shared game's actions go instead of straight to the database (multiplayer session). */
     fun interface ActionRouter {
@@ -419,7 +419,7 @@ class GameRepository(
         stored.filtered()
     }
 
-    // ---- Multiplayer storage (docs/MULTI_DEVICE.md §4.5) ----------------------------------
+    // ---- Multiplayer storage (docs/dev/MULTI_DEVICE.md §4.5) ----------------------------------
 
     private val shareDao = db.shareDao()
 

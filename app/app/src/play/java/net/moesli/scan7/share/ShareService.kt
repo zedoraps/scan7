@@ -15,7 +15,7 @@ import net.moesli.scan7.MainActivity
 import net.moesli.scan7.R
 
 /**
- * Foreground service while this phone hosts or joins a game over the radio (docs/MULTI_DEVICE.md
+ * Foreground service while this phone hosts or joins a game over the radio (docs/dev/MULTI_DEVICE.md
  * §6.1): it only keeps the process (and so the [ShareRuntime] that owns session + transport on its
  * single thread) alive with the screen off or the camera open. Started / stopped by [Radio.sessionActive].
  */

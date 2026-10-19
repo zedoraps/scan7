@@ -32,7 +32,7 @@ data class ClientView(
 enum class ClientStatus { CONNECTING, JOINED, DISCONNECTED, REJECTED, LEFT }
 
 /**
- * A guest phone's mirror of the host's game (docs/MULTI_DEVICE.md §4). It never changes the game
+ * A guest phone's mirror of the host's game (docs/dev/MULTI_DEVICE.md §4). It never changes the game
  * itself: [perform] sends an [Intent] and the state moves only when the host's [Event] arrives,
  * applied with the same [GameAction.apply] code, so every phone converges on the host's state.
  * Events are applied strictly in seq order; a gap asks for a snapshot. Unanswered intents stay in

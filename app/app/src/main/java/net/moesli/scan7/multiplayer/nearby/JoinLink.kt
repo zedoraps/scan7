@@ -10,7 +10,7 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * What the host's QR code carries (docs/MULTI_DEVICE.md §6.2):
+ * What the host's QR code carries (docs/dev/MULTI_DEVICE.md §6.2):
  * `scan7://join?v=1&s=<sessionId>&t=<token>`. The token never goes over the air in clear: the
  * joiner proves it with [JoinAuth] in its connection request, and again in the protocol's `hello`
  * (inside the encrypted Nearby link).

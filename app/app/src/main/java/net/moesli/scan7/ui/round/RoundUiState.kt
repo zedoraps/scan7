@@ -70,7 +70,7 @@ data class RoundUiState(
 }
 
 /**
- * Multiplayer parts of the Round screen (docs/MULTI_DEVICE.md §2).
+ * Multiplayer parts of the Round screen (docs/dev/MULTI_DEVICE.md §2).
  *
  * @param guest this phone joined the game: no Close round / Next round (only the host ends a
  *   round), the bottom shows [waiting] instead when none of its players is open.

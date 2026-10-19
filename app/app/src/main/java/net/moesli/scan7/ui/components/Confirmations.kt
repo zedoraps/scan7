@@ -18,7 +18,7 @@ data class ConfirmSpec(
 )
 
 /**
- * Every confirmation in the app (docs/APP_FLOW.md "Confirmations"). A function returns `null`
+ * Every confirmation in the app (docs/dev/APP_FLOW.md "Confirmations"). A function returns `null`
  * when the action needs no confirmation in that state (it then runs at once).
  *
  * Not confirmed on purpose (they have an Undo instead): Bust (in-card, sheet, camera: Undo toast /

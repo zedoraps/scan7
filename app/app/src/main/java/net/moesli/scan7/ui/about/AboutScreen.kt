@@ -86,7 +86,7 @@ data class ThirdParty(val name: String, @StringRes val detail: Int, val license:
 /**
  * What the APK contains from others. A static list instead of a generated one (AboutLibraries /
  * oss-licenses): the app has few dependency families, all under three licenses, and a plugin that
- * must keep up with AGP 9 and adds a UI library isn't worth it for that (see docs/RELEASE.md).
+ * must keep up with AGP 9 and adds a UI library isn't worth it for that (see docs/dev/RELEASE.md).
  * Keep it current when a dependency family is added.
  */
 val ThirdPartyNotices = listOf(

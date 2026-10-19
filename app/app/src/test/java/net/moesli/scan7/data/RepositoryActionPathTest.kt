@@ -23,7 +23,7 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
 /**
- * The repository's action path (docs/MULTI_DEVICE.md §4.1) on a real Room database in the JVM
+ * The repository's action path (docs/dev/MULTI_DEVICE.md §4.1) on a real Room database in the JVM
  * (Robolectric): every UI method becomes a GameAction, a router can take a shared game's actions,
  * and the guest's joined copy is stored read-only.
  */

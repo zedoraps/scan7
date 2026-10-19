@@ -1,7 +1,7 @@
 package net.moesli.scan7.multiplayer.nearby
 
 /**
- * Runtime permissions Nearby Connections needs per API level (docs/MULTI_DEVICE.md §6.3), as
+ * Runtime permissions Nearby Connections needs per API level (docs/dev/MULTI_DEVICE.md §6.3), as
  * plain strings so this stays JVM-testable. The manifest of the `play` flavor declares the same set
  * with matching `minSdkVersion` / `maxSdkVersion`. Ask only when the user taps Share or Join.
  */

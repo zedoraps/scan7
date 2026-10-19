@@ -22,7 +22,8 @@ app/.idea/
 *.iml
 .DS_Store
 
-# Photo data: too large for git, contains private photos (PRIVATE_*). Index lives in ml/data/manifest.csv
+# Photo data: too large for git and partly private; the local index ml/data/manifest.csv stays out too
+ml/data/manifest.csv
 ml/data/**/*.jpg
 ml/data/**/*.jpeg
 ml/data/**/*.png
@@ -35,7 +36,8 @@ ml/labeling/ls_data/
 ml/*.log
 
 # Claude Code worktrees for parallel agents
-.claude/
+.claude/*
+!.claude/CLAUDE.md
 
 # Raw app scans pulled from the phone (images + JSON sidecars)
 ml/data/app_scans/

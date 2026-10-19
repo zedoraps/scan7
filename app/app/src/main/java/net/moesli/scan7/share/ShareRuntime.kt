@@ -108,7 +108,7 @@ data class ShareState(val host: HostInfo? = null, val guest: GuestInfo? = null)
 private data class GuestSaved(val client: ClientSessionState, val hostToLocal: Map<Long, Long>, val uid: String? = null)
 
 /**
- * The phone's multiplayer sessions (docs/MULTI_DEVICE.md §4): at most one hosted game and one
+ * The phone's multiplayer sessions (docs/dev/MULTI_DEVICE.md §4): at most one hosted game and one
  * joined game (the debug demo runs both at once over the in-process network). Everything session
  * related runs on one thread ([dispatcher]); the UI reads [state] and calls the methods from
  * anywhere.

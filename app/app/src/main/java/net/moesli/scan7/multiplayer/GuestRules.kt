@@ -15,7 +15,7 @@ const val MAX_GUEST_DEVICES = 10
 const val MAX_HELPER_NAME = 24
 
 /**
- * A device in the session and who it is / scans (docs/MULTI_DEVICE.md §4.3). Phones are named only
+ * A device in the session and who it is / scans (docs/dev/MULTI_DEVICE.md §4.3). Phones are named only
  * after a person ([label]): [me] is the player the guest said they are; a helper without a player
  * gives a [helperName] instead. [scans] are the players this phone scans (me first, plus e.g. a
  * neighbour without a phone): highlighted on this phone, a badge on the others. Kept after a
@@ -55,7 +55,7 @@ sealed interface DeviceLabel {
 data class ResultAuthor(val round: Int, val playerId: Long, val deviceId: String)
 
 /**
- * What a guest may change (decided by the user, docs/MULTI_DEVICE.md §0.1): the host is not limited.
+ * What a guest may change (decided by the user, docs/dev/MULTI_DEVICE.md §0.1): the host is not limited.
  * Shared by the host (enforcement) and the guest UI (which buttons to show), so both agree.
  *  - no round / game actions, no total adjustments, no seating ([GameAction.hostOnly]);
  *  - only the running round;

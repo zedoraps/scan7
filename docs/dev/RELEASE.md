@@ -1,6 +1,6 @@
 # Releasing Scan7
 
-Scan7 is open source under the **GNU AGPL v3.0** ([LICENSE](../LICENSE)), because it ships an
+Scan7 is open source under the **GNU AGPL v3.0** ([LICENSE](../../LICENSE)), because it ships an
 Ultralytics YOLO (AGPL-3.0) detector. Everything in the repo is set up for a Google Play release, a
 GitHub release and (optionally) F-Droid without any secret in git. This file is the checklist of what
 is configured and what the user still has to do by hand.
@@ -77,7 +77,7 @@ git add changelog app/gradle.properties && git commit -m "Release v$v"
 The version is bumped automatically from the entry types (0.x: feature/change/breaking → minor,
 bugfix → patch; the first release is 0.1.0); tenzir-ship can't edit `gradle.properties`, hence the
 `sed`. Then write the Play "What's new" (≤ 500 characters per language) from
-`changelog/releases/vX.Y.Z/notes.md` into [store/whats-new.md](store/whats-new.md). Publishing
+`changelog/releases/vX.Y.Z/notes.md` into [store/whats-new.md](../store/whats-new.md). Publishing
 (tag `vX.Y.Z`, push, GitHub release with `notes.md` as the body) is
 `uvx tenzir-ship release publish --tag --yes` and **pushes**: only with the user's OK; attach the
 APK to the GitHub release afterwards (`gh release upload vX.Y.Z …`). No CI release workflow yet
@@ -89,11 +89,9 @@ notes live in `changelog/releases/` and on the GitHub releases.
 ### 1. Public source repository (required by the AGPL before the first public release)
 - [ ] Before publishing, check that no photo was ever committed: `git log --all --name-only --format= | grep -Ei '\.(jpe?g|png|heic)$' | sort -u`
       (expected: only brand/, design/, docs/store/ and res/ images; **never** anything from
-      `ml/data/` or any `PRIVATE_*` file). If anything private shows up, rewrite the history
+      `ml/data/`). If anything private shows up, rewrite the history
       (git filter-repo) *before* the first push. (Checked 2026-10-18: clean, only icons/avatars.)
-- [ ] Read `ml/data/manifest.csv` and `ml/data/web_test/sources.csv` once: no photos, but notes
-      describe the `PRIVATE_*` photos (e.g. "a short note"); shorten them if they say
-      more than you want public. The commit author name/e-mail become public too.
+- [ ] Read `ml/data/web_test/sources.csv` once (no photos, only sources). The commit author name/e-mail become public too.
 - [ ] Create the public GitHub repository and push `main` (and tags).
 - [x] Repository set to `zedoraps/scan7` in `app/gradle.properties` (`scan7.sourceUrl`,
       `scan7.privacyUrl`), `app/model.properties` (`model.url`), `docs/store/listing-en.md`.
@@ -150,7 +148,7 @@ stay opted in for 14 days in a row** before they can apply for production access
 - [ ] Then *Dashboard → Apply for production* and answer the questions about the test.
 
 ### 5. App content (Play Console → Policy → App content)
-Answers are drafted in [store/README.md](store/README.md).
+Answers are drafted in [store/README.md](../store/README.md).
 - [ ] Privacy policy URL (GitHub Pages, step 1).
 - [ ] Ads: No. App access: everything available without login.
 - [ ] **Data safety**: "No data collected / shared" (multiplayer game data goes only phone to phone, see store/README.md).
@@ -159,10 +157,10 @@ Answers are drafted in [store/README.md](store/README.md).
 - [ ] Government / financial / health / news declarations: none.
 
 ### 6. Store listing
-- [ ] Texts from [store/listing-en.md](store/listing-en.md) and the German translation from
-      [store/listing-de.md](store/listing-de.md) (add de-DE under *Store listing → Translations*).
-- [ ] Icon [store/icon-512.png](store/icon-512.png), feature graphic
-      [store/feature-graphic-en.png](store/feature-graphic-en.png) / [-de.png](store/feature-graphic-de.png)
+- [ ] Texts from [store/listing-en.md](../store/listing-en.md) and the German translation from
+      [store/listing-de.md](../store/listing-de.md) (add de-DE under *Store listing → Translations*).
+- [ ] Icon [store/icon-512.png](../store/icon-512.png), feature graphic
+      [store/feature-graphic-en.png](../store/feature-graphic-en.png) / [-de.png](../store/feature-graphic-de.png)
       (`uv run --project ml python -I docs/store/make_feature_graphic.py`), 2–8 phone screenshots
       at 1080 × 1920 per language (shot list in store/README.md), freshly made on an emulator:
       `ANDROID_SERIAL=localhost:5561 scripts/store-screenshots.sh`, then optionally
@@ -186,7 +184,7 @@ Answers are drafted in [store/README.md](store/README.md).
       The robots have no Flip 7 cards in front of the camera, so detection itself isn't tested there.
 - [ ] GitHub release `vX.Y.Z` with the APK attached (see the signature note in step 2) and
       `changelog/releases/vX.Y.Z/notes.md` as the text; Play "What's new" from
-      [store/whats-new.md](store/whats-new.md).
+      [store/whats-new.md](../store/whats-new.md).
 
 ### 8. F-Droid (optional)
 - Easiest: **IzzyOnDroid** repo (picks up the APK from GitHub releases; open a request there).
@@ -238,7 +236,7 @@ Hardware features `bluetooth`, `bluetooth_le`, `location` (+ `.gps`, `.network`)
 declared `required="false"`, so phones without them can still install Scan7 (multiplayer then
 can't reach other phones). Runtime permissions are requested only when the user taps *Share this
 game* or *Join a game*, never at startup. In the Play Console the location permission needs the
-declaration / explanation from [store/README.md](store/README.md).
+declaration / explanation from [store/README.md](../store/README.md).
 
 ## Follow-ups (not blocking)
 - Done: `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED` and WorkManager's boot receiver / services are gone

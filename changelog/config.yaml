@@ -1,4 +1,4 @@
-# tenzir-ship changelog config (https://github.com/tenzir/ship). Workflow: docs/RELEASE.md.
+# tenzir-ship changelog config (https://github.com/tenzir/ship). Workflow: docs/dev/RELEASE.md.
 id: scan7
 name: Scan7
 description: Flip 7 score keeper that scans your cards with the phone camera
@@ -9,5 +9,5 @@ omit_author: true
 release:
   commit_message: "Release {version}"
   # The app version lives in app/gradle.properties (scan7.versionName), which
-  # tenzir-ship can't edit; sync it by hand after `release create` (docs/RELEASE.md).
+  # tenzir-ship can't edit; sync it by hand after `release create` (docs/dev/RELEASE.md).
   version_bump_mode: "off"

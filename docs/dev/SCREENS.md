@@ -1,7 +1,7 @@
 # Scan7 – Screens
 
-Screen inventory. Behaviour is specified in [APP_FLOW.md](APP_FLOW.md); brand rules in [../brand/BRAND.md](../brand/BRAND.md).
-**Look, layout, tokens and components: [../design/DESIGN_HANDOFF.md](../design/DESIGN_HANDOFF.md) — it wins over this file where they differ** (e.g. players are a palette color + initial, no emoji; one-tap bust with undo; end of round reuses the table/list layout).
+Screen inventory. Behaviour is specified in [APP_FLOW.md](APP_FLOW.md); brand rules in [../brand/BRAND.md](../../brand/BRAND.md).
+**Look, layout, tokens and components: [../design/DESIGN_HANDOFF.md](../../design/DESIGN_HANDOFF.md) — it wins over this file where they differ** (e.g. players are a palette color + initial, no emoji; one-tap bust with undo; end of round reuses the table/list layout).
 
 ## Flow map
 

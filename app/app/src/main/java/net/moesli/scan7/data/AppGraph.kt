@@ -39,7 +39,7 @@ object AppGraph {
     @Volatile
     private var share: ShareRuntime? = null
 
-    /** Multiplayer sessions of this phone (docs/MULTI_DEVICE.md; radio = the flavor's [Radio]). */
+    /** Multiplayer sessions of this phone (docs/dev/MULTI_DEVICE.md; radio = the flavor's [Radio]). */
     fun share(context: Context): ShareRuntime =
         share ?: synchronized(this) {
             share ?: ShareRuntime(context, repository(context), Radio).also { share = it }

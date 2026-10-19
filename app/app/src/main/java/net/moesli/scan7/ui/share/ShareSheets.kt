@@ -107,7 +107,7 @@ fun QrCode(text: String, description: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * Host: "Share this game" (docs/MULTI_DEVICE.md §2, P2): the QR + short code, the connected phones
+ * Host: "Share this game" (docs/dev/MULTI_DEVICE.md §2, P2): the QR + short code, the connected phones
  * (who they are, whom they scan, online / offline, Remove) and Stop sharing. Needs the design pass.
  */
 @Composable

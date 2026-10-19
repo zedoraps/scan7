@@ -1,6 +1,6 @@
 # Scan7 – Design handoff
 
-Read together with `docs/SCREENS.md` (screen inventory + flow, unchanged) and `brand/BRAND.md`.
+Read together with `docs/dev/SCREENS.md` (screen inventory + flow, unchanged) and `brand/BRAND.md`.
 This file is the source of truth for **look, layout and interaction**. Where it disagrees with older drafts, this file wins.
 
 Reference prototype: `design/reference/RoundScreen.dc.html` — an HTML prototype of the Round screen. It is **not** app code; use it to read exact sizes, colors and behaviour (search for the numbers in `renderVals()`).
@@ -59,7 +59,7 @@ Circle around the token showing progress to the target (total / 200). Track `lin
 - Bust: `bust` fill, `onAccent` text, "✕ BUST". Never color alone.
 
 ### Confirm dialog
-`Scan7ConfirmDialog`: the dialog card (surface, line border, radius 18, padding 24, max 360) centred over a dim scrim; title (Unbounded 600 17), optional one-line body (14, "BUST" magenta), then **[Cancel] [Action]** 56 high, weights 1 : 1.4, fixed. Action = cyan primary, or for destructive actions the **warning button**: transparent, 1.5 px `warning` outline, ⚠ icon + label in `warning`. Confirm is armed 400 ms after opening (double-tap guard). Never inline in a sheet. List: docs/APP_FLOW.md "Confirmations".
+`Scan7ConfirmDialog`: the dialog card (surface, line border, radius 18, padding 24, max 360) centred over a dim scrim; title (Unbounded 600 17), optional one-line body (14, "BUST" magenta), then **[Cancel] [Action]** 56 high, weights 1 : 1.4, fixed. Action = cyan primary, or for destructive actions the **warning button**: transparent, 1.5 px `warning` outline, ⚠ icon + label in `warning`. Confirm is armed 400 ms after opening (double-tap guard). Never inline in a sheet. List: docs/dev/APP_FLOW.md "Confirmations".
 
 ### Menu sheet
 Bottom sheet with a list (M3 `ListItem`, no outlines, 20 px line icons, ≥ 56 px rows, press dim); settings inside are M3 controls (scan direction: segmented buttons, selected = accent). Leaving items slide the sheet down first; destructive items use the warning style.
@@ -121,7 +121,7 @@ Left: one skewed segment per player in seating order (scored = player color, bus
 - Animate cards to new positions over ~220 ms ease-out.
 
 ## 5. Other screens
-Keep the flow and content from `docs/SCREENS.md`. Restyle them with these tokens and components (they were drafted before this direction):
+Keep the flow and content from `docs/dev/SCREENS.md`. Restyle them with these tokens and components (they were drafted before this direction):
 - Player sheet → bottom sheet using the same card styling; primary Scan (cyan, tall), Manual, Bust (magenta outline).
 - Camera → live boxes cyan 3 px + 1.5 px white outline, label tag top-left in cyan; ignored cards dashed grey "IGNORED"; header with player token + "Scanning Mia"; big shutter; "Type instead".
 - Review → bottom panel: player, total big in cyan, breakdown line, card chips, buttons Retake (icon) · Fix · OK (primary). Bust variant: magenta header band "✕ BUST · Two 7s", duplicate chips outlined magenta, buttons Fix · Confirm bust (magenta). 7-different variant: "+15" badge.

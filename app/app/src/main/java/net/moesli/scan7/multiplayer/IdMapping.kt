@@ -4,7 +4,7 @@ import net.moesli.scan7.game.GameState
 
 /**
  * Player ids are local Room ids: the protocol uses the **host's** ids, a guest stores its mirror
- * of the game with its own (hidden) players. These map one side to the other (docs/MULTI_DEVICE.md §4.4).
+ * of the game with its own (hidden) players. These map one side to the other (docs/dev/MULTI_DEVICE.md §4.4).
  */
 fun GameState.mapPlayerIds(f: (Long) -> Long): GameState = copy(
     seats = seats.map { it.copy(playerId = f(it.playerId)) },

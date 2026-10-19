@@ -469,7 +469,7 @@ class MultiplayerSessionTest {
         t.assertConverged(again)
     }
 
-    // ---- Decided rules (docs/MULTI_DEVICE.md §0.1) ----------------------------------------------
+    // ---- Decided rules (docs/dev/MULTI_DEVICE.md §0.1) ----------------------------------------------
 
     @Test
     fun guestNeverReplacesAnotherDevicesValue_evenForAClaimedPlayer() {
@@ -651,7 +651,7 @@ class MultiplayerSessionTest {
         assertEquals(2L, t.host.seq)
     }
 
-    // ---- Edge cases & robustness (docs/MULTI_DEVICE.md §10) --------------------------------
+    // ---- Edge cases & robustness (docs/dev/MULTI_DEVICE.md §10) --------------------------------
 
     @Test
     fun leaveAndJoinAgain_newIntentsAreNotSwallowedAsRetries() {

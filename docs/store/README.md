@@ -1,7 +1,7 @@
 # Store listing kit
 
 Drafts and specs for the Google Play listing (and an F-Droid / GitHub release). The manual steps
-around them are in [../RELEASE.md](../RELEASE.md).
+around them are in [../RELEASE.md](../dev/RELEASE.md).
 
 | File | What |
 |---|---|
@@ -125,7 +125,7 @@ The review shot (2) uses a real table photo with Flip 7 cards: that shows the ap
 keep the cards small and incidental, or leave it out if in doubt. For German shots switch the
 emulator (or the app's per-app language) to German first. The debug build's Home footer shows the
 version line; that is fine. Check each shot for: no
-`PRIVATE_*` photo content, no real names, no card art bigger than the scan itself. Captions are
+private photo content, no real names, no card art bigger than the scan itself. Captions are
 optional overlays (design them in the brand colors with DM Mono / Unbounded, never the game's
 fonts).
 

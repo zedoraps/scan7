@@ -58,7 +58,7 @@ data class GameState(
     /**
      * Multiplayer: the players this phone's "Scan next" walks (a guest: the ones it scans; the host:
      * everyone no guest scans), `null` = everyone. Not stored; the repository fills it in like
-     * [scanDirection] (docs/MULTI_DEVICE.md rule 16).
+     * [scanDirection] (docs/dev/MULTI_DEVICE.md rule 16).
      */
     val scanOnly: Set<Long>? = null,
 ) {

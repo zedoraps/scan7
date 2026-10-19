@@ -43,7 +43,7 @@ sealed interface TransportStatus {
 fun nearbyServiceId(applicationId: String) = "$applicationId.mp"
 
 /**
- * Host side over Nearby Connections, `P2P_STAR` hub (docs/MULTI_DEVICE.md §6.1). Advertises
+ * Host side over Nearby Connections, `P2P_STAR` hub (docs/dev/MULTI_DEVICE.md §6.1). Advertises
  * `s7|<sessionId>`, accepts only connection requests that prove the QR token ([JoinAuth]), and
  * chunks frames above the BYTES limit ([FrameChunker]). [missingPermissions] is checked before
  * advertising starts.

@@ -2,7 +2,7 @@
 
 > Spec, 2026-10-19. Status: **merged into main as a beta feature** (Share this game / Join a game, both labelled BETA; DB v6). M1–M3 are built and JVM-tested; a first field test on 2 phones (Pixel 10 Pro, Android 17 + Pixel 8 Pro, Android 16) is done and its fixes are in (§8, M4). Still open: the remaining proposals in §0.2, the design pass (§8), a full game night with 3–4 phones and older API levels.
 > Build: the flavorless default is the Play build with Nearby; `-Pscan7.foss=true` builds without Play services (no multiplayer, F-Droid). Field-test log: `adb logcat -s Scan7Nearby Scan7Frames` (every Nearby call / callback and every game message as JSON).
-> Context: [APP_FLOW.md](APP_FLOW.md) (game flow), [../design/DESIGN_HANDOFF.md](../design/DESIGN_HANDOFF.md) (look), [../AGENTS.md](../AGENTS.md). App: `minSdk 29`, `targetSdk 37` (Android 17).
+> Context: [APP_FLOW.md](APP_FLOW.md) (game flow), [../design/DESIGN_HANDOFF.md](../../design/DESIGN_HANDOFF.md) (look), [../AGENTS.md](../../AGENTS.md). App: `minSdk 29`, `targetSdk 37` (Android 17).
 
 ---
 
@@ -267,7 +267,7 @@ On 12+ the radio permissions show as **one "Nearby devices" dialog**, followed b
 
 ### 6.4 Dependency, flavors, license
 - `com.google.android.gms:play-services-nearby` is **proprietary** (Play services) and needs Play services on the phone (excludes de-Googled ROMs and Huawei).
-- **Builds:** the flavorless default is the **Play build** (`com.google.android.gms:play-services-nearby:19.5.1` + `GmsConnectionsApi` + the permission manifest from `src/play/`), with the usual task names (`assembleDebug`, `installDebug`, `testDebugUnitTest`, `lintDebug`). `-Pscan7.foss=true` compiles `src/foss/` instead: no Play services, Share and Join hidden. `-Pscan7.flavors=true` instead adds the dimension `distribution` with `play` (default) and `foss`; the tasks then carry the flavor (`assemblePlayDebug`, `testFossDebugUnitTest`, …). Everything except `GmsConnectionsApi` is plain Kotlin in `main`, so all the tests run in every build. F-Droid (optional, docs/RELEASE.md) builds `foss`. The user decided multiplayer isn't an F-Droid target.
+- **Builds:** the flavorless default is the **Play build** (`com.google.android.gms:play-services-nearby:19.5.1` + `GmsConnectionsApi` + the permission manifest from `src/play/`), with the usual task names (`assembleDebug`, `installDebug`, `testDebugUnitTest`, `lintDebug`). `-Pscan7.foss=true` compiles `src/foss/` instead: no Play services, Share and Join hidden. `-Pscan7.flavors=true` instead adds the dimension `distribution` with `play` (default) and `foss`; the tasks then carry the flavor (`assemblePlayDebug`, `testFossDebugUnitTest`, …). Everything except `GmsConnectionsApi` is plain Kotlin in `main`, so all the tests run in every build. F-Droid (optional, docs/dev/RELEASE.md) builds `foss`. The user decided multiplayer isn't an F-Droid target.
 - **AGPL:** linking a proprietary library into an AGPL app is fine for the copyright holder. To let others redistribute the `play` build, add an **AGPL §7 additional permission** for Google Play services to the license notice (a standard pattern). The About screen lists Play services Nearby in the third-party notices (`ThirdPartyNotices`).
 - Privacy note: the Play services SDK may send usage diagnostics (users can turn this off in system settings). Say so in the privacy policy.
 
@@ -284,7 +284,6 @@ On 12+ the radio permissions show as **one "Nearby devices" dialog**, followed b
 - **Join token:** 128 random bits per share session, only in the QR. It is compared in constant time in `hello`; a wrong token → `BAD_TOKEN` + disconnect. Stop sharing invalidates it. Removing a phone disconnects it without a ban: it can rejoin by scanning the QR again.
 - **Data exchanged:** player **names + avatar ids**, seats, results (status, points, **card labels**), adjustments (delta + note), helper names, a random per-install device id, and timestamps. Device models and device names are never sent. **No photos, no training JPEGs, no other games, no player stats.** Guests store the joined game (and those players) only as their read-only history copy, unless they save the players to their own list (U17).
 - **Input from guests is untrusted:** frames are size-limited (32 KB); malformed or unknown messages are dropped; every intent is validated by `GameState` and `GuestRules`; a guest can't name another guest's `deviceId` (the host fills `by` from the link).
-- `PRIVATE_*` photo rules are unaffected (nothing image-like is sent).
 
 ---
 

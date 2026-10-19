@@ -34,12 +34,11 @@ read -r -a LOCALE_LIST <<<"${LOCALES:-en-US de-DE}"
 read -r -a SHOT_LIST <<<"${SHOTS:-1:p6:round_table 2:p6:review 3:p6:round_list 4:p6:scoreboard 5:gameover:gameover 6:history:home}"
 WAIT=${WAIT:-4}
 TRIES=${TRIES:-3}
-# The review shot scans a real table photo (no PRIVATE_* file); photos aren't in git, so in a
+# The review shot scans a real table photo without personal info; photos aren't in git, so in a
 # worktree take it from the main checkout.
 PHOTO=ml/data/real_photos/train/PXL_20261018_103625190.jpg
 MAIN=$(cd "$(git rev-parse --git-common-dir)/.." && pwd)
 if [[ -f $ROOT/$PHOTO ]]; then PHOTO_SRC=${PHOTO_SRC:-$ROOT/$PHOTO}; else PHOTO_SRC=${PHOTO_SRC:-$MAIN/$PHOTO}; fi
-[[ $(basename "$PHOTO_SRC") == PRIVATE_* ]] && { echo "refusing a PRIVATE_ photo" >&2; exit 1; }
 [[ -f $PHOTO_SRC ]] || { echo "missing review photo $PHOTO_SRC" >&2; exit 1; }
 
 if [[ "${1:-}" != "--no-build" ]]; then

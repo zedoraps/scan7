@@ -10,7 +10,7 @@ plugins {
     alias(libs.plugins.androidx.room)
 }
 
-// ---- Versioning (docs/RELEASE.md) ------------------------------------------------------------
+// ---- Versioning (docs/dev/RELEASE.md) ------------------------------------------------------------
 // versionCode: -Pscan7.versionCode=N, else the commit count of HEAD (grows with every commit on the
 // release branch; needs a full clone, not a shallow one), else 1. versionName: scan7.versionName
 // in gradle.properties (bump it per release), overridable with -Pscan7.versionName=...
@@ -27,7 +27,7 @@ val scan7VersionName: String = providers.gradleProperty("scan7.versionName").orN
 val scan7SourceUrl: String = providers.gradleProperty("scan7.sourceUrl").get()
 val scan7PrivacyUrl: String = providers.gradleProperty("scan7.privacyUrl").get()
 
-// ---- Release signing (docs/RELEASE.md) --------------------------------------------------------
+// ---- Release signing (docs/dev/RELEASE.md) --------------------------------------------------------
 // The upload key never lives in the repo: set these in ~/.gradle/gradle.properties or as
 // environment variables. Without all four, release builds are left unsigned.
 fun secret(property: String, env: String): String? =
@@ -38,7 +38,7 @@ val uploadKeyAlias = secret("scan7.upload.keyAlias", "SCAN7_UPLOAD_KEY_ALIAS")
 val uploadKeyPassword = secret("scan7.upload.keyPassword", "SCAN7_UPLOAD_KEY_PASSWORD")
 val hasUploadKey = listOf(uploadStoreFile, uploadStorePassword, uploadKeyAlias, uploadKeyPassword).all { it != null }
 
-// ---- Multiplayer flavors (docs/MULTI_DEVICE.md §6.4) -----------------------------------------
+// ---- Multiplayer flavors (docs/dev/MULTI_DEVICE.md §6.4) -----------------------------------------
 // The flavorless default build is the Play build (Google Nearby Connections, proprietary: Share /
 // Join), so every task (assembleDebug, installDebug, testDebugUnitTest, …) keeps its name.
 // -Pscan7.foss=true builds it without Play services (no multiplayer; F-Droid).
@@ -141,7 +141,7 @@ room {
 // LiteRT doesn't reference those classes when loading from a buffer (checked: no dex or native
 // reference; detection runs without them). Excluding it drops WorkManager's boot receiver and
 // services and the RECEIVE_BOOT_COMPLETED / WAKE_LOCK / ACCESS_NETWORK_STATE / FOREGROUND_SERVICE
-// permissions from the merged manifest (docs/RELEASE.md).
+// permissions from the merged manifest (docs/dev/RELEASE.md).
 configurations.configureEach {
     exclude(group = "com.google.android.play", module = "ai-delivery")
 }
@@ -191,7 +191,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
 
-// ---- Detector model (docs/RELEASE.md "Model") -------------------------------------------------
+// ---- Detector model (docs/dev/RELEASE.md "Model") -------------------------------------------------
 // assets/model.tflite is not in git (~10 MB per version). `./gradlew downloadModel` fetches the
 // released model named in app/model.properties (a GitHub release asset) and checks its SHA-256;
 // alternatively export your own with ml/scripts/export.py.

@@ -53,7 +53,7 @@ data class PlayerUi(
 }
 
 /**
- * Multiplayer badge on a card / row (docs/MULTI_DEVICE.md §2): [mine] = this phone scans the
+ * Multiplayer badge on a card / row (docs/dev/MULTI_DEVICE.md §2): [mine] = this phone scans the
  * player (highlight), else [initial] of the person whose phone does. [description] for TalkBack.
  */
 @Immutable

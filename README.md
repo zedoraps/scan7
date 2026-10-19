@@ -1,42 +1,43 @@
-# scan7
+<p align="center">
+  <img src="docs/store/feature-graphic-en.png" alt="Scan7: scan your cards, keep score" width="720">
+</p>
 
-Android app that scans and scores Flip 7 cards on-device. See [docs/BRIEF.md](docs/BRIEF.md) for the full plan.
+<p align="center">
+  <a href="https://github.com/zedoraps/scan7/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/zedoraps/scan7?color=38D6F5&labelColor=15223A"></a>
+  <img alt="Android 10+" src="https://img.shields.io/badge/Android-10%2B-38D6F5?labelColor=15223A">
+  <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-38D6F5?labelColor=15223A"></a>
+</p>
+
+# Scan7
+
+An Android score keeper for the card game Flip 7. Point the phone at a player's row of cards, press
+the shutter, and Scan7 recognises the cards **on the phone** and adds up the points: number cards,
+modifiers, x2 and the Flip 7 bonus. Check the result, fix a card if needed, and go on to the next
+player.
+
+- **Fast at the table:** one scan per player, *Scan next* chains the cameras, bust with one tap (with Undo), or enter cards by hand.
+- **The whole game:** saved players with avatars, seats like around the real table, running totals, leader, target score, scoreboard and past games.
+- **Several phones (beta):** share a game with a QR code; everyone scans their own players, phone to phone over Bluetooth and Wi-Fi.
+- **Private:** no account, no ads, no analytics, no internet permission. Photos never leave the phone ([privacy policy](docs/privacy.md)).
+
+<p align="center">
+  <img src="docs/readme/round_table.png" alt="Round, table view" width="19%">
+  <img src="docs/readme/round_list.png" alt="Round, list view" width="19%">
+  <img src="docs/readme/scoreboard.png" alt="Scoreboard" width="19%">
+  <img src="docs/readme/gameover.png" alt="Game over" width="19%">
+  <img src="docs/readme/home.png" alt="Home with past games" width="19%">
+</p>
+
+## Download
+The signed APK is attached to each [GitHub release](https://github.com/zedoraps/scan7/releases/latest)
+(Android 10 or newer). Google Play is coming. The Play and GitHub copies are signed differently, so
+one can't update the other.
 
 *Unofficial score keeper for Flip 7. Not affiliated with The Op Games.*
 
-## Agents
-Coding agents (Claude Code and others): read [AGENTS.md](AGENTS.md) first — commands, hard rules, decisions, conventions.
-
-## Branding
-App name **Scan7**, dark "Deep Cyan" theme, Unbounded + DM Mono fonts. Brand kit and rules: [brand/BRAND.md](brand/BRAND.md); in the app see `ui/theme/` (`Scan7Theme`, `Scan7Theme.colors`, `Scan7Wordmark`). Font licenses: [docs/third_party/](docs/third_party/).
-
-## Layout
-- `ml/` – Python: card cutouts, synthetic data, training, export
-- `app/` – Android app (Kotlin + Jetpack Compose)
-- `docs/` – project brief and notes
-
-## Setup
-
-### ML environment
-Requires [uv](https://docs.astral.sh/uv/). It fetches Python 3.12 automatically.
-
-```sh
-cd ml
-uv sync                 # creates ml/.venv with Python 3.12 and installs deps
-uv run python --version # → Python 3.12.x
-```
-
-Run any script with `uv run python scripts/<name>.py` from `ml/`.
-
-### Android
-- Android SDK lives at `~/Library/Android/sdk`. Add `platform-tools` to PATH for `adb`:
-  ```sh
-  export PATH="$HOME/Library/Android/sdk/platform-tools:$PATH"
-  ```
-- Test on a real phone over USB (enable USB debugging, then `adb devices`).
-- The detector model isn't in git: after cloning run `cd app && ./gradlew downloadModel` (or export your own, stage 5).
-- The default build is the Play build with multiplayer (beta, Google Play services Nearby: *Share this game* / *Join a game*, spec [docs/MULTI_DEVICE.md](docs/MULTI_DEVICE.md)); `./gradlew -Pscan7.foss=true …` builds without Play services and without multiplayer (F-Droid).
-- Releases (signing, versioning, Play / GitHub / F-Droid): [docs/RELEASE.md](docs/RELEASE.md).
+## Development
+Building the app, training the detector and the project docs: [docs/dev/DEVELOPMENT.md](docs/dev/DEVELOPMENT.md).
+Coding agents start with [AGENTS.md](AGENTS.md).
 
 ## License
 Scan7 is free software under the **GNU Affero General Public License v3.0** ([LICENSE](LICENSE)):
@@ -61,38 +62,3 @@ Third-party components:
 The app shows these notices with the full texts under Home → version footer → *About & licenses*.
 Flip 7 is a trademark of its owner and is only named to describe what the app is for; the app uses
 none of the game's artwork, logo or fonts. Privacy policy: [docs/privacy.md](docs/privacy.md).
-
-## Input data
-Photos are **not in git**: they're large, and the `PRIVATE_*` files show personal info. `ml/data/manifest.csv` lists every file with its original camera filename and notes. Back up `ml/data/` separately.
-
-Folders (file names matter for `cards_flat/`):
-
-| Folder | Content |
-|---|---|
-| `ml/data/cards_flat/` | One straight-on photo per card on a dark background, named by class: `00.jpg` … `12.jpg`, `plus2.jpg`, `plus4.jpg`, `plus6.jpg`, `plus8.jpg`, `plus10.jpg`, `x2.jpg`, `freeze.jpg`, `flip3.jpg`, `second_chance.jpg`, `back.jpg`. Extra photos of the same class: `07_2.jpg`, `07_3.jpg`, … |
-| `ml/data/backgrounds/` | 30–50 photos of tables, floors, fabrics, desk mats — no cards |
-| `ml/data/real_photos/train/` | Real game photos for fine-tuning (to be labeled) |
-| `ml/data/real_photos/test/` | Real game photos for evaluation only — **never train on these** |
-| `ml/data/app_scans/` | Raw frames saved by the app ("Save scans for training"), pulled with `scripts/import_app_scans.py`, which copies them into `real_photos/train|test` |
-| `ml/data/unused/` | Kept for reference, not used (Flip 7 box shots, 12 on light background) |
-
-## Stages
-| # | Stage | Command | Status |
-|---|---|---|---|
-| 1 | Card cutouts | `uv run python scripts/make_cutouts.py` | done |
-| 2 | Synthetic data | `cd ml && uv run python scripts/gen_synth.py --count 5000` (preview: `scripts/preview_synth.py`) | done (generator; 200-image test run) |
-| 3 | Real photo labeling | `ml/labeling/start.sh` — see [ml/labeling/README.md](ml/labeling/README.md) | set up, waiting for photos |
-| 4 | Training & evaluation | — | |
-| 5 | Export to LiteRT | `cd ml && uv run scripts/export.py <checkpoint>` (own env — not `uv run python`; installs into app assets, model not in git) | fp32 export + PyTorch↔LiteRT check done; int8 pending |
-| 6 | Android app | `cd app && ./gradlew installDebug` | debug screens + live detector on GPU; game flow pending (docs/APP_FLOW.md) |
-| 7 | Scoring logic | `cd app && ./gradlew testDebugUnitTest` | done (logic + tests; UI pending) |
-
-## Stage 1 – Card cutouts
-```sh
-cd ml
-uv run python scripts/make_cutouts.py            # add --measure to re-measure aspect / corner radius, --debug for detection overlays
-```
-- **Input:** `ml/data/cards_flat/*.jpg` — one photo per card on the dark mat. The file stem is the class (`<class>_<n>.jpg` = extra photo of the same class).
-- **Output:** `ml/out/cutouts/<stem>.png` — upright, perspective-corrected RGBA cutouts (600×832 px) with an anti-aliased rounded-corner alpha; a few px are trimmed off each edge so no mat remains. Colors are left as photographed. `ml/out/cutouts/contact_sheet.jpg` shows all cutouts on a checkerboard with the banner box outlined in magenta on number cards.
-- **How:** threshold the HSV brightness (Otsu) → convex hull of the largest blob → fit a line to the straight middle part of each edge → intersect them for the 4 sharp corners → homography.
-- **Config:** `ml/config/cards.yaml` — the fixed class list (ids 0–22 = YOLO class order), measured card geometry (aspect w/h 0.721, corner radius 0.042 × width), the word-banner box on number cards (`[x0, y0, x1, y1]` as fractions of card size), and per-photo rotation overrides for photos where the card isn't upright (`flip3: 90`, `plus8: 180`, `second_chance: 180`). Add an entry there when a new photo comes out rotated.

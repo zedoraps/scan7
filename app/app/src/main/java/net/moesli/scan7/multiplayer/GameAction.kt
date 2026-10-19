@@ -11,7 +11,7 @@ import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.scoring.Card
 
 /**
- * One game mutation as data: the wire form of the existing [GameState] actions (docs/MULTI_DEVICE.md §5).
+ * One game mutation as data: the wire form of the existing [GameState] actions (docs/dev/MULTI_DEVICE.md §5).
  * The host applies it and broadcasts it as an [Event]; every client applies the same action with the
  * same `now` and `seq` and so ends up with an identical [GameState].
  *

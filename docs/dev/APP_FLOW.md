@@ -1,11 +1,11 @@
 # Scan7 – App flow
 
 > Agreed 2026-10-18. This is the spec for the game **flow**; look, layout and interaction are defined in
-> [../design/DESIGN_HANDOFF.md](../design/DESIGN_HANDOFF.md), which wins where they differ. The current debug
+> [../design/DESIGN_HANDOFF.md](../../design/DESIGN_HANDOFF.md), which wins where they differ. The current debug
 > screens (live camera, detect from photo) stay available for testing.
 
 ## Players
-- Players are stored locally on the phone: name + an **avatar** (color + pattern + face from the avatar kit, [../design/avatars/AVATARS.md](../design/avatars/AVATARS.md): 15 colors, 6 patterns incl. plain, 12 faces; never cyan or magenta). Add, rename, delete any time. Max 10 players per game.
+- Players are stored locally on the phone: name + an **avatar** (color + pattern + face from the avatar kit, [../design/avatars/AVATARS.md](../../design/avatars/AVATARS.md): 15 colors, 6 patterns incl. plain, 12 faces; never cyan or magenta). Add, rename, delete any time. Max 10 players per game.
 - The avatar replaces the old initial token everywhere (round cards inside the score ring, list rows, camera header, review/manual, sheets, scoreboard, game over, resume card, players list, new game); the name always stays visible next to it. TalkBack: "Mia, sand avatar, grin face".
 - **Avatar editor** (player sheet): live preview (88 dp) + name at the top, shuffle in the header, Face 3×4, Pattern 1×6, Color 3×5; Save stays pinned at the bottom.
 - **Colors may repeat within a game.** Colors used by other players of the current game (or the game being set up in New game) show a small dot so people can avoid duplicates; nothing is blocked.

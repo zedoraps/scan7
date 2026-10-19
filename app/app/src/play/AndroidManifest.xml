@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- `play` flavor only (docs/MULTI_DEVICE.md §6): the permission set of the Nearby Connections
+<!-- `play` flavor only (docs/dev/MULTI_DEVICE.md §6): the permission set of the Nearby Connections
      get-started guide (runtime set in multiplayer/nearby/NearbyPermissions.kt, requested only on
      Share / Join), the foreground service that keeps a session alive, and the scan7://join deep
      link. Every runtime permission requested must be declared here (NearbyPartsTest checks it),

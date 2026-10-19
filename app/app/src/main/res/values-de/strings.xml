@@ -474,7 +474,7 @@
     <string name="scoreboard_joined_description">%1$s, ab Runde %2$d dabei</string>
     <string name="scoreboard_left_description">%1$s, in Runde %2$d ausgestiegen</string>
     <string name="scoreboard_cell_absent">Runde %1$d, %2$s: nicht dabei</string>
-    <!-- Mehrspieler (docs/MULTI_DEVICE.md): teilen, beitreten, wer scannt wen, Gast-Rundenbildschirm. -->
+    <!-- Mehrspieler (docs/dev/MULTI_DEVICE.md): teilen, beitreten, wer scannt wen, Gast-Rundenbildschirm. -->
     <string name="share_notification_channel">Mehrspieler</string>
     <string name="share_notification_title">Scan7 teilt ein Spiel</string>
     <string name="share_notification_text">Die Handys an deinem Tisch bleiben verbunden.</string>

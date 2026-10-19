@@ -395,7 +395,7 @@ fun RoundRoute(
     val haptics = LocalHapticFeedback.current
     controller.snapshot = snapshot
     controller.entry = entry
-    // Multiplayer (docs/MULTI_DEVICE.md §2): this phone hosts this game, or it is a joined copy.
+    // Multiplayer (docs/dev/MULTI_DEVICE.md §2): this phone hosts this game, or it is a joined copy.
     val context = LocalContext.current
     val shareRuntime = remember { AppGraph.share(context) }
     val shareState by shareRuntime.state.collectAsStateWithLifecycle()

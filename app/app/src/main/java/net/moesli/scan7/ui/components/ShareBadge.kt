@@ -19,7 +19,7 @@ import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
 
 /**
- * Multiplayer badge on a player card / row (docs/MULTI_DEVICE.md §2, P7): this phone scans the
+ * Multiplayer badge on a player card / row (docs/dev/MULTI_DEVICE.md §2, P7): this phone scans the
  * player = cyan phone on the accent outline; another phone does = phone + that person's initial,
  * muted. Needs the design pass; kept small so it never covers the name or the ring.
  */

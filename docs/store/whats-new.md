@@ -1,7 +1,7 @@
 # Play "What's new" (release notes per version)
 
 Play shows at most **500 characters per language**. Write them from the release notes
-(`uvx tenzir-ship show latest --release --markdown`, see docs/RELEASE.md) and paste the block
+(`uvx tenzir-ship show latest --release --markdown`, see docs/dev/RELEASE.md) and paste the block
 into Play Console → release → *Release notes* (the `<en-US>` / `<de-DE>` tags are Play's format).
 Newest version on top.
 

@@ -5,7 +5,7 @@ import net.moesli.scan7.game.Player
 import java.security.MessageDigest
 
 /**
- * The host's side of a shared game (docs/MULTI_DEVICE.md §5): the single writer. Applies its own
+ * The host's side of a shared game (docs/dev/MULTI_DEVICE.md §5): the single writer. Applies its own
  * actions ([perform]) and the guests' [Intent]s to [GameState] in arrival order, numbers every
  * applied action with a gap-free [seq] and broadcasts it as an [Event]. New and returning devices
  * get a [Welcome] with a full snapshot and the [roster] (who is who, who scans whom).

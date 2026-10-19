@@ -493,7 +493,7 @@
     <string name="scoreboard_joined_description">%1$s, joined in round %2$d</string>
     <string name="scoreboard_left_description">%1$s, left in round %2$d</string>
     <string name="scoreboard_cell_absent">Round %1$d, %2$s: not playing</string>
-    <!-- Multiplayer (docs/MULTI_DEVICE.md): share, join, claims, guest round screen. -->
+    <!-- Multiplayer (docs/dev/MULTI_DEVICE.md): share, join, claims, guest round screen. -->
     <string name="share_notification_channel">Multiplayer</string>
     <string name="share_notification_title">Scan7 is sharing a game</string>
     <string name="share_notification_text">The phones at your table stay connected.</string>

@@ -19,7 +19,7 @@ kotlinxSerialization = "1.11.0"
 kotlinxCoroutines = "1.11.0"
 coreSplashscreen = "1.2.0"
 navigation3 = "1.2.0"
-# Multiplayer transport, `play` flavor only (docs/MULTI_DEVICE.md §6.4): proprietary Play services.
+# Multiplayer transport, `play` flavor only (docs/dev/MULTI_DEVICE.md §6.4): proprietary Play services.
 playServicesNearby = "19.5.1"
 # JVM tests of Room code (GameRepository) without a device.
 robolectric = "4.16"

@@ -23,7 +23,7 @@ import net.moesli.scan7.ui.components.Scan7ConfirmDialog
 
 /**
  * The "Nearby devices" (API 31+) / location (API 29–30) permissions for multiplayer, asked only
- * when the user taps Share or Join (docs/MULTI_DEVICE.md §6.3): a one-line rationale first, then
+ * when the user taps Share or Join (docs/dev/MULTI_DEVICE.md §6.3): a one-line rationale first, then
  * the system dialog; denied → "Open settings". [run] calls `then` at once when everything is granted,
  * `onCancel` when the user backs out (rationale cancelled, or denied) so the caller can close its UI.
  */
