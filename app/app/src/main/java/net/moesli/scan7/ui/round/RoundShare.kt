@@ -1,5 +1,9 @@
 package net.moesli.scan7.ui.round
 
+import net.moesli.scan7.ui.components.scan7Clickable
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -73,13 +77,17 @@ private fun otherMark(label: DeviceLabel?): ShareMark {
 
 /** Connection state over the table (guest): announced by TalkBack when it changes. */
 @Composable
-internal fun ShareBanner(text: String, modifier: Modifier = Modifier) {
+internal fun ShareBanner(text: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
     val colors = Scan7Theme.colors
+    val shape = RoundedCornerShape(Scan7Radii.iconButton)
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .fillMaxWidth()
-            .background(colors.surface, RoundedCornerShape(Scan7Radii.iconButton))
+            .clip(shape)
+            .background(colors.surface, shape)
+            // Tappable = the "not connected" warning (warning outline, like other warnings).
+            .then(if (onClick != null) Modifier.border(1.5.dp, colors.warning, shape).scan7Clickable(onClick) else Modifier)
             .padding(horizontal = Scan7Spacing.m, vertical = Scan7Spacing.xs)
             .semantics { liveRegion = LiveRegionMode.Polite },
     ) {

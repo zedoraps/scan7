@@ -181,7 +181,11 @@ fun RoundScreen(
                     share = state.share,
                 )
                 state.share?.banner?.let { banner ->
-                    ShareBanner(banner.resolve(), Modifier.offset(y = m.headerTop + Scan7Spacing.headerHeight).padding(horizontal = Scan7Spacing.screenMargin))
+                    ShareBanner(
+                        banner.resolve(),
+                        Modifier.offset(y = m.headerTop + Scan7Spacing.headerHeight).padding(horizontal = Scan7Spacing.screenMargin),
+                        onClick = if (state.share.rejoin) actions::onRejoin else null,
+                    )
                 }
             }
 

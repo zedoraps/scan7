@@ -223,6 +223,8 @@ private fun roundNavigator(gameId: Long, stack: BackStack) = object : RoundNavig
     override fun home() = stack.reset(Route.Home)
 
     override fun managePlayers() = stack.push(Route.GamePlayers(gameId))
+
+    override fun join() = stack.push(Route.Join())
 }
 
 @Composable

@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.round
 
+import kotlinx.coroutines.delay
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -70,6 +71,9 @@ interface RoundNavigator {
 
     /** Round menu → Players: add / remove players mid-game. */
     fun managePlayers() {}
+
+    /** Multiplayer guest that can't reconnect: Join a game (scan the host's code again). */
+    fun join() {}
 }
 
 /** Transient Round screen UI (saved across rotation / process death). */
@@ -186,6 +190,8 @@ class RoundController(
     override fun onDone() {
         flags.arranging = false
     }
+
+    override fun onRejoin() = navigator.join()
 
     override fun onMoveCard(playerId: String, position: TablePosition) =
         run("move card") { movePosition(gameId, playerId.toLong(), position.x, position.y) }
@@ -406,6 +412,16 @@ fun RoundRoute(
             }
         }
     }
+    // Reconnecting a joined game failed for a while (host gone, radio off, permission declined):
+    // say that this is only this phone's copy and offer Join again.
+    var offline by remember(gameId) { mutableStateOf(false) }
+    LaunchedEffect(snap.isJoined, guest?.status) {
+        offline = false
+        if (snap.isJoined && guest?.status != ClientStatus.JOINED) {
+            delay(REJOIN_WARNING_MS)
+            offline = true
+        }
+    }
     val roundClosed = snap.state.currentRound.isClosed
     // Only the host settles a closed round (a guest's copy follows the host's next round).
     LaunchedEffect(roundClosed) { if (roundClosed && !snap.isJoined) controller.settleClosedRound() }
@@ -419,13 +435,14 @@ fun RoundRoute(
     // Type mode: the in-card / bottom scan buttons show the keypad / "Enter next".
     CompositionLocalProvider(LocalTypeEntry provides typeEntry) {
         val base = snap.toRoundUiState(flags.arranging, typeEntry = typeEntry).copy(canArrange = !readOnly)
+        val shown = when {
+            guest != null -> base.joined(guest)
+            snap.isJoined -> base.copy(share = RoundShareUi(guest = true, waiting = uiText(R.string.round_mine_done), banner = uiText(R.string.banner_lost)))
+            host != null || (canShare && !snap.isJoined) -> base.hosted(host, snap.players)
+            else -> base
+        }
         RoundScreen(
-            state = when {
-                guest != null -> base.joined(guest)
-                snap.isJoined -> base.copy(share = RoundShareUi(guest = true, waiting = uiText(R.string.round_mine_done), banner = uiText(R.string.banner_lost)))
-                host != null || (canShare && !snap.isJoined) -> base.hosted(host, snap.players)
-                else -> base
-            },
+            state = if (offline) shown.copy(share = shown.share?.copy(banner = uiText(R.string.banner_offline), rejoin = true)) else shown,
             actions = controller,
             // The phone lies on the table during a game: keep the screen on.
             modifier = modifier.keepScreenOn(),
@@ -557,3 +574,7 @@ fun RoundRoute(
     }
 
 }
+
+
+/** How long a joined game may stay unconnected before the "only a copy" warning. */
+private const val REJOIN_WARNING_MS = 20_000L

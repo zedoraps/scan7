@@ -128,6 +128,8 @@ data class ResumeGameUi(
     val players: List<PlayerUi>,
     val leaders: List<PlayerUi>,
     val startedAt: Long = 0,
+    /** Multiplayer: joined on another phone (the host's name; "" = unknown), `null` = this phone's game. */
+    val joinedFrom: String? = null,
 ) {
     /** "Mia leads · 46", "Ben and Mia lead · 46", "No points yet". */
     val leaderText: UiText
@@ -160,6 +162,7 @@ fun GameSnapshot.toResumeUi(): ResumeGameUi {
         players = uis,
         leaders = uis.filter { it.isLeader },
         startedAt = state.startedAt,
+        joinedFrom = joinedFrom,
     )
 }
 
@@ -352,7 +355,17 @@ private fun ResumeCard(game: ResumeGameUi, onResume: () -> Unit, onDelete: () ->
             ) {
                 // Gap: at large font scales "RESUME GAME" and "to 200" ran together.
                 Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xl), verticalAlignment = Alignment.CenterVertically) {
-                    SectionLabel(stringResource(R.string.home_resume_title), Modifier.weight(1f))
+                    Column(Modifier.weight(1f)) {
+                        SectionLabel(stringResource(R.string.home_resume_title))
+                        // A joined copy: say so (it reconnects to the host when opened).
+                        game.joinedFrom?.let {
+                            Text(
+                                if (it.isBlank()) stringResource(R.string.history_joined_plain) else stringResource(R.string.history_joined, it),
+                                color = colors.accent,
+                                style = Scan7Type.text12,
+                            )
+                        }
+                    }
                     Text(stringResource(R.string.target_short, game.target), color = colors.textMuted, style = Scan7Type.text12)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
@@ -643,7 +656,7 @@ fun HomeRoute(
     repository: GameRepository = AppGraph.repository(LocalContext.current),
     onJoin: (() -> Unit)? = null,
 ) {
-    val active by repository.activeGame.collectAsStateWithLifecycle(initialValue = null)
+    val active by repository.resumeGame.collectAsStateWithLifecycle(initialValue = null)
     val players by repository.players.collectAsStateWithLifecycle(initialValue = emptyList())
     val pastFlow = remember(repository) { repository.pastGames.map { list -> list.map { it.toPastGameUi() } } }
     val past by pastFlow.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -654,7 +667,10 @@ fun HomeRoute(
             playerCount = players.size,
             version = stringResource(R.string.home_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
             // "Same players" only offers the ones still stored (deleted players are archived).
-            past = players.map { it.id }.toSet().let { stored -> past.map { g -> g.copy(lineup = g.lineup.filter { it in stored }) } },
+            // The joined game on the Resume card isn't listed twice.
+            past = players.map { it.id }.toSet().let { stored ->
+                past.filter { it.gameId != active?.state?.id }.map { g -> g.copy(lineup = g.lineup.filter { it in stored }) }
+            },
             // Relative dates ("Today") only need to be right when Home is (re)composed.
             now = System.currentTimeMillis(),
         ),

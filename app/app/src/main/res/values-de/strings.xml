@@ -541,6 +541,7 @@
     <string name="round_waiting_phones">Warten auf %1$s</string>
     <string name="round_you_scan">Du scannst</string>
     <string name="banner_connecting">Verbinde …</string>
+    <string name="banner_offline">Nicht verbunden · das ist nur eine Kopie. Tippe, um neu beizutreten</string>
     <string name="banner_lost">Verbindung weg · verbinde neu …</string>
     <plurals name="banner_pending">
         <item quantity="one">%d Scan wartet aufs Senden</item>

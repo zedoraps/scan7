@@ -137,6 +137,15 @@ class GameRepository(
     /** The unfinished game to resume (most recent), or `null`. */
     val activeGame: Flow<GameSnapshot?> = snapshots(gameDao.observeActive())
 
+    /**
+     * Home's Resume card: [activeGame] or the joined game this phone is still a guest of, whichever
+     * started last (a guest's own older game must not stand in for the joined one).
+     */
+    val resumeGame: Flow<GameSnapshot?> =
+        combine(activeGame, snapshots(gameDao.observeJoinedActive())) { own, joined ->
+            listOfNotNull(own, joined).maxByOrNull { it.state.startedAt }
+        }.distinctUntilChanged()
+
     /** Finished and abandoned games (Home history), most recently finished first. */
     val pastGames: Flow<List<GameSnapshot>> =
         combine(gameDao.observePast(), allPlayers, preferredViewMode) { games, players, pref ->

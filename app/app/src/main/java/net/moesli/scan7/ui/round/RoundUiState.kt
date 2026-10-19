@@ -84,6 +84,8 @@ data class RoundShareUi(
     val phones: Int = 0,
     val waiting: UiText? = null,
     val banner: UiText? = null,
+    /** The banner is the "not connected" warning: tapping it opens Join (scan the host's code again). */
+    val rejoin: Boolean = false,
 )
 
 /**
@@ -112,6 +114,9 @@ interface RoundActions {
 
     /** "Done" in the arrange header. */
     fun onDone() {}
+
+    /** Multiplayer guest: the "not connected" banner → Join a game. */
+    fun onRejoin() {}
 
     /**
      * A card was dropped in the table view at [position] (already clamped to 0–1). The caller

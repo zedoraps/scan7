@@ -49,6 +49,15 @@ interface GameDao {
     @Query("SELECT * FROM games WHERE finishedAt IS NULL AND joinedFrom IS NULL ORDER BY startedAt DESC, id DESC LIMIT 1")
     fun observeActive(): Flow<GameWithDetails?>
 
+    /** The newest unfinished joined game this phone is still a guest of (Home's Resume card). */
+    @Transaction
+    @Query(
+        "SELECT * FROM games WHERE finishedAt IS NULL AND joinedFrom IS NOT NULL " +
+            "AND id IN (SELECT gameId FROM share_sessions WHERE role = 'GUEST') " +
+            "ORDER BY startedAt DESC, id DESC LIMIT 1",
+    )
+    fun observeJoinedActive(): Flow<GameWithDetails?>
+
     @Transaction
     @Query("SELECT * FROM games WHERE id = :id")
     fun observe(id: Long): Flow<GameWithDetails?>
