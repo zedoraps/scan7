@@ -98,6 +98,7 @@ export JAVA_HOME="$HOME/Applications/Android Studio.app/Contents/jbr/Contents/Ho
 export PATH="$HOME/Library/Android/sdk/platform-tools:$PATH"   # adb
 ./gradlew assembleDebug            # build
 ./gradlew testDebugUnitTest        # JVM unit tests (scoring etc.)
+ANDROID_SERIAL=<serial> ./gradlew -Pscan7.idSuffix=.uitest connectedDebugAndroidTest   # instrumented: DB/migrations + Compose UI flow tests (ui/flow/*FlowTest: real AppNavHost on an in-memory DB via AppGraph.overrideForTests, synthetic capture instead of the camera; ~1 min)
 ./gradlew lintDebug                # lint
 ./gradlew installDebug             # install on the connected phone
 ANDROID_SERIAL=emulator-5554 ./gradlew -Pscan7.idSuffix=.b installDebug   # parallel agents: side-by-side copy on the shared emulator. ALWAYS set ANDROID_SERIAL: installDebug otherwise installs on every device incl. the user's phone
