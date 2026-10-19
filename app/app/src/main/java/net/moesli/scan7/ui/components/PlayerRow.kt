@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -138,12 +136,12 @@ private fun PlayerRowContent(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f),
             ) {
-                Text(
+                // Shrinks before it ellipsizes: "Philip" stays whole at large font scales.
+                FitText(
                     text = player.name,
-                    color = look.ink,
                     style = if (size == RowSize.Regular) Scan7Type.text15 else Scan7Type.text14,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    color = look.ink,
+                    minSize = 10.dp,
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 if (player.isLeader && !narrow && showScore) LeaderBadge(size = 20.dp)
@@ -155,8 +153,9 @@ private fun PlayerRowContent(
                 textAlign = TextAlign.End,
                 maxLines = 1,
                 softWrap = false,
-                // Right-aligned against the actions column either way.
-                modifier = Modifier.widthIn(min = if (narrow) 0.dp else size.totalWidth),
+                // Right-aligned against the actions column either way. No reserved min width (it cut
+                // "Maximilian…" early beside a 2-digit total); a gap keeps a long name off the digits.
+                modifier = Modifier.padding(start = Scan7Spacing.s),
             )
         }
         if (showScore) Box(contentAlignment = Alignment.Center, modifier = Modifier.width(if (narrow) size.actionsWidth - 12.dp else size.actionsWidth)) {

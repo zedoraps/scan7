@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.sheet
 
+import net.moesli.scan7.ui.components.FitText
 import net.moesli.scan7.ui.text.chipText
 import net.moesli.scan7.ui.text.resolve
 import androidx.compose.ui.res.pluralStringResource
@@ -343,7 +344,7 @@ private fun SheetHeader(state: PlayerSheetUi) {
     ) {
         PlayerScoreRing(player, CardSize.Large.ring, CardSize.Large.token, dimmed = false)
         Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs), modifier = Modifier.weight(1f)) {
-            Text(player.name, color = colors.text, style = Scan7Type.buttonName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            FitText(player.name, Scan7Type.buttonName, color = colors.text, minSize = 12.dp)
             Text(
                 stringResource(R.string.sheet_points_round, pluralStringResource(R.plurals.points, player.total, player.total), state.round),
                 color = colors.textMuted,
@@ -457,7 +458,7 @@ private fun ResultPanel(state: PlayerSheetUi) {
                 )
             } else {
                 // Same score formula as the review / manual entry: "(6 + 7 + 8) × 2 + 4 = 46".
-                FormulaText(breakdownFormula(counted), style = Scan7Type.text12)
+                FormulaText(breakdownFormula(counted), style = Scan7Type.text12, joinLines = true)
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs), verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xs)) {
                 state.cards.forEach { CardChip(it.card, it.ignored, duplicate = it.card in duplicates) }

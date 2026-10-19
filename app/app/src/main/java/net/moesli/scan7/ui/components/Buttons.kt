@@ -43,7 +43,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewFontScale
 import androidx.compose.ui.unit.Dp
@@ -95,7 +94,7 @@ fun PrimaryButton(
             .scan7Clickable(onClick, enabled)
             .padding(horizontal = Scan7Spacing.xl),
     ) {
-        FitText(text, textStyle.copy(color = Scan7Theme.colors.onAccent))
+        ButtonLabel(text, textStyle.copy(color = Scan7Theme.colors.onAccent))
     }
 }
 
@@ -123,7 +122,7 @@ fun SecondaryButton(
             .then(if (contentDescription != null) Modifier.semantics { this.contentDescription = contentDescription } else Modifier)
             .padding(horizontal = Scan7Spacing.m),
     ) {
-        FitText(text, textStyle.copy(color = Scan7Theme.colors.text))
+        ButtonLabel(text, textStyle.copy(color = Scan7Theme.colors.text))
     }
 }
 
@@ -165,7 +164,7 @@ fun WarningButton(
  * breaking a word ("Clo / se") at a large font scale or in a narrow button.
  */
 @Composable
-private fun FitText(text: String, style: TextStyle) {
+private fun ButtonLabel(text: String, style: TextStyle) {
     // The floor is in dp, not sp: an 8 sp floor doubles at font scale 2 and "Runde / beenden" got cut.
     val minSize = with(LocalDensity.current) { MIN_LABEL_TEXT.toSp() }
     BasicText(
@@ -307,8 +306,10 @@ fun ScanNextButton(
                 .weight(1f, fill = false)
                 .padding(end = Scan7Spacing.s),
         ) {
-            Text(stringResource(if (type) R.string.label_enter_next else R.string.label_scan_next), color = colors.onAccent, style = Scan7Type.capsButton, maxLines = 1)
-            Text(next.name, color = colors.onAccent, style = Scan7Type.buttonName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // Large font scales: both lines shrink (dp floors) before anything is cut; only a
+            // genuinely long name still ellipsizes.
+            FitText(stringResource(if (type) R.string.label_enter_next else R.string.label_scan_next), Scan7Type.capsButton, color = colors.onAccent, minSize = MIN_LABEL_TEXT)
+            FitText(next.name, Scan7Type.buttonName, color = colors.onAccent, minSize = 13.dp)
         }
         AvatarBadge(next)
     }

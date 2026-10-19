@@ -66,6 +66,7 @@ import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.PressDim
 import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.StatusTag
+import net.moesli.scan7.ui.components.cappedScale
 import net.moesli.scan7.ui.components.PlayerStatus
 import net.moesli.scan7.ui.theme.ScoreNumberStyle
 import net.moesli.scan7.ui.theme.Scan7Radii
@@ -284,7 +285,8 @@ private const val DENSE_NUMBER_COLUMNS = 7
  * font scales (the labels and panel texts grow).
  */
 internal fun manualDense(screenHeight: Dp, fontScale: Float): Boolean =
-    screenHeight < 800.dp + 120.dp * (fontScale - 1f).coerceAtLeast(0f)
+    // 840 dp, not 800: a 360×800 dp phone (720×1600 @ 320 dpi) cut the second chip line in half.
+    screenHeight < 840.dp + 120.dp * (fontScale - 1f).coerceAtLeast(0f)
 
 @Composable
 private fun SectionLabel(text: String) {
@@ -399,13 +401,14 @@ private fun GridToggle(
         )
         if (several) {
             Box(Modifier.align(Alignment.TopEnd).padding(top = 3.dp, end = 4.dp)) {
-                Text("×$count", color = if (duplicate) colors.bust else colors.onAccent, style = Scan7Type.tag12)
+                // Fixed size (the tile doesn't grow with the font scale): a 24 sp badge covered the digit.
+                Text("×$count", color = if (duplicate) colors.bust else colors.onAccent, style = Scan7Type.tag12.cappedScale(1f), maxLines = 1)
             }
         }
         // Narrow tiles (dense grid, small phones) and large font scales: "+10" shrinks, never clips.
         BasicText(
             card.chipLabel().resolve(),
-            style = GridLabel.copy(
+            style = GridLabel.cappedScale(GRID_LABEL_MAX_SCALE).copy(
                 color = when {
                     duplicate -> colors.bust
                     on -> colors.onAccent
@@ -415,7 +418,7 @@ private fun GridToggle(
             ),
             maxLines = 1,
             softWrap = false,
-            autoSize = TextAutoSize.StepBased(minFontSize = 6.sp, maxFontSize = GridLabel.fontSize),
+            autoSize = TextAutoSize.StepBased(minFontSize = 6.sp, maxFontSize = GridLabel.cappedScale(GRID_LABEL_MAX_SCALE).fontSize),
             modifier = Modifier.padding(horizontal = Scan7Spacing.xxs),
         )
     }
@@ -431,5 +434,8 @@ internal fun SecondChanceInfo(text: String, modifier: Modifier = Modifier) {
         modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
     )
 }
+
+/** The grid tiles have a fixed height: their label grows with the font scale only up to this. */
+private const val GRID_LABEL_MAX_SCALE = 1.3f
 
 private val GridLabel = TextStyle(fontFamily = Unbounded, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)

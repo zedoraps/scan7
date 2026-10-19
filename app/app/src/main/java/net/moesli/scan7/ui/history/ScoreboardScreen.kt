@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.history
 
+import net.moesli.scan7.ui.components.FitText
 import net.moesli.scan7.ui.text.uiPlural
 import net.moesli.scan7.ui.text.uiText
 import net.moesli.scan7.ui.text.resolve
@@ -13,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -23,6 +25,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
@@ -93,6 +97,12 @@ fun ScoreboardUi.subtitle(): UiText = when {
 }
 
 private val RoundColumn = 44.dp
+
+/** Narrowest player column at font scale 1 (scaled with the capped font scale; else the table scrolls sideways). */
+private val MinColumn = 25.dp
+
+/** The table's font scale cap (fixed column geometry). */
+private const val MAX_TABLE_FONT_SCALE = 1.3f
 private const val NAMES_UP_TO = 6
 
 /**
@@ -141,27 +151,38 @@ fun ScoreboardScreen(
                     // TalkBack: a table ("row 3, column 2"); rows = header, rounds, totals.
                     .semantics { collectionInfo = CollectionInfo(rowCount = rounds + 2, columnCount = state.players.size + 1) },
             ) {
-                // Fixed-width columns (up to 10 players): cap the font scale like the table cards (2.0 broke "BUST" and the totals).
-                CappedFontScale {
-                    HeaderRow(state.players, table)
-                    Divider()
+                // Columns at least MinColumn wide (grows with the capped font scale): when they don't
+                // fit (10 players at a large font scale) the table scrolls sideways instead of
+                // squeezing the numbers together.
+                BoxWithConstraints(Modifier.weight(1f, fill = false)) {
+                    val scale = LocalDensity.current.fontScale.coerceIn(1f, MAX_TABLE_FONT_SCALE)
+                    val minWidth = RoundColumn + MinColumn * scale * state.players.size
                     Column(
-                        modifier = Modifier
-                            .weight(1f, fill = false)
-                            .verticalScroll(rememberScrollState()),
+                        if (minWidth > maxWidth) Modifier.horizontalScroll(rememberScrollState()).width(minWidth) else Modifier.fillMaxWidth(),
                     ) {
-                        table.rows.forEachIndexed { i, row ->
-                            if (i > 0) Divider()
-                            RoundRow(row, i + 1, state.players, table.playerIds, onEditResult.takeUnless { state.abandoned })
+                        // Fixed-width columns (up to 10 players): cap the font scale like the table cards (2.0 broke "BUST" and the totals).
+                        CappedFontScale(MAX_TABLE_FONT_SCALE) {
+                            HeaderRow(state.players, table)
+                            Divider()
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f, fill = false)
+                                    .verticalScroll(rememberScrollState()),
+                            ) {
+                                table.rows.forEachIndexed { i, row ->
+                                    if (i > 0) Divider()
+                                    RoundRow(row, i + 1, state.players, table.playerIds, onEditResult.takeUnless { state.abandoned })
+                                }
+                            }
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(1.5.dp)
+                                    .background(colors.line),
+                            )
+                            TotalsRow(table, rounds + 1, state.players)
                         }
                     }
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(1.5.dp)
-                            .background(colors.line),
-                    )
-                    TotalsRow(table, rounds + 1, state.players)
                 }
             }
             // Explains the "±" on adjusted totals (there is no adjustments row).
@@ -231,16 +252,17 @@ private fun HeaderRow(players: List<PlayerUi>, table: ScoreTable) {
                     .weight(1f)
                     .alpha(if (leftIn != null) 0.6f else 1f)
                     .clearAndSetSemantics { contentDescription = description }
-                    .tableCell(0, i + 1),
+                    .tableCell(0, i + 1)
+                    .padding(horizontal = 2.dp), // neighbouring names never touch
             ) {
                 PlayerAvatar(p.avatar, avatarSizeForHeight(if (showNames) 24.dp else 21.dp))
                 // Avatars never replace names: narrow columns (7+ players) get the smaller text.
-                Text(
+                // Shrinks before it ellipsizes: "Philip" stays whole at large font scales.
+                FitText(
                     p.name,
+                    if (showNames) Scan7Type.text11 else Scan7Type.text10,
                     color = colors.text,
-                    style = if (showNames) Scan7Type.text11 else Scan7Type.text10,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    minSize = 7.dp,
                 )
                 val tag = when {
                     leftIn != null -> stringResource(R.string.player_left_tag, (leftIn - 1).coerceAtLeast(1)) // last round played
@@ -315,7 +337,7 @@ private fun Cell(cell: ScoreCell, description: String, onClick: (() -> Unit)?, c
             .fillMaxHeight()
             .then(if (onClick != null) Modifier.scan7Clickable(onClick, onClickLabel = editLabel) else Modifier)
             .clearAndSetSemantics { contentDescription = description }
-            .padding(horizontal = if (compact) 1.dp else 3.dp, vertical = Scan7Spacing.xs),
+            .padding(horizontal = if (compact) 2.dp else 3.dp, vertical = Scan7Spacing.xs),
     ) {
         when (cell.status) {
             ResultStatus.BUST -> Box(
@@ -357,13 +379,16 @@ private fun TotalsRow(table: ScoreTable, rowIndex: Int, players: List<PlayerUi>)
             .height(56.dp)
             .background(colors.surface),
     ) {
-        Text(
+        // Shrinks to keep clear of the table border at large font scales.
+        FitText(
             stringResource(R.string.scoreboard_total_label),
+            Scan7Type.tag10.copy(fontSize = 9.sp),
             color = colors.textMuted,
-            style = Scan7Type.tag10.copy(fontSize = 9.sp),
+            minSize = 6.dp,
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .width(RoundColumn)
+                .padding(horizontal = Scan7Spacing.xs)
                 .clearAndSetSemantics { contentDescription = totalDescription }
                 .tableCell(rowIndex, 0),
         )
@@ -378,7 +403,7 @@ private fun TotalsRow(table: ScoreTable, rowIndex: Int, players: List<PlayerUi>)
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = if (narrow) 1.dp else Scan7Spacing.xxs)
+                    .padding(horizontal = if (narrow) 2.dp else Scan7Spacing.xxs)
                     .clearAndSetSemantics {
                         contentDescription = totalFormat.format(players[i].name, total) +
                             adjustedText +

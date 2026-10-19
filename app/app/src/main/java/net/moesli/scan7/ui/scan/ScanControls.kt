@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -126,7 +128,9 @@ internal fun ConfirmSplitButton(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(Scan7Spacing.bottomButtonsHeight)
+                // Grows with a two-line destination at large font scales (else "OK" got cut).
+                .height(IntrinsicSize.Min)
+                .heightIn(min = Scan7Spacing.bottomButtonsHeight)
                 .alpha(if (enabled) 1f else 0.4f)
                 .clip(shape)
                 .background(color),
@@ -142,7 +146,7 @@ internal fun ConfirmSplitButton(
                         role = Role.Button
                         if (!enabled) disabled()
                     }
-                    .padding(start = Scan7Spacing.l, end = Scan7Spacing.s),
+                    .padding(start = Scan7Spacing.l, end = Scan7Spacing.s, top = Scan7Spacing.xs, bottom = Scan7Spacing.xs),
             ) {
                 if (stacked) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -151,8 +155,9 @@ internal fun ConfirmSplitButton(
                             destination,
                             color = colors.onAccent,
                             style = Scan7Type.tag12,
-                            maxLines = 1,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
                         )
                     }
                 } else {

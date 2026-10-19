@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.scan
 
+import net.moesli.scan7.ui.components.FitText
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import net.moesli.scan7.R
@@ -57,7 +58,6 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -351,10 +351,8 @@ private fun PlayerBanner(player: PlayerUi, label: String, modifier: Modifier = M
                 caps,
                 color = colors.textMuted,
                 style = Scan7Type.capsLabel.copy(fontSize = 12.sp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
-            Text(player.name, color = colors.text, style = BannerName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            FitText(player.name, BannerName, color = colors.text, minSize = 12.dp)
         }
     }
 }

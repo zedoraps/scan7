@@ -104,17 +104,15 @@ enum class RowSize(
     val ring: Dp,
     val token: TokenSize,
     val nameSize: TextUnit,
-    /** Width of the right-aligned total column. */
-    val totalWidth: Dp,
     /** Width of the actions/tag column. */
     val actionsWidth: Dp,
     val actionHeight: Dp,
 ) {
     /** ≤ 6 players. */
-    Regular(72.dp, 8.dp, 48.dp, TokenSize(22.dp, 30.dp, 11.sp), 15.sp, 64.dp, 116.dp, 48.dp),
+    Regular(72.dp, 8.dp, 48.dp, TokenSize(22.dp, 30.dp, 11.sp), 15.sp, 116.dp, 48.dp),
 
     /** 7–10 players. */
-    Compact(48.dp, 6.dp, 32.dp, TokenSize(15.dp, 20.dp, 9.sp), 14.sp, 52.dp, 108.dp, 36.dp),
+    Compact(48.dp, 6.dp, 32.dp, TokenSize(15.dp, 20.dp, 9.sp), 14.sp, 108.dp, 36.dp),
     ;
 }
 

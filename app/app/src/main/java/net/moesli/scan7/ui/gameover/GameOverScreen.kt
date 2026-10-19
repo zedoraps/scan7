@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -38,7 +39,6 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -49,6 +49,7 @@ import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.adjustmentText
 import net.moesli.scan7.ui.components.ScoreRing
 import net.moesli.scan7.ui.components.SecondaryButton
+import net.moesli.scan7.ui.components.FitText
 import net.moesli.scan7.ui.components.SectionLabel
 import net.moesli.scan7.ui.components.TextLinkButton
 import net.moesli.scan7.ui.components.bottomButtonsInsets
@@ -113,7 +114,7 @@ fun GameOverScreen(
             modifier = Modifier
                 .headerInsets()
                 .fillMaxWidth()
-                .height(Scan7Spacing.headerHeight),
+                .heightIn(min = Scan7Spacing.headerHeight),
         ) {
             SectionLabel(
                 stringResource(R.string.gameover_title, pluralStringResource(R.plurals.rounds, state.rounds, state.rounds)),
@@ -219,7 +220,7 @@ private fun StandingRow(s: StandingUi) {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .heightIn(min = 56.dp)
             .background(if (s.isWinner) colors.surface else colors.surfaceDone, shape)
             .border(1.5.dp, if (s.isWinner) colors.line else colors.lineSubtleDone, shape)
             .padding(horizontal = Scan7Spacing.l)
@@ -235,7 +236,7 @@ private fun StandingRow(s: StandingUi) {
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.weight(1f),
         ) {
-            Text(s.player.name, color = ink, style = Scan7Type.text15, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            FitText(s.player.name, Scan7Type.text15, color = ink, modifier = Modifier.weight(1f, fill = false))
             if (s.isWinner) LeaderBadge(size = 20.dp)
         }
         Text(s.player.total.toString(), color = ink, style = Scan7Type.total18, textAlign = TextAlign.End)
@@ -251,7 +252,7 @@ private fun NewGameButton(onClick: () -> Unit, modifier: Modifier) {
     Column(
         verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
         modifier = modifier
-            .height(Scan7Spacing.bottomButtonsHeight)
+            .heightIn(min = Scan7Spacing.bottomButtonsHeight)
             .clip(shape)
             .background(colors.accent)
             .scan7Clickable(onClick)
@@ -261,8 +262,9 @@ private fun NewGameButton(onClick: () -> Unit, modifier: Modifier) {
             }
             .padding(horizontal = 20.dp),
     ) {
-        Text(stringResource(R.string.gameover_same_players), color = colors.onAccent, style = Scan7Type.capsButton, maxLines = 1)
-        Text(stringResource(R.string.action_new_game), color = colors.onAccent, style = Scan7Type.buttonName, maxLines = 1)
+        // Shrink (dp floors) instead of losing "game" at large font scales.
+        FitText(stringResource(R.string.gameover_same_players), Scan7Type.capsButton, color = colors.onAccent, minSize = 8.dp)
+        FitText(stringResource(R.string.action_new_game), Scan7Type.buttonName, color = colors.onAccent, minSize = 12.dp)
     }
 }
 

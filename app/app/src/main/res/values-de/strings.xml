@@ -263,7 +263,7 @@
     <string name="sheet_adjustment_description">Korrektur %1$s</string>
     <string name="sheet_remove_adjustment">Korrektur %1$s entfernen</string>
     <string name="adjust_title">Summe von %1$s korrigieren</string>
-    <string name="adjust_note_placeholder">Notiz (optional): Strafe …</string>
+    <string name="adjust_note_placeholder">Notiz (optional): Strafe\u00A0…</string>
     <string name="adjust_note_label">Notiz, optional</string>
     <string name="adjust_apply">Übernehmen</string>
     <string name="adjust_apply_delta">%1$s übernehmen</string>
