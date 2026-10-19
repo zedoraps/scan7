@@ -5,6 +5,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import net.moesli.scan7.share.Radio
+import net.moesli.scan7.share.ShareRuntime
 
 /**
  * Minimal app-wide container (no DI framework). The UI calls `AppGraph.repository(context)`;
@@ -31,6 +33,15 @@ object AppGraph {
     fun repository(context: Context): GameRepository =
         repository ?: synchronized(this) {
             repository ?: GameRepository(database(context)).also { repository = it }
+        }
+
+    @Volatile
+    private var share: ShareRuntime? = null
+
+    /** Multiplayer sessions of this phone (docs/MULTI_DEVICE.md; radio = the flavor's [Radio]). */
+    fun share(context: Context): ShareRuntime =
+        share ?: synchronized(this) {
+            share ?: ShareRuntime(context, repository(context), Radio).also { share = it }
         }
 }
 

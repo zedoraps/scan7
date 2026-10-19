@@ -342,7 +342,11 @@ class HostSession(
     private fun broadcast(msg: HostMessage, except: PeerId? = null) {
         val frame = codec.encode(msg)
         links.keys.filter { it != except }.forEach { transport.send(it, frame) }
+        onChange() // every game / roster change is broadcast
     }
+
+    /** Called after each change of the game, roster or authors (the app refreshes the host's share UI). */
+    var onChange: () -> Unit = {}
 
     private companion object {
         const val SEEN_INTENTS = 1024

@@ -261,6 +261,8 @@ val copyLicenseTexts = tasks.register<CopyLicenseTexts>("copyLicenseTexts") {
 androidComponents {
     onVariants { variant ->
         variant.sources.assets?.addGeneratedSourceDirectory(copyLicenseTexts, CopyLicenseTexts::outputDir)
+        // Flavorless default build = foss: no radio (src/foss holds the Play-free `Radio`).
+        if (!scan7Flavors) variant.sources.kotlin?.addStaticSourceDirectory("src/foss/java")
     }
 }
 

@@ -55,6 +55,12 @@ data class GameState(
      * in the scoreboard and in [totals].
      */
     val departed: List<DepartedPlayer> = emptyList(),
+    /**
+     * Multiplayer: the players this phone's "Scan next" walks (a guest: the ones it scans; the host:
+     * everyone no guest scans), `null` = everyone. Not stored; the repository fills it in like
+     * [scanDirection] (docs/MULTI_DEVICE.md rule 16).
+     */
+    val scanOnly: Set<Long>? = null,
 ) {
     init {
         require(seats.isNotEmpty()) { "A game needs at least one player" }
@@ -165,7 +171,7 @@ data class GameState(
      */
     fun nextOpenPlayer(after: Long? = null, direction: ScanDirection = scanDirection): Long? {
         if (currentRound.isClosed) return null
-        val open = openPlayers().toSet()
+        val open = openPlayers().filter { scanOnly == null || it in scanOnly }.toSet()
         if (open.isEmpty()) return null
         val n = seats.size
         val step = if (direction == ScanDirection.CLOCKWISE) 1 else -1

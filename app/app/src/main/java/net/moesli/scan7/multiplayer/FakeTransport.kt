@@ -7,8 +7,11 @@ import kotlin.random.Random
  * only move when the test calls [deliverNext] / [deliverAll]: per link and direction they stay in
  * order (like Nearby), but different links interleave in a [random] order, which simulates
  * phones acting at the same time.
+ *
+ * With [post] (the in-process debug demo) every queued frame also schedules its own delivery on
+ * that executor (the session thread), so the network runs by itself.
  */
-class FakeNetwork(private val random: Random = Random(0)) {
+class FakeNetwork(private val random: Random = Random(0), private val post: ((() -> Unit) -> Unit)? = null) {
     private var nextLink = 1
     private val links = mutableMapOf<PeerId, Link>()
     private val hostListeners = mutableListOf<HostTransport.Listener>()
@@ -109,6 +112,7 @@ class FakeNetwork(private val random: Random = Random(0)) {
 
     private fun enqueue(peer: PeerId, toHost: Boolean, delivery: () -> Unit) {
         queues.getOrPut(peer to toHost) { ArrayDeque() }.addLast(delivery)
+        post?.invoke { deliverNext() }
     }
 
     private class Link(val client: FakeClientTransport) {

@@ -2,6 +2,8 @@ package net.moesli.scan7.data
 
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
@@ -85,6 +87,10 @@ class GameRepository(
     private val gameDao = db.gameDao()
     private val settingsDao = db.settingsDao()
 
+    /** Multiplayer: per shared game, the players this phone's "Scan next" walks ([GameState.scanOnly]). */
+    private val scanFilters = MutableStateFlow<Map<Long, Set<Long>>>(emptyMap())
+
+
     // ---- Flows ---------------------------------------------------------------------------
 
     /** Stored (not deleted) players, by name. */
@@ -140,9 +146,19 @@ class GameRepository(
     fun observeGame(gameId: Long): Flow<GameSnapshot?> = snapshots(gameDao.observe(gameId))
 
     private fun snapshots(source: Flow<GameWithDetails?>): Flow<GameSnapshot?> =
-        combine(source, allPlayers, preferredViewMode, scanDirection) { details, players, pref, direction ->
-            details?.let { GameSnapshot(it.toState().copy(scanDirection = direction), players, pref, it.game.joinedFrom) }
+        combine(source, allPlayers, preferredViewMode, scanDirection, scanFilters) { details, players, pref, direction, filters ->
+            details?.let {
+                val state = it.toState().copy(scanDirection = direction, scanOnly = filters[it.game.id])
+                GameSnapshot(state, players, pref, it.game.joinedFrom)
+            }
         }.distinctUntilChanged()
+
+    /** Sets (or clears with `null`) [gameId]'s "Scan next" players on this phone. */
+    fun setScanFilter(gameId: Long, players: Set<Long>?) {
+        scanFilters.update { if (players == null) it - gameId else it + (gameId to players) }
+    }
+
+    private fun GameState.filtered(): GameState = copy(scanOnly = scanFilters.value[id])
 
     // ---- Players -------------------------------------------------------------------------
 
@@ -344,7 +360,7 @@ class GameRepository(
     }
 
     suspend fun loadGame(gameId: Long): GameState? =
-        gameDao.load(gameId)?.toState()?.copy(scanDirection = parseScanDirection(settingsDao.get(KEY_SCAN_DIRECTION)))
+        gameDao.load(gameId)?.toState()?.copy(scanDirection = parseScanDirection(settingsDao.get(KEY_SCAN_DIRECTION)))?.filtered()
 
     // ---- Action path (docs/MULTI_DEVICE.md §4.1) -----------------------------------------
 
@@ -380,7 +396,8 @@ class GameRepository(
         val old = details.toState().copy(scanDirection = direction)
         val new = build(old).apply(old, now, seq = 0)
         persist(details, old, new)
-        if (new.adjustments.any { it.id == 0L }) checkNotNull(gameDao.load(gameId)).toState().copy(scanDirection = direction) else new
+        val stored = if (new.adjustments.any { it.id == 0L }) checkNotNull(gameDao.load(gameId)).toState().copy(scanDirection = direction) else new
+        stored.filtered()
     }
 
     // ---- Multiplayer storage (docs/MULTI_DEVICE.md §4.5) ----------------------------------
