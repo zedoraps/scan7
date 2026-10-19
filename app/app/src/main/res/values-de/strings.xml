@@ -518,7 +518,7 @@
     <string name="join_rejected_full">Das Spiel ist voll (höchstens 11 Handys).</string>
     <string name="join_rejected_removed">Der Gastgeber hat dieses Handy aus dem Spiel entfernt.</string>
     <string name="join_failed">Beitreten hat nicht geklappt.</string>
-    <string name="permission_rationale_nearby">Scan7 verbindet die Handys an deinem Tisch über „Geräte in der Nähe“ und den ungefähren Standort. Scan7 nutzt deinen Standort nie, und nichts geht ins Internet.</string>
+    <string name="permission_rationale_nearby">Scan7 verbindet die Handys an deinem Tisch über „Geräte in der Nähe“ und den genauen Standort. Scan7 nutzt deinen Standort nie, und nichts geht ins Internet.</string>
     <string name="permission_rationale_location">Android braucht den Standortzugriff, um Handys in der Nähe zu finden. Scan7 nutzt deinen Standort nie.</string>
     <string name="permission_continue">Weiter</string>
     <string name="permission_denied">Ohne diese Berechtigung können sich die Handys nicht verbinden.</string>
