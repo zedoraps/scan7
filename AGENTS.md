@@ -20,6 +20,7 @@ score is saved. Personal / open-source project.
 ```
 AGENTS.md, CLAUDE.md   agent instructions (CLAUDE.md only imports this file)
 README.md              setup + stage table (commands per stage)
+changelog/             tenzir-ship changelog: unreleased/ entries, releases/vX.Y.Z/ (notes.md); docs/RELEASE.md
 docs/                  BRIEF.md (project brief), APP_FLOW.md (screen spec), third_party/ (font licenses)
 brand/                 logo SVG/PNG, colors.xml, BRAND.md
 ml/                    Python (uv project): data, synthetic generator, training, export
@@ -71,6 +72,7 @@ Debug-only app hooks (debug builds): `adb shell am start -n net.moesli.scan7/.Ma
 **Screenshot matrix** (use a `.shots` install on emu-1 + emu-3 only): `scripts/screen-matrix.sh --install` → `out/screens/<WxH@dpi x font>/<scenario>_<screen>.png` + contact sheets `out/screens/sheet_<scenario>_<screen>.jpg` (14 profiles: phones 16:9…21:9, foldable inner, tablet, font 1.3/2.0; filter with `PROFILES=… SCREENS=… DEVICES=…`; resets wm size/density/font_scale at the end).
 Debug menu toggle "Save scans for training" (debug builds only, default **on**; release builds never save): every shutter photo → `/sdcard/Pictures/Scan7 Training/scan7_<ts>.jpg` + `/sdcard/Documents/Scan7 Training/scan7_<ts>.json`; outcome `null` until confirmed (`adb pull "/sdcard/Pictures/Scan7 Training"`); cards the user left out on the review are `"excluded": true` per detection and in `outcome.excluded`.
 Release: `./gradlew assembleRelease` / `bundleRelease` (minified; signed only when the upload key is set in `~/.gradle/gradle.properties` `scan7.upload.*` or `SCAN7_UPLOAD_*` env, else unsigned; `-Pscan7.idSuffix=.p` works for release too). versionCode = git commit count, versionName = `scan7.versionName` in app/gradle.properties (docs/RELEASE.md). The build fails early (`checkModelAsset`, before preBuild) if `assets/model.tflite` is missing.
+Changelog ([tenzir-ship](https://github.com/tenzir/ship), from the repo root): `uvx tenzir-ship add --type feature|change|bugfix|breaking --title "…" --description "…"`, `uvx tenzir-ship validate`, preview `uvx tenzir-ship show unreleased --release --markdown`; cutting a release: docs/RELEASE.md § Changelog.
 ```sh
 ```
 
@@ -141,6 +143,7 @@ The emulators run at nice 5 next to training; idle they cost ~1.5 cores in total
 - The Mac has **16 GB RAM**: keep memory use modest (one Gradle build at a time, moderate `--workers`/`--batch`, stop daemons when done).
 - Android Studio may hold `.git/index.lock` briefly: **retry** the git command, never delete the lock.
 - Don't commit secrets. `ml/labeling/ls_data/` (DB, credentials) is private and gitignored. The release upload keystore and its passwords stay outside the repo (`~/.gradle/gradle.properties` or env).
+- **Every user-visible app change gets a changelog entry** (`uvx tenzir-ship add`, written for players, together with the change); released files under `changelog/releases/` are never edited.
 - Commits: the coordinating session commits each reviewed, finished step locally (approved by the user; no pushing without asking). Subagents working in parallel don't commit; they report their changed files.
 
 ## Decisions log

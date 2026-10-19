@@ -48,6 +48,41 @@ app), upload `app/app/src/main/assets/model.tflite` to a new release (tag e.g. `
 `model.url` + `model.sha256` (`shasum -a 256 …/model.tflite`) + `model.version` in
 `app/model.properties`, and commit that together with `assets/model_version.txt`.
 
+## Changelog (tenzir-ship)
+The changelog lives in `changelog/` and is managed with [tenzir-ship](https://github.com/tenzir/ship)
+(Apache-2.0, run via `uvx`, no install): one Markdown file per user-visible change in
+`changelog/unreleased/`, moved into `changelog/releases/vX.Y.Z/` (with `notes.md`) when a release
+is cut. Config: `changelog/config.yaml` (no PR numbers, no authors). Entries are written for
+players, not developers: what changed in the app, no class names or refactors. Released files
+are history: never edit them, add a new entry instead.
+
+**Per change** (together with the change; type `feature` | `change` | `bugfix` | `breaking`):
+```sh
+uvx tenzir-ship add --type bugfix --title "Torch stays on after a scan" \
+  --description "The torch no longer turns off when you open the review."
+uvx tenzir-ship validate
+uvx tenzir-ship show unreleased --release --markdown   # preview the next notes
+```
+Titles are noun phrases in sentence case; extend an existing unreleased entry instead of adding a
+second one for the same feature.
+
+**Cutting a release** (clean tree on `main`):
+```sh
+uvx tenzir-ship release create --title "<title>" --intro "<2–3 sentences for players>"   # dry run
+uvx tenzir-ship release create --title "<title>" --intro "<…>" --yes   # writes releases/vX.Y.Z/
+v=$(uvx tenzir-ship release version --bare)                           # e.g. 0.1.0
+sed -i '' "s/^scan7.versionName=.*/scan7.versionName=$v/" app/gradle.properties
+git add changelog app/gradle.properties && git commit -m "Release v$v"
+```
+The version is bumped automatically from the entry types (0.x: feature/change/breaking → minor,
+bugfix → patch; the first release is 0.1.0); tenzir-ship can't edit `gradle.properties`, hence the
+`sed`. Then write the Play "What's new" (≤ 500 characters per language) from
+`changelog/releases/vX.Y.Z/notes.md` into [store/whats-new.md](store/whats-new.md). Publishing
+(tag `vX.Y.Z`, push, GitHub release with `notes.md` as the body) is
+`uvx tenzir-ship release publish --tag --yes` and **pushes**: only with the user's OK; attach the
+APK to the GitHub release afterwards (`gh release upload vX.Y.Z …`). `.github/workflows/release.yaml`
+does the same from GitHub Actions (manual trigger only, not tested yet).
+
 ## Checklist (manual steps)
 
 ### 1. Public source repository (required by the AGPL before the first public release)
@@ -137,7 +172,7 @@ Answers are drafted in [store/README.md](store/README.md).
       in the description; never use the game's artwork or logo.
 
 ### 7. Each release
-- [ ] Bump `scan7.versionName` in `app/gradle.properties`, commit, tag `vX.Y.Z`, push.
+- [ ] Cut the release with tenzir-ship (see *Changelog* above): notes, `scan7.versionName`, commit, tag `vX.Y.Z`, push.
 - [ ] `cd app && ./gradlew testDebugUnitTest lintRelease bundleRelease assembleRelease`.
 - [ ] Check the merged release manifest (`app/app/build/outputs/logs/manifest-merger-release-report.txt`):
       no `INTERNET`, no permissions beyond the list in *Permissions of the release build* below
@@ -148,8 +183,9 @@ Answers are drafted in [store/README.md](store/README.md).
 - [ ] **Pre-launch report** (runs automatically on closed/open tracks; Firebase Test Lab robo test
       on real devices): look for crashes, the camera-permission flow and accessibility warnings.
       The robots have no Flip 7 cards in front of the camera, so detection itself isn't tested there.
-- [ ] GitHub release `vX.Y.Z` with the APK attached (see the signature note in step 2) and a
-      short changelog.
+- [ ] GitHub release `vX.Y.Z` with the APK attached (see the signature note in step 2) and
+      `changelog/releases/vX.Y.Z/notes.md` as the text; Play "What's new" from
+      [store/whats-new.md](store/whats-new.md).
 
 ### 8. F-Droid (optional)
 - Easiest: **IzzyOnDroid** repo (picks up the APK from GitHub releases; open a request there).

@@ -1,0 +1,40 @@
+# Release notes + tag + GitHub release from changelog/ via tenzir-ship's reusable workflow
+# (https://github.com/tenzir/ship). Manual trigger only (Actions → Release → Run workflow, or
+# `gh workflow run release.yaml -f intro="…" -f title="…"`); it never runs on push.
+# NOT TESTED YET: the first releases are cut locally (docs/RELEASE.md). It does not build or
+# attach the APK/AAB; do that by hand as in docs/RELEASE.md § 7.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      intro:
+        description: 2-3 sentence release introduction (for players)
+        required: true
+        type: string
+      title:
+        description: Release title (sentence case)
+        required: false
+        type: string
+      bump:
+        description: Version bump (auto = from the entry types)
+        required: false
+        default: auto
+        type: choice
+        options: [auto, patch, minor, major]
+
+jobs:
+  release:
+    # tenzir/ship v2.2.0
+    uses: tenzir/ship/.github/workflows/release.yaml@a70a7c1674c151f5bddcf4b6a0acb1fc4e1bacc5
+    permissions:
+      contents: write
+    with:
+      intro: ${{ inputs.intro }}
+      title: ${{ inputs.title }}
+      bump: ${{ inputs.bump }}
+      # tenzir-ship can't edit gradle.properties: sync the app's versionName to the new release.
+      post-create: |
+        version="$(uvx tenzir-ship release version --bare)"
+        sed -i "s/^scan7.versionName=.*/scan7.versionName=${version}/" app/gradle.properties
+      git-add-paths: app/gradle.properties
