@@ -24,11 +24,13 @@ import net.moesli.scan7.ui.components.Scan7ConfirmDialog
 /**
  * The "Nearby devices" (API 31+) / location (API 29–30) permissions for multiplayer, asked only
  * when the user taps Share or Join (docs/MULTI_DEVICE.md §6.3): a one-line rationale first, then
- * the system dialog; denied → "Open settings". [run] calls `then` at once when everything is granted.
+ * the system dialog; denied → "Open settings". [run] calls `then` at once when everything is granted,
+ * `onCancel` when the user backs out (rationale cancelled, or denied) so the caller can close its UI.
  */
 @Stable
 class RadioPermissionRequest internal constructor(private val context: Context) {
     internal var pending: (() -> Unit)? by mutableStateOf(null)
+    internal var cancelled: (() -> Unit)? by mutableStateOf(null)
     internal var rationale by mutableStateOf(false)
     internal var denied by mutableStateOf(false)
     internal var launch: (Array<String>) -> Unit = {}
@@ -37,10 +39,17 @@ class RadioPermissionRequest internal constructor(private val context: Context) 
         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
     }
 
-    fun run(then: () -> Unit) {
+    fun run(onCancel: () -> Unit = {}, then: () -> Unit) {
         if (missing().isEmpty()) return then()
         pending = then
+        cancelled = onCancel
         rationale = true
+    }
+
+    internal fun cancel() {
+        pending = null
+        cancelled?.invoke()
+        cancelled = null
     }
 }
 
@@ -51,7 +60,12 @@ fun rememberRadioPermissionRequest(): RadioPermissionRequest {
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
         val then = request.pending
         request.pending = null
-        if (request.missing().isEmpty()) then?.invoke() else request.denied = true
+        if (request.missing().isEmpty()) {
+            request.cancelled = null
+            then?.invoke()
+        } else {
+            request.denied = true
+        }
     }
     request.launch = { launcher.launch(it) }
     if (request.rationale) {
@@ -67,7 +81,7 @@ fun rememberRadioPermissionRequest(): RadioPermissionRequest {
             },
             onCancel = {
                 request.rationale = false
-                request.pending = null
+                request.cancel()
             },
         )
     }
@@ -77,12 +91,16 @@ fun rememberRadioPermissionRequest(): RadioPermissionRequest {
             confirmLabel = stringResource(R.string.permission_settings),
             onConfirm = {
                 request.denied = false
+                request.cancel()
                 context.startActivity(
                     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 )
             },
-            onCancel = { request.denied = false },
+            onCancel = {
+                request.denied = false
+                request.cancel()
+            },
         )
     }
     return request

@@ -70,7 +70,7 @@ fun JoinRoute(initialLink: String?, onBack: () -> Unit, onJoined: (Long) -> Unit
     val parsed = link?.let(JoinLink::parse)
     LaunchedEffect(parsed) {
         if (parsed == null) return@LaunchedEffect
-        if (runtime.radioAvailable) permissions.run { runtime.join(parsed, LinkMode.RADIO) } else runtime.join(parsed, LinkMode.IN_PROCESS)
+        if (runtime.radioAvailable) permissions.run(onCancel = onBack) { runtime.join(parsed, LinkMode.RADIO) } else runtime.join(parsed, LinkMode.IN_PROCESS)
     }
     val guest = share.guest?.takeIf { parsed != null && it.link == parsed }
     LaunchedEffect(guest?.localGameId) { guest?.localGameId?.let(onJoined) }

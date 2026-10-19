@@ -512,7 +512,7 @@ fun RoundRoute(
         // Opening the sheet starts sharing (radio after the permission, else the debug demo network).
         LaunchedEffect(Unit) {
             if (host == null) {
-                if (shareRuntime.radioAvailable) permissions.run { shareRuntime.host(gameId, LinkMode.RADIO) } else shareRuntime.host(gameId, LinkMode.IN_PROCESS)
+                if (shareRuntime.radioAvailable) permissions.run(onCancel = { flags.shareSheet = false }) { shareRuntime.host(gameId, LinkMode.RADIO) } else shareRuntime.host(gameId, LinkMode.IN_PROCESS)
             }
         }
         ShareSheet(
