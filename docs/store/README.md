@@ -41,10 +41,9 @@ in the app's private storage. Android's own Auto Backup (user-controlled, Google
 system feature and is not collection by the app.
 
 Permissions to declare / explain: **Camera** (core feature: scanning the cards; asked at the first
-scan, with an explanation screen). The merged manifest also contains `WAKE_LOCK`,
-`ACCESS_NETWORK_STATE` and `RECEIVE_BOOT_COMPLETED` from `androidx.work` (pulled in by LiteRT);
-they need no declaration and don't send data, but could be removed with `tools:node="remove"`
-after testing (see RELEASE.md).
+scan, with an explanation screen; after a permanent denial the screen links to the app settings).
+It is the only permission of the release build: the WorkManager / Play AI delivery dependencies
+that LiteRT pulls in are excluded (see RELEASE.md, F-Droid).
 
 ## Content rating (Play Console → App content → Content ratings, IARC questionnaire)
 - Category: **Utility, Productivity, Communication or Other** (it is a score keeper, not a game).

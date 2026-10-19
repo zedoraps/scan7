@@ -110,6 +110,7 @@ import net.moesli.scan7.ui.components.SecondaryButton
 import net.moesli.scan7.ui.components.SectionLabel
 import net.moesli.scan7.ui.components.headerInsets
 import net.moesli.scan7.ui.components.openCardShadow
+import net.moesli.scan7.ui.components.centeredMaxWidth
 import net.moesli.scan7.ui.players.playerUis
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
@@ -198,6 +199,7 @@ fun HomeScreen(
         modifier = modifier
             .fillMaxSize()
             .background(colors.ground)
+            .centeredMaxWidth()
             .padding(horizontal = Scan7Spacing.screenMargin),
     ) {
         Row(

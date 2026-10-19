@@ -72,6 +72,7 @@ import net.moesli.scan7.ui.components.SectionLabel
 import net.moesli.scan7.ui.components.ViewToggle
 import net.moesli.scan7.ui.components.bottomButtonsInsets
 import net.moesli.scan7.ui.components.headerInsets
+import net.moesli.scan7.ui.components.centeredMaxWidth
 import net.moesli.scan7.ui.players.AddPlayerRow
 import net.moesli.scan7.ui.players.EditorTarget
 import net.moesli.scan7.ui.players.PlayerEditorHost
@@ -136,6 +137,7 @@ fun PickPlayersScreen(
         modifier = modifier
             .fillMaxSize()
             .background(colors.ground)
+            .centeredMaxWidth()
             .padding(horizontal = Scan7Spacing.screenMargin),
     ) {
         ScreenHeader(

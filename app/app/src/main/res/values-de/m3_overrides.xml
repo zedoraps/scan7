@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German Material 3 bottom sheet strings (see values/m3_overrides.xml). -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="PrivateResource,UnusedResources">
+    <string name="m3c_bottom_sheet_pane_title">Unterer Bereich</string>
+    <string name="m3c_bottom_sheet_drag_handle_description">Ziehpunkt</string>
+    <string name="m3c_bottom_sheet_dismiss_description">Schließen</string>
+    <string name="m3c_bottom_sheet_collapse_description">Verkleinern</string>
+    <string name="m3c_bottom_sheet_expand_description">Vergrößern</string>
+</resources>

@@ -56,6 +56,7 @@ import net.moesli.scan7.ui.components.dashedBorder
 import net.moesli.scan7.ui.components.headerInsets
 import net.moesli.scan7.ui.components.openCardShadow
 import net.moesli.scan7.ui.components.scan7Clickable
+import net.moesli.scan7.ui.components.centeredMaxWidth
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
@@ -78,6 +79,7 @@ fun PlayersScreen(
         modifier = modifier
             .fillMaxSize()
             .background(colors.ground)
+            .centeredMaxWidth()
             .padding(horizontal = Scan7Spacing.screenMargin),
     ) {
         ScreenHeader(

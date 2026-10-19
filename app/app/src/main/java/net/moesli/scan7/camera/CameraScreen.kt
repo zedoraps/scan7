@@ -27,7 +27,7 @@ fun CameraScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize()) {
         when {
             permission.granted -> CameraPreview(modifier = Modifier.fillMaxSize())
-            permission.asked -> PermissionDenied(onRetry = permission.request, onOpenSettings = permission.openSettings)
+            permission.showPanel -> PermissionDenied(onRetry = permission.request.takeIf { permission.canRequest }, onOpenSettings = permission.openSettings)
         }
         FilledTonalButton(
             onClick = onBack,
@@ -40,7 +40,7 @@ fun CameraScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun PermissionDenied(onRetry: () -> Unit, onOpenSettings: () -> Unit) {
+private fun PermissionDenied(onRetry: (() -> Unit)?, onOpenSettings: () -> Unit) {
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -56,7 +56,7 @@ private fun PermissionDenied(onRetry: () -> Unit, onOpenSettings: () -> Unit) {
                     "Images are processed on the device only.",
                 textAlign = TextAlign.Center,
             )
-            Button(onClick = onRetry) { Text("Try again") }
+            if (onRetry != null) Button(onClick = onRetry) { Text("Try again") }
             OutlinedButton(onClick = onOpenSettings) { Text("Open app settings") }
         }
     }

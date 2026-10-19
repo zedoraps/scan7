@@ -112,6 +112,16 @@ room {
     schemaDirectory("$projectDir/schemas")
 }
 
+// LiteRT 2.3.0 (litert-api) pulls in Play AI delivery (ai-delivery → asset-delivery →
+// WorkManager, play-services) for downloading models as AI packs. Scan7 bundles its model, and
+// LiteRT doesn't reference those classes when loading from a buffer (checked: no dex or native
+// reference; detection runs without them). Excluding it drops WorkManager's boot receiver and
+// services and the RECEIVE_BOOT_COMPLETED / WAKE_LOCK / ACCESS_NETWORK_STATE / FOREGROUND_SERVICE
+// permissions from the merged manifest (docs/RELEASE.md).
+configurations.configureEach {
+    exclude(group = "com.google.android.play", module = "ai-delivery")
+}
+
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)

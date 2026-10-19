@@ -313,14 +313,20 @@ internal class SheetHider(private val hide: suspend () -> Unit) {
     }
 }
 
-/** The 36×4 grab bar at the top of a sheet. */
+/**
+ * The 36×4 grab bar at the top of a sheet. Labelled like M3's `BottomSheetDefaults.DragHandle`
+ * (same string; M3's own handle forces 22 dp of padding around the bar): `ModalBottomSheet` merges
+ * it into its clickable handle box, which adds the dismiss / expand actions.
+ */
 @Composable
 private fun SheetGrabHandle(modifier: Modifier = Modifier) {
+    val description = stringResource(R.string.m3c_bottom_sheet_drag_handle_description)
     Box(
         modifier
             .padding(vertical = Scan7Spacing.s)
             .size(36.dp, 4.dp)
-            .background(Scan7Theme.colors.line, RoundedCornerShape(2.dp)),
+            .background(Scan7Theme.colors.line, RoundedCornerShape(2.dp))
+            .semantics { contentDescription = description },
     )
 }
 
