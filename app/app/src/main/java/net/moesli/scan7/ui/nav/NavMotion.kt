@@ -15,7 +15,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.navigation3.scene.Scene
-import androidx.navigationevent.NavigationEvent
 
 /**
  * Screen transitions of [AppNavHost]: short and quiet on the dark ground (fade with a small
@@ -64,15 +63,15 @@ object NavMotion {
     }
 
     /**
-     * Predictive back (driven by the swipe progress): the current screen shrinks to 90 % towards
-     * the swipe edge and stays opaque (it fades only at the very end, on commit); the screen below
-     * brightens from a dim start under it.
+     * Predictive back (driven by the swipe progress): the current screen shrinks to 85 % and moves
+     * towards the end side, the way a screen leaves on back, whichever edge the swipe starts from
+     * (moving it towards a right-edge swipe looked like going forward). It stays opaque until the
+     * commit; the screen below comes up from dim under it, so the target is visible during the swipe.
      */
-    val predictivePop: AnimatedContentTransitionScope<Scene<Route>>.(Int) -> ContentTransform = { edge ->
-        val towardsEnd = edge != NavigationEvent.EDGE_RIGHT
-        val exit = scaleOut(tween(ENTER_MS, easing = LinearEasing), targetScale = 0.9f) +
-            slideOutHorizontally(tween(ENTER_MS, easing = LinearEasing)) { if (towardsEnd) it / 16 else -it / 16 } +
+    val predictivePop: AnimatedContentTransitionScope<Scene<Route>>.(Int) -> ContentTransform = { _ ->
+        val exit = scaleOut(tween(ENTER_MS, easing = LinearEasing), targetScale = 0.85f) +
+            slideOutHorizontally(tween(ENTER_MS, easing = LinearEasing)) { it / 8 } +
             fadeOut(tween(ENTER_MS / 5, delayMillis = ENTER_MS * 4 / 5, easing = LinearEasing))
-        (fadeIn(tween(ENTER_MS, easing = LinearEasing), initialAlpha = 0.35f) togetherWith exit).below()
+        (fadeIn(tween(ENTER_MS, easing = LinearEasing), initialAlpha = 0.5f) togetherWith exit).below()
     }
 }
