@@ -7,7 +7,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 /** Room schema version (bump together with a migration; schemas are exported to app/schemas). */
-const val DB_SCHEMA_VERSION = 5
+const val DB_SCHEMA_VERSION = 6
 
 @Database(
     entities = [
@@ -19,6 +19,7 @@ const val DB_SCHEMA_VERSION = 5
         ResultCardEntity::class,
         SettingEntity::class,
         ScoreAdjustmentEntity::class,
+        ShareSessionEntity::class,
     ],
     version = DB_SCHEMA_VERSION,
     exportSchema = true,
@@ -30,12 +31,15 @@ const val DB_SCHEMA_VERSION = 5
         // 4: players.colorIndex → avatar ids (manual, see Migrations.kt: MIGRATION_3_4).
         // 5: game_players.joinedRound (default 1) + leftRound (null): players join / leave mid-game.
         AutoMigration(from = 4, to = 5),
+        // 6: multiplayer: games.joinedFrom + gameUid, players.joinedOnly, table share_sessions.
+        AutoMigration(from = 5, to = 6),
     ],
 )
 abstract class Scan7Database : RoomDatabase() {
     abstract fun playerDao(): PlayerDao
     abstract fun gameDao(): GameDao
     abstract fun settingsDao(): SettingsDao
+    abstract fun shareDao(): ShareDao
 
     companion object {
         const val NAME = "scan7.db"

@@ -35,8 +35,13 @@ class HostSession(
     /** Max. guest phones: 10 (decided: 10 players + the host = 11 phones; helpers count too). */
     private val maxDevices: Int = MAX_GUEST_DEVICES,
     private val codec: WireCodec = WireCodec(),
-    /** Called after each applied action (persist + refresh the host's own UI). */
+    /** Called after each applied action (e.g. save [exportState]). */
     private val onApplied: (Event, GameState) -> Unit = { _, _ -> },
+    /**
+     * Applies an action durably and returns the stored state (the app: `GameRepository.applyLocal`
+     * in one transaction; throws like [GameState], then nothing changes). `null` = in memory only.
+     */
+    private val store: ((current: GameState, action: GameAction, now: Long, seq: Long) -> GameState)? = null,
 ) : HostTransport.Listener {
     /** The authoritative game. */
     var state: GameState = initial
@@ -305,14 +310,16 @@ class HostSession(
 
     private fun apply(action: GameAction, intentId: String?, by: String) {
         val now = clock()
-        val next = action.apply(state, now, seq + 1) // throws: nothing changes
+        // Throws: nothing changes.
+        val next = store?.invoke(state, action, now, seq + 1) ?: action.apply(state, now, seq + 1)
+        val sent = action.withAssignedIds(state, next)
         val touched = action.touches(state)
         val roundBefore = state.currentRound.number
         seq += 1
         state = next
         touched.forEach { lastTouched[it] = seq }
         trackAuthors(entryAuthors, touched, by, roundBefore, next)
-        val event = Event(seq, now, action, intentId, by.takeIf { it != HOST_DEVICE })
+        val event = Event(seq, now, sent, intentId, by.takeIf { it != HOST_DEVICE })
         if (intentId != null) seenIntents[intentId] = IntentAck(intentId, seq)
         onApplied(event, next)
         broadcast(event)

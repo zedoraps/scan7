@@ -24,6 +24,11 @@ data class PlayerEntity(
     val createdAt: Long,
     /** Deleted by the user but still referenced by past games. */
     val archived: Boolean = false,
+    /**
+     * A player of a game joined on another phone (multiplayer guest): kept for that game's history,
+     * never in the Players list or New game until saved ("Save players to my list"). Added in DB version 6.
+     */
+    @ColumnInfo(defaultValue = "0") val joinedOnly: Boolean = false,
 )
 
 @Entity(tableName = "games")
@@ -37,6 +42,13 @@ data class GameEntity(
     @ColumnInfo(defaultValue = "0") val endedEarly: Boolean = false,
     val target: Int,
     val viewMode: ViewMode? = null,
+    /**
+     * Multiplayer guest: the game was joined on another phone; this is the host's name ("Philip"),
+     * `null` = a game of this phone. Joined games are read-only copies. Added in DB version 6.
+     */
+    val joinedFrom: String? = null,
+    /** Stable id of a shared game across phones (a rejoin updates the same copy). Added in DB version 6. */
+    val gameUid: String? = null,
 )
 
 @Entity(
@@ -138,6 +150,26 @@ data class ScoreAdjustmentEntity(
     val note: String?,
     val createdAt: Long,
     val roundNumber: Int,
+)
+
+/**
+ * A multiplayer session of a game on this phone (host or guest), so it survives an app restart:
+ * [stateJson] = `HostSessionState` / guest state as JSON (multiplayer/SessionState.kt). Added in DB version 6.
+ */
+@Entity(
+    tableName = "share_sessions",
+    foreignKeys = [
+        ForeignKey(entity = GameEntity::class, parentColumns = ["id"], childColumns = ["gameId"], onDelete = ForeignKey.CASCADE),
+    ],
+)
+data class ShareSessionEntity(
+    @PrimaryKey val gameId: Long,
+    /** `HOST` or `GUEST`. */
+    val role: String,
+    val sessionId: String,
+    val token: String,
+    val stateJson: String,
+    val updatedAt: Long,
 )
 
 /** App-level key/value settings (e.g. the preferred view mode). */

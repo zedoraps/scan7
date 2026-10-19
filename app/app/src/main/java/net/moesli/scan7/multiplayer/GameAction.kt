@@ -104,15 +104,111 @@ data class ResetToOpen(override val playerId: Long, override val round: Int) : P
 /** "Adjust total": host only (guests can't change totals); additive, so never stale. */
 @Serializable
 @SerialName("adjust_total")
-data class AdjustTotal(val playerId: Long, val delta: Int, val note: String? = null) : GameAction {
+data class AdjustTotal(
+    val playerId: Long,
+    val delta: Int,
+    val note: String? = null,
+    /**
+     * The new adjustment's id. The host's database assigns it and the broadcast event carries it
+     * ([withAssignedIds]), so guests store the same id; `null` = use the event seq (in-memory host).
+     */
+    val id: Long? = null,
+) : GameAction {
     override val hostOnly get() = true
 
     override fun touches(state: GameState): Set<ResultKey> = emptySet()
 
     override fun apply(state: GameState, now: Long, seq: Long): GameState {
         val adjusted = state.adjustTotal(playerId, delta, note, now)
-        return adjusted.copy(adjustments = adjusted.adjustments.map { if (it.id == 0L) it.copy(id = seq) else it })
+        return adjusted.copy(adjustments = adjusted.adjustments.map { if (it.id == 0L) it.copy(id = id ?: seq) else it })
     }
+}
+
+/** Undo of [RemoveAdjustment]: puts it back as it was (same round, note and time). [id] as in [AdjustTotal]. */
+@Serializable
+@SerialName("restore_adjustment")
+data class RestoreAdjustment(val adjustment: AdjustmentDto, val id: Long? = null) : GameAction {
+    override val hostOnly get() = true
+
+    override fun touches(state: GameState): Set<ResultKey> = emptySet()
+
+    override fun apply(state: GameState, now: Long, seq: Long): GameState {
+        val restored = state.restoreAdjustment(adjustment.toAdjustment(), now)
+        return restored.copy(adjustments = restored.adjustments.map { if (it.id == 0L) it.copy(id = id ?: seq) else it })
+    }
+}
+
+/**
+ * The action as it is broadcast after the host applied it to [after] (its database): new
+ * adjustments get the id the host's database gave them, so every phone uses the same id.
+ */
+fun GameAction.withAssignedIds(before: GameState, after: GameState): GameAction {
+    val newId = (after.adjustments.map { it.id }.toSet() - before.adjustments.map { it.id }.toSet()).singleOrNull()
+    return when (this) {
+        is AdjustTotal -> if (newId != null) copy(id = newId) else this
+        is RestoreAdjustment -> if (newId != null) copy(id = newId) else this
+        else -> this
+    }
+}
+
+/** Closes the running round [round] (open players BUST), without starting the next one. */
+@Serializable
+@SerialName("close_round")
+data class CloseRound(val round: Int) : GameAction {
+    override val hostOnly get() = true
+
+    override fun touches(state: GameState) = state.allOf(round)
+
+    override fun apply(state: GameState, now: Long, seq: Long): GameState {
+        state.requireCurrent(round)
+        return state.closeRound(now)
+    }
+}
+
+/** Starts the round after the closed round [after]. */
+@Serializable
+@SerialName("next_round")
+data class NextRound(val after: Int) : GameAction {
+    override val hostOnly get() = true
+
+    override fun touches(state: GameState): Set<ResultKey> = emptySet()
+
+    override fun apply(state: GameState, now: Long, seq: Long): GameState {
+        state.requireCurrent(after)
+        return state.nextRound()
+    }
+}
+
+/** Round menu "Target points". */
+@Serializable
+@SerialName("set_target")
+data class SetTarget(val target: Int) : GameAction {
+    override val hostOnly get() = true
+
+    override fun touches(state: GameState): Set<ResultKey> = emptySet()
+
+    override fun apply(state: GameState, now: Long, seq: Long) = state.withTarget(target, now)
+}
+
+/** List-view arrange drop: seats [a] and [b] swap. */
+@Serializable
+@SerialName("swap_seats")
+data class SwapSeats(val a: Int, val b: Int) : GameAction {
+    override val hostOnly get() = true
+
+    override fun touches(state: GameState): Set<ResultKey> = emptySet()
+
+    override fun apply(state: GameState, now: Long, seq: Long) = state.swapSeats(a, b)
+}
+
+@Serializable
+@SerialName("move_seat")
+data class MoveSeat(val from: Int, val to: Int) : GameAction {
+    override val hostOnly get() = true
+
+    override fun touches(state: GameState): Set<ResultKey> = emptySet()
+
+    override fun apply(state: GameState, now: Long, seq: Long) = state.moveSeat(from, to)
 }
 
 @Serializable

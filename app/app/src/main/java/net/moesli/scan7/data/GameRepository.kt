@@ -19,6 +19,29 @@ import net.moesli.scan7.game.Seat
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.ViewMode
 import net.moesli.scan7.game.newPlayerAvatar
+import net.moesli.scan7.multiplayer.AdjustTotal
+import net.moesli.scan7.multiplayer.AdjustmentDto
+import net.moesli.scan7.multiplayer.Bust
+import net.moesli.scan7.multiplayer.ChangeLineup
+import net.moesli.scan7.multiplayer.CloseRound
+import net.moesli.scan7.multiplayer.CloseRoundAndStartNext
+import net.moesli.scan7.multiplayer.EndGame
+import net.moesli.scan7.multiplayer.GameAction
+import net.moesli.scan7.multiplayer.MovePosition
+import net.moesli.scan7.multiplayer.MoveSeat
+import net.moesli.scan7.multiplayer.NextRound
+import net.moesli.scan7.multiplayer.RemoveAdjustment
+import net.moesli.scan7.multiplayer.ReopenRound
+import net.moesli.scan7.multiplayer.ReorderSeats
+import net.moesli.scan7.multiplayer.ResetToOpen
+import net.moesli.scan7.multiplayer.RestoreAdjustment
+import net.moesli.scan7.multiplayer.ScoreCards
+import net.moesli.scan7.multiplayer.ScorePoints
+import net.moesli.scan7.multiplayer.SetTarget
+import net.moesli.scan7.multiplayer.SwapSeats
+import net.moesli.scan7.multiplayer.UndoBust
+import net.moesli.scan7.multiplayer.WireCard
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
 /** A game with everything the round / end-of-round / game-over screens need. */
@@ -27,7 +50,12 @@ data class GameSnapshot(
     /** Every player of the game, by id (archived ones included). */
     val players: Map<Long, Player>,
     val preferredViewMode: ViewMode?,
+    /** Multiplayer guest copy: the host's name; `null` = a game of this phone (GameEntity.joinedFrom). */
+    val joinedFrom: String? = null,
 ) {
+    /** A joined game is a read-only copy (only its live session changes it). */
+    val isJoined: Boolean get() = joinedFrom != null
+
     /** Players in seating order. */
     val seatedPlayers: List<Player> get() = state.playerIds.map { players.getValue(it) }
 
@@ -105,7 +133,7 @@ class GameRepository(
     /** Finished and abandoned games (Home history), most recently finished first. */
     val pastGames: Flow<List<GameSnapshot>> =
         combine(gameDao.observePast(), allPlayers, preferredViewMode) { games, players, pref ->
-            games.map { GameSnapshot(it.toState(), players, pref) }
+            games.map { GameSnapshot(it.toState(), players, pref, it.game.joinedFrom) }
         }.distinctUntilChanged()
 
     /** Any game by id (e.g. game over / history after it finished). */
@@ -113,7 +141,7 @@ class GameRepository(
 
     private fun snapshots(source: Flow<GameWithDetails?>): Flow<GameSnapshot?> =
         combine(source, allPlayers, preferredViewMode, scanDirection) { details, players, pref, direction ->
-            details?.let { GameSnapshot(it.toState().copy(scanDirection = direction), players, pref) }
+            details?.let { GameSnapshot(it.toState().copy(scanDirection = direction), players, pref, it.game.joinedFrom) }
         }.distinctUntilChanged()
 
     // ---- Players -------------------------------------------------------------------------
@@ -209,73 +237,83 @@ class GameRepository(
         cards: List<ConfirmedCard>,
         source: ResultSource = ResultSource.SCAN,
         round: Int? = null,
-    ): GameState = mutate(gameId) { s, now -> s.scoreCards(playerId, cards, source, now, round ?: s.currentRound.number) }
+    ): GameState = apply(gameId) { s ->
+        ScoreCards(playerId, round ?: s.currentRound.number, cards.map(WireCard::of), manual = source == ResultSource.MANUAL)
+    }
 
     /** Sets points directly (manual correction without cards). */
     suspend fun scorePoints(gameId: Long, playerId: Long, points: Int, round: Int? = null): GameState =
-        mutate(gameId) { s, now -> s.scorePoints(playerId, points, now, round ?: s.currentRound.number) }
+        apply(gameId) { s -> ScorePoints(playerId, round ?: s.currentRound.number, points) }
 
     /** "Adjust total" from the player sheet: signed [delta] with an optional [note], for the current round. */
     suspend fun adjustTotal(gameId: Long, playerId: Long, delta: Int, note: String? = null): GameState =
-        mutate(gameId) { s, now -> s.adjustTotal(playerId, delta, note, now) }
+        apply(gameId) { AdjustTotal(playerId, delta, note) }
 
     /** Removes a stored adjustment (player sheet ✕). */
     suspend fun removeAdjustment(gameId: Long, adjustmentId: Long): GameState =
-        mutate(gameId) { s, now -> s.removeAdjustment(adjustmentId, now) }
+        apply(gameId) { RemoveAdjustment(adjustmentId) }
 
     /** Undo of [removeAdjustment]: stores [adjustment] again as it was (new id). */
     suspend fun restoreAdjustment(gameId: Long, adjustment: ScoreAdjustment): GameState =
-        mutate(gameId) { s, now -> s.restoreAdjustment(adjustment, now) }
+        apply(gameId) { RestoreAdjustment(AdjustmentDto.of(adjustment)) }
 
     /** One-tap bust. */
     suspend fun bust(gameId: Long, playerId: Long, round: Int? = null): GameState =
-        mutate(gameId) { s, now -> s.bust(playerId, now, round ?: s.currentRound.number) }
+        apply(gameId) { s -> Bust(playerId, round ?: s.currentRound.number) }
 
     /** "Undo" on the bust toast. */
-    suspend fun undoBust(gameId: Long, playerId: Long): GameState = mutate(gameId) { s, now -> s.undoBust(playerId, now) }
+    suspend fun undoBust(gameId: Long, playerId: Long): GameState = apply(gameId) { s -> UndoBust(playerId, s.currentRound.number) }
 
-    suspend fun resetToOpen(gameId: Long, playerId: Long): GameState = mutate(gameId) { s, now -> s.resetToOpen(playerId, now) }
+    suspend fun resetToOpen(gameId: Long, playerId: Long): GameState =
+        apply(gameId) { s -> ResetToOpen(playerId, s.currentRound.number) }
 
     /** Open players become BUST; sets finishedAt if the game is now over. */
-    suspend fun closeRound(gameId: Long): GameState = mutate(gameId) { s, now -> s.closeRound(now) }
+    suspend fun closeRound(gameId: Long): GameState = apply(gameId) { s -> CloseRound(s.currentRound.number) }
 
-    suspend fun nextRound(gameId: Long): GameState = mutate(gameId) { s, _ -> s.nextRound() }
+    suspend fun nextRound(gameId: Long): GameState = apply(gameId) { s -> NextRound(s.currentRound.number) }
 
     /**
      * "Next round" (everyone done) or a confirmed "Close round": closes the running round and,
      * unless the game is now over, starts the next one, in one transaction.
      */
-    suspend fun closeRoundAndStartNext(gameId: Long): GameState = mutate(gameId) { s, now -> s.closeAndStartNext(now) }
+    suspend fun closeRoundAndStartNext(gameId: Long): GameState =
+        apply(gameId) { s -> CloseRoundAndStartNext(s.currentRound.number) }
 
     /** Reopens the last (closed) round; also un-finishes the game if it was over. */
-    suspend fun reopenRound(gameId: Long): GameState = mutate(gameId) { s, now -> s.reopenRound(now) }
+    suspend fun reopenRound(gameId: Long): GameState = apply(gameId) { s -> ReopenRound(s.currentRound.number) }
 
     /**
      * "Players" from the round menu: the changed lineup ([lineup] = seating order + table spots)
      * becomes the table in one transaction. New players join the running round as open; players who
      * are missing leave it (their result there is dropped, past results stay).
      */
-    suspend fun changePlayers(gameId: Long, lineup: List<Seat>): GameState = mutate(gameId) { s, now -> s.withLineup(lineup, now) }
+    suspend fun changePlayers(gameId: Long, lineup: List<Seat>): GameState {
+        val known = playerDao.byIds(lineup.map { it.playerId }).map { it.toPlayer() }
+        return apply(gameId) { s -> ChangeLineup.of(lineup, known.filter { it.id !in s.playerIds }) }
+    }
 
     /** One player joins the running round (seated after the last seat). */
     suspend fun addPlayerToGame(gameId: Long, playerId: Long): GameState = db.withTransaction {
-        checkNotNull(playerDao.byId(playerId)) { "No player $playerId" }
-        mutate(gameId) { s, now -> s.addPlayer(playerId, now) }
+        val player = checkNotNull(playerDao.byId(playerId)) { "No player $playerId" }.toPlayer()
+        apply(gameId) { s -> ChangeLineup.of(s.addPlayer(playerId, clock()).seats, listOf(player)) }
     }
 
     /** One player leaves the running round. */
-    suspend fun removePlayerFromGame(gameId: Long, playerId: Long): GameState = mutate(gameId) { s, now -> s.removePlayer(playerId, now) }
+    suspend fun removePlayerFromGame(gameId: Long, playerId: Long): GameState = apply(gameId) { s ->
+        s.seatIndex(playerId)
+        ChangeLineup.of(s.seats.filter { it.playerId != playerId }, emptyList())
+    }
 
-    suspend fun reorderSeats(gameId: Long, order: List<Long>): GameState = mutate(gameId) { s, _ -> s.reorderSeats(order) }
+    suspend fun reorderSeats(gameId: Long, order: List<Long>): GameState = apply(gameId) { ReorderSeats(order) }
 
-    suspend fun moveSeat(gameId: Long, from: Int, to: Int): GameState = mutate(gameId) { s, _ -> s.moveSeat(from, to) }
+    suspend fun moveSeat(gameId: Long, from: Int, to: Int): GameState = apply(gameId) { MoveSeat(from, to) }
 
     /** List-view arrange drop: the players at seats [a] and [b] swap places. */
-    suspend fun swapSeats(gameId: Long, a: Int, b: Int): GameState = mutate(gameId) { s, _ -> s.swapSeats(a, b) }
+    suspend fun swapSeats(gameId: Long, a: Int, b: Int): GameState = apply(gameId) { SwapSeats(a, b) }
 
     /** Drops a card at [x], [y] (normalized 0–1) in the table view; seating order follows clockwise. */
     suspend fun movePosition(gameId: Long, playerId: Long, x: Float, y: Float): GameState =
-        mutate(gameId) { s, _ -> s.movePosition(playerId, TablePosition(x, y)) }
+        apply(gameId) { MovePosition(playerId, x, y) }
 
     /** Switches the game's view and remembers it as the app preference. */
     suspend fun setViewMode(gameId: Long, mode: ViewMode): GameState = db.withTransaction {
@@ -284,7 +322,7 @@ class GameRepository(
     }
 
     /** Round menu "Target points": this game's target (game over is checked with it at the round close). */
-    suspend fun setTarget(gameId: Long, target: Int): GameState = mutate(gameId) { s, now -> s.withTarget(target, now) }
+    suspend fun setTarget(gameId: Long, target: Int): GameState = apply(gameId) { SetTarget(target) }
 
     suspend fun setPreferredViewMode(mode: ViewMode) = settingsDao.put(SettingEntity(KEY_VIEW_MODE, mode.name))
 
@@ -292,7 +330,7 @@ class GameRepository(
      * "End game" from the round menu: closes the running round as it is (open players BUST) and
      * finishes the game with the current leader(s) as winners (recorded as finished, not abandoned).
      */
-    suspend fun endGame(gameId: Long): GameState = mutate(gameId) { s, now -> s.endGame(now) }
+    suspend fun endGame(gameId: Long): GameState = apply(gameId) { s -> EndGame(s.currentRound.number) }
 
     /**
      * Home → long-press → Delete game: removes the game and everything keyed by it (seats + table
@@ -307,6 +345,122 @@ class GameRepository(
 
     suspend fun loadGame(gameId: Long): GameState? =
         gameDao.load(gameId)?.toState()?.copy(scanDirection = parseScanDirection(settingsDao.get(KEY_SCAN_DIRECTION)))
+
+    // ---- Action path (docs/MULTI_DEVICE.md §4.1) -----------------------------------------
+
+    /** Where a shared game's actions go instead of straight to the database (multiplayer session). */
+    fun interface ActionRouter {
+        /** Applies the action [build] makes from the current state; returns the state to show. */
+        suspend fun perform(build: (GameState) -> GameAction): GameState
+    }
+
+    private val routers = ConcurrentHashMap<Long, ActionRouter>()
+
+    /** Routes [gameId]'s actions through [router] (a host or guest session), or back to the database with `null`. */
+    fun route(gameId: Long, router: ActionRouter?) {
+        if (router == null) routers.remove(gameId) else routers[gameId] = router
+    }
+
+    /**
+     * Every game change of the UI goes through here as a [GameAction] built from the current state:
+     * straight into the database ([applyLocal]), or, while the game is shared, through its session.
+     */
+    suspend fun apply(gameId: Long, build: (GameState) -> GameAction): GameState =
+        routers[gameId]?.perform(build) ?: applyLocal(gameId, build)
+
+    /**
+     * Applies the action in one transaction and returns the stored state (new adjustments with the
+     * ids the database gave them). [now] is the action's time (the host passes the event's).
+     * Joined games (guest copies) are read-only here.
+     */
+    suspend fun applyLocal(gameId: Long, build: (GameState) -> GameAction, now: Long = clock()): GameState = db.withTransaction {
+        val details = checkNotNull(gameDao.load(gameId)) { "No game $gameId" }
+        check(details.game.joinedFrom == null) { "Joined game $gameId is read-only" }
+        val direction = parseScanDirection(settingsDao.get(KEY_SCAN_DIRECTION))
+        val old = details.toState().copy(scanDirection = direction)
+        val new = build(old).apply(old, now, seq = 0)
+        persist(details, old, new)
+        if (new.adjustments.any { it.id == 0L }) checkNotNull(gameDao.load(gameId)).toState().copy(scanDirection = direction) else new
+    }
+
+    // ---- Multiplayer storage (docs/MULTI_DEVICE.md §4.5) ----------------------------------
+
+    private val shareDao = db.shareDao()
+
+    /** This install's random multiplayer device id (created on first use; never shown). */
+    suspend fun deviceId(): String = db.withTransaction {
+        settingsDao.get(KEY_DEVICE_ID) ?: java.util.UUID.randomUUID().toString().also { settingsDao.put(SettingEntity(KEY_DEVICE_ID, it)) }
+    }
+
+    suspend fun shareSession(gameId: Long): ShareSessionEntity? = shareDao.get(gameId)
+
+    suspend fun shareSessions(): List<ShareSessionEntity> = shareDao.all()
+
+    suspend fun saveShareSession(session: ShareSessionEntity) = shareDao.put(session)
+
+    suspend fun deleteShareSession(gameId: Long) = shareDao.delete(gameId)
+
+    /** The joined copy of the shared game [uid] on this phone, if any. */
+    suspend fun joinedGameId(uid: String): Long? = shareDao.joinedGame(uid)
+
+    /**
+     * A guest's local stand-ins for the host's [players] (hidden, `joinedOnly`): [known] maps host
+     * ids to existing local ids (names / avatars are refreshed); new ones are created. Returns the
+     * full host → local map.
+     */
+    suspend fun joinedPlayers(players: Collection<Player>, known: Map<Long, Long>): Map<Long, Long> = db.withTransaction {
+        players.associate { p ->
+            val local = known[p.id]?.let { playerDao.byId(it) }
+            val a = p.avatar.normalized()
+            val id = if (local == null) {
+                playerDao.insert(
+                    PlayerEntity(
+                        name = p.name, avatarFace = a.face, avatarPattern = a.pattern, avatarColor = a.color,
+                        createdAt = clock(), joinedOnly = true,
+                    ),
+                )
+            } else {
+                val updated = local.copy(name = p.name, avatarFace = a.face, avatarPattern = a.pattern, avatarColor = a.color)
+                if (updated != local) playerDao.update(updated)
+                local.id
+            }
+            p.id to id
+        }
+    }
+
+    /** "Save players to my list" on a joined game: these hidden players become normal stored players. */
+    suspend fun keepJoinedPlayers(localIds: Collection<Long>) = shareDao.keepPlayers(localIds.toList())
+
+    /**
+     * Stores [state] (already in local player ids) as the joined copy of a shared game: created on
+     * first use ([localGameId] `null`), else updated in place. This phone's view choice and
+     * adjustment row ids are kept. Returns the local game id.
+     */
+    suspend fun saveJoinedGame(localGameId: Long?, uid: String, hostName: String, state: GameState): Long = db.withTransaction {
+        val existing = localGameId?.let { gameDao.load(it) }
+        if (existing == null) {
+            val entity = state.toGameEntity().copy(id = 0, viewMode = null, joinedFrom = hostName, gameUid = uid)
+            val id = gameDao.insertGame(entity)
+            val inserted = GameWithDetails(entity.copy(id = id), emptyList(), emptyList(), emptyList())
+            persist(inserted, null, state.copy(id = id, viewMode = null, adjustments = state.adjustments.map { it.copy(id = 0) }))
+            id
+        } else {
+            val old = existing.toState()
+            val unused = old.adjustments.toMutableList()
+            val adjustments = state.adjustments.map { a ->
+                val same = unused.firstOrNull { o -> o.playerId == a.playerId && o.delta == a.delta && o.round == a.round && o.createdAt == a.createdAt && o.note == a.note }
+                if (same != null) {
+                    unused.remove(same)
+                    a.copy(id = same.id)
+                } else {
+                    a.copy(id = 0)
+                }
+            }
+            persist(existing, old, state.copy(id = existing.game.id, viewMode = old.viewMode, adjustments = adjustments))
+            if (existing.game.joinedFrom != hostName) gameDao.updateGame(gameDao.load(existing.game.id)!!.game.copy(joinedFrom = hostName))
+            existing.game.id
+        }
+    }
 
     // ---- Internals -----------------------------------------------------------------------
 
@@ -323,7 +477,7 @@ class GameRepository(
     /** Writes what changed between [old] (as loaded in [details]; `null` = nothing stored yet) and [new]. */
     private suspend fun persist(details: GameWithDetails, old: GameState?, new: GameState) {
         val gameId = details.game.id
-        val game = new.toGameEntity().copy(id = gameId)
+        val game = new.toGameEntity().copy(id = gameId, joinedFrom = details.game.joinedFrom, gameUid = details.game.gameUid)
         if (game != details.game) gameDao.updateGame(game)
         if (old == null || old.seats != new.seats || old.departed != new.departed || old.joinedRounds != new.joinedRounds) {
             // Players gone without a trace (joined and left in the same round) lose their row.
@@ -380,6 +534,7 @@ class GameRepository(
         const val KEY_VIEW_MODE = "view_mode"
         const val KEY_SAVE_SCANS = "save_scans_for_training"
         const val KEY_SCAN_DIRECTION = "scan_direction"
+        const val KEY_DEVICE_ID = "multiplayer_device_id"
 
         fun parseScanDirection(value: String?): ScanDirection =
             value?.let { v -> ScanDirection.entries.firstOrNull { it.name == v } } ?: ScanDirection.CLOCKWISE

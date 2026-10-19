@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface PlayerDao {
-    @Query("SELECT * FROM players WHERE archived = 0 ORDER BY name COLLATE NOCASE, id")
+    @Query("SELECT * FROM players WHERE archived = 0 AND joinedOnly = 0 ORDER BY name COLLATE NOCASE, id")
     fun observeActive(): Flow<List<PlayerEntity>>
 
     /** All players incl. archived ones (past games may reference them). */
@@ -23,7 +23,7 @@ interface PlayerDao {
     @Query("SELECT * FROM players WHERE id = :id")
     suspend fun byId(id: Long): PlayerEntity?
 
-    @Query("SELECT avatarColor FROM players WHERE archived = 0")
+    @Query("SELECT avatarColor FROM players WHERE archived = 0 AND joinedOnly = 0")
     suspend fun activeColors(): List<String>
 
     @Insert
@@ -46,30 +46,36 @@ interface PlayerDao {
 @Dao
 interface GameDao {
     @Transaction
-    @Query("SELECT * FROM games WHERE finishedAt IS NULL ORDER BY startedAt DESC, id DESC LIMIT 1")
+    @Query("SELECT * FROM games WHERE finishedAt IS NULL AND joinedFrom IS NULL ORDER BY startedAt DESC, id DESC LIMIT 1")
     fun observeActive(): Flow<GameWithDetails?>
 
     @Transaction
     @Query("SELECT * FROM games WHERE id = :id")
     fun observe(id: Long): Flow<GameWithDetails?>
 
-    /** Finished and abandoned games (Home history), most recently finished first. */
+    /**
+     * Finished and abandoned games (Home history), most recently finished first; joined games
+     * (multiplayer guest copies) also while unfinished (the host may never finish them).
+     */
     @Transaction
-    @Query("SELECT * FROM games WHERE finishedAt IS NOT NULL ORDER BY finishedAt DESC, id DESC")
+    @Query(
+        "SELECT * FROM games WHERE finishedAt IS NOT NULL OR joinedFrom IS NOT NULL " +
+            "ORDER BY COALESCE(finishedAt, startedAt) DESC, id DESC",
+    )
     fun observePast(): Flow<List<GameWithDetails>>
 
     @Transaction
     @Query("SELECT * FROM games WHERE id = :id")
     suspend fun load(id: Long): GameWithDetails?
 
-    @Query("SELECT id FROM games WHERE finishedAt IS NULL")
+    @Query("SELECT id FROM games WHERE finishedAt IS NULL AND joinedFrom IS NULL")
     suspend fun unfinishedIds(): List<Long>
 
     /** Most recent game whose (final, seated) players are exactly [ids]. */
     @Query(
         """
         SELECT gp.gameId FROM game_players gp JOIN games g ON g.id = gp.gameId
-        WHERE gp.leftRound IS NULL
+        WHERE gp.leftRound IS NULL AND g.joinedFrom IS NULL
         GROUP BY gp.gameId
         HAVING COUNT(*) = :count AND SUM(gp.playerId IN (:ids)) = :count
         ORDER BY MAX(g.startedAt) DESC, gp.gameId DESC LIMIT 1
@@ -137,4 +143,26 @@ interface SettingsDao {
 
     @Upsert
     suspend fun put(setting: SettingEntity)
+}
+
+@Dao
+interface ShareDao {
+    @Query("SELECT * FROM share_sessions WHERE gameId = :gameId")
+    suspend fun get(gameId: Long): ShareSessionEntity?
+
+    @Query("SELECT * FROM share_sessions ORDER BY updatedAt DESC")
+    suspend fun all(): List<ShareSessionEntity>
+
+    @Upsert
+    suspend fun put(session: ShareSessionEntity)
+
+    @Query("DELETE FROM share_sessions WHERE gameId = :gameId")
+    suspend fun delete(gameId: Long)
+
+    /** The joined copy of a shared game ([GameEntity.gameUid]), if this phone has one. */
+    @Query("SELECT id FROM games WHERE gameUid = :uid AND joinedFrom IS NOT NULL LIMIT 1")
+    suspend fun joinedGame(uid: String): Long?
+
+    @Query("UPDATE players SET joinedOnly = 0 WHERE id IN (:ids)")
+    suspend fun keepPlayers(ids: List<Long>)
 }

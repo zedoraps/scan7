@@ -181,6 +181,63 @@ class MigrationTest {
     }
 
     @Test
+    fun v5ToV6_addsMultiplayerColumns_andKeepsGames() {
+        helper.createDatabase(dbName, 5).use { db ->
+            db.execSQL(
+                "INSERT INTO players (id, name, avatarFace, avatarPattern, avatarColor, createdAt, archived) VALUES " +
+                    "(1, 'Anna', 'grin', 'plain', 'amber', 10, 0), (2, 'Ben', 'grin', 'plain', 'sand', 11, 0)",
+            )
+            db.execSQL("INSERT INTO games (id, startedAt, finishedAt, abandoned, endedEarly, target, viewMode) VALUES (7, 100, NULL, 0, 0, 200, NULL)")
+            db.execSQL(
+                "INSERT INTO game_players (gameId, playerId, seatIndex, tableX, tableY, joinedRound, leftRound) VALUES " +
+                    "(7, 1, 0, 0.5, 0.0, 1, NULL), (7, 2, 1, 0.5, 1.0, 1, NULL)",
+            )
+            db.execSQL("INSERT INTO rounds (id, gameId, number, closedAt) VALUES (1, 7, 1, NULL)")
+            db.execSQL(
+                "INSERT INTO round_results (id, roundId, playerId, status, points, source, updatedAt) VALUES " +
+                    "(1, 1, 1, 'SCORED', 42, 'SCAN', 120), (2, 1, 2, 'OPEN', 0, NULL, 130)",
+            )
+        }
+
+        // Validates against the exported 6.json: existing games are local, players visible.
+        helper.runMigrationsAndValidate(dbName, 6, true).use { db ->
+            db.query("SELECT joinedFrom, gameUid FROM games").use { c ->
+                c.moveToFirst()
+                assertEquals(true, c.isNull(0) && c.isNull(1))
+            }
+            db.query("SELECT COUNT(*) FROM players WHERE joinedOnly = 0").use { c ->
+                c.moveToFirst()
+                assertEquals(2, c.getInt(0))
+            }
+            db.query("SELECT COUNT(*) FROM share_sessions").use { c ->
+                c.moveToFirst()
+                assertEquals(0, c.getInt(0))
+            }
+        }
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val room = Room.databaseBuilder(context, Scan7Database::class.java, dbName).addMigrations(*MIGRATIONS).build()
+        try {
+            runBlocking {
+                val repo = GameRepository(room, clock = { 1000L })
+                val s = repo.activeGame.first()!!.state
+                assertEquals(mapOf(1L to 42, 2L to 0), s.totals)
+                // The action path and a joined copy work on the migrated database.
+                repo.scorePoints(7, 2, 9)
+                assertEquals(9, repo.activeGame.first()!!.state.total(2))
+                val local = repo.joinedPlayers(listOf(net.moesli.scan7.game.Player(50, "Philip")), emptyMap())
+                val copy = net.moesli.scan7.game.GameState.newGame(listOf(net.moesli.scan7.game.Player(local.getValue(50), "Philip"), net.moesli.scan7.game.Player(1, "Anna")))
+                val joinedId = repo.saveJoinedGame(null, "uid-1", "Philip", copy)
+                assertEquals(joinedId, repo.joinedGameId("uid-1"))
+                assertEquals(7L, repo.activeGame.first()!!.state.id) // the joined copy is not "the game to resume"
+                assertEquals(listOf("Anna", "Ben"), repo.players.first().map { it.name }) // hidden guest player
+            }
+        } finally {
+            room.close()
+        }
+    }
+
+    @Test
     fun v1ToV4_runsEveryMigration() {
         helper.createDatabase(dbName, 1).use { db ->
             db.execSQL("INSERT INTO players (id, name, colorIndex, createdAt, archived) VALUES (1, 'Anna', 4, 10, 0)")
