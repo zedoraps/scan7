@@ -87,21 +87,21 @@ root CHANGELOG.md, because the notes live in `changelog/releases/` and on the Gi
 ## Checklist (manual steps)
 
 ### 1. Public source repository (required by the AGPL before the first public release)
-- [ ] Before publishing, check that no photo was ever committed: `git log --all --name-only --format= | grep -Ei '\.(jpe?g|png|heic)$' | sort -u`
-      (expected: only brand/, design/, docs/store/ and res/ images; **never** anything from
+- [x] Before publishing, check that no photo was ever committed: `git log --all --name-only --format= | grep -Ei '\.(jpe?g|png|heic)$' | sort -u`
+      (expected: only brand/, design/, docs/readme/, docs/store/ and res/ images; **never** anything from
       `ml/data/`). If anything private shows up, rewrite the history
-      (git filter-repo) *before* the first push. (Checked 2026-10-18: clean, only icons/avatars.)
-- [ ] Read `ml/data/web_test/sources.csv` once (no photos, only sources). The commit author name/e-mail become public too.
-- [ ] Create the public GitHub repository and push `main` (and tags).
+      (git filter-repo) *before* the first push. (Checked 2026-10-18 and 2026-10-19: clean. On 2026-10-19 the history was rewritten anyway to drop the old `ml/data/manifest.csv`, which named and described private photos.)
+- [x] Read `ml/data/web_test/sources.csv` once (no photos, only sources). The commit author name/e-mail become public too.
+- [x] Create the public GitHub repository and push `main` (and tags): https://github.com/zedoraps/scan7.
 - [x] Repository set to `zedoraps/scan7` in `app/gradle.properties` (`scan7.sourceUrl`,
       `scan7.privacyUrl`), `app/model.properties` (`model.url`), `docs/store/listing-en.md`.
-- [ ] Enable **GitHub Pages** (Settings → Pages → deploy from branch `main`, folder `/docs`). The
+- [x] Enable **GitHub Pages** (Settings → Pages → deploy from branch `main`, folder `/docs`). The
       privacy policy is then at `https://zedoraps.github.io/scan7/privacy.html` (`docs/privacy.md`,
       English + German). The other files in `docs/` are published too, which is fine because
       they are public in the repo anyway.
-- [ ] Create the model release: `gh release create model-ft_v5 app/app/src/main/assets/model.tflite --title "Detector model ft_v5" --notes "YOLO26n fp32, 800 px (AGPL-3.0)"`,
-      then check a fresh clone: `git clone … && cd scan7/app && ./gradlew downloadModel assembleDebug`.
-- [ ] Every app release: tag it (`git tag v0.1.0`), so the source of each published build is
+- [x] Create the model release: `gh release create model-ft_v5 app/app/src/main/assets/model.tflite --title "Detector model ft_v5" --notes "YOLO26n fp32, 800 px (AGPL-3.0)"`,
+      then check a fresh clone: `git clone … && cd scan7/app && ./gradlew downloadModel assembleDebug`. (Release created 2026-10-19; the fresh-clone check is still open.)
+- [x] Every app release: tag it (`git tag v0.1.0`), so the source of each published build is
       findable (AGPL § 6 / § 13).
 
 ### 2. Upload key (never in the repo, never sent anywhere)
@@ -125,10 +125,10 @@ warns "release build is UNSIGNED".
 - [ ] **Play App Signing** is on by default for new apps: on the first upload Play Console asks to
       let Google create and keep the app signing key. Accept. You only ever upload with the upload
       key, and Play re-signs the APKs it delivers.
-- [ ] GitHub release APKs: Play-installed and GitHub-installed copies have **different
+- [x] GitHub release APKs: Play-installed and GitHub-installed copies have **different
       signatures** (Google's app signing key vs. yours) and can't update each other. Either sign
       GitHub APKs with the upload key and say so in the release notes, or create a separate
-      "github" key the same way.
+      "github" key the same way. (v0.1.0: signed with the upload key, said so in the release notes.)
 
 ### 3. Google Play developer account
 - [ ] Register at <https://play.google.com/console/signup> as a **personal** account: one-time
