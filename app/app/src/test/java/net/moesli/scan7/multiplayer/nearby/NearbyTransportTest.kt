@@ -197,6 +197,33 @@ class NearbyTransportTest {
     }
 
     @Test
+    fun unansweredRequest_timesOut_andTheHostIsFoundAgain() {
+        val api = ManualApi()
+        val scheduler = FakeScheduler()
+        val transport = NearbyClientTransport(api, service, join, scheduler)
+        transport.start(DiscoveryProbe())
+        api.discovery!!.onEndpointFound("h1", JoinAuth.advertisedName(join.sessionId), service)
+        assertEquals(1, api.count("requestConnection"))
+
+        // No onConnectionInitiated / result ever arrives (the host dropped off mid-handshake).
+        scheduler.advanceBy(NearbyClientTransport.CONNECT_TIMEOUT_MS - 1)
+        assertEquals(TransportStatus.Connecting("h1"), transport.status.value)
+        scheduler.advanceBy(1)
+        assertEquals(1, api.count("disconnectFromEndpoint"))
+        assertEquals(TransportStatus.Reconnecting(1_000), transport.status.value)
+
+        // Rediscovered: a fresh request instead of ignoring the host.
+        scheduler.advanceBy(1_000)
+        api.discovery!!.onEndpointFound("h2", JoinAuth.advertisedName(join.sessionId), service)
+        assertEquals(2, api.count("requestConnection"))
+        api.connection!!.onConnectionInitiated("h2", JoinAuth.advertisedName(join.sessionId))
+        api.connection!!.onConnectionResult("h2", ApiResult.Ok)
+        assertEquals(TransportStatus.Connected("h2"), transport.status.value)
+        scheduler.advanceBy(NearbyClientTransport.CONNECT_TIMEOUT_MS)
+        assertEquals(TransportStatus.Connected("h2"), transport.status.value) // timer cancelled
+    }
+
+    @Test
     fun hostRejectedConnection_isNotRetried() {
         val api = ManualApi()
         val scheduler = FakeScheduler()

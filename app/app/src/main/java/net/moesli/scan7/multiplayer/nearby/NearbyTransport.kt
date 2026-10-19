@@ -172,6 +172,8 @@ class NearbyClientTransport(
     private val backoffMs: List<Long> = DEFAULT_BACKOFF_MS,
     private val requestName: () -> String = { JoinAuth.requestName(link) },
     private val flushDelayMs: Long = NearbyHostTransport.FLUSH_DELAY_MS,
+    /** A request the host never answers (it went out of range mid-handshake) is given up after this. */
+    private val connectTimeoutMs: Long = CONNECT_TIMEOUT_MS,
 ) : ClientTransport {
     private val _status = MutableStateFlow<TransportStatus>(TransportStatus.Idle)
     val status: StateFlow<TransportStatus> = _status.asStateFlow()
@@ -184,6 +186,7 @@ class NearbyClientTransport(
     private var closed = false
     private var attempt = 0
     private var retry: Cancellable? = null
+    private var connectTimer: Cancellable? = null
 
     override fun start(listener: ClientTransport.Listener) {
         this.listener = listener
@@ -204,6 +207,7 @@ class NearbyClientTransport(
         if (closed) return
         closed = true
         retry?.cancel()
+        connectTimer?.cancel()
         stopDiscovery()
         val ep = endpoint ?: connecting
         _status.value = TransportStatus.Stopped
@@ -257,7 +261,10 @@ class NearbyClientTransport(
             endpoint = null
             listener?.onDisconnected()
         }
-        if (connecting == ep) connecting = null
+        if (connecting == ep) {
+            connecting = null
+            connectTimer?.cancel()
+        }
         scheduleRetry()
     }
 
@@ -268,9 +275,20 @@ class NearbyClientTransport(
             stopDiscovery()
             connecting = endpointId
             _status.value = TransportStatus.Connecting(endpointId)
+            // Field test: the host lost Wi-Fi mid-request, no result ever came, and `connecting` then
+            // made the guest ignore the host it found again ("Connecting…" forever).
+            connectTimer?.cancel()
+            connectTimer = scheduler.schedule(connectTimeoutMs) {
+                if (connecting == endpointId && endpoint == null && !closed) {
+                    connecting = null
+                    api.disconnectFromEndpoint(endpointId)
+                    scheduleRetry()
+                }
+            }
             api.requestConnection(requestName(), endpointId, connectionCallback) { result ->
                 if (result is ApiResult.Failed && connecting == endpointId) {
                     connecting = null
+                    connectTimer?.cancel()
                     if (result.error == ApiError.MISSING_PERMISSION) {
                         _status.value = TransportStatus.MissingPermissions(emptyList())
                     } else {
@@ -284,6 +302,7 @@ class NearbyClientTransport(
             // The host vanished before we got connected: look again (a connected link reports onDisconnected instead).
             if (connecting == endpointId && endpoint == null) {
                 connecting = null
+                connectTimer?.cancel()
                 scheduleRetry()
             }
         }
@@ -305,6 +324,7 @@ class NearbyClientTransport(
         override fun onConnectionResult(endpointId: String, result: ApiResult) {
             if (endpointId != connecting) return
             connecting = null
+            connectTimer?.cancel()
             if (result == ApiResult.Ok && !closed) {
                 endpoint = endpointId
                 attempt = 0
@@ -325,6 +345,9 @@ class NearbyClientTransport(
 
     companion object {
         val DEFAULT_BACKOFF_MS = listOf(1_000L, 2_000L, 4_000L, 8_000L, 16_000L, 30_000L)
+
+        /** Bluetooth handshakes took ~11 s in the field test: well above that. */
+        const val CONNECT_TIMEOUT_MS = 30_000L
     }
 }
 
