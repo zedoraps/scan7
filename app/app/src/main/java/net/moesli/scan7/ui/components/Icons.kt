@@ -114,8 +114,9 @@ private object Vectors {
     val share by lazy {
         vector(
             "Share",
-            roundRect(2f, 4f, 8f, 16f, 2f) + "M5.5 16.5h1" +
-                "M13 9.5a3.5 3.5 0 0 1 0 5" + "M16.5 7a6.5 6.5 0 0 1 0 10" + "M20 4.5a9 9 0 0 1 0 15",
+            // Outer arc ends at x ≈ 22.2 (+ half the stroke): inside the 24 grid, no clipping.
+            roundRect(2f, 4f, 7.5f, 16f, 2f) + "M5 16.5h1.5" +
+                "M12.5 9.5a3.5 3.5 0 0 1 0 5" + "M15.5 7.5a6 6 0 0 1 0 9" + "M18.5 5a8.5 8.5 0 0 1 0 14",
             2f,
         )
     }
