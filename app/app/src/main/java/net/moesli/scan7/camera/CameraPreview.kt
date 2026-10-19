@@ -77,7 +77,7 @@ private const val TAG = "CameraPreview"
 private const val CAMERA_PREFS = "camera"
 private const val PREF_ZOOM = "zoom"
 
-/** Analysis target: 4:3, ~1280×960, enough headroom for a 640 px detector input. */
+/** Analysis target: 4:3, ~1280×960, enough for the 800 px detector input. */
 private val analysisResolution = ResolutionSelector.Builder()
     .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
     .setResolutionStrategy(

@@ -60,7 +60,7 @@ fun selectBestFrame(frames: List<FrameCandidate>): Int {
 /**
  * Sharpness: variance of the 4-neighbour Laplacian of the luma, sampled every [step] pixels in the
  * [width]×[height] region at ([left], [top]) of row-major ARGB [pixels] with row length [stride].
- * Called on the detector's 640 px input (already a filtered downscale), so it costs < 1 ms.
+ * Called on the detector's MODEL_INPUT_SIZE (800 px) input (already a filtered downscale), so it costs < 1 ms.
  * Blur (motion or focus) lowers it; only comparable between frames of the same scene.
  */
 fun laplacianVariance(pixels: IntArray, stride: Int, left: Int, top: Int, width: Int, height: Int, step: Int = 2): Float {

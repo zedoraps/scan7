@@ -63,7 +63,7 @@ app), upload `app/app/src/main/assets/model.tflite` to a new release (tag e.g. `
       privacy policy is then at `https://zedoraps.github.io/scan7/privacy.html` (`docs/privacy.md`,
       English + German). Note: the other files in `docs/` are published too (they're public in
       the repo anyway).
-- [ ] Create the model release: `gh release create model-ft_v1 app/app/src/main/assets/model.tflite --title "Detector model ft_v1" --notes "YOLO26n fp32, 640 px (AGPL-3.0)"`,
+- [ ] Create the model release: `gh release create model-ft_v5 app/app/src/main/assets/model.tflite --title "Detector model ft_v5" --notes "YOLO26n fp32, 800 px (AGPL-3.0)"`,
       then check a fresh clone: `git clone … && cd scan7/app && ./gradlew downloadModel assembleDebug`.
 - [ ] Every app release: tag it (`git tag v0.1.0`), so the source of each published build is
       findable (AGPL § 6 / § 13).
