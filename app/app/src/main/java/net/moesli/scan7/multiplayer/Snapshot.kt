@@ -3,6 +3,9 @@ package net.moesli.scan7.multiplayer
 import kotlinx.serialization.Serializable
 import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.DepartedPlayer
+import net.moesli.scan7.game.EnderPenalty
+import net.moesli.scan7.game.GameKind
+import net.moesli.scan7.game.GameRules
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.PlayerResult
@@ -41,6 +44,9 @@ data class PlayerDto(val id: Long, val name: String, val avatar: Avatar) {
 @Serializable
 data class GameDto(
     val id: Long,
+    /** Absent from older peers = Flip 7 (they only know Flip 7). */
+    val kind: GameKind = GameKind.FLIP7,
+    val enderPenalty: EnderPenalty = EnderPenalty.OFFICIAL,
     val target: Int,
     val seats: List<SeatDto>,
     val rounds: List<RoundDto>,
@@ -57,9 +63,11 @@ data class GameDto(
 ) {
     fun toState() = GameState(
         id = id,
+        kind = kind,
+        enderPenalty = enderPenalty,
         target = target,
         seats = seats.map { Seat(it.playerId, TablePosition(it.x, it.y)) },
-        rounds = rounds.map { it.toRound() },
+        rounds = rounds.map { it.toRound(kind.rules) },
         startedAt = startedAt,
         finishedAt = finishedAt,
         abandoned = abandoned,
@@ -73,6 +81,8 @@ data class GameDto(
     companion object {
         fun of(s: GameState) = GameDto(
             id = s.id,
+            kind = s.kind,
+            enderPenalty = s.enderPenalty,
             target = s.target,
             seats = s.seats.map { SeatDto(it.playerId, it.position.x, it.position.y) },
             rounds = s.rounds.map { RoundDto.of(it) },
@@ -99,14 +109,15 @@ data class SeatDto(val playerId: Long, val x: Float, val y: Float)
 
 /** Results as a list keyed by player (JSON maps need string keys; a list keeps the ids typed). */
 @Serializable
-data class RoundDto(val number: Int, val results: List<ResultDto>, val closedAt: Long? = null) {
-    fun toRound() = RoundState(number, results.associate { it.playerId to it.toResult() }, closedAt)
+data class RoundDto(val number: Int, val results: List<ResultDto>, val closedAt: Long? = null, val endedBy: Long? = null) {
+    fun toRound(rules: GameRules) = RoundState(number, results.associate { it.playerId to it.toResult(rules) }, closedAt, endedBy)
 
     companion object {
         fun of(r: RoundState) = RoundDto(
             number = r.number,
             results = r.results.map { (p, res) -> ResultDto.of(p, res) },
             closedAt = r.closedAt,
+            endedBy = r.endedBy,
         )
     }
 }
@@ -120,7 +131,7 @@ data class ResultDto(
     val cards: List<WireCard> = emptyList(),
     val updatedAt: Long = 0,
 ) {
-    fun toResult() = PlayerResult(status, points, source, cards.map { it.toCard() }, updatedAt)
+    fun toResult(rules: GameRules) = PlayerResult(status, points, source, cards.map { it.toCard(rules) }, updatedAt)
 
     companion object {
         fun of(playerId: Long, r: PlayerResult) =

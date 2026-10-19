@@ -472,7 +472,7 @@ private fun ResultPanel(state: PlayerSheetUi) {
                 FormulaText(breakdownFormula(counted), style = Scan7Type.text12, joinLines = true)
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs), verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xs)) {
-                state.cards.forEach { CardChip(it.card, it.ignored, duplicate = it.card in duplicates) }
+                state.cards.forEach { c -> (c.card as? Card)?.let { CardChip(it, c.ignored, duplicate = it in duplicates) } }
             }
         } else {
             Text(

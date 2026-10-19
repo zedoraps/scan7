@@ -3,12 +3,12 @@ package net.moesli.scan7.multiplayer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.moesli.scan7.game.ConfirmedCard
+import net.moesli.scan7.game.GameRules
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.ResultSource
 import net.moesli.scan7.game.Seat
 import net.moesli.scan7.game.TablePosition
-import net.moesli.scan7.scoring.Card
 
 /**
  * One game mutation as data: the wire form of the existing [GameState] actions (docs/dev/MULTI_DEVICE.md §5).
@@ -40,13 +40,17 @@ sealed interface GameAction {
 @Serializable
 data class ResultKey(val round: Int, val playerId: Long)
 
-/** A confirmed card on the wire: the detector label (stable, = ml/config/cards.yaml) + ignored flag. */
+/**
+ * A confirmed card on the wire: the detector label (stable, = ml/config/cards.yaml; looked up in the
+ * game's card set) + ignored flag + the grid slot (Skyjo).
+ */
 @Serializable
-data class WireCard(val label: String, val ignored: Boolean) {
-    fun toCard(): ConfirmedCard = ConfirmedCard(requireNotNull(Card.fromLabel(label)) { "Unknown card $label" }, ignored)
+data class WireCard(val label: String, val ignored: Boolean, val slot: Int? = null) {
+    fun toCard(rules: GameRules): ConfirmedCard =
+        ConfirmedCard(requireNotNull(rules.cardFromLabel(label)) { "Unknown card $label" }, ignored, slot)
 
     companion object {
-        fun of(card: ConfirmedCard) = WireCard(card.card.label, card.ignored)
+        fun of(card: ConfirmedCard) = WireCard(card.card.label, card.ignored, card.slot)
     }
 }
 
@@ -68,7 +72,7 @@ data class ScoreCards(
     val manual: Boolean = false,
 ) : PlayerAction {
     override fun apply(state: GameState, now: Long, seq: Long) =
-        state.scoreCards(playerId, cards.map { it.toCard() }, if (manual) ResultSource.MANUAL else ResultSource.SCAN, now, round)
+        state.scoreCards(playerId, cards.map { it.toCard(state.rules) }, if (manual) ResultSource.MANUAL else ResultSource.SCAN, now, round)
 }
 
 @Serializable
@@ -163,6 +167,17 @@ data class CloseRound(val round: Int) : GameAction {
         state.requireCurrent(round)
         return state.closeRound(now)
     }
+}
+
+/** Skyjo: [playerId] ended [round] (`null` = nobody); set right before closing it, or later on a closed round. */
+@Serializable
+@SerialName("set_round_ender")
+data class SetRoundEnder(val round: Int, val playerId: Long?) : GameAction {
+    override val hostOnly get() = true
+
+    override fun touches(state: GameState): Set<ResultKey> = emptySet()
+
+    override fun apply(state: GameState, now: Long, seq: Long) = state.withRoundEnder(playerId, now, round)
 }
 
 /** Starts the round after the closed round [after]. */

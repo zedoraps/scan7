@@ -7,6 +7,8 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.Relation
+import net.moesli.scan7.game.EnderPenalty
+import net.moesli.scan7.game.GameKind
 import net.moesli.scan7.game.ResultSource
 import net.moesli.scan7.game.ResultStatus
 import net.moesli.scan7.game.ViewMode
@@ -49,6 +51,10 @@ data class GameEntity(
     val joinedFrom: String? = null,
     /** Stable id of a shared game across phones (a rejoin updates the same copy). Added in DB version 6. */
     val gameUid: String? = null,
+    /** Which game (Flip 7 / Skyjo). Added in DB version 7 (older games are Flip 7). */
+    @ColumnInfo(defaultValue = "FLIP7") val kind: GameKind = GameKind.FLIP7,
+    /** Skyjo's round-ender rule (unused for Flip 7). Added in DB version 7. */
+    @ColumnInfo(defaultValue = "OFFICIAL") val enderPenalty: EnderPenalty = EnderPenalty.OFFICIAL,
 )
 
 @Entity(
@@ -91,6 +97,8 @@ data class RoundEntity(
     /** 1-based. */
     val number: Int,
     val closedAt: Long? = null,
+    /** Skyjo: the player who ended the round (a player id; no foreign key, like the session state). Added in DB version 7. */
+    val endedBy: Long? = null,
 )
 
 @Entity(
@@ -127,6 +135,8 @@ data class ResultCardEntity(
     val position: Int,
     val label: String,
     val ignored: Boolean,
+    /** Skyjo: slot 0–11 in the 3 × 4 grid; `null` for a free row (Flip 7). Added in DB version 7. */
+    val slot: Int? = null,
 )
 
 /**

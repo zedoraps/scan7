@@ -27,6 +27,7 @@ import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.data.outlivingUi
 import net.moesli.scan7.game.GameState
+import net.moesli.scan7.game.flip7Cards
 import net.moesli.scan7.ui.components.PlayerStatus
 import net.moesli.scan7.ui.nav.AfterScan
 import net.moesli.scan7.ui.nav.EntryMode
@@ -113,7 +114,7 @@ fun ScanRoute(
     }
     val initialCards = when (start) {
         ScanStart.MANUAL -> emptyList()
-        ScanStart.EDIT -> state.result(playerId, roundNumber).cards.map { it.card }
+        ScanStart.EDIT -> state.result(playerId, roundNumber).cards.flip7Cards()
         ScanStart.CAMERA, ScanStart.NEXT -> null
     }
     val save = { what: String, block: suspend GameRepository.() -> GameState, then: (GameState) -> Unit ->

@@ -7,7 +7,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 /** Room schema version (bump together with a migration; schemas are exported to app/schemas). */
-const val DB_SCHEMA_VERSION = 6
+const val DB_SCHEMA_VERSION = 7
 
 @Database(
     entities = [
@@ -33,6 +33,8 @@ const val DB_SCHEMA_VERSION = 6
         AutoMigration(from = 4, to = 5),
         // 6: multiplayer: games.joinedFrom + gameUid, players.joinedOnly, table share_sessions.
         AutoMigration(from = 5, to = 6),
+        // 7: Skyjo: games.kind (default FLIP7) + enderPenalty, rounds.endedBy, result_cards.slot.
+        AutoMigration(from = 6, to = 7),
     ],
 )
 abstract class Scan7Database : RoomDatabase() {

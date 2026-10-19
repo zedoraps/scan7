@@ -1,5 +1,7 @@
 package net.moesli.scan7.scoring
 
+import net.moesli.scan7.game.GameCard
+
 enum class CardKind {
     NUMBER,
     MODIFIER_PLUS,
@@ -12,7 +14,7 @@ enum class CardKind {
  * The 23 detector classes. [label] is the class name exactly as emitted by the model;
  * [value] is the face value for number and plus cards, `null` otherwise.
  */
-enum class Card(val label: String, val kind: CardKind, val value: Int? = null) {
+enum class Card(override val label: String, val kind: CardKind, val value: Int? = null) : GameCard {
     N0("00", CardKind.NUMBER, 0),
     N1("01", CardKind.NUMBER, 1),
     N2("02", CardKind.NUMBER, 2),

@@ -1,12 +1,15 @@
 package net.moesli.scan7.multiplayer
 
 import net.moesli.scan7.game.ConfirmedCard
+import net.moesli.scan7.game.EnderPenalty
+import net.moesli.scan7.game.GameKind
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.MAX_PLAYERS
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.ResultSource
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.scoring.CardKind
+import net.moesli.scan7.skyjo.SkyjoCard
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -55,6 +58,21 @@ class WireCodecTest {
         println("30 rounds x 10 players x 10 cards: ${frame.size} bytes gzipped")
         val back = roundTrip(welcome) as Welcome
         assertEquals(s, back.snapshot.game.toState())
+    }
+
+    @Test
+    fun skyjoGame_roundTripsKindRuleSlotsAndEnder() {
+        val players = listOf(Player(1, "Anna"), Player(2, "Ben"))
+        val grid = listOf(ConfirmedCard(SkyjoCard.N12, slot = 0), ConfirmedCard(SkyjoCard.M2, slot = 11))
+        val s = GameState.newGame(players, target = 100, kind = GameKind.SKYJO, enderPenalty = EnderPenalty.OFF)
+            .scoreCards(1, grid, ResultSource.MANUAL, 1)
+            .scorePoints(2, -3, 1)
+            .withRoundEnder(1, 2)
+            .closeAndStartNext(3)
+        val welcome = roundTrip(Welcome("s", 1, GameSnapshot(GameDto.of(s), players.map { PlayerDto.of(it) }))) as Welcome
+        assertEquals(s, welcome.snapshot.game.toState())
+        val event = Event(7, 9, SetRoundEnder(1, 2))
+        assertEquals(event, roundTrip(event))
     }
 
     @Test

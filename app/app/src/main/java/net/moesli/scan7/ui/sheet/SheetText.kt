@@ -4,14 +4,15 @@ import net.moesli.scan7.ui.text.uiText
 import net.moesli.scan7.ui.text.UiText
 import net.moesli.scan7.R
 import net.moesli.scan7.game.ConfirmedCard
+import net.moesli.scan7.game.flip7Cards
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.scoring.CardKind
 import net.moesli.scan7.scoring.RowScore
 
 /** Number cards that appear more than once (they cause the bust); shown outlined in magenta. */
 fun duplicatedCards(cards: List<ConfirmedCard>): Set<Card> =
-    cards.filter { !it.ignored && it.card.kind == CardKind.NUMBER }
-        .groupingBy { it.card }.eachCount().filterValues { it > 1 }.keys
+    cards.filter { !it.ignored }.flip7Cards().filter { it.kind == CardKind.NUMBER }
+        .groupingBy { it }.eachCount().filterValues { it > 1 }.keys
 
 /**
  * Score breakdown line, e.g. "7 + 12 + 3 = 22 · ×2 = 44 · +4 · Flip 7 +15"; for a bust
