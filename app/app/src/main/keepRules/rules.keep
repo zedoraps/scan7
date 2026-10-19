@@ -10,3 +10,10 @@
 #-keepclassmembers class fqcn.of.javascript.interface.for.webview {
 #   public *;
 #}
+# LiteRT: the native library (liblitert_jni.so) finds its Java classes, methods and fields by name
+# (e.g. LiteRtException, CompiledModel). Its consumer rules only keep @UsedByReflection members, so
+# keep the whole small Java API unrenamed.
+-keep class com.google.ai.edge.litert.** { *; }
+# LiteRT's optional Play AI-pack model delivery (deployment.AiPackModelProvider) references Play Core
+# AI packs, which Scan7 doesn't ship (the model is a plain asset).
+-dontwarn com.google.android.play.core.aipacks.**
