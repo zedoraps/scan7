@@ -7,6 +7,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
@@ -112,6 +113,8 @@ abstract class FlowTest {
     private fun Localized(locale: Locale?, content: @Composable () -> Unit) {
         if (locale == null) return content()
         val base = LocalContext.current
+        // The localized context is no ContextWrapper of the activity: keep its result registry (permission requests).
+        val registry = LocalActivityResultRegistryOwner.current
         val baseConfig = LocalConfiguration.current
         val localized = remember(base, baseConfig, locale) {
             val config = Configuration(baseConfig).apply { setLocale(locale) }
@@ -121,6 +124,7 @@ abstract class FlowTest {
             LocalContext provides localized,
             LocalConfiguration provides localized.resources.configuration,
             LocalResources provides localized.resources,
+            LocalActivityResultRegistryOwner provides checkNotNull(registry),
             content = content,
         )
     }

@@ -1,6 +1,7 @@
 # Platform audit: hand-built vs. platform (Android / Jetpack / Material 3)
 
 Date: 2026-10-18. Scope: `app/app/src/main` (all packages, manifest, res, build files). This is a read-only audit; no code changed.
+**Status 2026-10-19:** batch D done for #4 (in-app predictive back), #5 (Navigation 3) and #13 (ViewModel store per entry; writes stay on the app scope). See the notes under each item.
 Rule applied: AGENTS.md "Platform first". Design constraint: custom Scan7 look, no Material default look (DESIGN_HANDOFF.md §1). A native component is fine if it is restyled with the Scan7 tokens.
 Paths are relative to `app/app/src/main/java/net/moesli/scan7/` unless they start with `app/` or `res/`. Line numbers are from the main checkout. `ui/round` and `ui/scan` are being edited in worktrees right now, so their line numbers will shift.
 
@@ -76,6 +77,7 @@ Effort: **S** is under half a day, **M** half a day to 2 days, **L** more than 2
 ### 4. Predictive back (P1, S, replace now: manifest flag)
 - **Custom / missing:** `app/app/src/main/AndroidManifest.xml:12` `<application>` has no `android:enableOnBackInvokedCallback="true"`. With `targetSdk = 37`, predictive back is the default on Android 16+. On API 33–35 devices (inside `minSdk 29`) the system back-to-home animation needs the flag. Every back path already goes through Compose `BackHandler` (no `onBackPressed` overrides), so the flag is safe.
 - **In-app predictive back** (the previous screen peeks in while the user swipes): not possible with the self-made stack, which swaps screens instantly with no transition (`AppNavHost.kt:123-126`). Navigation 3's `NavDisplay` gives this (#5). Building it ourselves with `PredictiveBackHandler` and `SeekableTransitionState` would reinvent Navigation 3. Not recommended.
+- **Done 2026-10-19:** manifest flag set (batch A); in-app predictive back via Navigation 3's `NavDisplay` (`ui/nav/NavMotion.kt`: the screen shrinks to 90 % towards the swipe edge and stays opaque, the screen below brightens under it).
 - Inner back handlers (arrange mode `RoundScreen.kt:171`, scan steps `ScanFlow.kt:133/172/189`, new-game step `NewGameScreens.kt:469`) work with predictive back as they are (no animation, which is fine for in-screen state).
 
 ### 5. Navigation: self-made back stack vs. Navigation 3 (P2, M, needs a decision)
@@ -91,6 +93,8 @@ Effort: **S** is under half a day, **M** half a day to 2 days, **L** more than 2
 | In-app predictive back animation | **No** | Yes (`predictivePopTransitionSpec`) | Yes |
 | Deep links | Debug intents only (build initial stack) | None built in (map the intent to an initial stack, as today) | `deepLinks` in the graph |
 | Typed routes | Hand-rolled encode/decode | `@Serializable` keys | `@Serializable` routes |
+
+**Done 2026-10-19:** migrated (`ui/nav`: `NavDisplay`, `NavBackStack<Route>` saved with the sealed serializer via `rememberSerializable`, saveable-state + ViewModel-store entry decorators; string encoder deleted; `Stack` helpers kept with their tests; `stateKey` is the entry content key and unique on the stack).
 
 **Recommendation:** Navigation 3. It matches what we already built: our `Stack` helpers become plain list operations on the Nav3 back stack and keep their unit tests. In exchange we get transitions, predictive back, ViewModel scoping (#13), and we can delete the string encoder.
 - **Effort:** M (about 1 day including a test pass). Rewrite `AppNavHost`, turn `Route` into `NavKey` with `@Serializable` (needs the kotlinx-serialization plugin, which also serves #22), and adapt `RoutesTest` / `ScanNextBustTest`.
@@ -164,6 +168,7 @@ Effort: **S** is under half a day, **M** half a day to 2 days, **L** more than 2
 - **Native:** `ViewModel` and `viewModelScope` (`lifecycle-viewmodel-compose`). With Navigation 3, ViewModels are scoped per back-stack entry and survive rotation. Today there is no `ViewModel` anywhere.
 - **Quick fix now (S):** an app-wide `CoroutineScope(SupervisorJob() + Dispatchers.Default)` in `AppGraph` for fire-and-forget repository writes.
 - **Real fix (M):** ViewModels per route, together with #5.
+- **Done 2026-10-19 (smaller variant):** the app-scope quick fix (`AppGraph.appScope` + `outlivingUi`) stays the place for repository writes; Navigation 3 now gives every back-stack entry its own `ViewModelStore` (`rememberViewModelStoreNavEntryDecorator`), so a screen can move to an entry-scoped `ViewModel` when that clearly simplifies it. No screen was converted: the writes already outlive the screen, and converting every route would be a large change without a user-visible gain.
 
 ### 14. Strings and localisation (P2, L, replace later)
 - **Custom:** `res/values/strings.xml` only has `app_name`. Every label, hint, content description and error is a Kotlin literal. Hand-built language rules:

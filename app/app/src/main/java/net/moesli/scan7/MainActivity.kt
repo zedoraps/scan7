@@ -89,16 +89,18 @@ class MainActivity : ComponentActivity() {
             Scan7Theme {
                 val context = LocalContext.current
                 val modelInfo = remember { readModelInfo(context) }
-                if (seedNow == null) {
-                    AppNavHost(debug = debug, modelInfo = modelInfo, joinLink = joinLink)
+                // One call site for AppNavHost in every case: its saved back stack is keyed by its
+                // position, so a recreated seeded launch (seedNow == null then) still restores it.
+                val stack by produceState<List<Route>?>(null) { if (seedNow != null) value = seedAndOpen(context, seedNow) }
+                val seeded = stack
+                if (seedNow != null && seeded == null) {
+                    Box(Modifier.fillMaxSize().background(Scan7Theme.colors.ground))
                 } else {
-                    val stack by produceState<List<Route>?>(null) { value = seedAndOpen(context, seedNow) }
-                    val seeded = stack
-                    if (seeded == null) {
-                        Box(Modifier.fillMaxSize().background(Scan7Theme.colors.ground))
-                    } else {
-                        AppNavHost(debug = DebugLaunch(debug.photo, debug.scanDemo, debug.gamePhotoCapture, seeded), modelInfo = modelInfo)
-                    }
+                    AppNavHost(
+                        debug = if (seeded == null) debug else DebugLaunch(debug.photo, debug.scanDemo, debug.gamePhotoCapture, seeded),
+                        modelInfo = modelInfo,
+                        joinLink = joinLink,
+                    )
                 }
             }
         }

@@ -1,5 +1,7 @@
 package net.moesli.scan7.ui.nav
 
+import androidx.navigation3.runtime.NavKey
+import kotlinx.serialization.Serializable
 import net.moesli.scan7.game.DEFAULT_TARGET
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.ui.round.scanNextAfter
@@ -26,35 +28,47 @@ enum class ScanStart {
 enum class DebugScreen { HOME, CAMERA, PHOTO, SCAN_DEMO, AVATARS, MULTIPLAYER }
 
 /**
- * One entry of the app's back stack. Plain data, encoded to a string for `rememberSaveable`
- * (rotation / process death) with [encode] / [decodeRoute].
+ * One entry of the app's back stack: a Navigation 3 key. Plain `@Serializable` data, so the stack
+ * survives rotation and process death (saved by AppNavHost with the sealed serializer, no reflection).
  */
-sealed interface Route {
+@Serializable
+sealed interface Route : NavKey {
+    @Serializable
     data object Home : Route
 
+    @Serializable
     data object Players : Route
 
     /** New game; with [seating] ("New game with same players") it opens prefilled on the seating step. */
+    @Serializable
     data class NewGame(val seating: List<Long>? = null, val target: Int = DEFAULT_TARGET) : Route
 
+    @Serializable
     data class Round(val gameId: Long) : Route
 
     /** Round menu → Players: pick who plays on (step 1), then Seats (step 2), back to the round. */
+    @Serializable
     data class GamePlayers(val gameId: Long) : Route
 
     /** Scan / manual entry for [playerId]; [round] `null` = the running round. */
+    @Serializable
     data class Scan(val gameId: Long, val playerId: Long, val start: ScanStart, val round: Int? = null) : Route
 
+    @Serializable
     data class Scoreboard(val gameId: Long) : Route
 
+    @Serializable
     data class GameOver(val gameId: Long) : Route
 
     /** About & licenses (version, AGPL source link, third-party notices); [license] = open notice. */
+    @Serializable
     data class About(val license: String? = null) : Route
 
+    @Serializable
     data class Debug(val screen: DebugScreen) : Route
 
     /** Multiplayer: join a game by scanning its QR code; [link] = a scanned / deep-linked `scan7://join…`. */
+    @Serializable
     data class Join(val link: String? = null) : Route
 }
 
@@ -118,68 +132,44 @@ fun Route.Scan.afterSave(state: GameState, choice: AfterScan, entry: EntryMode =
     if (choice == AfterScan.TABLE) null else nextPlayer(state)?.let { Route.Scan(gameId, it, entry.startFor(ScanStart.NEXT)) }
 
 /**
- * Key for the screen's saved UI state. A "Scan next" chain keeps one key for all players, so the
- * camera stays bound while it moves on to the next player.
+ * Key for the screen's saved UI state: the Navigation 3 entry's content key (also its scene key,
+ * so equal keys swap the screen in place, without a transition). A "Scan next" chain keeps one key
+ * for all players, so the camera stays bound while it moves on to the next player.
  */
 val Route.stateKey: String
     get() = when (this) {
-        is Route.Scan -> if (start == ScanStart.NEXT) "scan:$gameId:next" else encode()
-        else -> encode()
+        is Route.Scan -> if (start == ScanStart.NEXT) "Scan(gameId=$gameId, next)" else toString()
+        else -> toString()
     }
 
-fun Route.encode(): String = when (this) {
-    Route.Home -> "home"
-    Route.Players -> "players"
-    is Route.NewGame -> "newgame:$target:" + seating?.joinToString(",").orEmpty() + if (seating == null) "" else ";"
-    is Route.Round -> "round:$gameId"
-    is Route.GamePlayers -> "gameplayers:$gameId"
-    is Route.Scan -> "scan:$gameId:$playerId:${start.name}:${round ?: ""}"
-    is Route.Scoreboard -> "scoreboard:$gameId"
-    is Route.GameOver -> "gameover:$gameId"
-    is Route.About -> "about:${license.orEmpty()}"
-    is Route.Debug -> "debug:${screen.name}"
-    is Route.Join -> "join:" + link?.let { java.net.URLEncoder.encode(it, "UTF-8") }.orEmpty()
-}
-
-/** Inverse of [encode]; `null` for anything it can't read. */
-fun decodeRoute(text: String): Route? = runCatching {
-    val parts = text.split(":")
-    when (parts[0]) {
-        "home" -> Route.Home
-        "players" -> Route.Players
-        "newgame" -> {
-            val seat = parts[2]
-            val seating = if (seat.endsWith(";")) seat.dropLast(1).split(",").filter { it.isNotEmpty() }.map { it.toLong() } else null
-            Route.NewGame(seating, parts[1].toInt())
-        }
-        "round" -> Route.Round(parts[1].toLong())
-        "gameplayers" -> Route.GamePlayers(parts[1].toLong())
-        "scan" -> Route.Scan(parts[1].toLong(), parts[2].toLong(), ScanStart.valueOf(parts[3]), parts[4].toIntOrNull())
-        "scoreboard" -> Route.Scoreboard(parts[1].toLong())
-        "gameover" -> Route.GameOver(parts[1].toLong())
-        "about" -> Route.About(parts.getOrNull(1)?.takeIf { it.isNotEmpty() })
-        "debug" -> Route.Debug(DebugScreen.valueOf(parts[1]))
-        "join" -> Route.Join(parts.getOrNull(1)?.takeIf { it.isNotEmpty() }?.let { java.net.URLDecoder.decode(it, "UTF-8") })
-        else -> null
-    }
-}.getOrNull()
+/** Screens with a camera: no transition between two of them (two live previews would fight over the camera). */
+val Route.hasCamera: Boolean
+    get() = (this is Route.Scan && (start == ScanStart.CAMERA || start == ScanStart.NEXT)) ||
+        (this is Route.Debug && screen == DebugScreen.CAMERA)
 
 /**
- * Pure back-stack operations. The stack always starts with [Route.Home] and is never empty.
+ * Pure back-stack operations. The stack always starts with [Route.Home], is never empty and holds
+ * each [stateKey] at most once (Navigation 3 keeps one saved state per content key).
  */
 object Stack {
     /** Back: drops the top entry; on Home alone returns `null` (leave the app). */
     fun pop(stack: List<Route>): List<Route>? = if (stack.size <= 1) null else stack.dropLast(1)
 
-    fun push(stack: List<Route>, route: Route): List<Route> = if (stack.last() == route) stack else stack + route
+    /**
+     * Opens [route] on top. A route already on the stack (same [stateKey], e.g. a double tap)
+     * is not added twice: the stack goes back to that entry, with [route] in its place.
+     */
+    fun push(stack: List<Route>, route: Route): List<Route> {
+        val existing = stack.indexOfFirst { it.stateKey == route.stateKey }
+        return normalize(if (existing >= 0) stack.take(existing) + route else stack + route)
+    }
 
     /** Replaces the top entry (e.g. New game → Round, Scan next → next player). */
-    fun replaceTop(stack: List<Route>, route: Route): List<Route> = normalize(stack.dropLast(1) + route)
+    fun replaceTop(stack: List<Route>, route: Route): List<Route> = push(stack.dropLast(1), route)
 
-    /** Ensures Home at the bottom (restored or hand-made stacks). */
-    fun normalize(stack: List<Route>): List<Route> = when {
-        stack.isEmpty() -> listOf(Route.Home)
-        stack.first() != Route.Home -> listOf(Route.Home) + stack
-        else -> stack
+    /** Ensures Home at the bottom (restored or hand-made stacks) and no repeated [stateKey]. */
+    fun normalize(stack: List<Route>): List<Route> {
+        val withHome = if (stack.firstOrNull() == Route.Home) stack else listOf(Route.Home) + stack
+        return withHome.distinctBy { it.stateKey }
     }
 }
