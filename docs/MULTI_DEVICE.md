@@ -383,7 +383,7 @@ Tests: **MST** = `multiplayer/MultiplayerSessionTest` (sessions on `FakeNetwork`
 | Undo across phones | Only the phone that busted (or the host) may undo; an Undo after the host changed it is STALE | MST `undoAcrossPhones_…`, `guestEditsOnlyItsOwnRecentEntries` | ✅ |
 | Host-only action from a guest | NOT_ALLOWED; never offered in the UI | MST `hostOnlyActionFromAClient_…`, `guestCannotEndARoundOrChangeTotals` | ✅ |
 | Invalid action (unknown player, game over) | INVALID, nothing changes | MST `invalidIntent_…`, HostStoreTest `aRefusingStore_changesNothing` | ✅ |
-| `baseSeq` = seq when the action was *sent*, not when the camera opened (§4.2.3) | A result changed while the camera was open is already done in the copy, so GuestRules refuse it (same dialog) | — | ⚠ only differs if the event hadn't reached the guest yet |
+| `baseSeq` = seq when the action was *sent*, not when the camera opened (§4.2.3); kept like this (decided 2026-10-19) | A result changed while the camera was open is already done in the copy, so GuestRules refuse it (same dialog) | — | ⚠ only differs if the event hadn't reached the guest yet |
 
 ### Claims and devices
 | Case | Expected | Covered by | Status |
@@ -412,7 +412,7 @@ Tests: **MST** = `multiplayer/MultiplayerSessionTest` (sessions on `FakeNetwork`
 ### Roles, codes and UI paths
 | Case | Expected | Covered by | Status |
 |---|---|---|---|
-| Role switch: a host joins another game / a guest shares its own game | Over the radio one role: joining stops sharing (its saved code is dropped), sharing leaves the joined game; the debug demo does both in-process | TPS `roleSwitch_…` | ✅ (field bug 4) ⚠ see questions |
+| Role switch: a host joins another game / a guest shares its own game | Over the radio one role: joining **pauses** sharing (radio off, saved session and QR code kept; opening the game again shares it with the same code, decided 2026-10-19), sharing leaves the joined game; the debug demo does both in-process | TPS `roleSwitch_joiningPausesSharing_…` | ✅ (field bug 4) |
 | Same code scanned twice | Joined: nothing happens; not connected ("Join again"): a fresh radio link for the same session, no Leave, outbox and claims kept; refused / removed: joins afresh | TPS `joinAgain_withTheSameCode_…`, `removedPhone_…` | 🛠 (Join again was a no-op while disconnected; field bug 5 covered only REJECTED) |
 | Guest Home → Resume card → reconnect | Opens the joined round screen, which rejoins | Manual (UI) | manual |
 | 20 s offline warning, Join again | "Not connected · this is only a copy" + Join again → QR → reconnect | Manual (timing + camera) | manual |

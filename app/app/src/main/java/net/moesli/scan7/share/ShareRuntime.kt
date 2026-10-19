@@ -241,14 +241,18 @@ class ShareRuntime(
     /** Stop sharing: every phone is disconnected, the game goes back to the plain local path. */
     fun stopHosting() = scope.launch { stopHostingNow() }
 
-    private suspend fun stopHostingNow() {
+    /**
+     * Ends sharing. [keepSession] pauses it instead: the saved session (code, guests, claims) stays,
+     * so opening the game again shares it with the same QR code (RoundRoute's auto-resume).
+     */
+    private suspend fun stopHostingNow(keepSession: Boolean = false) {
         val h = hosting ?: return
         hosting = null
         h.session.stop()
         h.jobs.forEach { it.cancel() }
         repository.route(h.gameId, null)
         repository.setScanFilter(h.gameId, null)
-        repository.deleteShareSession(h.gameId)
+        if (!keepSession) repository.deleteShareSession(h.gameId)
         if (h.mode == LinkMode.RADIO && joined?.mode != LinkMode.RADIO) radio.sessionActive(context, false)
         if (h.mode == LinkMode.IN_PROCESS && joined == null) inProcess = null
         publish()
@@ -299,9 +303,10 @@ class ShareRuntime(
                 }
             }
             leaveNow()
-            // Joining over the radio ends this phone's own sharing (field test: the 8 Pro still hosted
-            // its game and every connection request failed with 8009). Its game stays on the phone.
-            if (mode == LinkMode.RADIO && hosting?.mode == LinkMode.RADIO) stopHostingNow()
+            // Joining over the radio pauses this phone's own sharing (field test: the 8 Pro still hosted
+            // its game and every connection request failed with 8009). The game and its code stay:
+            // opening it again shares it with the same QR code.
+            if (mode == LinkMode.RADIO && hosting?.mode == LinkMode.RADIO) stopHostingNow(keepSession = true)
             val deviceId = repository.deviceId().let { if (mode == LinkMode.IN_PROCESS) "demo-$it" else it }
             val saved = repository.shareSessions().firstOrNull { it.role == ROLE_GUEST && it.sessionId == link.sessionId }
             val savedState = saved?.let { runCatching { json.decodeFromString(GuestSaved.serializer(), it.stateJson) }.getOrNull() }

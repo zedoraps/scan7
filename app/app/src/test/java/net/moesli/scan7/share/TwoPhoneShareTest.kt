@@ -317,7 +317,7 @@ class TwoPhoneShareTest {
     }
 
     @Test
-    fun roleSwitch_joiningStopsSharing_sharingLeavesTheJoinedGame() {
+    fun roleSwitch_joiningPausesSharing_sharingLeavesTheJoinedGame() {
         val g = Game()
         // The guest phone shares a game of its own: it leaves the joined one first (radio: one role).
         val own = runBlocking {
@@ -328,10 +328,18 @@ class TwoPhoneShareTest {
         await("guest phone hosts") { g.guestPhone.host != null && g.guestPhone.guest == null }
         await("host sees it leave") { g.hostPhone.host?.guests?.isEmpty() == true }
 
-        // The first host joins it: its own sharing stops.
+        // The first host joins it: its own sharing pauses (radio off, saved session and code kept).
+        val code = runBlocking { g.hostPhone.repo.shareSession(g.game) }!!.sessionId
         g.hostPhone.runtime.join(g.guestPhone.host!!.link, LinkMode.RADIO)
         await("first host is now a guest") { g.hostPhone.guest?.status == ClientStatus.JOINED && g.hostPhone.host == null }
         assertTrue(onThread { "stopAdvertising" in g.hostPhone.radio.api.calls })
+        assertEquals(code, runBlocking { g.hostPhone.repo.shareSession(g.game) }?.sessionId)
+
+        // Back to its own game (leaving the joined one): sharing resumes with the same QR code.
+        runBlocking { g.hostPhone.runtime.leave().join() }
+        g.hostPhone.resumeHosting(g.game)
+        await("shares again") { g.hostPhone.host != null }
+        assertEquals(code, g.hostPhone.host!!.link.sessionId)
     }
 
     private companion object {
