@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.round
 
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.heightIn
 import net.moesli.scan7.ui.text.uiText
 import net.moesli.scan7.ui.text.resolve
@@ -150,7 +151,10 @@ internal fun ToastPanel(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
+            // Intrinsic height: the action's fillMaxHeight must match the text, not the snackbar
+            // host's whole height (that blew the Bust toast up into an empty panel).
             .heightIn(min = Scan7Spacing.minTouch)
+            .height(IntrinsicSize.Min)
             .background(c.surface, shape)
             .border(1.5.dp, c.line, shape),
     ) {

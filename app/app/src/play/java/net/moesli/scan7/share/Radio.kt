@@ -38,7 +38,7 @@ object Radio : RadioSupport {
             api(context), nearbyServiceId(context.packageName), link.sessionId, link.token, scheduler,
             missingPermissions = { missingPermissions(context) },
         )
-        return RadioLink(t, t.status)
+        return RadioLink(LoggingHostTransport(t), t.status)
     }
 
     override fun join(context: Context, link: JoinLink, scheduler: Scheduler): RadioLink<ClientTransport> {
@@ -47,7 +47,7 @@ object Radio : RadioSupport {
             api(context), nearbyServiceId(context.packageName), link, scheduler,
             missingPermissions = { missingPermissions(context) },
         )
-        return RadioLink(t, t.status)
+        return RadioLink(LoggingClientTransport(t), t.status)
     }
 
     override fun sessionActive(context: Context, active: Boolean) {

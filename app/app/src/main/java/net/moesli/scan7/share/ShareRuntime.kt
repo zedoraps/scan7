@@ -274,6 +274,10 @@ class ShareRuntime(
                 j.hostToLocal = it.hostToLocal
                 j.uid = it.uid
                 j.localGameId = saved.gameId
+                // Rejoin (app restart): the copy's actions must go to the host again. mirror() only
+                // routes when the local id changes, so without this every Bust / scan on the restored
+                // copy hit the read-only database and was lost.
+                repository.route(saved.gameId, guestRouter(j))
             }
             joined = j
             val transport: ClientTransport = if (mode == LinkMode.RADIO) {
