@@ -39,6 +39,10 @@ class NearbyPartsTest {
         for (sdk in 29..37) {
             assertEquals("API $sdk", emptyList<String>(), NearbyPermissions.required(sdk) - declared)
         }
+        // Nearby checks the Wi-Fi state permissions on every API level, so no maxSdkVersion.
+        for (wifi in listOf("ACCESS_WIFI_STATE", "CHANGE_WIFI_STATE")) {
+            assertTrue(wifi, Regex("""<uses-permission android:name="android.permission.$wifi" />""").containsMatchIn(manifest))
+        }
     }
 
     @Test

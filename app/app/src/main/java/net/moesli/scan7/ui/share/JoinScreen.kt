@@ -42,6 +42,7 @@ import net.moesli.scan7.R
 import net.moesli.scan7.camera.rememberCameraPermission
 import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.multiplayer.nearby.JoinLink
+import net.moesli.scan7.multiplayer.nearby.TransportStatus
 import net.moesli.scan7.share.LinkMode
 import net.moesli.scan7.share.ShareText
 import net.moesli.scan7.ui.components.PrimaryButton
@@ -90,7 +91,15 @@ fun JoinRoute(initialLink: String?, onBack: () -> Unit, onJoined: (Long) -> Unit
                 Text(ShareText.joinRejection(guest.joinRejection).resolve(), color = colors.text, style = Scan7Type.text15)
                 PrimaryButton(stringResource(R.string.action_back), onBack, Modifier.fillMaxWidth())
             }
-            parsed != null -> Text(stringResource(R.string.join_connecting), color = colors.text, style = Scan7Type.text15)
+            parsed != null -> {
+                Text(stringResource(R.string.join_connecting), color = colors.text, style = Scan7Type.text15)
+                // Like the share sheet: a radio that can't start says so instead of "Connecting…" forever.
+                when (guest?.transport) {
+                    is TransportStatus.MissingPermissions -> Text(stringResource(R.string.permission_denied), color = colors.warning, style = Scan7Type.text12)
+                    is TransportStatus.Failed -> Text(stringResource(R.string.share_radio_failed), color = colors.warning, style = Scan7Type.text12)
+                    else -> Unit
+                }
+            }
             else -> {
                 Text(stringResource(if (notAGame) R.string.join_not_a_game else R.string.join_hint), color = colors.textMuted, style = Scan7Type.text15)
                 QrScanner(onCode = { text ->
