@@ -7,6 +7,9 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -139,14 +142,26 @@ fun ShareSheet(
                     seated.forEach { p ->
                         val selected = host.self.me == p.id
                         val description = stringResource(R.string.share_you_are_player, p.name)
-                        Box(
-                            contentAlignment = Alignment.Center,
+                        // Avatar + name: the avatars alone don't tell who is who.
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs),
                             modifier = Modifier
-                                .size(48.dp)
+                                .width(72.dp)
                                 .border(2.dp, if (selected) colors.accent else colors.line, RoundedCornerShape(Scan7Radii.iconButton))
                                 .selectable(selected = selected, role = Role.RadioButton) { onClaimSelf(p.id) }
-                                .semantics { contentDescription = description },
-                        ) { PlayerAvatar(p.avatar, 36.dp) }
+                                .clearAndSetSemantics { contentDescription = description }
+                                .padding(vertical = Scan7Spacing.s, horizontal = Scan7Spacing.xxs),
+                        ) {
+                            PlayerAvatar(p.avatar, 36.dp)
+                            Text(
+                                p.name,
+                                color = if (selected) colors.accent else colors.text,
+                                style = Scan7Type.text12,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                 }
             }
