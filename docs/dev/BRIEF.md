@@ -1,4 +1,4 @@
-# scan7 – Flip 7 Card Scanner – Project Brief
+# Scan7 project brief: Flip 7 card scanner
 
 > Living document. Initial version from 2026-10-18; details may still change.
 
@@ -32,11 +32,11 @@ scan7/
 ```
 
 ## Tech stack
-- **App:** Kotlin + Jetpack Compose, CameraX for the camera, LiteRT (TFLite) with the GPU delegate for inference
-- **ML:** Python, PyTorch with the MPS backend (`device="mps"`; set `PYTORCH_ENABLE_MPS_FALLBACK=1` if an op is unsupported)
-- **Model:** small object detector (e.g. YOLO nano/small at 640px), exported to LiteRT with int8 quantization
-- **Licensing note:** Ultralytics YOLO is AGPL. Fine for a personal project; if the app might be sold, use an Apache-licensed alternative (MediaPipe Model Maker, RT-DETR) or a commercial license. **Decision (2026-10-18): Ultralytics YOLO** — the app stays personal/open source; a commercial release would need an Ultralytics license or a switch to an Apache-licensed model.
-- **Fallback architecture** (only if look-alike classes are confused): 1-class card detector + crop classifier.
+- **App:** Kotlin and Jetpack Compose, CameraX for the camera, LiteRT (TFLite) with the GPU delegate for inference.
+- **ML:** Python, PyTorch with the MPS backend (`device="mps"`; set `PYTORCH_ENABLE_MPS_FALLBACK=1` if an op is unsupported).
+- **Model:** a small object detector (e.g. YOLO nano/small at 640px), exported to LiteRT with int8 quantization.
+- **Licensing note:** Ultralytics YOLO is AGPL. That is fine for a personal project. If the app might be sold, use an Apache-licensed alternative (MediaPipe Model Maker, RT-DETR) or a commercial license. **Decision (2026-10-18): Ultralytics YOLO.** The app stays personal/open source. A commercial release would need an Ultralytics license or a switch to an Apache-licensed model.
+- **Fallback architecture** (only if look-alike classes are confused): a 1-class card detector plus a crop classifier.
 
 ## Cards (German edition)
 23 classes:
@@ -50,8 +50,8 @@ Useful facts about the designs:
 - 6 and 9 have a dot under them, so full 360° rotation is safe in augmentation.
 - Similar-looking pairs to watch: 3 / 7 / 10 (reddish), 1 / 12 (gray).
 - Number cards have a word banner at the bottom (German: EINS, ZWEI…). The model must ignore this text so it also works with the English edition (ONE, TWO…).
-- **Card variants across editions** (same class, different look): the English edition's rainbow-striped `00` ("ZERO"), other card backs (e.g. turquoise frame, "THE GREATEST CARD GAME OF ALL TIME!"), and English banners/modifier text. In the English edition 6 and 9 have **no dot**, so orientation comes only from the banner / arch text. Variants are added to the generator as extra cutouts of their class (`<class>_<n>`). "Flip 7: With a Vengeance" is a different game and will be supported later as a separate class set.
-- Deck is unbalanced: one 0, one 1, two 2s … twelve 12s. Few modifiers and actions. The training data must be class-balanced.
+- **Card variants across editions** (same class, different look): the English edition's rainbow-striped `00` ("ZERO"), other card backs (e.g. turquoise frame, "THE GREATEST CARD GAME OF ALL TIME!"), and English banners/modifier text. In the English edition 6 and 9 have **no dot**, so orientation comes only from the banner or arch text. The generator gets the variants as extra cutouts of their class (`<class>_<n>`). "Flip 7: With a Vengeance" is a different game; a later version will support it as a separate class set.
+- The deck is unbalanced: one 0, one 1, two 2s … twelve 12s. It has few modifiers and actions. The training data must be class-balanced.
 
 ## How cards lie on the table
 - 1–10 cards per player, side by side in a row, flat on the table.
@@ -61,14 +61,14 @@ Useful facts about the designs:
 ## Milestones
 
 ### 1. Card cutouts
-- Script that detects each card in `cards_flat/` against the dark background, corrects perspective, and saves a clean rectangular cutout with rounded-corner alpha mask.
+- A script detects each card in `cards_flat/` against the dark background, corrects perspective, and saves a clean rectangular cutout with a rounded-corner alpha mask.
 - Output a contact sheet image to check all 23 cutouts at a glance.
 - Measure the word-banner area on number cards once (as a fraction of card size) and store it in a config file.
 - Ideally 2–3 photos per class (different physical copies / lighting) to avoid overfitting to a single photo.
 
 ### 2. Synthetic data generator
-Generates YOLO-format images + labels:
-- Compose top-down onto a random background crop. Main layout: 1–10 cards side by side in rows, mostly non-overlapping with occasional slight overlap. Smaller share of scattered/fanned/heavier-overlap layouts for robustness. Random rotation (full 360°) and scale.
+The generator writes YOLO-format images and labels:
+- Compose top-down onto a random background crop. The main layout is 1–10 cards side by side in rows, mostly non-overlapping with occasional slight overlap. A smaller share of scattered, fanned or more heavily overlapping layouts adds robustness. Random rotation (full 360°) and scale.
 - Then apply a perspective warp to the whole scene (simulating a phone held at an angle), and transform the box labels to match.
 - Augment: brightness, contrast, color temperature (warm lamp light), shadows, glare spots, blur, noise, JPEG compression.
 - Text randomization on ~50% of number cards: replace the banner with random fake words, blur it, or fill it with the card's cream color.
@@ -91,21 +91,21 @@ Generates YOLO-format images + labels:
   1. Synthetic language test: same test scenes with banners as German / English (ONE…TWELVE, never used in training) / blank; compare per-class precision/recall.
   2. Real test photos with banners covered by paper (5–10, in real_photos/test).
   3. English-edition photos if available.
-  If text matters: also randomize the small modifier text ("DIE SUMME DEINER ZAHLENKARTEN +2") and use foreign (non-English) words on banners in the generator, then fine-tune.
+  If text matters, also randomize the small modifier text ("DIE SUMME DEINER ZAHLENKARTEN +2") and use foreign (non-English) words on banners in the generator, then fine-tune.
 
 ### 5. Export
 - Export to LiteRT (int8, plus fp16 for comparison). Verify the exported model gives the same detections as the PyTorch model on test images.
 
 ### 6. Android app
-- CameraX preview + image analysis running the model on the GPU delegate.
+- CameraX preview and image analysis, running the model on the GPU delegate.
 - Draw boxes and labels over the preview.
 - Temporal smoothing: only accept a card after it is detected consistently across several frames.
 - Freeze-frame "scan" button, then a review screen where players can tap a card to correct or remove it. (Open idea: scan runs on a full-resolution still capture instead of the preview frame.)
-- Multiple players, score per round, running totals; game ends at 200 points.
+- Multiple players, score per round, running totals; the game ends at 200 points.
 
 ### 7. Scoring logic (plain code, never the model)
 - Sum of the number cards.
-- If any number appears twice → bust (0 points); show a warning so the player can confirm (Second Chance may have been used).
+- If any number appears twice, the player busts (0 points). Show a warning so the player can confirm (Second Chance may have been used).
 - `x2` doubles the number-card sum only.
 - Then add `plus` modifiers.
 - +15 bonus for 7 different number cards.

@@ -1,6 +1,6 @@
-# Google-Play-Eintrag – Deutsch (de-DE)
+# Google-Play-Eintrag auf Deutsch (de-DE)
 
-Grenzen: App-Name ≤ 30, Kurzbeschreibung ≤ 80, Beschreibung ≤ 4000 Zeichen (jetzt 2143).
+Grenzen: App-Name ≤ 30, Kurzbeschreibung ≤ 80, Beschreibung ≤ 4000 Zeichen (jetzt 2151).
 "Flip 7" nur beschreibend verwenden; nie Grafiken, Kartenbilder, Logo oder Schriftzug von
 The Op Games.
 
@@ -16,20 +16,20 @@ Inoffizieller Punktezähler für Flip 7: Karten scannen, Punkte sofort sehen.
 
 ## Beschreibung
 ```
-Scan7 zählt die Punkte beim Kartenspiel Flip 7. Halte das Handy über die Kartenreihe eines Spielers, drück den Auslöser, und Scan7 erkennt die Karten und rechnet die Punkte zusammen – Zahlenkarten, Bonuskarten, x2 und der Flip-7-Bonus inklusive. Ergebnis prüfen, falls nötig eine Karte korrigieren, speichern, weiter zum nächsten Spieler.
+Scan7 zählt die Punkte beim Kartenspiel Flip 7. Halte das Handy über die Kartenreihe eines Spielers und drück den Auslöser. Scan7 erkennt die Karten und rechnet die Punkte zusammen, mit Zahlenkarten, Bonuskarten, x2 und dem Flip-7-Bonus. Prüf das Ergebnis, korrigier falls nötig eine Karte, speichere und mach mit dem nächsten Spieler weiter.
 
 SCHNELL AM TISCH
-• Ein Scan pro Spieler: Die Kamera erkennt die Karten direkt auf dem Handy, in Sekundenbruchteilen.
-• "Nächsten scannen" springt gleich zur Kamera des nächsten Spielers – eine ganze Runde ist in einer Minute gezählt.
-• "Raus" mit einem Tipp (mit Rückgängig) oder Karten von Hand eingeben, wenn das Licht schlecht ist.
+• Ein Scan pro Spieler. Dein Handy erkennt die Karten selbst, in Sekundenbruchteilen.
+• "Nächsten scannen" springt gleich zur Kamera des nächsten Spielers. So ist eine ganze Runde in einer Minute gezählt.
+• RAUS mit einem Tipp (mit Rückgängig) oder Karten von Hand eingeben, wenn das Licht schlecht ist.
 
 DAS GANZE SPIEL
 • Speichere deine Mitspieler mit eigenem Avatar und wähle aus, wer heute mitspielt.
 • Setz die Spieler so, wie ihr am Tisch sitzt; die Tischansicht zeigt die Runde aller Spieler.
-• Zwischenstände, Führende, Zielpunktzahl (standardmäßig 200) und Spielende macht Scan7 für dich.
-• Tabelle mit allen Runden; frühere Ergebnisse lassen sich jederzeit korrigieren.
+• Scan7 verfolgt Zwischenstände, Führende, Zielpunktzahl (standardmäßig 200) und Spielende für dich.
+• Die Tabelle zeigt alle Runden, und frühere Ergebnisse kannst du jederzeit korrigieren.
 • Vergangene Spiele bleiben auf dem Startbildschirm: Sieger, Punkte, Runden.
-• Beta: ein Spiel auf mehreren Handys. Teil es per QR-Code; jeder scannt seine eigenen Spieler, direkt von Handy zu Handy über Bluetooth und WLAN, ohne Internet (braucht die Google-Play-Dienste).
+• Beta: ein Spiel auf mehreren Handys. Teil es per QR-Code, und jeder scannt seine eigenen Spieler. Die Handys verbinden sich direkt über Bluetooth und WLAN, ohne Internet (braucht die Google-Play-Dienste).
 
 PRIVAT VON ANFANG AN
 • Die Kartenerkennung läuft komplett auf deinem Handy. Kein Foto verlässt das Gerät.
@@ -37,7 +37,7 @@ PRIVAT VON ANFANG AN
 • Spieler und Spiele bleiben auf deinem Handy (und in deiner Android-Sicherung, falls du sie eingeschaltet hast).
 
 OPEN SOURCE
-Scan7 ist freie Software unter der GNU Affero General Public License v3.0. Der Quellcode samt Trainings-Pipeline der Kartenerkennung ist öffentlich; der Link steht in der App unter "Über & Lizenzen".
+Scan7 ist freie Software unter der GNU Affero General Public License v3.0. Der Quellcode samt Trainings-Pipeline der Kartenerkennung ist öffentlich. Der Link steht in der App unter "Über & Lizenzen".
 
-Scan7 ist ein inoffizieller Punktezähler für Flip 7. Die App steht in keiner Verbindung zu The Op Games und wird von ihnen weder unterstützt noch gesponsert. Flip 7 ist eine Marke ihres Inhabers und wird hier nur verwendet, um den Zweck der App zu beschreiben. Zum Spielen brauchst du dein eigenes Exemplar des Spiels.
+Scan7 ist ein inoffizieller Punktezähler für Flip 7. Die App steht in keiner Verbindung zu The Op Games und wird von ihnen weder unterstützt noch gesponsert. Flip 7 ist eine Marke ihres Inhabers. Der Name steht hier nur, um den Zweck der App zu beschreiben. Zum Spielen brauchst du dein eigenes Exemplar des Spiels.
 ```
