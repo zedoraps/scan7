@@ -42,7 +42,9 @@ app/                   Android Gradle root; module app/, package net.moesli.scan
     ui/theme/          Scan7 theme, colors, fonts, wordmark
     ui/text/           UiText (string ids for plain-Kotlin text), GameText (card/avatar names), AppLocales (app language)
     multiplayer/       (multiplayer branch only) plain-Kotlin multi-phone protocol: GameAction, Host/ClientSession, GuestRules, FakeNetwork; nearby/ = Nearby adapter on an owned ConnectionsApi (+ permissions, QR link)
-  app/src/play/        (multiplayer branch, only with -Pscan7.flavors=true) GmsConnectionsApi + Nearby permissions manifest
+    share/             (multiplayer branch) ShareRuntime: the phone's sessions on one thread, host store = GameRepository.applyLocal, guest = read-only joined copy; RadioSupport (src/foss: none, also the default build; src/play: Nearby + ShareService)
+    ui/share/          (multiplayer branch) share sheet (QR), claim sheet, Join screen (QR reader), permission request, save players
+  app/src/play/        (multiplayer branch, only with -Pscan7.flavors=true) GmsConnectionsApi, Radio + ShareService, Nearby permissions + scan7://join manifest
   app/schemas/         exported Room schemas (committed; bump the DB version + add a migration on change)
 ```
 

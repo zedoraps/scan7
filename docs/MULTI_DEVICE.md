@@ -1,7 +1,7 @@
 # Scan7 – Multiple phones in one game (spec)
 
-> Spec, 2026-10-18. Status: **flow and rules agreed with the user; the remaining proposals in §0.2 still need confirming; M1 (protocol/session) and M2 (Nearby adapter, no device) are built and unit-tested; nothing in the UI.**
-> The code lives on the branch `worktree-agent-a50dec2812cd0b47a` (packages `multiplayer/` and `multiplayer/nearby/`, see §9). It is **not merged into main**.
+> Spec, 2026-10-19. Status: **flow and rules agreed with the user; the remaining proposals in §0.2 still need confirming. M1 (protocol / sessions), M2 (Nearby adapter) and M3 (wiring + UI on the existing screens) are built and JVM-tested; nothing has run on a device yet (M4). The design pass for the new UI pieces is still open (§8).**
+> The code lives on the branch `worktree-agent-a50dec2812cd0b47a` (main merged in, DB v6; see §9). It is **not merged into main**.
 > Context: [APP_FLOW.md](APP_FLOW.md) (game flow), [../design/DESIGN_HANDOFF.md](../design/DESIGN_HANDOFF.md) (look), [../AGENTS.md](../AGENTS.md). App: `minSdk 29`, `targetSdk 37` (Android 17).
 
 ---
@@ -136,12 +136,18 @@ One pure function enforces this on both sides: `GuestRules.refusal(action, state
 
 ## 4. Architecture
 
-### 4.1 Host-authoritative event log + snapshot
+### 4.1 Host-authoritative event log + snapshot (built)
 - The **host's Room DB is the source of truth.** Guests never write game state. They send **intents** (`Intent{intentId, baseSeq, action: GameAction}`).
-- `GameAction` is a sealed, `@Serializable` wire form of the existing `GameState` mutations (`ScoreCards`, `ScorePoints`, `Bust`, `UndoBust`, `ResetToOpen`, host-only `AdjustTotal`, `RemoveAdjustment`, `CloseRoundAndStartNext`, `ReopenRound`, `EndGame`, `ReorderSeats`, `MovePosition`, …). Player actions carry an **explicit round**, so a late intent never lands in the next round.
-- The host applies an accepted action with the same pure `GameState` code (in the app: `GameRepository.apply(gameId, action)` → `mutate`). It numbers the action with a gap-free **`seq`** and broadcasts `Event{seq, at, action, intentId, by}`.
-- **Guests mirror** by applying each event with the **same `GameAction.apply(state, at, seq)`**: same input, same timestamp, same state. A seq gap or an apply failure → `ResyncRequest` → `Snapshot`. Every (re)join gets a `Welcome` with the full snapshot (10 players × 30 rounds ≈ 7 KB gzipped, measured), so no event replay is needed.
-- **Host UI = local path:** the host's own taps go through the same `GameAction` path (`HostSession.perform`), so one code path serves single-phone and shared play. Without sharing, nothing changes.
+- `GameAction` is a sealed, `@Serializable` wire form of the `GameState` mutations:
+  - **player actions:** `ScoreCards`, `ScorePoints`, `Bust`, `UndoBust`, `ResetToOpen`;
+  - **host-only:** `AdjustTotal`, `RemoveAdjustment`, `RestoreAdjustment`, `CloseRound`, `NextRound`, `CloseRoundAndStartNext`, `ReopenRound`, `EndGame`, `SetTarget`, `ReorderSeats`, `SwapSeats`, `MoveSeat`, `MovePosition`, `ChangeLineup`.
+  
+  Player actions carry an **explicit round**, so a late intent never lands in the next round.
+- **One action path on every phone.** `GameRepository.apply(gameId) { state -> GameAction }` handles every game change the UI makes. Each existing method (`scoreCards`, `bust`, `closeRoundAndStartNext`, `changePlayers`, …) is now a one-liner on top of it, so the screens didn't change. Without a session, the action goes to `applyLocal`: one transaction, and it returns the stored state, so new adjustments come back with their row ids. While the game is shared, a registered `ActionRouter` takes the action instead:
+  - **Host:** `HostSession.perform`. The session's `store` is `applyLocal`, so the host's own taps and the guests' intents take the same path. The event then carries the ids the host's database assigned (`withAssignedIds`).
+  - **Guest:** the action is mapped to host ids and sent as an intent (§4.5). The copy changes only when the event arrives; the caller gets an optimistic state, so "Scan next" can move on.
+- The host numbers every applied action with a gap-free **`seq`** and broadcasts `Event{seq, at, action, intentId, by}`. **Guests mirror** it by running the same `GameAction.apply(state, at, seq)`. A seq gap or an apply failure → `ResyncRequest` → `Snapshot`. Every (re)join gets a `Welcome` with the full snapshot, which is ≈ 7 KB gzipped for 10 players × 30 rounds.
+- `GameState.scanOnly` (not stored, filled in by the repository like `scanDirection`) restricts "Scan next" per phone: a guest walks its own players, the host walks everyone no guest scans.
 
 ### 4.2 Conflict handling (in order, per intent)
 1. **Duplicate** `intentId` (a retry after a reconnect): answered with the original outcome (`IntentAck` or the same refusal). It is never applied twice.
@@ -153,39 +159,46 @@ One pure function enforces this on both sides: `GuestRules.refusal(action, state
 There are no merges and no CRDT. Order of arrival at the host decides, and every refusal is shown to the user (P3).
 
 ### 4.3 Claims ("who do you scan")
-- The host keeps a **roster**: `DeviceInfo{deviceId, me, helperName, scans, connected}`, with the host itself as `"host"`. It broadcasts `Roster` on every change (join, drop, claim, leave, remove). The UI names a phone with `DeviceInfo.label(players)` (`OfPlayer(name)`, `Helper(name)`, `Host` or `Joining`; strings are localized in the UI).
-- `Claim{me, scans, helperName, force}`. `me = null` means "just helping" and needs a `helperName` (`ClaimProblem.HELPER_NAME_MISSING`); an unknown `me` is `UNKNOWN_PLAYER`. Players another device scans, or a `me` another phone already is → `ClaimRejected{conflicts}` (nothing changes). The UI asks, then resends with `force = true`, which moves the players (and the `me`). The host's own claims always win.
-- **Scan next:** `ScanOrder.next(state, roster, device)`. A guest walks only its own claimed players; the host walks everyone no guest claimed (rule 16).
+- The host keeps a **roster**: `DeviceInfo{deviceId, me, helperName, scans, connected}`, with the host itself as `"host"`. It broadcasts `Roster` on every change (join, drop, claim, leave, remove). The UI names a phone with `DeviceInfo.label(players)` (`OfPlayer(name)`, `Helper(name)`, `Host` or `Joining`). `ShareText.phone()` turns that into the localized name: "Philip's phone", "Philips Handy", and "Klaus’ Handy" after s, ß, x or z.
+- `Claim{me, scans, helperName, force}`:
+  - `me = null` means "just helping" and needs a `helperName` (`ClaimProblem.HELPER_NAME_MISSING`); an unknown `me` is `UNKNOWN_PLAYER`.
+  - Players another device scans, or a `me` another phone already is → `ClaimRejected{conflicts}`, and nothing changes. The UI asks, then resends with `force = true`, which moves the players (and the `me`).
+  - The host's own claims always win; the host picks its "me" on the share sheet.
+- **Scan next:** `ScanOrder.next(state, roster, device)` decides it (rule 16), and the app applies it through `GameState.scanOnly`.
 - Claims are **UI guidance only**, not permissions. Any guest may score an open player (rule 4). Badges, highlights and Scan next come from the roster.
-- Claims survive a disconnect (shown offline) and a rejoin (the same `deviceId`). "Leave game" (`leave` message) releases them (P8).
+- Claims survive a disconnect (shown offline) and a rejoin (same `deviceId`). "Leave game" (`leave` message) releases them (P8).
 - **Limit:** 10 guest phones (`MAX_GUEST_DEVICES`) + the host = 11. Helpers count too. The 11th guest gets `SESSION_FULL`, while a known phone rejoining is always let in.
 
 ### 4.4 Identity
-- **`deviceId`:** a random UUID per install (settings table). It recognises a returning phone on a new transport endpoint, and the old link is dropped. It is never shown; phones are named after people (rule 17).
-- **Player ids** in the protocol are the **host's** Room ids, valid inside the session. The snapshot carries `PlayerDto{id, name, avatar}`.
-- **`gameUid`** (new, UUID column on `games`): the guest's history copy is keyed by `(gameUid)`, so rejoining updates the copy instead of duplicating it. "Same players, new game" creates a new uid.
-- **Adjustment ids** are the event `seq` that created them (spike) or a new `uid` column, so "remove adjustment" addresses the same row on every phone.
+- **`deviceId`:** a random UUID per install (`GameRepository.deviceId()`, settings table). It recognises a returning phone on a new transport endpoint, and the old link is dropped. It is never shown; phones are named after people (rule 17).
+- **Player ids** in the protocol are the **host's** Room ids, valid inside the session. The snapshot and `ChangeLineup` carry `PlayerDto{id, name, avatar}`. A guest keeps a host → local id map (`mapPlayerIds` on states and actions).
+- **Shared game id:** `sessionId:hostGameId` (`games.gameUid` on the guest's copy). A rejoin updates the same copy; "Same players, new game" makes a new copy.
+- **Adjustment ids:** the host's database assigns them, and the event carries that id (`AdjustTotal.id`, `RestoreAdjustment.id`), so "remove adjustment" addresses the same adjustment on every phone. The guest's copy keeps its own row ids and matches adjustments by content. No extra column was needed.
 
-### 4.5 Offline-first and persistence
-- **Host:** game state as today (Room). `HostSession.exportState()` → `HostSessionState` (seq, roster, removed phones, entry authors, the last 1024 intent outcomes; JSON) is saved after each change in a new `share_session` row next to `sessionId`, `token` and `gameId`. Passing it back as `restored` after a restart **resumes the same session**: same QR, guests reconnect on their own, nothing is applied twice, claims and "my own entry" survive, and intents based on state older than the restart are treated as stale (`floorSeq`). *(Session side built and tested; the Room row is M3 wiring.)*
-- **Guest:** the session mirror lives in memory. `ClientSession.exportState()` → `ClientSessionState` (outbox, intent counter, last seq) is saved after each change and passed back after an app restart, so a scan made while offline survives the guest app being killed and is applied once (*built and tested*). After each snapshot or event, the latest state is also written as the **joined history copy** (`games.origin = JOINED`, `host_name`, `game_uid`). Its players are stored as hidden per-game players (`players.joined_only = 1`, never in the Players list) until the user saves them (U17, `PlayerImport.candidates`).
-- **DB migration** (v5, M1): `games.game_uid`, `games.origin`, `games.host_name`, `players.joined_only`, `share_session`. Each gets a MigrationTest, as for v3/v4.
+### 4.5 Offline-first and persistence (built: DB v6)
+- **DB v6** (AutoMigration 5 → 6, schema `app/schemas/…/6.json`, `MigrationTest.v5ToV6_…` in androidTest):
+  - `games.joinedFrom` (the host's name; `null` = this phone's game) and `games.gameUid`;
+  - `players.joinedOnly` (hidden guest stand-ins);
+  - table `share_sessions(gameId, role HOST|GUEST, sessionId, token, stateJson, updatedAt)`.
+  
+  Joined games are excluded from "the game to resume", from "abandon other unfinished games", from previous-seating lookups and from the Players list. They are included in the history, even while unfinished ("Joined · Philip").
+- **Host:** game state as today. `HostSessionState` (seq, roster, removed phones, entry authors, the last 1024 intent outcomes) is saved in `share_sessions` after each change. Sharing the same game again (e.g. after an app restart) **resumes the same session**: same QR, nothing applied twice, claims kept, older intents stale (`floorSeq`).
+- **Guest:** `ShareRuntime` writes the `ClientSession` mirror into a **read-only joined copy** (`saveJoinedGame`), using hidden local players (`joinedPlayers`). `applyLocal` refuses joined games; only the session's router changes them, and the view mode stays per phone. `share_sessions` holds the outbox, intent counter and id map (`GuestSaved`), so a scan made offline survives an app restart. "Save players to my list" turns hidden players into normal ones (`keepJoinedPlayers`, matched by name).
 
 ### 4.6 Lifecycles
 - **Late join / reconnect:** `Hello{lastSeq}` → `Welcome{seq, snapshot, roster}` → the guest resends its outbox (same ids).
-- **Guest drop:** the host marks it offline and keeps its claims. The guest retries discovery of the same endpoint name (with backoff, up to 10 min, then "Rejoin" + QR).
-- **Host app killed / phone dies:** guests show the banner (P5) and keep queueing. Guest phones still have a full copy. When the host reopens Scan7, Resume → sharing restarts from `share_session` → guests reconnect. If the host phone is gone for good, the guests keep their read-only history copy. Host migration ("continue on this phone") is a later option, not v1.
-- **Same players, new game:** `HostSession.newGame(game, players)`. The seq continues, staleness and authors reset, and claims are kept for the players still in the game. Guests receive a `Snapshot` with the new game id.
-- **Stop sharing / remove a phone:** removed phones get `HelloRejected(REMOVED)` and are disconnected. They can't rejoin this session; a new share session (new token) resets that.
+- **Guest drop:** the host marks it offline and keeps its claims. The Nearby client transport rediscovers the same session with backoff (1 s … 30 s) and says hello again.
+- **Host app killed / phone dies:** guests show the banner (P5) and keep queueing, and their phones keep a full copy. When the host shares again, the session resumes from `share_sessions` and guests reconnect. If the host phone is gone for good, the guests keep their read-only history copy. Host migration is not in v1.
+- **Same players, new game:** `ShareRuntime.hostMovedTo(newGameId)` → `HostSession.newGame`. The seq continues, staleness and authors reset, and claims are kept for players still in the game. Each guest gets a new joined copy and is moved to its round screen.
+- **Stop sharing / remove a phone:** removed phones get `HelloRejected(REMOVED)` and are disconnected; they can't rejoin this session. Stop sharing drops the session row, so the next share is a new QR.
 
-### 4.7 Managing players during a game (planned on main)
-- Adding or removing a player is a **host-only** change made through the repository (it is not a guest intent). The host then calls `HostSession.updateGame(game, players)`. The seq advances and everyone gets a `Snapshot` + `Roster`.
-- A **removed** player's claims (`me` or `scans`) are dropped on every device, and so are their entry authors. Intents still in flight for them fail as `INVALID` ("Cleo is no longer in this game").
+### 4.7 Managing players during a game (built on main's `withLineup`)
+- Adding or removing players goes through main's Players flow (`changePlayers` / `addPlayerToGame` / `removePlayerFromGame`), which is now the host-only `ChangeLineup` action on `GameState.withLineup`. The event carries the new players' names and avatars. A player who already played stays in the scoreboard as `DepartedPlayer`.
+- A **removed** player's claims (`me` or `scans`) are dropped on every phone, and so are their entry authors. Intents still in flight for them are `STALE`, or `INVALID` once the guest saw the change ("Cleo is no longer in this game").
 - An **added** player appears unclaimed, so the host scans them by default and any guest can claim them.
-- Once main has `GameState.addPlayer` / `removePlayer`, both become ordinary `GameAction`s (`AddPlayer{PlayerDto}`, `RemovePlayer{id}`, host-only). That keeps them in the event log, and the snapshot path stays as the fallback.
 
 ### 4.8 Threading
-Sessions are plain Kotlin and not thread-safe. In the app, each one runs on a single-threaded dispatcher (`Dispatchers.Default.limitedParallelism(1)`). Nearby callbacks post to it, and the UI observes `StateFlow`s (`ClientSession.view`, host state via Room flows).
+Sessions are plain Kotlin and not thread-safe. `ShareRuntime` runs all of them on one session thread (`scan7-share`). The radio transports and their timers post to it, the repository routers switch to it, and the UI observes `ShareRuntime.state` plus the usual Room flows. The host's store calls Room with `runBlocking` on that thread; Room works on its own executors, so this can't deadlock.
 
 ---
 
@@ -277,44 +290,50 @@ On 12+ these mostly show as **one "Nearby devices" dialog**. On 10–11 it is th
 
 ## 8. Milestones
 
-| | Scope | Status / estimate | Test plan |
+| | Scope | Status | Test plan |
 |---|---|---|---|
-| **M1 Protocol + session layer** | `GameAction` + DTOs + codec; `HostSession` and `ClientSession`; `GuestRules`, `ScanOrder`; claims (me, helpers, take-over) and the roster with person-based labels; leave; remove a phone; the 11-phone limit; `newGame` / `updateGame`; host session export/restore and guest outbox export/restore; `PlayerImport`; `FakeNetwork` | **Done on the branch** | 31 JVM tests (§9). Each scenario runs over a fake star network with random interleavings, drops, lost frames and restarts |
-| **M2 Nearby transport (no device)** | Owned `ConnectionsApi`; `NearbyHost/ClientTransport` (token proof, chunking, keep-alive reconnect with backoff, endpoint loss, permission paths, graceful disconnect); `NearbyPermissions` per API level; `JoinLink` (QR URI); opt-in `foss`/`play` flavors with `play-services-nearby` + `GmsConnectionsApi` + manifest | **Done on the branch** (adapter + flavor); still open: `GmsConnectionsApi` has never run on a phone | 21 JVM tests against a fake Nearby medium and a hand-driven `ConnectionsApi`, including the full stack (Nearby callbacks → transports → sessions → converged game) with 160-byte payloads to force chunking |
-| **M3 Wiring + UX** | App wiring: DB v5 (`game_uid`, `origin`, `host_name`, `players.joined_only`, `share_session` row holding `HostSessionState` / `ClientSessionState`, an adjustment uid) + migrations; `GameRepository.apply(gameId, GameAction)` so the host UI goes through the action path; a foreground service owning the session + transport on a single-threaded dispatcher; the runtime permission request + rationale; QR encode/scan (ZXing core) + `scan7://join` deep link; the joined history copy. UI (design pass first): Home "Join a game", the share icon + menu item + share sheet, "Who are you · Who do you scan" (+ helper name), the guest round screen (hidden actions, highlights/badges, Scan next on own players, waiting texts), pending ✓, refusal dialogs, connection banner, joined history rows + "Save players to my list", EN + DE strings, TalkBack labels. **Flip the build default (rule 24):** always define the `foss`/`play` flavors with `play` as `isDefault` (drop the `scan7.flavors` opt-in), keep `foss` building in CI, and update `scripts/` (screen matrix, emulator installs), `AGENTS.md`, README and docs/RELEASE.md to the flavored task names (`installPlayDebug`, `testPlayDebugUnitTest`, `lintPlayDebug`, `assemblePlayRelease`; F-Droid = `foss`). A debug-menu entry "Multiplayer (experimental)" that hosts/joins over `FakeNetwork` in-process (no radio) to exercise the UI | 8–12 d | Room tests for `apply` + MigrationTest 4→5; Compose UI tests for the hidden guest actions; screenshot-matrix scenarios (`mp_host`, `mp_guest`, `mp_helper`, `mp_waiting`, `mp_offline`) driven by `FakeNetwork`; TalkBack pass |
-| **M4 Field test with 2–4 phones** | A real game night: 1 host + 1–3 guests, mixed OEMs if possible (Pixel + Samsung). The first run of `GmsConnectionsApi` on hardware | 2–3 d + fixes | Script: share → 3 joins by QR within 1 min; everyone scans their own row in parallel × 5 rounds; one guest scans a neighbour; a helper joins; a conflicting double scan (expect "Already scored by …"); guest screen off / out of range mid-round; host app killed mid-round → resume; late join in round 3; remove a phone; Same players, new game; permission flows on API 29/31/33+; `ACCESS_LOCAL_NETWORK` on API 37; battery drain per hour (target < 8 %); note every latency > 1 s |
+| **M1 Protocol + session layer** | `GameAction` + DTOs + codec, `HostSession` / `ClientSession`, `GuestRules`, `ScanOrder`, claims + roster + labels, leave / remove / the 11-phone limit, new game, lineup changes, export / restore, `PlayerImport`, `FakeNetwork` | **Done** | JVM: `MultiplayerSessionTest`, `WireCodecTest`, `HostStoreTest` |
+| **M2 Nearby transport (no device)** | Owned `ConnectionsApi`, Nearby host / client transports, `FrameChunker`, `JoinLink` / `JoinAuth`, `NearbyPermissions`, opt-in `foss` / `play` flavors | **Done** (`GmsConnectionsApi` not run on hardware yet) | JVM: `NearbyTransportTest`, `NearbyPartsTest` |
+| **M3 Wiring + UX** | **Wiring:** merge of main (DB v5, strings, round menu); `GameRepository.apply` + `ActionRouter`; new actions; DB v6 + migration; `ShareRuntime` (session thread, host store, guest joined copy, saved sessions, `hostMovedTo`); `RadioSupport` (foss: none, also the default build; play: Nearby + `ShareService` foreground service `connectedDevice`, notification, `scan7://join` deep link, permissions manifest); permission rationale + request; ZXing QR encode + CameraX / ZXing QR reader. **UI** (existing components): Home "Join a game"; header share icon + menu row + share sheet (QR, code, "You are", phones with claims, online / offline, remove, stop sharing); "Who are you · Who do you scan" sheet (+ "Just helping" name, ask before taking over); guest round screen (host actions hidden, own players highlighted, other phones' badges, Scan next over own players, waiting line, connection banner, refusal dialog, sheet "Scored by …" read-only, no Adjust total); guests follow the host to game over and into the next game; joined history rows + read-only scoreboard + "Save players to my list"; EN + DE strings; Debug → "Multiplayer (experimental)" in-process demo | **Built, JVM-tested; not run on a device yet.** Still open: the **design pass** (below); **flip the build default** (rule 24: `play` default + `foss` kept, then update scripts / AGENTS.md / README / RELEASE.md); screenshot-matrix scenarios; Compose UI tests for the share sheet / join screen; TalkBack pass | JVM (Robolectric 4.16): `RepositoryActionPathTest` (Room), `ShareRuntimeTest` (host + in-process guest through the real repository calls: claims, badges, Scan next, refusals, round close, adjustments, removed player, Same players new game, leave), `RoundShareTest`, `RoundScreenShareUiTest` + `ClaimSheetUiTest` (Compose on the JVM), `ShareTextTest`; androidTest: `MigrationTest.v5ToV6` (needs an emulator) |
+| **M4 Field test with 2–4 phones** | A real game night with 1 host + 1–3 guests, mixed OEMs if possible. The first run of `GmsConnectionsApi` + `ShareService` on hardware | Open | See "Verify on devices" below |
 
-Remaining ≈ **10–15 focused days** (M3 + M4).
+**Design pass (handoff rule, before shipping):**
+- the share sheet layout and QR framing;
+- the badge style (`ShareBadge`: cyan phone = mine, phone + initial = another phone; corner and size);
+- the guest waiting line and connection banner;
+- the claim sheet (radio + checkbox lists);
+- the "Joined · Philip" history detail;
+- the share icon in the header next to ⋮;
+- the Home "Join a game" text button;
+- the refusal dialog. It currently reuses `Scan7ConfirmDialog`, so it shows Cancel + OK; a single-button info dialog would be cleaner.
+
+**Verify on devices later (no emulator was free; Nearby doesn't run between emulators anyway):**
+1. Debug build on one phone: Debug → Multiplayer → host the running game → join as a virtual guest → open both round screens. Then check claims, badges, guest limits, waiting line, refusal dialog, Same players new game, leave and the joined history row. No radio needed.
+2. `migration`: `./gradlew connectedDebugAndroidTest --tests '*MigrationTest*'` on an emulator (v5 → v6).
+3. Play build (`-Pscan7.flavors=true installPlayDebug`) on 2–3 phones:
+   - share → permission rationale → system dialog; the notification appears;
+   - QR join from Scan7's Join screen **and** from the system camera (deep link);
+   - parallel scans, screen off for 5 min, airplane-mode toggle, host app killed → share again (same QR);
+   - remove a phone; an 11th phone gets "game full".
+4. API 29/30 (location rationale + location setting), 31, 33+, and **37 (`ACCESS_LOCAL_NETWORK`: needed? then declare it)**.
+5. `ShareService` stays alive with the screen off and the camera open; battery per hour.
 
 ---
 
 ## 9. What is on this branch
 
-**`app/app/src/main/java/net/moesli/scan7/multiplayer/`:** plain Kotlin, no Android, no Play services, not wired into the UI.
-- `GameAction.kt`: sealed `@Serializable` actions → `GameState` mutations, `touches()` for the stale check, `hostOnly`.
-- `Snapshot.kt`: wire DTOs that round-trip exactly to `GameState`.
-- `Protocol.kt`: messages, `PROTOCOL_VERSION`, `WireCodec` (versioned frame, gzip, frozen hello).
-- `GuestRules.kt`: guest permissions, `ScanOrder` (Scan next per phone), `DeviceInfo` + `DeviceLabel` (naming), `PlayerImport` (save players), limits.
-- `HostSession.kt`: the single writer (intent → checks → apply → seq'd event broadcast), claims + roster, leave/remove, `newGame` / `updateGame`, `exportState` / `restored`.
-- `ClientSession.kt`: the mirror (`StateFlow<ClientView>`), outbox + resend, gap → resync, `mayEdit` / `mayPerform` / `scanNext` / `label`, `exportState` / `restored`, works with self-reconnecting transports.
-- `SessionState.kt`: `HostSessionState` / `ClientSessionState` (JSON) for persistence.
-- `Transport.kt` + `FakeTransport.kt`: transport interfaces + an in-memory star network.
+- **`multiplayer/`** (plain Kotlin): protocol and sessions (M1), id mapping (`IdMapping.kt`), session state (`SessionState.kt`).
+- **`multiplayer/nearby/`** (plain Kotlin): the Nearby adapter (M2).
+- **`share/`**: `ShareRuntime` (sessions on the phone), `RadioSupport`, `ShareText`.
+  - `src/foss/…/share/Radio.kt`: no radio; also compiled into the flavorless default build.
+  - `src/play/…/share/Radio.kt` + `ShareService.kt` + `multiplayer/nearby/GmsConnectionsApi.kt` + `AndroidManifest.xml`: the play flavor.
+- **`ui/share/`**: share sheet, claim sheet, refusal dialog, Join screen (QR reader), permission request, save-players dialog.
+- **`ui/round/RoundShare.kt`**: the round-screen mapping, banner and waiting line. Small hooks went into the round screen, header, menu, player sheet, cards / rows (`ShareMark` / `ShareBadge`), Home, history, scoreboard, game over and navigation (`Route.Join`, `DebugScreen.MULTIPLAYER`).
+- **`data/`**: action path + routers, DB v6, joined copies, share sessions, device id.
+- **`debug/MultiplayerDemoScreen.kt`**: the in-process demo.
 
-**`…/multiplayer/nearby/`** (plain Kotlin): `ConnectionsApi` (owned Nearby interface), `NearbyTransport.kt` (host/client transports, `Scheduler`, `TransportStatus`, `nearbyServiceId`), `FrameChunker`, `JoinLink` + `JoinAuth`, `NearbyPermissions`.
+**Builds checked:**
+- the default flavorless `assembleDebug testDebugUnitTest lintDebug`;
+- with `-Pscan7.flavors=true`: `assembleDebug` (foss + play), `testFossDebugUnitTest`, `testPlayDebugUnitTest`, `lintFossDebug`, `lintPlayDebug`.
 
-**`app/app/src/play/`** (only with `-Pscan7.flavors=true`): `GmsConnectionsApi` (`ConnectionsClient`, `P2P_STAR`) + `AndroidManifest.xml` (Nearby permissions).
-
-**Tests (52 multiplayer, all green; 396 in the app in total):**
-- `MultiplayerSessionTest` (27):
-  - Concurrent scoring converges over 50 interleavings.
-  - Drops and rejoins: reconnect + outbox, late join, retried intent applied once, a lost event → resync, a rejoin from a new endpoint replaces the old link.
-  - Conflicts: a stale double scan; a closed round never leaks into the next.
-  - Guest rules: no host actions, totals or round ending; guests edit only their own entries and **never replace another phone's or the host's value, even for a claimed player**; host Scan next skips guest claims while a guest walks only its own.
-  - Claims: conflicts and take-over, same person on two phones, helpers' names and labels, 11-phone limit, leave releases claims, removed phone can't rejoin.
-  - Lifecycles: same players / new game, a player removed or added mid-game, host restart resumes the session, guest restart keeps its outbox, save-players matching.
-  - Join checks: version mismatch, wrong token.
-- `WireCodecTest` (4): round-trips; 10 players × 30 rounds ≈ 7 KB gzipped; version gate; malformed input.
-- `NearbyTransportTest` (13): full stack over a fake Nearby medium; chunked payloads ≤ limit; wrong token rejected before any data; other sessions ignored; dropped link → backoff → snapshot; host app restart → guests find it again; endpoint lost while connecting; growing backoff on failed requests; reset after success; no retry after leave or a rejection; host-side token check and half frames dropped on disconnect; permissions missing (no Nearby call) and Nearby reporting missing permissions (no retry loop); version-mismatch rejection arrives before the disconnect; leave reaches the host; a failed send counts as a drop.
-- `NearbyPartsTest` (8): permissions for API 29, 30, 31, 32, 33, 36 and 37; missing permissions + rationale; QR link parse/format; join proof (token never in the name); chunker sizes, losses, foreign chunks and size cap; service id per application id.
-
-Builds checked: the default (flavorless) `assembleDebug testDebugUnitTest lintDebug`; and with `-Pscan7.flavors=true`: `assembleDebug` (foss + play), `testFossDebugUnitTest`, `testPlayDebugUnitTest`, `lintFossDebug`, `lintPlayDebug`. Only the play APK contains Nearby.
+Only the play APK contains Nearby, the service and the deep link.
