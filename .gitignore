@@ -35,7 +35,7 @@ ml/labeling/ls_data/
 # Training logs
 ml/*.log
 
-# Claude Code worktrees for parallel agents
+# Local agent tooling (worktrees, settings); only the CLAUDE.md pointer to AGENTS.md is shared
 .claude/*
 !.claude/CLAUDE.md
 

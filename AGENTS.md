@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Read this first. It applies to every agent (Claude Code and others) working in this repo.
+Read this first. It applies to every coding agent working in this repo, whatever the tool.
 Keep it short, factual and current: when a command, rule or decision changes, update it here.
 
 ## What Scan7 is
@@ -18,7 +18,7 @@ score is saved. Personal / open-source project.
 
 ## Repo layout
 ```
-AGENTS.md              agent instructions (.claude/CLAUDE.md only imports this file)
+AGENTS.md              agent instructions for every tool (tool-specific files such as .claude/CLAUDE.md only point here)
 README.md              public project page (screenshots, download, license)
 changelog/             tenzir-ship changelog: unreleased/ entries, releases/vX.Y.Z/ (notes.md); docs/dev/RELEASE.md
 docs/                  privacy.md (Pages), store/ (Play listing), third_party/ (licence texts), readme/ (README images)
@@ -95,7 +95,7 @@ ml/labeling/start.sh                                          # http://localhost
 uv run --project ml python ml/labeling/setup_projects.py      # create projects / sync photos
 uv run --project ml python ml/labeling/make_config.py         # regenerate label config from cards.yaml
 uv run --project ml python ml/labeling/export_yolo.py         # -> ml/out/real/{train,test}
-uv run --project ml python ml/labeling/ai_review.py prepare|upload --split train|test   # AI-assisted labeling of unlabeled tasks (review sheets -> decisions.json -> annotations marked 'Labeled by Claude')
+uv run --project ml python ml/labeling/ai_review.py prepare|upload --split train|test   # AI-assisted labeling of unlabeled tasks (review sheets -> decisions.json -> annotations marked as AI-labeled)
 uv run --project ml python ml/labeling/import_predictions.py ml/out/pred/v1/train/labels --model-version v1   # train project only
 ```
 
@@ -145,7 +145,7 @@ The emulators run at nice 5 next to training; idle they cost ~1.5 cores in total
 - Android Studio may hold `.git/index.lock` briefly: **retry** the git command, never delete the lock.
 - Don't commit secrets. `ml/labeling/ls_data/` (DB, credentials) is private and gitignored. The release upload keystore and its passwords stay outside the repo (`~/.gradle/gradle.properties` or env).
 - **Every user-visible app change gets a changelog entry** (`uvx tenzir-ship add`, written for players, together with the change); released files under `changelog/releases/` are never edited.
-- Commits: the coordinating session commits each reviewed, finished step locally (approved by the user; no pushing without asking). Subagents working in parallel don't commit; they report their changed files.
+- Commits: the coordinating session commits each reviewed, finished step locally (approved by the user; no pushing without asking). Agents working in parallel (helpers of the coordinating session) don't commit; they report their changed files.
 
 ## Decisions log
 | Date | Decision |

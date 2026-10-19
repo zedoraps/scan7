@@ -102,7 +102,7 @@ Effort: **S** < ½ day · **M** ½–2 days · **L** > 2 days.
 - This changes the AGENTS.md decision "small self-made back stack … no navigation-compose" (2026-10-18), so it needs your OK.
 
 ### 6. Split OK button ▾ menu (in progress in the ui/scan worktree) (P1, S, replace now)
-- **Custom:** `.claude/worktrees/agent-a3e52aa5214405917/app/app/src/main/java/net/moesli/scan7/ui/scan/ScanControls.kt:184-250`. `AfterScanMenu` is a raw `Popup(offset = -anchorHeight)` with hand-made rows. The rows use `semantics { selected }` without a role or `selectableGroup`.
+- **Custom:** `app/app/src/main/java/net/moesli/scan7/ui/scan/ScanControls.kt:184-250`. `AfterScanMenu` is a raw `Popup(offset = -anchorHeight)` with hand-made rows. The rows use `semantics { selected }` without a role or `selectableGroup`.
 - **Native:**
   - M3 `DropdownMenu(expanded, onDismissRequest, shape, containerColor = surface, border = BorderStroke(1.5.dp, line))` + `DropdownMenuItem(colors = MenuDefaults.itemColors(...))`.
   - Items as `Modifier.selectable(role = Role.RadioButton)` inside a `selectableGroup()`.

@@ -1,6 +1,6 @@
 # Development
 
-Setup, data layout and the ML stages. Plan: [BRIEF.md](BRIEF.md). Coding agents (Claude Code and others): read [AGENTS.md](../../AGENTS.md) first (commands, hard rules, decisions, conventions).
+Setup, data layout and the ML stages. Plan: [BRIEF.md](BRIEF.md). Coding agents: read [AGENTS.md](../../AGENTS.md) first (commands, hard rules, decisions, conventions).
 
 ## Branding
 App name **Scan7**, dark "Deep Cyan" theme, Unbounded + DM Mono fonts. Brand kit and rules: [brand/BRAND.md](../../brand/BRAND.md); in the app see `ui/theme/` (`Scan7Theme`, `Scan7Theme.colors`, `Scan7Wordmark`). Font licenses: [docs/third_party/](../third_party/).

@@ -68,7 +68,7 @@ fun PlayerAvatar(avatar: Avatar, size: Dp, modifier: Modifier = Modifier, conten
 - Avatars never replace text: names stay visible next to them; content description = "Mia, sand avatar, grin face".
 - Avatar is a player property (saved with the player), reused across games.
 
-## Implementation steps (for Claude Code)
+## Implementation steps (for coding agents)
 1. Copy `android/drawable/*.xml` into `app/src/main/res/drawable/`; copy `avatar_catalog.json` into `app/src/main/assets/` (or turn it into Kotlin constants).
 2. Add `Avatar` to the player model + database migration (existing players get a random avatar with their old color mapped to the nearest catalog color).
 3. Build `PlayerAvatar` + a preview screen that renders `examples` presets; compare against `avatar_preview.png`.
