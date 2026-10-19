@@ -2,6 +2,8 @@ package net.moesli.scan7.ui.share
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -103,6 +105,9 @@ fun ShareSheet(
     onRemove: (DeviceInfo) -> Unit,
     onStop: () -> Unit,
     onDismiss: () -> Unit,
+    /** The host says which player it is (names its phone "Philip's phone"); [seated] = the table, in order. */
+    seated: List<Player> = emptyList(),
+    onClaimSelf: (Long) -> Unit = {},
 ) {
     val colors = Scan7Theme.colors
     var removing by remember { mutableStateOf<DeviceInfo?>(null) }
@@ -127,6 +132,23 @@ fun ShareSheet(
                 is TransportStatus.MissingPermissions -> Text(stringResource(R.string.permission_denied), color = colors.warning, style = Scan7Type.text12)
                 is TransportStatus.Failed -> Text(stringResource(R.string.share_radio_failed), color = colors.warning, style = Scan7Type.text12)
                 else -> t
+            }
+            if (seated.isNotEmpty()) {
+                SectionLabel(stringResource(R.string.share_you_are), Modifier.fillMaxWidth())
+                Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.s), modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                    seated.forEach { p ->
+                        val selected = host.self.me == p.id
+                        val description = stringResource(R.string.share_you_are_player, p.name)
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .border(2.dp, if (selected) colors.accent else colors.line, RoundedCornerShape(Scan7Radii.iconButton))
+                                .selectable(selected = selected, role = Role.RadioButton) { onClaimSelf(p.id) }
+                                .semantics { contentDescription = description },
+                        ) { PlayerAvatar(p.avatar, 36.dp) }
+                    }
+                }
             }
             val connected = host.guests.count { it.connected }
             SectionLabel(
@@ -236,7 +258,7 @@ fun ClaimSheet(
         ) {
             Text(stringResource(R.string.claim_title), color = colors.text, style = Scan7Type.headline16, modifier = Modifier.semantics { heading() })
             players.forEach { p ->
-                ChoiceRow(p, selected = !helping && me == p.id, note = othersMe[p.id]?.let { stringResource(R.string.claim_is, ShareText.phone(it).resolve()) }) {
+                ChoiceRow(p, selected = !helping && me == p.id, note = if (p.id in othersMe) stringResource(R.string.claim_is, p.name) else null) {
                     if (!helping && me != p.id && p.id !in scans) scans = scans + p.id
                     helping = false
                     me = p.id

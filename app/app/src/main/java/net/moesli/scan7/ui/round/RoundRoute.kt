@@ -511,6 +511,8 @@ fun RoundRoute(
             onRemove = { shareRuntime.removeGuest(it.deviceId) },
             onStop = { shareRuntime.stopHosting() },
             onDismiss = { flags.shareSheet = false },
+            seated = snap.seatedPlayers,
+            onClaimSelf = { id -> shareRuntime.hostClaim(id, listOf(id)) },
         )
     }
     if (guest != null && flags.claimSheet) {

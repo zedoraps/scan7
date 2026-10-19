@@ -119,6 +119,10 @@ android {
         // Strings (AGENTS.md "Strings"): severities in lint.xml (missing translations fail lint).
         lintConfig = file("lint.xml")
     }
+    testOptions {
+        // Robolectric (JVM tests of Room code and Compose screens) needs the merged manifest + resources.
+        unitTests.isIncludeAndroidResources = true
+    }
     buildFeatures {
         compose = true
         buildConfig = true
@@ -163,6 +167,9 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.junit)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.androidx.compose.ui.test.manifest)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

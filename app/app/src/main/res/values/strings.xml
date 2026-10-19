@@ -477,6 +477,8 @@
         <item quantity="other">Share this game, %d phones connected</item>
     </plurals>
     <string name="share_hint">Scan this code with Scan7 on the other phones.</string>
+    <string name="share_you_are">You are</string>
+    <string name="share_you_are_player">You are %1$s</string>
     <string name="share_code">Code %1$s</string>
     <string name="share_qr_description">QR code to join this game</string>
     <string name="share_no_phones">No phones connected yet</string>
