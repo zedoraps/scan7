@@ -5,12 +5,15 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import net.moesli.scan7.R
 import net.moesli.scan7.data.GameSnapshot
+import net.moesli.scan7.game.EnderPenalty
+import net.moesli.scan7.game.GameKind
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.players.playerUis
 import net.moesli.scan7.ui.text.UiText
 import net.moesli.scan7.ui.text.uiPlural
+import net.moesli.scan7.ui.text.title
 import net.moesli.scan7.ui.text.uiText
 
 /** How a past game ended. */
@@ -44,6 +47,8 @@ data class PastGameUi(
     /** Multiplayer: joined on another phone (the host's name; "" = unknown), `null` = this phone's game. */
     val joinedFrom: String? = null,
     val lineup: List<Long> = emptyList(),
+    val kind: GameKind = GameKind.FLIP7,
+    val enderPenalty: EnderPenalty = EnderPenalty.OFFICIAL,
 ) {
     /** "Mia won", "Ben and Mia won", "Mia led" (abandoned), "Not finished" (abandoned, no points). */
     val headline: UiText
@@ -79,7 +84,10 @@ data class PastGameUi(
                 PastOutcome.ABANDONED -> UiText.Join(listOf(r, uiText(R.string.history_abandoned)))
             }
             val joined = joinedFrom?.let { if (it.isBlank()) uiText(R.string.history_joined_plain) else uiText(R.string.history_joined, it) }
-            return if (joined == null) base else UiText.Join(listOf(base, joined))
+            // Flip 7 is the default and unnamed; other games say which ("Skyjo · 6 rounds").
+            val game = kind.takeIf { it != GameKind.FLIP7 }?.title()
+            val text = if (joined == null) base else UiText.Join(listOf(base, joined))
+            return if (game == null) text else UiText.Join(listOf(game, text))
         }
 }
 
@@ -106,6 +114,8 @@ fun GameState.toPastGameUi(players: Map<Long, Player>, joinedFrom: String? = nul
         outcome = outcome,
         joinedFrom = joinedFrom,
         lineup = playerIds,
+        kind = kind,
+        enderPenalty = enderPenalty,
     )
 }
 

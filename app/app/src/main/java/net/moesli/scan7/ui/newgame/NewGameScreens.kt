@@ -4,6 +4,14 @@ import net.moesli.scan7.ui.components.FitText
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import net.moesli.scan7.R
+import net.moesli.scan7.ui.text.resolve
+import net.moesli.scan7.ui.text.description
+import net.moesli.scan7.ui.text.label
+import net.moesli.scan7.ui.text.title
+import net.moesli.scan7.ui.text.EnderPenaltyChoices
+import net.moesli.scan7.ui.components.SegmentedChoice
+import net.moesli.scan7.game.GameKind
+import net.moesli.scan7.game.EnderPenalty
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -120,6 +128,7 @@ fun PickPlayersScreen(
     subtitle: String? = null,
     nextLabel: String = stringResource(R.string.action_next),
     supporting: (Player) -> String? = { null },
+    gameOptions: (@Composable () -> Unit)? = null,
 ) {
     val colors = Scan7Theme.colors
     val haptics = LocalHapticFeedback.current
@@ -152,6 +161,7 @@ fun PickPlayersScreen(
                 if (hint != null) {
                     Text(hint, color = colors.textMuted, style = Scan7Type.text12, modifier = Modifier.padding(bottom = Scan7Spacing.s))
                 }
+                gameOptions?.invoke()
                 if (onTargetChange != null) {
                     TargetStepper(target = target, onChange = onTargetChange, modifier = Modifier.padding(bottom = Scan7Spacing.m))
                 }
@@ -190,6 +200,30 @@ fun PickPlayersScreen(
                 }
                 AddPlayerRow(onClick = onNewPlayer, text = stringResource(if (players.isEmpty()) R.string.players_add_first else R.string.players_new))
             }
+        }
+    }
+}
+
+/**
+ * Which game (Flip 7 | Skyjo) and, for a game with a round ender (Skyjo), its [EnderPenalty] with a
+ * line on what it does. Above the target row; only while Skyjo is offered (debug preview).
+ */
+@Composable
+fun GameOptions(
+    kind: GameKind,
+    penalty: EnderPenalty,
+    onKind: (GameKind) -> Unit,
+    onPenalty: (EnderPenalty) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = Scan7Theme.colors
+    Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xs), modifier = modifier.padding(bottom = Scan7Spacing.m)) {
+        SectionLabel(stringResource(R.string.newgame_game))
+        SegmentedChoice(GameKind.entries, kind, { it.title() }, onKind)
+        if (kind.rules.hasRoundEnder) {
+            SectionLabel(stringResource(R.string.newgame_round_ender), Modifier.padding(top = Scan7Spacing.s))
+            SegmentedChoice(EnderPenaltyChoices, penalty, { it.label() }, onPenalty)
+            Text(penalty.description().resolve(), color = colors.textMuted, style = Scan7Type.text12)
         }
     }
 }
@@ -395,6 +429,8 @@ fun NewGameRoute(
     modifier: Modifier = Modifier,
     initialSeating: List<Long>? = null,
     initialTarget: Int = DEFAULT_TARGET,
+    initialKind: GameKind = GameKind.FLIP7,
+    initialPenalty: EnderPenalty = EnderPenalty.OFFICIAL,
     repository: GameRepository = AppGraph.repository(LocalContext.current),
 ) {
     val players by repository.players.collectAsStateWithLifecycle(initialValue = null)
@@ -404,6 +440,9 @@ fun NewGameRoute(
     var selected by rememberSaveable(stateSaver = LongListSaver) { mutableStateOf(initialSeating.orEmpty()) }
     var draft by rememberSaveable(stateSaver = DraftSaver) { mutableStateOf<SeatingDraft?>(null) }
     var target by rememberSaveable { mutableIntStateOf(initialTarget) }
+    var kind by rememberSaveable { mutableStateOf(initialKind) }
+    var penalty by rememberSaveable { mutableStateOf(initialPenalty) }
+    val skyjoPreview by repository.skyjoPreview.collectAsStateWithLifecycle(initialValue = false)
     // Saved as a key, so an open editor survives rotation / process death.
     var editorKey by rememberSaveable { mutableStateOf<Long?>(null) }
     var confirmFrom by rememberSaveable { mutableIntStateOf(CONFIRM_NONE) }
@@ -447,7 +486,7 @@ fun NewGameRoute(
         error = null
         scope.launch {
             // Outlives this screen: a started transaction isn't rolled back by Back.
-            runCatching { outlivingUi { repository.startGame(seats.ids, target, seats.positions) } }
+            runCatching { outlivingUi { repository.startGame(seats.ids, target, seats.positions, kind, penalty) } }
                 .onSuccess(onGameStarted)
                 .onFailure { error = startError }
             starting = false
@@ -476,6 +515,22 @@ fun NewGameRoute(
             onToggle = { selected = toggleSelection(liveSelected, it) },
             onNewPlayer = { editorKey = EditorTarget.New.key },
             onTargetChange = { target = it },
+            gameOptions = if (skyjoPreview || kind != GameKind.FLIP7) {
+                {
+                    GameOptions(
+                        kind = kind,
+                        penalty = penalty,
+                        // Each game starts on its own default target (Flip 7 200, Skyjo 100).
+                        onKind = {
+                            kind = it
+                            target = it.rules.defaultTarget
+                        },
+                        onPenalty = { penalty = it },
+                    )
+                }
+            } else {
+                null
+            },
             onNext = {
                 val picked = liveSelected
                 scope.launch {

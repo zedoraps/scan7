@@ -44,7 +44,7 @@ class HardcodedUiTextTest {
 
     @Test
     fun everyStringIsTranslated() {
-        val untranslatable = setOf("app_name", "language_english", "language_german", "card_freeze", "review_flip7")
+        val untranslatable = setOf("app_name", "language_english", "language_german", "card_freeze", "review_flip7", "game_flip7", "game_skyjo", "ender_points_doubled")
         val missing = XmlStrings.EN.names - untranslatable - XmlStrings.DE.names
         assertTrue("Missing in values-de: $missing", missing.isEmpty())
     }

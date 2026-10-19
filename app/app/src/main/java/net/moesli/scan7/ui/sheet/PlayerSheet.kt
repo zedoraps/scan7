@@ -8,6 +8,11 @@ import net.moesli.scan7.ui.text.resolve
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import net.moesli.scan7.R
+import net.moesli.scan7.skyjo.skyjoGridOf
+import net.moesli.scan7.skyjo.SkyjoGrid
+import net.moesli.scan7.skyjo.SkyjoCard
+import net.moesli.scan7.skyjo.SKYJO_COLUMNS
+import net.moesli.scan7.ui.components.LocalBustAllowed
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.background
@@ -404,6 +409,7 @@ private fun OpenActions(name: String, onScan: () -> Unit, onEnterManually: () ->
                     textStyle = Scan7Type.button.copy(fontSize = 14.sp),
                 )
             }
+            if (!LocalBustAllowed.current) return@Row
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -438,7 +444,8 @@ private fun ResultPanel(state: PlayerSheetUi) {
     val colors = Scan7Theme.colors
     val status = state.player.status
     val counted = state.cards.countedCards()
-    val score = if (state.cards.isEmpty()) null else scoreRow(counted)
+    val skyjo = state.cards.any { it.card is SkyjoCard }
+    val score = if (state.cards.isEmpty() || skyjo) null else scoreRow(counted)
     val duplicates = duplicatedCards(state.cards)
     val shape = RoundedCornerShape(Scan7Radii.card)
     Column(
@@ -451,7 +458,7 @@ private fun ResultPanel(state: PlayerSheetUi) {
         Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m), verticalAlignment = Alignment.Bottom) {
             when (status) {
                 is PlayerStatus.Scored -> {
-                    Text("+${status.points}", color = colors.accent, style = Scan7Type.roundNumberList)
+                    Text(if (status.points < 0) formatDelta(status.points) else "+${status.points}", color = colors.accent, style = Scan7Type.roundNumberList)
                     Text(stringResource(R.string.sheet_points_this_round), color = colors.textMuted, style = Scan7Type.text12, modifier = Modifier.padding(bottom = 2.dp))
                 }
                 else -> {
@@ -460,7 +467,9 @@ private fun ResultPanel(state: PlayerSheetUi) {
                 }
             }
         }
-        if (score != null) {
+        if (skyjo) {
+            SkyjoGridSummary(skyjoGridOf(state.cards))
+        } else if (score != null) {
             if (score.bust) {
                 Text(
                     breakdownLine(counted.filter { it.kind == CardKind.NUMBER }.map { it.value!! }, score).resolve(),
@@ -480,6 +489,28 @@ private fun ResultPanel(state: PlayerSheetUi) {
                 color = colors.textMuted,
                 style = Scan7Type.text12,
             )
+        }
+    }
+}
+
+/** Skyjo: the entered grid, 3 rows of 4 values ("–" = empty), silent for TalkBack (the points say it). */
+@Composable
+private fun SkyjoGridSummary(grid: SkyjoGrid) {
+    val colors = Scan7Theme.colors
+    Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs), modifier = Modifier.clearAndSetSemantics {}) {
+        grid.chunked(SKYJO_COLUMNS).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.xs)) {
+                row.forEach { card ->
+                    Text(
+                        card?.value?.toString() ?: "–",
+                        color = if (card == null) colors.textMuted else colors.text,
+                        style = Scan7Type.total15,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        modifier = Modifier.width(36.dp),
+                    )
+                }
+            }
         }
     }
 }

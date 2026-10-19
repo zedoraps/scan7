@@ -63,6 +63,7 @@ data class DebugHomeUi(
     val acceptScore: Float,
     val keepScore: Float,
     val saveScans: Boolean,
+    val skyjoPreview: Boolean,
     val appVersion: String,
     val buildType: String,
     val dbSchema: Int,
@@ -80,6 +81,7 @@ fun DebugHomeScreen(
     onDetectFromPhoto: () -> Unit,
     onSaveScansChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    onSkyjoPreviewChange: (Boolean) -> Unit = {},
     onLoadDetector: () -> Unit = {},
     onAvatars: () -> Unit = {},
     onMultiplayer: () -> Unit = {},
@@ -114,7 +116,20 @@ fun DebugHomeScreen(
             }
 
             Section("Training data")
-            SaveScansCard(state.saveScans, onSaveScansChange)
+            ToggleCard(
+                "Save scans for training",
+                "Shutter photo → Pictures/Scan7 Training, JSON → Documents; outcome on confirm",
+                state.saveScans,
+                onSaveScansChange,
+            )
+
+            Section("Games")
+            ToggleCard(
+                "Skyjo games (preview)",
+                "New game offers Skyjo: cards entered by hand in a 3 × 4 grid, lowest total wins",
+                state.skyjoPreview,
+                onSkyjoPreviewChange,
+            )
 
             Section("Design")
             NavCard("Avatars", "Kit layers + example presets (compare with avatar_preview.png)", onAvatars)
@@ -192,7 +207,7 @@ private fun InfoRow(label: String, value: String, modifier: Modifier = Modifier)
 }
 
 @Composable
-private fun SaveScansCard(checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun ToggleCard(title: String, description: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     val colors = Scan7Theme.colors
     Row(
         horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
@@ -210,12 +225,8 @@ private fun SaveScansCard(checked: Boolean, onChange: (Boolean) -> Unit) {
             .padding(horizontal = Scan7Spacing.l, vertical = Scan7Spacing.m),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(Scan7Spacing.xxs), modifier = Modifier.weight(1f)) {
-            Text("Save scans for training", color = colors.text, style = Scan7Type.text14)
-            Text(
-                "Shutter photo → Pictures/Scan7 Training, JSON → Documents; outcome on confirm",
-                color = colors.textMuted,
-                style = Scan7Type.text12,
-            )
+            Text(title, color = colors.text, style = Scan7Type.text14)
+            Text(description, color = colors.textMuted, style = Scan7Type.text12)
         }
         ToggleSwitch(checked)
     }
@@ -268,6 +279,7 @@ private fun DebugHomeScreenPreview() {
                 acceptScore = 0.35f,
                 keepScore = 0.2f,
                 saveScans = true,
+                skyjoPreview = false,
                 appVersion = "1.0 (1)",
                 buildType = "debug",
                 dbSchema = 2,

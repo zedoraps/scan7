@@ -87,6 +87,17 @@ class SkyjoGameTest {
     }
 
     @Test
+    fun leaders_lowestWins_onlyByClosedRounds() {
+        val g = game().scorePoints(1, 10, 1)
+        // Mid round 1 nobody leads (Ben's and Cleo's open 0 is no lead).
+        assertEquals(emptyList<Long>(), g.leaders)
+        val closed = g.scorePoints(2, 4, 1).scorePoints(3, 6, 1).closeAndStartNext(2)
+        assertEquals(listOf(2L), closed.leaders)
+        // Points of the running round don't move the lead until it is closed.
+        assertEquals(listOf(2L), closed.scorePoints(1, -10, 3).leaders)
+    }
+
+    @Test
     fun roundRanks_openPlayersLast() {
         val g = game().scorePoints(1, 10, 1)
         assertEquals(mapOf(1L to 1, 2L to 2, 3L to 2), g.roundRanks())
@@ -127,6 +138,20 @@ class SkyjoGameTest {
     fun always_doublesANegativeScoreToo() {
         assertEquals(-6, game(EnderPenalty.ALWAYS).playRound(-3, -5, 8, endedBy = 1).total(1))
         assertEquals(4, game(EnderPenalty.ALWAYS).playRound(4, 5, 8, endedBy = 1).total(1))
+    }
+
+    @Test
+    fun crazy_enderGetsDoubleTheHighestScore() {
+        // Anna ended with 10, Cleo had the round's highest 23: Anna counts 46.
+        val g = game(EnderPenalty.CRAZY).playRound(10, 5, 23, endedBy = 1)
+        assertTrue(g.isDoubled(g.round(1), 1))
+        assertEquals(46, g.total(1))
+        assertEquals(23, g.total(3))
+        // Highest herself: double her own.
+        assertEquals(60, game(EnderPenalty.CRAZY).playRound(30, 5, 23, endedBy = 1).total(1))
+        // Strictly lowest: no penalty; also a negative ender who isn't lowest gets double the highest.
+        assertEquals(4, game(EnderPenalty.CRAZY).playRound(4, 5, 23, endedBy = 1).total(1))
+        assertEquals(46, game(EnderPenalty.CRAZY).playRound(-3, -5, 23, endedBy = 1).total(1))
     }
 
     @Test

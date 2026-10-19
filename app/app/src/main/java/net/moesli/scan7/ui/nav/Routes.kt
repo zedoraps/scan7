@@ -3,6 +3,8 @@ package net.moesli.scan7.ui.nav
 import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
 import net.moesli.scan7.game.DEFAULT_TARGET
+import net.moesli.scan7.game.EnderPenalty
+import net.moesli.scan7.game.GameKind
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.ui.round.scanNextAfter
 
@@ -39,9 +41,22 @@ sealed interface Route : NavKey {
     @Serializable
     data object Players : Route
 
-    /** New game; with [seating] ("New game with same players") it opens prefilled on the seating step. */
+    /**
+     * New game; with [seating] ("New game with same players") it opens prefilled on the seating step,
+     * with that game's [kind], [target] and [enderPenalty].
+     */
     @Serializable
-    data class NewGame(val seating: List<Long>? = null, val target: Int = DEFAULT_TARGET) : Route
+    data class NewGame(
+        val seating: List<Long>? = null,
+        val target: Int = DEFAULT_TARGET,
+        val kind: GameKind = GameKind.FLIP7,
+        val enderPenalty: EnderPenalty = EnderPenalty.OFFICIAL,
+    ) : Route {
+        companion object {
+            /** "Same players, new game" after [state]. */
+            fun samePlayers(state: GameState) = NewGame(state.playerIds, state.target, state.kind, state.enderPenalty)
+        }
+    }
 
     @Serializable
     data class Round(val gameId: Long) : Route

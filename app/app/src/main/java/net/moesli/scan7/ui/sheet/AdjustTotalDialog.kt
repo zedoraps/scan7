@@ -136,10 +136,16 @@ fun AdjustTotalContent(
 private const val NOTE_MAX = 40
 
 @Composable
-private fun DeltaField(value: String, onChange: (String) -> Unit, onDone: () -> Unit, errorText: String?, modifier: Modifier = Modifier) {
+internal fun DeltaField(
+    value: String,
+    onChange: (String) -> Unit,
+    onDone: () -> Unit,
+    errorText: String?,
+    modifier: Modifier = Modifier,
+    description: String = stringResource(R.string.adjust_field_description),
+) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.iconButton)
-    val description = stringResource(R.string.adjust_field_description)
     BasicTextField(
         value = value,
         onValueChange = onChange,
@@ -172,7 +178,7 @@ private fun DeltaField(value: String, onChange: (String) -> Unit, onDone: () -> 
 
 /** "±": flips the sign of the typed number (number keyboards often have no minus key). */
 @Composable
-private fun SignToggle(onClick: () -> Unit) {
+internal fun SignToggle(onClick: () -> Unit) {
     val colors = Scan7Theme.colors
     val shape = RoundedCornerShape(Scan7Radii.iconButton)
     val description = stringResource(R.string.adjust_flip_sign)

@@ -64,3 +64,38 @@ object SkyjoRules : GameRules {
         return CardsScore(cards.filter { !it.ignored }.sumOf { (it.card as SkyjoCard).value })
     }
 }
+
+/** A player's grid while it is entered: [SKYJO_SLOTS] slots row by row, `null` = empty (a removed card). */
+typealias SkyjoGrid = List<SkyjoCard?>
+
+/** An empty grid. */
+fun emptySkyjoGrid(): SkyjoGrid = List(SKYJO_SLOTS) { null }
+
+/** The grid of stored [cards] (their slots; cards without a slot fill the first free ones). */
+fun skyjoGridOf(cards: List<ConfirmedCard>): SkyjoGrid {
+    val grid = MutableList<SkyjoCard?>(SKYJO_SLOTS) { null }
+    val loose = mutableListOf<SkyjoCard>()
+    cards.forEach { c ->
+        val card = c.card as? SkyjoCard ?: return@forEach
+        val slot = c.slot
+        if (slot != null && slot in grid.indices && grid[slot] == null) grid[slot] = card else loose += card
+    }
+    loose.forEach { card -> grid.indexOfFirst { it == null }.takeIf { it >= 0 }?.let { grid[it] = card } }
+    return grid
+}
+
+/** The filled slots as confirmed cards (slot = grid index). */
+fun SkyjoGrid.toConfirmedCards(): List<ConfirmedCard> =
+    mapIndexedNotNull { i, card -> card?.let { ConfirmedCard(it, slot = i) } }
+
+/** Sum of the filled slots. */
+val SkyjoGrid.sum: Int get() = sumOf { it?.value ?: 0 }
+
+/**
+ * The slot to select after [slot] was filled: the next empty slot after it (wrapping around), else
+ * simply the next one; `null` after the last slot when the grid is full.
+ */
+fun SkyjoGrid.nextSlotAfter(slot: Int): Int? {
+    val after = (1 until size).map { (slot + it) % size }.firstOrNull { this[it] == null }
+    return after ?: (slot + 1).takeIf { it < size }
+}

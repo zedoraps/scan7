@@ -66,6 +66,7 @@
     <!-- Player status (tags, TalkBack) -->
     <string name="tag_open">OPEN</string>
     <string name="tag_scored">✓ +%1$d</string>
+    <string name="tag_scored_negative">✓ −%1$d</string>
     <string name="status_open">Not scored yet</string>
     <string name="status_scored">Scored %1$d</string>
     <string name="status_bust">Bust</string>
@@ -215,6 +216,43 @@
     <string name="newgame_target_description">Target, points to win</string>
     <string name="newgame_target_lower">Lower target</string>
     <string name="newgame_target_raise">Raise target</string>
+    <string name="game_flip7" translatable="false">Flip 7</string>
+    <string name="game_skyjo" translatable="false">Skyjo</string>
+    <string name="newgame_game">Game</string>
+    <string name="newgame_round_ender">Round ender</string>
+    <string name="ender_official">Official</string>
+    <string name="ender_always">Always ×2</string>
+    <string name="ender_off">Off</string>
+    <string name="ender_crazy">Crazy ×2</string>
+    <string name="ender_official_description">Whoever ends the round without the lowest score gets their points doubled, if above 0.</string>
+    <string name="ender_always_description">Whoever ends the round without the lowest score gets their points doubled, also below 0.</string>
+    <string name="ender_off_description">Ending the round has no penalty.</string>
+    <string name="ender_crazy_description">Whoever ends the round without the lowest score gets double the round\'s highest score.</string>
+    <string name="ender_title">Who ended round %1$d?</string>
+    <string name="ender_body">Tap who revealed all their cards first.</string>
+    <string name="ender_points_doubled" translatable="false">%1$d → %2$d</string>
+    <plurals name="ender_row_spoken">
+        <item quantity="one">%1$s, %2$d point</item>
+        <item quantity="other">%1$s, %2$d points</item>
+    </plurals>
+    <plurals name="ender_row_doubled_spoken">
+        <item quantity="one">%1$s, %2$d point, counts %3$d</item>
+        <item quantity="other">%1$s, %2$d points, counts %3$d</item>
+    </plurals>
+    <string name="skyjo_grid">Grid</string>
+    <string name="skyjo_grid_hint">Rows and columns as on the table. Leave a removed column empty.</string>
+    <string name="skyjo_values">Card</string>
+    <plurals name="skyjo_cards_count">
+        <item quantity="one">%1$d of %2$d cards</item>
+        <item quantity="other">%1$d of %2$d cards</item>
+    </plurals>
+    <string name="skyjo_total_only">Total only</string>
+    <string name="skyjo_slot_empty">empty</string>
+    <string name="skyjo_slot_spoken">Row %1$d, column %2$d: %3$s</string>
+    <string name="skyjo_slot_clear">Empty</string>
+    <string name="skyjo_slot_clear_spoken">Empty the slot</string>
+    <string name="skyjo_total_title">Round points for %1$s</string>
+    <string name="skyjo_total_field">Round points</string>
     <string name="seats_title">Seats</string>
     <string name="seats_hint_table">Drag players to where they sit, or just start</string>
     <string name="seats_hint_list">Drag rows into seating order, or just start</string>
@@ -240,6 +278,8 @@
     <string name="scoreboard_adjusted_legend">± Total includes adjustments</string>
     <string name="a11y_leading">, leading</string>
     <string name="scoreboard_cell_points">Round %1$d, %2$s: %3$s</string>
+    <string name="scoreboard_cell_doubled">penalty for ending the round</string>
+    <string name="scoreboard_doubled_legend">* incl. the penalty for ending the round without the lowest score</string>
     <string name="scoreboard_cell_bust">Round %1$d, %2$s: bust</string>
     <string name="scoreboard_cell_open">Round %1$d, %2$s: not scored yet</string>
 

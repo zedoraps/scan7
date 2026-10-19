@@ -34,11 +34,11 @@ import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
 
-/** Tag text: "OPEN", "✓ +46" or "✕ BUST" (bust is never shown by color alone). */
+/** Tag text: "OPEN", "✓ +46" (Skyjo also "✓ −3") or "✕ BUST" (bust is never shown by color alone). */
 @Composable
 fun PlayerStatus.tagText(): String = when (this) {
     PlayerStatus.Open -> stringResource(R.string.tag_open)
-    is PlayerStatus.Scored -> stringResource(R.string.tag_scored, points)
+    is PlayerStatus.Scored -> if (points < 0) stringResource(R.string.tag_scored_negative, -points) else stringResource(R.string.tag_scored, points)
     PlayerStatus.Bust -> stringResource(R.string.label_bust_tag)
 }
 

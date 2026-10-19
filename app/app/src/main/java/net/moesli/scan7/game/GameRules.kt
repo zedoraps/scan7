@@ -58,16 +58,29 @@ enum class EnderPenalty {
 
     /** No penalty. */
     OFF,
+
+    /**
+     * House rule "Crazy ×2": without the strictly lowest round score they get double the round's
+     * highest score (their own, if that is the highest).
+     */
+    CRAZY,
     ;
 
-    /** Whether the ender's [enderPoints] are doubled, given everyone else's [others] points of the round. */
+    /** Whether the ender with [enderPoints] is penalised, given everyone else's [others] points of the round. */
     fun doubles(enderPoints: Int, others: Collection<Int>): Boolean {
         val lowest = others.all { enderPoints < it }
         return when (this) {
             OFFICIAL -> !lowest && enderPoints > 0
-            ALWAYS -> !lowest
+            ALWAYS, CRAZY -> !lowest
             OFF -> false
         }
+    }
+
+    /** The ender's counted points: [enderPoints], or the penalty when [doubles]. */
+    fun enderPoints(enderPoints: Int, others: Collection<Int>): Int = when {
+        !doubles(enderPoints, others) -> enderPoints
+        this == CRAZY -> 2 * maxOf(enderPoints, others.maxOrNull() ?: enderPoints)
+        else -> 2 * enderPoints
     }
 }
 

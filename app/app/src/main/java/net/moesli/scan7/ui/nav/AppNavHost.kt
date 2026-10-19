@@ -206,7 +206,7 @@ private fun Screen(route: Route, nav: EntryNav, debug: DebugLaunch, modelInfo: S
             // Multiplayer: with a radio (play flavor), or the in-process demo in debug builds.
             onJoin = if (shareRuntime.radioAvailable || BuildConfig.DEBUG) ({ nav.push(Route.Join()) }) else null,
             // Like Game over's "Same players": New game opens on Seats with that game's order and target.
-            onSamePlayers = { seating, target -> nav.push(Route.NewGame(seating, target)) },
+            onSamePlayers = { g -> nav.push(Route.NewGame(g.lineup, g.target, g.kind, g.enderPenalty)) },
         )
         Route.Players -> PlayersRoute(onBack = back)
         is Route.NewGame -> NewGameRoute(
@@ -218,6 +218,8 @@ private fun Screen(route: Route, nav: EntryNav, debug: DebugLaunch, modelInfo: S
             },
             initialSeating = route.seating,
             initialTarget = route.target,
+            initialKind = route.kind,
+            initialPenalty = route.enderPenalty,
         )
         is Route.Round -> {
             val navigator = remember(route.gameId, nav) { roundNavigator(route.gameId, nav) }
@@ -296,7 +298,7 @@ private fun GameOverRoute(gameId: Long, nav: EntryNav) {
     GameOverScreen(
         state = snap.toGameOverUi(),
         // A joined game: only the host starts the next one (this phone follows it).
-        onNewGameSamePlayers = if (snap.isJoined) null else ({ nav.reset(Route.Home, Route.NewGame(snap.state.playerIds, snap.state.target)) }),
+        onNewGameSamePlayers = if (snap.isJoined) null else ({ nav.reset(Route.Home, Route.NewGame.samePlayers(snap.state)) }),
         onHome = { nav.reset(Route.Home) },
         onScoreboard = { nav.push(Route.Scoreboard(gameId)) },
     )
@@ -311,13 +313,15 @@ private fun DebugRoute(screen: DebugScreen, nav: EntryNav, debug: DebugLaunch) {
             val repository = AppGraph.repository(LocalContext.current)
             val scope = rememberCoroutineScope()
             val saveScans by repository.saveScansForTraining.collectAsStateWithLifecycle(initialValue = true)
+            val skyjo by repository.skyjoPreview.collectAsStateWithLifecycle(initialValue = false)
             val home = rememberDebugHomeState()
             DebugHomeScreen(
-                state = home.ui(saveScans),
+                state = home.ui(saveScans, skyjo),
                 onBack = back,
                 onLiveCamera = { open(DebugScreen.CAMERA) },
                 onDetectFromPhoto = { open(DebugScreen.PHOTO) },
                 onSaveScansChange = { on -> scope.launch { runCatching { outlivingUi { repository.setSaveScansForTraining(on) } } } },
+                onSkyjoPreviewChange = { on -> scope.launch { runCatching { outlivingUi { repository.setSkyjoPreview(on) } } } },
                 onLoadDetector = home::loadDetector,
                 onAvatars = { open(DebugScreen.AVATARS) },
                 onMultiplayer = { open(DebugScreen.MULTIPLAYER) },

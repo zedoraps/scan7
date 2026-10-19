@@ -143,26 +143,30 @@ data class GameState(
     }
 
     /**
-     * [playerId]'s counted points in [round]: as entered, doubled for a penalised round ender
-     * ([isDoubled]). Every total uses this.
+     * [playerId]'s counted points in [round]: as entered, or the [EnderPenalty] for a penalised round
+     * ender ([isDoubled]). Every total uses this.
      */
     fun roundPoints(round: RoundState, playerId: Long): Int =
-        round.points(playerId).let { if (isDoubled(round, playerId)) it * 2 else it }
+        if (isDoubled(round, playerId)) enderPenalty.enderPoints(round.points(playerId), othersPoints(round, playerId)) else round.points(playerId)
 
     /** [roundPoints] by round number. */
     fun roundPoints(round: Int, playerId: Long): Int = roundPoints(round(round), playerId)
 
     /**
-     * Skyjo: [playerId] ended [round] and the game's [enderPenalty] doubles their points (they don't
-     * have the strictly lowest score of the round). Always `false` for games without a round ender.
+     * Skyjo: [playerId] ended [round] and the game's [enderPenalty] applies (they don't have the
+     * strictly lowest score of the round): their points are doubled ([EnderPenalty.CRAZY]: double the
+     * round's highest). Always `false` for games without a round ender.
      */
     fun isDoubled(round: RoundState, playerId: Long): Boolean {
         if (!rules.hasRoundEnder || round.endedBy != playerId) return false
         val res = round.result(playerId)
         if (!res.isDone) return false
-        val others = round.results.filter { (p, r) -> p != playerId && r.isDone }.map { it.value.points }
-        return enderPenalty.doubles(res.points, others)
+        return enderPenalty.doubles(res.points, othersPoints(round, playerId))
     }
+
+    /** Everyone else's entered points in [round] (done results only). */
+    private fun othersPoints(round: RoundState, playerId: Long): List<Int> =
+        round.results.filter { (p, r) -> p != playerId && r.isDone }.map { it.value.points }
 
     fun total(playerId: Long): Int = totals.getValue(playerId)
 
@@ -176,16 +180,19 @@ data class GameState(
     private val seatedTotals: Map<Long, Int> get() = totals.filterKeys { it in playerIds }
 
     /**
-     * Seated player(s) with the best total, in seating order; empty while nobody has points (lowest
-     * wins: while nobody has a result or adjustment yet).
+     * Seated player(s) with the best total, in seating order; empty while nobody has points. Lowest
+     * wins: by the totals of the closed rounds (an open player's 0 in the running round would lead
+     * otherwise), empty before the first round is closed.
      */
     val leaders: List<Long>
         get() {
-            val t = seatedTotals
             if (rules.lowestWins) {
-                val started = adjustments.isNotEmpty() || rounds.any { r -> r.results.values.any { it.isDone } }
-                return if (!started) emptyList() else t.filterValues { it == t.values.min() }.keys.toList()
+                val closed = rounds.count { it.isClosed }
+                if (closed == 0) return emptyList()
+                val t = totalsThrough(closed).filterKeys { it in playerIds }
+                return t.filterValues { it == t.values.min() }.keys.toList()
             }
+            val t = seatedTotals
             val best = t.values.max()
             return if (best <= 0) emptyList() else t.filterValues { it == best }.keys.toList()
         }

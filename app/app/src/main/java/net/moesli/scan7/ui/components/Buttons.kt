@@ -211,10 +211,14 @@ fun IconButton(
  */
 val LocalTypeEntry = compositionLocalOf { false }
 
+/** `false` in a game without bust (Skyjo): no Bust buttons (in-card, list row, player sheet). Provided by the round screen. */
+val LocalBustAllowed = compositionLocalOf { true }
+
 /**
  * In-card / in-row Scan + Bust pair: two equal columns, 6 dp apart. Scan is cyan with the scan
  * icon (keypad in Type mode, [LocalTypeEntry]), Bust is a magenta outline with the word "BUST".
- * Labelled "Scan Mia" ("Enter cards for Mia") / "Mark Mia as bust".
+ * Labelled "Scan Mia" ("Enter cards for Mia") / "Mark Mia as bust". Without bust ([LocalBustAllowed])
+ * Scan takes the full width.
  */
 @Composable
 fun ScanBustActions(
@@ -253,6 +257,7 @@ fun ScanBustActions(
         ) {
             if (type) KeypadIcon(colors.onAccent) else ScanIcon(colors.onAccent)
         }
+        if (!LocalBustAllowed.current) return@Row
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier

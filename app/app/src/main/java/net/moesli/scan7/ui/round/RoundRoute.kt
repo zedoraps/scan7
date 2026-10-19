@@ -30,8 +30,11 @@ import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.data.GameSnapshot
 import net.moesli.scan7.data.outlivingUi
+import net.moesli.scan7.game.EnderPenalty
+import net.moesli.scan7.game.GameKind
 import net.moesli.scan7.game.ScanDirection
 import net.moesli.scan7.game.TablePosition
+import net.moesli.scan7.ui.components.LocalBustAllowed
 import net.moesli.scan7.ui.components.LocalTypeEntry
 import net.moesli.scan7.ui.components.RoundView
 import net.moesli.scan7.ui.components.Scan7BottomSheet
@@ -43,6 +46,8 @@ import net.moesli.scan7.ui.nav.ScanStart
 import net.moesli.scan7.ui.players.playerUis
 import net.moesli.scan7.ui.sheet.AdjustActions
 import net.moesli.scan7.ui.sheet.CloseRoundDialog
+import net.moesli.scan7.ui.sheet.RoundEnderDialog
+import net.moesli.scan7.ui.sheet.enderChoices
 import net.moesli.scan7.ui.sheet.PlayerSheet
 import net.moesli.scan7.ui.sheet.PlayerSheetUi
 import net.moesli.scan7.ui.theme.Scan7Theme
@@ -90,6 +95,7 @@ class RoundFlags(
     shareSheet: Boolean = false,
     claimSheet: Boolean = false,
     confirmLeave: Boolean = false,
+    pickEnder: Boolean = false,
 ) {
     var arranging by mutableStateOf(arranging)
     var sheetPlayer by mutableStateOf(sheetPlayer)
@@ -107,12 +113,15 @@ class RoundFlags(
     var claimSheet by mutableStateOf(claimSheet)
     var confirmLeave by mutableStateOf(confirmLeave)
 
+    /** Skyjo: "Who ended round N?" before the round closes. */
+    var pickEnder by mutableStateOf(pickEnder)
+
     companion object {
         val Saver = listSaver<RoundFlags, Any>(
             save = {
                 listOf(
                     it.arranging, it.sheetPlayer ?: -1L, it.confirmClose, it.menu, it.confirmEnd, it.confirmTarget ?: -1,
-                    it.shareSheet, it.claimSheet, it.confirmLeave,
+                    it.shareSheet, it.claimSheet, it.confirmLeave, it.pickEnder,
                 )
             },
             restore = {
@@ -126,6 +135,7 @@ class RoundFlags(
                     shareSheet = it[6] as Boolean,
                     claimSheet = it[7] as Boolean,
                     confirmLeave = it[8] as Boolean,
+                    pickEnder = it[9] as Boolean,
                 )
             },
         )
@@ -222,27 +232,45 @@ class RoundController(
     fun closeRound() {
         flags.confirmClose = false
         flags.arranging = false
-        finishRound()
+        askEnderOrFinish()
     }
 
     override fun onNextRound() {
         val state = snapshot?.state ?: return
         if (state.currentRound.isClosed || !state.isRoundComplete) return
         flags.arranging = false
-        finishRound()
+        askEnderOrFinish()
+    }
+
+    /** Skyjo with a round-ender penalty asks who ended the round first ([RoundFlags.pickEnder]); else the round closes now. */
+    private fun askEnderOrFinish() {
+        val state = snapshot?.state ?: return
+        if (state.rules.hasRoundEnder && state.enderPenalty != EnderPenalty.OFF) flags.pickEnder = true else finishRound()
+    }
+
+    /** "Who ended the round?" answered: store the ender, then close the round as usual. */
+    fun pickEnder(playerId: Long) {
+        flags.pickEnder = false
+        finishRound(endedBy = playerId)
     }
 
     private var finishing = false
 
     /**
      * Closes the running round and starts the next one (one transaction), or Game over when
-     * someone reached the target. No toast: the new round's screen says enough.
+     * someone reached the target. No toast: the new round's screen says enough. [endedBy] (Skyjo)
+     * is stored as the round ender first.
      */
-    private fun finishRound() {
+    private fun finishRound(endedBy: Long? = null) {
         if (finishing) return
         finishing = true
         scope.launch {
-            runCatching { outlivingUi { repository.closeRoundAndStartNext(gameId) } }
+            runCatching {
+                outlivingUi {
+                    if (endedBy != null) repository.setRoundEnder(gameId, endedBy)
+                    repository.closeRoundAndStartNext(gameId)
+                }
+            }
                 .onSuccess { s -> if (s.isOver) navigator.gameOver() else roundStarted() }
                 .onFailure { Log.w(TAG, "close round failed", it) }
             finishing = false
@@ -388,7 +416,8 @@ fun RoundRoute(
     val snapshot by remember(gameId) { repository.observeGame(gameId) }.collectAsStateWithLifecycle(initialValue = null)
     val afterScan by remember { repository.setting(AfterScan.SETTING_KEY) }.collectAsStateWithLifecycle(initialValue = null)
     val entrySetting by remember { repository.setting(EntryMode.SETTING_KEY) }.collectAsStateWithLifecycle(initialValue = null)
-    val entry = EntryMode.fromSetting(entrySetting)
+    // No detector for Skyjo yet: its cards are always typed in (the grid entry).
+    val entry = if (snapshot?.state?.kind == GameKind.SKYJO) EntryMode.TYPE else EntryMode.fromSetting(entrySetting)
     val flags = rememberSaveable(saver = RoundFlags.Saver) { RoundFlags() }
     val scope = rememberCoroutineScope()
     val controller = remember(gameId, navigator) { RoundController(repository, gameId, scope, navigator, flags, toast) }
@@ -451,7 +480,7 @@ fun RoundRoute(
     LaunchedEffect(needsClaim) { if (needsClaim) flags.claimSheet = true }
     val typeEntry = entry == EntryMode.TYPE
     // Type mode: the in-card / bottom scan buttons show the keypad / "Enter next".
-    CompositionLocalProvider(LocalTypeEntry provides typeEntry) {
+    CompositionLocalProvider(LocalTypeEntry provides typeEntry, LocalBustAllowed provides snap.state.rules.hasBust) {
         val base = snap.toRoundUiState(flags.arranging, typeEntry = typeEntry).copy(canArrange = !readOnly)
         val shown = when {
             guest != null -> base.joined(guest)
@@ -515,6 +544,14 @@ fun RoundRoute(
             onConfirm = controller::closeRound,
         )
     }
+    if (flags.pickEnder) {
+        RoundEnderDialog(
+            round = snap.state.currentRound.number,
+            choices = snap.state.enderChoices(uis),
+            onPick = { controller.pickEnder(it.toLong()) },
+            onCancel = { flags.pickEnder = false },
+        )
+    }
     flags.confirmTarget?.let { t ->
         Confirmations.lowerTarget(t, reachesIt = true)?.let { spec ->
             Scan7ConfirmDialog(spec, onConfirm = { controller.setTarget(t) }, onCancel = { flags.confirmTarget = null })
@@ -534,7 +571,7 @@ fun RoundRoute(
                     target = snap.state.target.takeUnless { snap.state.isOver || readOnly },
                     direction = snap.state.scanDirection,
                     afterScan = AfterScan.fromSetting(afterScan),
-                    entry = entry,
+                    entry = entry.takeIf { snap.state.kind != GameKind.SKYJO },
                 ),
                 onScoreboard = { sheet.hideThen(navigator::scoreboard) },
                 onArrange = if (readOnly) null else ({ sheet.hideThen(controller::onEnterArrange) }),

@@ -3,6 +3,8 @@ package net.moesli.scan7.ui.text
 import net.moesli.scan7.R
 import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.AvatarCatalog
+import net.moesli.scan7.game.EnderPenalty
+import net.moesli.scan7.game.GameKind
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.scoring.CardKind
 import net.moesli.scan7.scoring.RowScore
@@ -91,4 +93,29 @@ fun avatarDescription(name: String?, avatar: Avatar): UiText {
     val a = avatar.normalized()
     val text = uiText(R.string.avatar_description, avatarColorName(a.color), avatarFaceName(a.face))
     return if (name.isNullOrBlank()) text else uiText(R.string.avatar_description_named, name.trim(), text)
+}
+
+/** Game name: "Flip 7", "Skyjo" (names, not translated). */
+fun GameKind.title(): UiText = when (this) {
+    GameKind.FLIP7 -> uiText(R.string.game_flip7)
+    GameKind.SKYJO -> uiText(R.string.game_skyjo)
+}
+
+/** New game segment: "Official", "Always ×2", "Crazy ×2", "Off". */
+fun EnderPenalty.label(): UiText = when (this) {
+    EnderPenalty.OFFICIAL -> uiText(R.string.ender_official)
+    EnderPenalty.ALWAYS -> uiText(R.string.ender_always)
+    EnderPenalty.CRAZY -> uiText(R.string.ender_crazy)
+    EnderPenalty.OFF -> uiText(R.string.ender_off)
+}
+
+/** The penalties in the order New game offers them (Off last). */
+val EnderPenaltyChoices: List<EnderPenalty> = listOf(EnderPenalty.OFFICIAL, EnderPenalty.ALWAYS, EnderPenalty.CRAZY, EnderPenalty.OFF)
+
+/** What the [EnderPenalty] does, under the segments. */
+fun EnderPenalty.description(): UiText = when (this) {
+    EnderPenalty.OFFICIAL -> uiText(R.string.ender_official_description)
+    EnderPenalty.ALWAYS -> uiText(R.string.ender_always_description)
+    EnderPenalty.CRAZY -> uiText(R.string.ender_crazy_description)
+    EnderPenalty.OFF -> uiText(R.string.ender_off_description)
 }

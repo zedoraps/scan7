@@ -48,6 +48,7 @@ import net.moesli.scan7.ui.components.HomeIcon
 import net.moesli.scan7.ui.components.PlayersIcon
 import net.moesli.scan7.ui.components.ScoreboardIcon
 import net.moesli.scan7.ui.components.SectionLabel
+import net.moesli.scan7.ui.components.SegmentedChoice
 import net.moesli.scan7.ui.components.WarningIcon
 import net.moesli.scan7.ui.components.scan7Clickable
 import net.moesli.scan7.ui.nav.AfterScan
@@ -65,14 +66,15 @@ import net.moesli.scan7.ui.theme.Scan7Type
 /**
  * What the round menu's settings show: the game's [target] (`null` = not changeable, the game is
  * over), the app-wide scan [direction], what a save does next ([afterScan], same setting as the
- * review's split OK ▾) and the [entry] mode (Scan | Type).
+ * review's split OK ▾) and the [entry] mode (Scan | Type; `null` = not offered: a game without a
+ * detector is always typed in).
  */
 @Immutable
 data class RoundMenuSettings(
     val target: Int?,
     val direction: ScanDirection,
     val afterScan: AfterScan,
-    val entry: EntryMode,
+    val entry: EntryMode?,
 )
 
 /**
@@ -149,14 +151,16 @@ fun RoundMenuContent(
             label = { it.segmentLabel() },
             onSelect = onAfterScan,
         )
-        SettingToggle(
-            title = stringResource(R.string.menu_entry),
-            options = EntryMode.entries,
-            selected = settings.entry,
-            label = { it.segmentLabel() },
-            spoken = { it.spokenLabel() },
-            onSelect = onEntry,
-        )
+        if (settings.entry != null) {
+            SettingToggle(
+                title = stringResource(R.string.menu_entry),
+                options = EntryMode.entries,
+                selected = settings.entry,
+                label = { it.segmentLabel() },
+                spoken = { it.spokenLabel() },
+                onSelect = onEntry,
+            )
+        }
     }
 }
 
@@ -210,40 +214,14 @@ private fun <T> SettingToggle(
         maxLines = 1,
         modifier = Modifier.padding(start = Scan7Spacing.l, end = Scan7Spacing.l, top = Scan7Spacing.s, bottom = Scan7Spacing.xs),
     )
-    SingleChoiceSegmentedButtonRow(
-        Modifier
-            .fillMaxWidth()
-            .padding(start = Scan7Spacing.l, end = Scan7Spacing.l, bottom = Scan7Spacing.s)
-            // Equal segment heights when one label wraps to two lines.
-            .height(IntrinsicSize.Min),
-    ) {
-        options.forEachIndexed { i, option ->
-            val text = label(option).resolve()
-            val description = spoken?.invoke(option)?.resolve() ?: text
-            SegmentedButton(
-                selected = option == selected,
-                onClick = { if (option != selected) onSelect(option) },
-                shape = SegmentedButtonDefaults.itemShape(i, options.size, RoundedCornerShape(Scan7Radii.iconButton)),
-                colors = SegmentedButtonDefaults.colors(
-                    activeContainerColor = colors.accent,
-                    activeContentColor = colors.onAccent,
-                    activeBorderColor = colors.accent,
-                    inactiveContainerColor = Color.Transparent,
-                    inactiveContentColor = colors.text,
-                    inactiveBorderColor = colors.line,
-                ),
-                icon = {},
-                modifier = Modifier
-                    .heightIn(min = 48.dp)
-                    .fillMaxHeight()
-                    .semantics { contentDescription = description },
-            ) {
-                // Two lines at large font scales on narrow screens ("Nächster / Spieler") instead of cutting the label;
-                // a label too long for one word per line carries its own break ("↺ Gegen-\nuhrzeigersinn").
-                Text(text, style = Scan7Type.text13, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.clearAndSetSemantics {})
-            }
-        }
-    }
+    SegmentedChoice(
+        options = options,
+        selected = selected,
+        label = label,
+        onSelect = onSelect,
+        spoken = spoken,
+        modifier = Modifier.padding(start = Scan7Spacing.l, end = Scan7Spacing.l, bottom = Scan7Spacing.s),
+    )
 }
 
 /** Segment label: "↻ Clockwise" / "↺ Counter". */

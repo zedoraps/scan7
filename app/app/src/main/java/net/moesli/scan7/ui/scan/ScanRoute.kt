@@ -27,6 +27,12 @@ import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.data.outlivingUi
 import net.moesli.scan7.game.GameState
+import androidx.compose.runtime.key
+import net.moesli.scan7.skyjo.toConfirmedCards
+import net.moesli.scan7.skyjo.skyjoGridOf
+import net.moesli.scan7.skyjo.emptySkyjoGrid
+import net.moesli.scan7.game.ResultSource
+import net.moesli.scan7.game.GameKind
 import net.moesli.scan7.game.flip7Cards
 import net.moesli.scan7.ui.components.PlayerStatus
 import net.moesli.scan7.ui.nav.AfterScan
@@ -131,6 +137,30 @@ fun ScanRoute(
                 saving = false
             }
         }
+    }
+    if (state.kind == GameKind.SKYJO) {
+        // No Skyjo detector yet: every scan / edit is the grid entry (prefilled when editing).
+        val grid = remember(playerId, roundNumber) {
+            if (start == ScanStart.EDIT) skyjoGridOf(state.result(playerId, roundNumber).cards) else emptySkyjoGrid()
+        }
+        key(playerId) {
+            SkyjoEntryStep(
+                player = player,
+                start = grid,
+                onSave = { g ->
+                    save("saving the grid", { scoreCards(gameId, playerId, g.toConfirmedCards(), ResultSource.MANUAL, roundNumber) }) {
+                        onSaved(it, choice, entry)
+                    }
+                },
+                onSaveTotal = { points ->
+                    save("saving the total", { scorePoints(gameId, playerId, points, roundNumber) }) { onSaved(it, choice, entry) }
+                },
+                onCancel = onLeave,
+                modifier = modifier,
+                afterScan = afterScan,
+            )
+        }
+        return
     }
     // Bust tap on the camera: only for an open player of the running round (its undo resets to open).
     val canBust = camera && round == null && (player.status == PlayerStatus.Open || bustShown == playerId)

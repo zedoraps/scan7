@@ -122,6 +122,20 @@ class GameRepository(
 
     suspend fun setSaveScansForTraining(on: Boolean) = settingsDao.put(SettingEntity(KEY_SAVE_SCANS, on.toString()))
 
+    /**
+     * Debug setting "Skyjo games (preview)": New game offers Skyjo next to Flip 7. Default off;
+     * release builds never (the toggle is in the debug menu, like [saveScansForTraining]).
+     */
+    val skyjoPreview: Flow<Boolean> = if (!BuildConfig.DEBUG) {
+        flowOf(false)
+    } else {
+        settingsDao.observe(KEY_SKYJO_PREVIEW)
+            .map { it == "true" }
+            .distinctUntilChanged()
+    }
+
+    suspend fun setSkyjoPreview(on: Boolean) = settingsDao.put(SettingEntity(KEY_SKYJO_PREVIEW, on.toString()))
+
     /** "Scan next" direction (round menu), app-wide; clockwise until changed. */
     val scanDirection: Flow<ScanDirection> = settingsDao.observe(KEY_SCAN_DIRECTION)
         .map(::parseScanDirection)
@@ -578,6 +592,7 @@ class GameRepository(
     private companion object {
         const val KEY_VIEW_MODE = "view_mode"
         const val KEY_SAVE_SCANS = "save_scans_for_training"
+        const val KEY_SKYJO_PREVIEW = "debug_skyjo_preview"
         const val KEY_SCAN_DIRECTION = "scan_direction"
         const val KEY_DEVICE_ID = "multiplayer_device_id"
 

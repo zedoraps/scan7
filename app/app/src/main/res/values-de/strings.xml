@@ -60,6 +60,7 @@
     <!-- Player status -->
     <string name="tag_open">OFFEN</string>
     <string name="tag_scored">✓ +%1$d</string>
+    <string name="tag_scored_negative">✓ −%1$d</string>
     <string name="status_open">Noch nicht gewertet</string>
     <string name="status_scored">%1$d Punkte</string>
     <string name="status_bust">Raus</string>
@@ -203,6 +204,40 @@
     <string name="newgame_target_description">Ziel, Punkte zum Sieg</string>
     <string name="newgame_target_lower">Ziel senken</string>
     <string name="newgame_target_raise">Ziel erhöhen</string>
+    <string name="newgame_game">Spiel</string>
+    <string name="newgame_round_ender">Rundenende</string>
+    <string name="ender_official">Offiziell</string>
+    <string name="ender_always">Immer ×2</string>
+    <string name="ender_off">Aus</string>
+    <string name="ender_crazy">Verrückt ×2</string>
+    <string name="ender_official_description">Wer die Runde beendet und nicht die wenigsten Punkte hat, bekommt sie doppelt, wenn sie über 0 liegen.</string>
+    <string name="ender_always_description">Wer die Runde beendet und nicht die wenigsten Punkte hat, bekommt sie doppelt, auch unter 0.</string>
+    <string name="ender_off_description">Die Runde zu beenden kostet nichts extra.</string>
+    <string name="ender_crazy_description">Wer die Runde beendet und nicht die wenigsten Punkte hat, bekommt das Doppelte der höchsten Punktzahl der Runde.</string>
+    <string name="ender_title">Wer hat Runde %1$d beendet?</string>
+    <string name="ender_body">Tippe auf die Person, die zuerst alle Karten aufgedeckt hat.</string>
+    <plurals name="ender_row_spoken">
+        <item quantity="one">%1$s, %2$d Punkt</item>
+        <item quantity="other">%1$s, %2$d Punkte</item>
+    </plurals>
+    <plurals name="ender_row_doubled_spoken">
+        <item quantity="one">%1$s, %2$d Punkt, zählt %3$d</item>
+        <item quantity="other">%1$s, %2$d Punkte, zählt %3$d</item>
+    </plurals>
+    <string name="skyjo_grid">Auslage</string>
+    <string name="skyjo_grid_hint">Reihen und Spalten wie auf dem Tisch. Eine abgelegte Spalte bleibt leer.</string>
+    <string name="skyjo_values">Karte</string>
+    <plurals name="skyjo_cards_count">
+        <item quantity="one">%1$d von %2$d Karten</item>
+        <item quantity="other">%1$d von %2$d Karten</item>
+    </plurals>
+    <string name="skyjo_total_only">Nur Summe</string>
+    <string name="skyjo_slot_empty">leer</string>
+    <string name="skyjo_slot_spoken">Reihe %1$d, Spalte %2$d: %3$s</string>
+    <string name="skyjo_slot_clear">Leer</string>
+    <string name="skyjo_slot_clear_spoken">Feld leeren</string>
+    <string name="skyjo_total_title">Rundenpunkte für %1$s</string>
+    <string name="skyjo_total_field">Rundenpunkte</string>
     <string name="seats_title">Plätze</string>
     <string name="seats_hint_table">Zieh alle an ihren Platz oder starte direkt</string>
     <string name="seats_hint_list">Zieh die Zeilen in Sitzreihenfolge oder starte direkt</string>
@@ -226,6 +261,8 @@
     <string name="scoreboard_adjusted_legend">± Summe enthält Korrekturen</string>
     <string name="a11y_leading">, führt</string>
     <string name="scoreboard_cell_points">Runde %1$d, %2$s: %3$s</string>
+    <string name="scoreboard_cell_doubled">Strafe fürs Beenden der Runde</string>
+    <string name="scoreboard_doubled_legend">* inkl. Strafe fürs Beenden der Runde ohne die wenigsten Punkte</string>
     <string name="scoreboard_cell_bust">Runde %1$d, %2$s: raus</string>
     <string name="scoreboard_cell_open">Runde %1$d, %2$s: noch nicht gewertet</string>
 

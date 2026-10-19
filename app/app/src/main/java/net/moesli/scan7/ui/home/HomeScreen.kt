@@ -652,7 +652,7 @@ fun HomeRoute(
     onPastGame: (gameId: Long) -> Unit,
     onAbout: () -> Unit,
     modifier: Modifier = Modifier,
-    onSamePlayers: (seating: List<Long>, target: Int) -> Unit = { _, _ -> },
+    onSamePlayers: (PastGameUi) -> Unit = {},
     repository: GameRepository = AppGraph.repository(LocalContext.current),
     onJoin: (() -> Unit)? = null,
 ) {
@@ -683,7 +683,7 @@ fun HomeRoute(
         modifier = modifier,
         onAbout = onAbout,
         onJoin = onJoin,
-        onSamePlayers = { game -> onSamePlayers(game.lineup, game.target) },
+        onSamePlayers = onSamePlayers,
         onDeleteGame = { id ->
             scope.launch {
                 runCatching {
