@@ -145,7 +145,7 @@ fun ShareSheet(
             Text(stringResource(R.string.share_hint), color = colors.textMuted, style = Scan7Type.text12)
             Text(stringResource(R.string.share_code, host.link.sessionId.take(6).uppercase()), color = colors.text, style = Scan7Type.text15)
             when (val t = host.transport) {
-                is TransportStatus.MissingPermissions -> Text(stringResource(R.string.permission_denied), color = colors.warning, style = Scan7Type.text12)
+                is TransportStatus.MissingPermissions -> Text(stringResource(R.string.radio_permissions_missing), color = colors.warning, style = Scan7Type.text12)
                 is TransportStatus.Failed -> Text(stringResource(R.string.share_radio_failed), color = colors.warning, style = Scan7Type.text12)
                 else -> t
             }

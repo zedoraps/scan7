@@ -93,12 +93,22 @@ fun JoinRoute(initialLink: String?, onBack: () -> Unit, onJoined: (Long) -> Unit
                 PrimaryButton(stringResource(R.string.action_back), onBack, Modifier.fillMaxWidth())
             }
             parsed != null -> {
-                Text(stringResource(R.string.join_connecting), color = colors.text, style = Scan7Type.text15)
-                // Like the share sheet: a radio that can't start says so instead of "Connecting…" forever.
+                // A radio that can't start says why and offers the fix, instead of "Connecting…" forever.
+                // Retry = a fresh join (the same code again would be ignored while the old one runs).
+                val retry = {
+                    runtime.leave()
+                    permissions.run { runtime.join(parsed, LinkMode.RADIO) }
+                }
                 when (guest?.transport) {
-                    is TransportStatus.MissingPermissions -> Text(stringResource(R.string.permission_denied), color = colors.warning, style = Scan7Type.text12)
-                    is TransportStatus.Failed -> Text(stringResource(R.string.share_radio_failed), color = colors.warning, style = Scan7Type.text12)
-                    else -> Unit
+                    is TransportStatus.MissingPermissions -> {
+                        Text(stringResource(R.string.radio_permissions_missing), color = colors.text, style = Scan7Type.text15)
+                        PrimaryButton(stringResource(R.string.action_allow), retry, Modifier.fillMaxWidth())
+                    }
+                    is TransportStatus.Failed -> {
+                        Text(stringResource(R.string.share_radio_failed), color = colors.text, style = Scan7Type.text15)
+                        PrimaryButton(stringResource(R.string.action_try_again), retry, Modifier.fillMaxWidth())
+                    }
+                    else -> Text(stringResource(R.string.join_connecting), color = colors.text, style = Scan7Type.text15)
                 }
             }
             else -> {

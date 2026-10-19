@@ -525,6 +525,9 @@
     <string name="permission_rationale_location">Android braucht den Standortzugriff, um Handys in der Nähe zu finden. Scan7 nutzt deinen Standort nie.</string>
     <string name="permission_continue">Weiter</string>
     <string name="permission_denied">Ohne diese Berechtigung können sich die Handys nicht verbinden.</string>
+    <string name="radio_permissions_missing">Scan7 braucht die Berechtigungen „Geräte in der Nähe“ und Standort, um die Handys zu verbinden.</string>
+    <string name="action_allow">Erlauben</string>
+    <string name="action_try_again">Nochmal versuchen</string>
     <string name="permission_settings">Einstellungen öffnen</string>
     <string name="claim_screen_title">Dieses Handy</string>
     <string name="claim_title">Wer bist du?</string>
