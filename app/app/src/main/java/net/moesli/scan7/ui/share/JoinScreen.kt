@@ -1,6 +1,7 @@
 package net.moesli.scan7.ui.share
 
-import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import net.moesli.scan7.ui.components.BetaTag
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -44,7 +45,7 @@ import net.moesli.scan7.R
 import net.moesli.scan7.camera.rememberCameraPermission
 import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.multiplayer.nearby.JoinLink
-import net.moesli.scan7.multiplayer.nearby.TransportStatus
+import net.moesli.scan7.share.RadioRole
 import net.moesli.scan7.share.LinkMode
 import net.moesli.scan7.share.ShareText
 import net.moesli.scan7.ui.components.PrimaryButton
@@ -95,26 +96,19 @@ fun JoinRoute(initialLink: String?, onBack: () -> Unit, onJoined: (Long) -> Unit
             }
             parsed != null -> {
                 // A radio that can't start says why and offers the fix, instead of "Connecting…" forever.
-                // Retry = a fresh join (the same code again would be ignored while the old one runs).
-                val retry = {
-                    runtime.leave()
-                    permissions.run { runtime.join(parsed, LinkMode.RADIO) }
+                // Try again = a fresh radio link for the same join (no leave: that deleted the saved
+                // session and restarted the foreground service on every try).
+                val retry: () -> Unit = {
+                    if (guest == null) runtime.join(parsed, LinkMode.RADIO) else runtime.retryJoin()
                 }
-                // Back from the app settings with the permissions now granted: connect by itself.
-                LifecycleResumeEffect(guest?.transport) {
-                    if (guest?.transport is TransportStatus.MissingPermissions && permissions.missing().isEmpty()) retry()
-                    onPauseOrDispose {}
-                }
-                when (guest?.transport) {
-                    is TransportStatus.MissingPermissions -> {
-                        Text(stringResource(R.string.radio_permissions_missing), color = colors.text, style = Scan7Type.text15)
-                        PrimaryButton(stringResource(R.string.action_allow), retry, Modifier.fillMaxWidth())
+                // Back from a settings screen a button opened: one fresh try (never keyed on the status).
+                OnReturnFromSettings(permissions, retry)
+                if (runtime.radioAvailable) {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        RadioPanel(RadioRole.GUEST, guest?.transport, guest?.radioStats, runtime, permissions, onRetry = retry)
                     }
-                    is TransportStatus.Failed -> {
-                        Text(stringResource(R.string.share_radio_failed), color = colors.text, style = Scan7Type.text15)
-                        PrimaryButton(stringResource(R.string.action_try_again), retry, Modifier.fillMaxWidth())
-                    }
-                    else -> Text(stringResource(R.string.join_connecting), color = colors.text, style = Scan7Type.text15)
+                } else {
+                    Text(stringResource(R.string.join_connecting), color = colors.text, style = Scan7Type.text15)
                 }
             }
             else -> {

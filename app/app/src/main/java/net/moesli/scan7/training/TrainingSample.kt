@@ -68,6 +68,12 @@ data class TrainingSample(
     val capture: TrainingCapture? = null,
     /** Indices into [detections] the user left out on the review (`"excluded": true` per detection). */
     val excludedDetections: Set<Int> = emptySet(),
+    /**
+     * Indices into [detections] the app left out automatically when the review opened (row
+     * grouping: a neighbour's cards; `"auto_excluded": true` per detection). They are still real
+     * cards; [excludedDetections] is what the user finally left out.
+     */
+    val autoExcludedDetections: Set<Int> = emptySet(),
 ) {
     /** File name without extension: `scan7_<yyyyMMdd_HHmmss_SSS>` in [zone]. */
     fun fileStem(zone: ZoneId = ZoneId.systemDefault()): String = trainingFileStem(timestampMillis, zone)
@@ -103,7 +109,8 @@ data class TrainingSample(
                     "{\"label\": ${str(d.label)}, \"score\": ${num(d.score)}, \"box\": " +
                         "{\"left\": ${num(d.box.left)}, \"top\": ${num(d.box.top)}, " +
                         "\"right\": ${num(d.box.right)}, \"bottom\": ${num(d.box.bottom)}}, " +
-                        "\"from_tracking\": ${d.fromTracking}, \"excluded\": ${i in excludedDetections}}"
+                        "\"from_tracking\": ${d.fromTracking}, \"excluded\": ${i in excludedDetections}, " +
+                        "\"auto_excluded\": ${i in autoExcludedDetections}}"
                 }.let { if (detections.isEmpty()) "[]" else it },
             )
             val o = outcome

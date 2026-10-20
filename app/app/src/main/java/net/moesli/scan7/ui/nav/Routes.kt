@@ -91,7 +91,7 @@ sealed interface Route : NavKey {
  * What the review's OK (and Confirm bust, manual Save, the camera's Bust tap) does after saving:
  * continue with the next open player's camera, or go back to the table. Chosen with the ▾ of the
  * split OK button or in the round menu ("After a score"), one remembered setting for both
- * (settings key [AfterScan.SETTING_KEY]); default [NEXT].
+ * (settings key [AfterScan.SETTING_KEY]); default [TABLE].
  */
 enum class AfterScan {
     NEXT,
@@ -101,8 +101,8 @@ enum class AfterScan {
     companion object {
         const val SETTING_KEY = "after_scan"
 
-        /** The stored value, [NEXT] if never chosen (or unreadable). */
-        fun fromSetting(value: String?): AfterScan = entries.firstOrNull { it.name == value } ?: NEXT
+        /** The stored value, [TABLE] if never chosen (or unreadable). */
+        fun fromSetting(value: String?): AfterScan = entries.firstOrNull { it.name == value } ?: TABLE
     }
 }
 

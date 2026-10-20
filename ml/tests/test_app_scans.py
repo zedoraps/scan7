@@ -77,6 +77,19 @@ class ReconcileTest(unittest.TestCase):
         boxes, truth = load_sidecar(Path(f.name))
         self.assertEqual(reconcile(boxes, truth).status, "match")
 
+    def test_auto_excluded_cards_are_real_cards(self):
+        # The app left a neighbour's 12 out automatically ("auto_excluded"); it stays in outcome.excluded
+        # (the user didn't bring it back), so it is still a labelled card. A card brought back is in cards.
+        det = lambda label, x, auto: {"label": label, "score": 0.9, "box": {"left": x, "top": 0, "right": x + .1, "bottom": .1},
+                                      "from_tracking": False, "excluded": auto and label == "12", "auto_excluded": auto}
+        meta = {"detections": [det("07", 0.3, False), det("12", 0.0, True), det("05", 0.9, True)],
+                "outcome": {"cards": ["07", "05"], "ignored": [], "excluded": ["12"]}}
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(meta, f)
+        boxes, truth = load_sidecar(Path(f.name))
+        self.assertEqual(sorted(b.label for b in boxes), ["05", "07", "12"])
+        self.assertEqual(reconcile(boxes, truth).status, "match")
+
 
 if __name__ == "__main__":
     unittest.main()

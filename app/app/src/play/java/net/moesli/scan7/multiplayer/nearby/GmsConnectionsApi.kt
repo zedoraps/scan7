@@ -18,6 +18,7 @@ import com.google.android.gms.nearby.connection.Payload
 import com.google.android.gms.nearby.connection.PayloadTransferUpdate
 import com.google.android.gms.nearby.connection.Strategy
 import com.google.android.gms.tasks.Task
+import net.moesli.scan7.share.RadioLog
 
 /**
  * [ConnectionsApi] on Google Play services Nearby Connections (`play` flavor only), strategy
@@ -36,7 +37,10 @@ class GmsConnectionsApi(private val client: ConnectionsClient) : ConnectionsApi 
         client.startAdvertising(localName, serviceId, lifecycle(callback), options).report("startAdvertising", done)
     }
 
-    override fun stopAdvertising() = client.stopAdvertising()
+    override fun stopAdvertising() {
+        log("stopAdvertising")
+        client.stopAdvertising()
+    }
 
     override fun startDiscovery(serviceId: String, callback: DiscoveryCallback, done: (ApiResult) -> Unit) {
         val options = DiscoveryOptions.Builder().setStrategy(Strategy.P2P_STAR).build()
@@ -91,7 +95,10 @@ class GmsConnectionsApi(private val client: ConnectionsClient) : ConnectionsApi 
         client.disconnectFromEndpoint(endpointId)
     }
 
-    override fun stopAllEndpoints() = client.stopAllEndpoints()
+    override fun stopAllEndpoints() {
+        log("stopAllEndpoints")
+        client.stopAllEndpoints()
+    }
 
     private fun lifecycle(callback: ConnectionCallback) = object : ConnectionLifecycleCallback() {
         override fun onConnectionInitiated(endpointId: String, info: ConnectionInfo) {
@@ -111,10 +118,16 @@ class GmsConnectionsApi(private val client: ConnectionsClient) : ConnectionsApi 
     }
 
     private fun Task<Void>.report(what: String, done: (ApiResult) -> Unit) {
-        addOnSuccessListener { done(ApiResult.Ok) }
+        addOnSuccessListener {
+            // Sends are too many for the trail; every other call's outcome goes in.
+            if (what != "sendPayload") log("$what ok")
+            done(ApiResult.Ok)
+        }
         addOnFailureListener { e ->
             val code = (e as? ApiException)?.statusCode ?: -1
-            Log.w(TAG, "$what failed: ${ConnectionsStatusCodes.getStatusCodeString(code)} ${e.message}")
+            val line = "$what failed: $code ${ConnectionsStatusCodes.getStatusCodeString(code)} ${e.message}"
+            Log.w(TAG, line)
+            RadioLog.app.add("nearby", line)
             done(failure(code, e.message))
         }
     }
@@ -125,21 +138,16 @@ class GmsConnectionsApi(private val client: ConnectionsClient) : ConnectionsApi 
         /** Field-test trail of every radio call and callback: `adb logcat -s Scan7Nearby`. */
         const val TAG = "Scan7Nearby"
 
+        /** Also into the on-screen technical details ([RadioLog]). */
         fun log(message: String) {
             Log.i(TAG, message)
+            RadioLog.app.add("nearby", message)
         }
 
+        /** The code and Play's name go along: [NearbyCodes] tells permission, setting and radio apart. */
         fun failure(code: Int, message: String?): ApiResult.Failed {
             val name = ConnectionsStatusCodes.getStatusCodeString(code)
-            val error = when {
-                code == ConnectionsStatusCodes.STATUS_CONNECTION_REJECTED -> ApiError.REJECTED
-                code == ConnectionsStatusCodes.STATUS_NOT_CONNECTED_TO_ENDPOINT -> ApiError.NOT_CONNECTED
-                name.startsWith("MISSING_PERMISSION") -> ApiError.MISSING_PERMISSION
-                name.startsWith("STATUS_ALREADY") -> ApiError.ALREADY_ACTIVE
-                name.contains("RADIO") || name.contains("BLUETOOTH") || name.contains("WIFI") -> ApiError.RADIO
-                else -> ApiError.OTHER
-            }
-            return ApiResult.Failed(error, code, message ?: name)
+            return ApiResult.Failed(NearbyCodes.error(code, name), code, message ?: name)
         }
     }
 }

@@ -12,35 +12,46 @@ import java.util.zip.GZIPInputStream
  */
 private const val TAG = "Scan7Frames"
 
-private fun describe(frame: ByteArray): String = runCatching {
-    val text = when (frame.firstOrNull()?.toInt()) {
+private fun decode(frame: ByteArray): String? = runCatching {
+    when (frame.firstOrNull()?.toInt()) {
         0 -> frame.copyOfRange(1, frame.size)
         1 -> GZIPInputStream(frame.inputStream(1, frame.size - 1)).use { it.readBytes() }
         else -> frame
     }.decodeToString()
-    if (text.length > 300) text.take(300) + "… (${text.length})" else text
-}.getOrElse { "${frame.size} bytes" }
+}.getOrNull()
+
+private fun describe(frame: ByteArray): String {
+    val text = decode(frame) ?: return "${frame.size} bytes"
+    return if (text.length > 300) text.take(300) + "… (${text.length})" else text
+}
+
+/** Technical details on screen: the message type only (no JSON, no names). */
+private fun note(direction: String, frame: ByteArray) = RadioLog.app.add("frame", "$direction ${RadioLog.frameType(decode(frame), frame.size)}")
 
 internal class LoggingHostTransport(private val inner: HostTransport) : HostTransport {
     override fun start(listener: HostTransport.Listener) = inner.start(object : HostTransport.Listener {
         override fun onPeerConnected(peer: PeerId) {
             Log.i(TAG, "peer connected ${peer.value}")
+            RadioLog.app.add("frame", "peer connected ${peer.value}")
             listener.onPeerConnected(peer)
         }
 
         override fun onFrame(peer: PeerId, frame: ByteArray) {
             Log.i(TAG, "<- ${peer.value} ${describe(frame)}")
+            note("<- ${peer.value}", frame)
             listener.onFrame(peer, frame)
         }
 
         override fun onPeerDisconnected(peer: PeerId) {
             Log.i(TAG, "peer disconnected ${peer.value}")
+            RadioLog.app.add("frame", "peer disconnected ${peer.value}")
             listener.onPeerDisconnected(peer)
         }
     })
 
     override fun send(peer: PeerId, frame: ByteArray) {
         Log.i(TAG, "-> ${peer.value} ${describe(frame)}")
+        note("-> ${peer.value}", frame)
         inner.send(peer, frame)
     }
 
@@ -53,22 +64,26 @@ internal class LoggingClientTransport(private val inner: ClientTransport) : Clie
     override fun start(listener: ClientTransport.Listener) = inner.start(object : ClientTransport.Listener {
         override fun onConnected() {
             Log.i(TAG, "connected")
+            RadioLog.app.add("frame", "connected")
             listener.onConnected()
         }
 
         override fun onFrame(frame: ByteArray) {
             Log.i(TAG, "<- ${describe(frame)}")
+            note("<-", frame)
             listener.onFrame(frame)
         }
 
         override fun onDisconnected() {
             Log.i(TAG, "disconnected")
+            RadioLog.app.add("frame", "disconnected")
             listener.onDisconnected()
         }
     })
 
     override fun send(frame: ByteArray) {
         Log.i(TAG, "-> ${describe(frame)}")
+        note("->", frame)
         inner.send(frame)
     }
 

@@ -163,4 +163,18 @@ class DetectionMathTest {
         assertEquals(1080f, full.right, 1e-2f)
         assertEquals(1800f - m.offsetY, full.bottom, 1e-2f)
     }
+
+    @Test
+    fun fitMappingTopAlignedShowsTheWholeFrame() {
+        // Scan camera: the 3:4 analysis frame fitted at the top of a tall preview area (bars below).
+        val m = DisplayMapping.of(960, 1280, 1080f, 1700f, crop = false, biasY = -1f)
+        assertEquals(1080f / 960f, m.scale, 1e-6f)
+        assertEquals(0f, m.offsetX, 1e-3f)
+        assertEquals(0f, m.offsetY, 1e-3f)
+        val full = m.toView(Box(0f, 0f, 1f, 1f))
+        assertEquals(1080f, full.right, 1e-2f)
+        assertEquals(1440f, full.bottom, 1e-2f)
+        // Bottom-aligned puts the whole bar above.
+        assertEquals(260f, DisplayMapping.of(960, 1280, 1080f, 1700f, crop = false, biasY = 1f).offsetY, 1e-2f)
+    }
 }

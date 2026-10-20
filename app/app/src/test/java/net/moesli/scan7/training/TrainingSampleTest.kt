@@ -57,8 +57,8 @@ class TrainingSampleTest {
             "\"image\": {\"width\": 960, \"height\": 1280}",
             "\"detector\": {\"backend\": \"GPU\", \"threshold\": 0.35}",
             "\"origin\": \"camera\"",
-            "{\"label\": \"7\", \"score\": 0.91, \"box\": {\"left\": 0.1, \"top\": 0.2, \"right\": 0.3, \"bottom\": 0.5}, \"from_tracking\": false, \"excluded\": false}",
-            "\"label\": \"freeze\", \"score\": 0.5, \"box\": {\"left\": 0.0, \"top\": 0.0, \"right\": 0.25, \"bottom\": 0.25}, \"from_tracking\": true, \"excluded\": false}",
+            "{\"label\": \"7\", \"score\": 0.91, \"box\": {\"left\": 0.1, \"top\": 0.2, \"right\": 0.3, \"bottom\": 0.5}, \"from_tracking\": false, \"excluded\": false, \"auto_excluded\": false}",
+            "\"label\": \"freeze\", \"score\": 0.5, \"box\": {\"left\": 0.0, \"top\": 0.0, \"right\": 0.25, \"bottom\": 0.25}, \"from_tracking\": true, \"excluded\": false, \"auto_excluded\": false}",
             "\"capture\": {\"best_of\": 6, \"chosen_offset_ms\": -120, \"selection_score\": 3.25, \"sharpness\": 410.5, \"keep_threshold\": 0.2}",
             "\"detections_from_tracking\": 1",
             "\"outcome\": {\"kind\": \"scored\", \"source\": \"manual_after_scan\", \"points\": 14, \"cards\": [\"7\", \"x2\"], \"ignored\": [\"freeze\"], \"excluded\": []}",
@@ -72,9 +72,18 @@ class TrainingSampleTest {
             outcome = TrainingOutcome("scored", "scan", listOf("x2"), emptyList(), 0, excluded = listOf("7")),
             excludedDetections = setOf(0),
         ).toJson(utc)
-        assertTrue(json, json.contains("\"bottom\": 0.5}, \"from_tracking\": false, \"excluded\": true}"))
-        assertTrue(json, json.contains("\"from_tracking\": true, \"excluded\": false}"))
+        assertTrue(json, json.contains("\"bottom\": 0.5}, \"from_tracking\": false, \"excluded\": true, \"auto_excluded\": false}"))
+        assertTrue(json, json.contains("\"from_tracking\": true, \"excluded\": false, \"auto_excluded\": false}"))
         assertTrue(json, json.contains("\"ignored\": [], \"excluded\": [\"7\"]}"))
+        assertBalanced(json)
+    }
+
+    @Test
+    fun autoExcludedDetections() {
+        // The app left the freeze out, the user brought it back: auto_excluded stays, excluded is the final choice.
+        val json = sample.copy(autoExcludedDetections = setOf(1), excludedDetections = emptySet()).toJson(utc)
+        assertTrue(json, json.contains("\"from_tracking\": true, \"excluded\": false, \"auto_excluded\": true}"))
+        assertTrue(json, json.contains("\"from_tracking\": false, \"excluded\": false, \"auto_excluded\": false}"))
         assertBalanced(json)
     }
 

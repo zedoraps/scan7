@@ -298,8 +298,9 @@ fun trackBoxes(tracks: List<TrackedDetection>): List<ScanBox> =
     scanBoxes(tracks.map { it.detection }, markDuplicates = false, alphas = tracks.map { it.alpha })
 
 /**
- * Draws [boxes] on an image of [imageWidth]×[imageHeight] shown centered in the same bounds,
- * cropped ([crop], camera preview) or fitted (frozen frame). Scoring: cyan 3 dp + 1.5 dp white
+ * Draws [boxes] on an image of [imageWidth]×[imageHeight] shown in the same bounds, cropped
+ * ([crop]) or fitted (camera preview, frozen frame); centred, or moved up / down by [verticalBias]
+ * (−1 = top, as [DisplayMapping.of]). Scoring: cyan 3 dp + 1.5 dp white
  * outline, radius 10, cyan label tag top-left. Duplicates: same in magenta. Action cards / backs:
  * dashed grey with the card's name in a grey tag. Excluded (left out by the user): the card dimmed, short-dashed muted
  * outline, crossed out, "EXCLUDED" tag in muted grey.
@@ -312,6 +313,7 @@ internal fun ScanBoxesOverlay(
     crop: Boolean,
     modifier: Modifier = Modifier,
     keepClear: DpSize = DpSize.Zero,
+    verticalBias: Float = 0f,
 ) {
     val colors = Scan7Theme.colors
     val density = LocalDensity.current
@@ -325,7 +327,7 @@ internal fun ScanBoxesOverlay(
     val labels = remember(resources, excludedTag) { Card.entries.associateWith { it.chipLabel().resolve(resources) } }
     Canvas(modifier) {
         if (imageWidth <= 0 || imageHeight <= 0) return@Canvas
-        val mapping = DisplayMapping.of(imageWidth, imageHeight, size.width, size.height, crop)
+        val mapping = DisplayMapping.of(imageWidth, imageHeight, size.width, size.height, crop, biasY = verticalBias)
         // All boxes first, then all tags, so a neighbouring box never covers a tag (long ones like
         // "IGNORIERT" reach into the next card). Within each pass excluded, then ignored, then
         // scoring, so scoring stays on top where they overlap (one loop per layer, no sorted copy).

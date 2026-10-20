@@ -56,8 +56,37 @@ class NearbyPartsTest {
         assertEquals(emptyList<String>(), NearbyPermissions.missing(34) { true })
         assertEquals(NearbyPermissions.Rationale.LOCATION, NearbyPermissions.rationale(29))
         assertEquals(NearbyPermissions.Rationale.NEARBY_DEVICES, NearbyPermissions.rationale(31))
-        assertTrue(NearbyPermissions.needsLocationEnabled(30))
-        assertFalse(NearbyPermissions.needsLocationEnabled(31))
+    }
+
+    @Test
+    fun settings_discoveryNeedsLocation_bothNeedBluetooth() {
+        assertEquals(RadioSetting.LOCATION, NearbyPermissions.blockingSetting(discovering = true, locationOn = false))
+        assertEquals(null, NearbyPermissions.blockingSetting(discovering = false, locationOn = false)) // advertising
+        assertEquals(null, NearbyPermissions.blockingSetting(discovering = true, locationOn = true))
+    }
+
+    @Test
+    fun nearbyCodes_tellPermissionSettingAndRadioApart() {
+        assertEquals(ApiError.MISSING_PERMISSION, NearbyCodes.error(8036))
+        assertEquals(ACCESS_FINE_LOCATION, NearbyCodes.describe(8036).permission)
+        assertEquals("android.permission.BLUETOOTH", NearbyCodes.describe(8030).permission)
+        assertEquals("android.permission.RECORD_AUDIO", NearbyCodes.describe(8035).permission)
+        assertEquals("MISSING_PERMISSION_ACCESS_COARSE_LOCATION", NearbyCodes.name(8034))
+        assertEquals(ApiError.SETTING_OFF, NearbyCodes.error(8025))
+        assertEquals(RadioSetting.LOCATION, NearbyCodes.describe(8025).setting)
+        assertEquals(ApiError.RADIO, NearbyCodes.error(8007))
+        assertEquals(ApiError.BUSY, NearbyCodes.error(8008))
+        assertEquals(ApiError.BUSY, NearbyCodes.error(8009))
+        assertEquals(ApiError.ALREADY_ACTIVE, NearbyCodes.error(8002))
+        assertEquals(ApiError.REJECTED, NearbyCodes.error(8004))
+        assertEquals(ApiError.NOT_CONNECTED, NearbyCodes.error(8005))
+        // Every permission code names a permission; 8029…8039 are all there.
+        for (code in 8029..8039) assertTrue("$code", NearbyCodes.describe(code).permission != null)
+        // A code from a newer library: Play's name decides, the number stays.
+        assertEquals(ApiError.MISSING_PERMISSION, NearbyCodes.error(8099, "MISSING_PERMISSION_SOMETHING_NEW"))
+        assertEquals("MISSING_PERMISSION_SOMETHING_NEW", NearbyCodes.describe(8099, "MISSING_PERMISSION_SOMETHING_NEW").name)
+        assertEquals(ApiError.OTHER, NearbyCodes.error(9999))
+        assertEquals("UNKNOWN_9999", NearbyCodes.name(9999))
     }
 
     // ---- QR link + join proof ----

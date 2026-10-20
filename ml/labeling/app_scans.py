@@ -2,7 +2,8 @@
 
 Each app scan has a JSON sidecar (app/.../training/TrainingSample.kt) with the detector's boxes and the
 cards the user confirmed (outcome.cards + outcome.ignored + outcome.excluded — excluded cards are real
-cards the user only left out of the score). `reconcile()` compares the two label
+cards the user only left out of the score; that includes the ones the app left out automatically,
+`"auto_excluded": true` per detection, unless the user brought them back). `reconcile()` compares the two label
 multisets:
 
 - match              -> the boxes are accepted as the final annotation (no human review needed)

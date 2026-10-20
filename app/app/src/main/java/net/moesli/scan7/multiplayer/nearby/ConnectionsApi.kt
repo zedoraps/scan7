@@ -3,7 +3,8 @@ package net.moesli.scan7.multiplayer.nearby
 /**
  * The slice of Google Nearby Connections' `ConnectionsClient` Scan7 uses, as an interface we own
  * (docs/dev/MULTI_DEVICE.md §6). The Play implementation (`GmsConnectionsApi`, `play` flavor only)
- * forwards 1:1 and maps status codes to [ApiError]; tests use a fake. Every callback and every
+ * forwards 1:1 and maps status codes to [ApiError] ([NearbyCodes], the code stays in
+ * [ApiResult.Failed.code]); tests use a fake. Every callback and every
  * `done` must arrive on the thread the transports are driven from: Nearby calls them on the main
  * thread, so the app wraps it in [SerialConnectionsApi] (posts them to the session thread).
  */
@@ -62,11 +63,17 @@ sealed interface ApiResult {
 }
 
 enum class ApiError {
-    /** A runtime permission is missing (or location is off where it's needed). */
+    /** Nearby says a runtime permission is missing ([NearbyCodes.Info.permission] names it). */
     MISSING_PERMISSION,
+
+    /** A setting must be switched on (8025: location, needed for discovery). */
+    SETTING_OFF,
 
     /** Already advertising / discovering / connected. */
     ALREADY_ACTIVE,
+
+    /** Nearby still runs another role / strategy for this app (8008), or the calls came out of order (8009). */
+    BUSY,
 
     /** The other side rejected the connection. */
     REJECTED,

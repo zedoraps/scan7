@@ -85,7 +85,10 @@ private val analysisResolution = ResolutionSelector.Builder()
     )
     .build()
 
-/** Preview uses the same aspect ratio as analysis so both see the same field of view. */
+/**
+ * Preview uses the same aspect ratio as analysis, so the full preview frame is the field of view
+ * the detector sees (when shown with [ContentScale.Fit]; Crop hides its sides on tall screens).
+ */
 private val previewResolution = ResolutionSelector.Builder()
     .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
     .build()
@@ -115,7 +118,7 @@ private data class FocusTap(val position: Offset, val seq: Int)
  * and a debug overlay. Requires the CAMERA permission to be granted already.
  *
  * [analyzer] can be hoisted (e.g. to [DetectionAnalyzer.capture] the current frame). [overlay]
- * replaces the default [DetectionOverlay] (drawn over the whole preview, Crop mapping) and
+ * replaces the default [DetectionOverlay] (drawn over the whole preview bounds) and
  * [zoomControls] the default zoom buttons (only called when there is more than one preset);
  * with [onZoomControls] the preview draws no zoom buttons and hands the controls (`null` with
  * fewer than two presets) to the caller, which draws them outside the preview.
@@ -124,9 +127,12 @@ private data class FocusTap(val position: Offset, val seq: Int)
  * The torch starts off. A tap on the preview focuses and meters there (with a short focus ring);
  * pinch zooms (presets follow the camera's zoom). The screen stays on while the preview is shown.
  *
- * Preview and analysis are both 4:3 with the same field of view; the preview is shown
- * FILL_CENTER-cropped ([ContentScale.Crop]), and [DetectionOverlay] maps the normalized analysis
- * boxes through the same crop so they line up with the preview.
+ * Preview and analysis are both 4:3 with the same field of view. [contentScale] and [alignment]
+ * place the preview frame in the bounds: [ContentScale.Crop] (default, debug camera) fills them and
+ * hides the frame's sides on tall screens; [ContentScale.Fit] (scan camera) shows the whole frame,
+ * so the preview shows exactly what the detector and the review photo see, with bars in
+ * [background]. An [overlay] must map the boxes the same way; the default [DetectionOverlay]
+ * maps them with [contentScale], centred. Taps on the bars don't focus.
  */
 @Composable
 fun CameraPreview(
@@ -137,6 +143,9 @@ fun CameraPreview(
     zoomControls: (@Composable BoxScope.(ZoomControls) -> Unit)? = null,
     onTorchControls: ((TorchControls?) -> Unit)? = null,
     onZoomControls: ((ZoomControls?) -> Unit)? = null,
+    contentScale: ContentScale = ContentScale.Crop,
+    alignment: Alignment = Alignment.Center,
+    background: Color = Color.Black,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -259,7 +268,7 @@ fun CameraPreview(
     var focusTap by remember { mutableStateOf<FocusTap?>(null) }
 
     // Screen stays on while the preview is visible (reference-counted per window).
-    Box(modifier = modifier.keepScreenOn().background(Color.Black)) {
+    Box(modifier = modifier.keepScreenOn().background(background)) {
         surfaceRequest?.let { request ->
             val cam = camera
             CameraXViewfinder(
@@ -276,13 +285,18 @@ fun CameraPreview(
                         )
                         detectTapGestures { tap ->
                             val surface = with(transformer) { tap.transform() }
+                            // Fit: a tap on the bars is outside the frame.
+                            val onFrame = surface.x in 0f..request.resolution.width.toFloat() &&
+                                surface.y in 0f..request.resolution.height.toFloat()
+                            if (!onFrame) return@detectTapGestures
                             val action = FocusMeteringAction.Builder(factory.createPoint(surface.x, surface.y)).build()
                             cam.cameraControl.startFocusAndMetering(action)
                             focusTap = FocusTap(tap, (focusTap?.seq ?: 0) + 1)
                         }
                     },
                 coordinateTransformer = transformer,
-                contentScale = ContentScale.Crop,
+                alignment = alignment,
+                contentScale = contentScale,
             )
         }
         stats?.let { s ->
@@ -293,7 +307,7 @@ fun CameraPreview(
                     detections = s.detections,
                     imageWidth = s.uprightWidth,
                     imageHeight = s.uprightHeight,
-                    contentScale = ContentScale.Crop,
+                    contentScale = contentScale,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

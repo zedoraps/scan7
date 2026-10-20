@@ -72,6 +72,9 @@ abstract class FlowTest {
     /** Cards of the synthetic capture every camera scan reviews (change before the scan). */
     protected var captureCards: List<Card> = listOf(Card.N5, Card.N9, Card.PLUS_2)
 
+    /** A neighbour's card drawn cut off at the bottom-right corner of the capture (row grouping leaves it out). */
+    protected var captureNeighbour: Card? = null
+
     @Before
     fun setUpDatabase() {
         db = Scan7Database.inMemory(context)
@@ -88,7 +91,7 @@ abstract class FlowTest {
 
     /** Shows the app (Home, or the debug-seeded stack the nav host gets) in [locale] (null = the device's). */
     protected fun launch(locale: Locale? = null) {
-        val debug = DebugLaunch(gamePhotoCapture = { syntheticCapture(captureCards) })
+        val debug = DebugLaunch(gamePhotoCapture = { syntheticCapture(captureCards, captureNeighbour) })
         rule.setContent {
             Localized(locale) {
                 Scan7Theme { AppNavHost(debug = debug, modelInfo = "test") }
@@ -211,7 +214,7 @@ abstract class FlowTest {
  * A drawn "photo" (plain tiles on a dark table) with one fake detection per tile, like the debug
  * scan demo's synthetic capture. Not card artwork.
  */
-fun syntheticCapture(cards: List<Card>): ScanCapture {
+fun syntheticCapture(cards: List<Card>, neighbour: Card? = null): ScanCapture {
     val w = 960
     val h = 1280
     val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
@@ -228,7 +231,12 @@ fun syntheticCapture(cards: List<Card>): ScanCapture {
         canvas.drawRect(x, y, x + cw, y + ch, tile)
         Detection(card.label, 0.9f, Box(x / w, y / h, (x + cw) / w, (y + ch) / h))
     }
-    return ScanCapture(bitmap, detections, meta = CaptureMeta(origin = "synthetic"))
+    // A smaller tile cut by the bottom-right corner, far below the row.
+    val extra = neighbour?.let { card ->
+        canvas.drawRect(w - 200f, h - 180f, w.toFloat(), h.toFloat(), tile)
+        Detection(card.label, 0.9f, Box((w - 200f) / w, (h - 180f) / h, 1f, 1f))
+    }
+    return ScanCapture(bitmap, detections + listOfNotNull(extra), meta = CaptureMeta(origin = "synthetic"))
 }
 
 /** Upper bound for every wait: generous for a loaded emulator; waits end as soon as the condition holds. */

@@ -46,7 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -70,6 +70,7 @@ import net.moesli.scan7.camera.ZoomControls
 import net.moesli.scan7.camera.formatZoom
 import net.moesli.scan7.camera.rememberCameraPermission
 import net.moesli.scan7.camera.zoomLabel
+import net.moesli.scan7.detection.rowKept
 import net.moesli.scan7.ui.components.IconButton
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.components.PressDim
@@ -93,11 +94,13 @@ import net.moesli.scan7.ui.theme.Scan7Type
 private const val BUST_DEBOUNCE_MS = 800L
 
 /**
- * Camera step: live preview with boxes under the header overlay (scrim; one row: ← back to the
- * table, then the player banner), bottom bar with the "cards seen" count and the row Bust (when
- * [onBust] is set) · shutter · Type; zoom pills + torch float above it. [bustToast] shows the shared bust undo toast
- * over the preview. [bustOverlay] (the busted player's name) covers everything with the
- * full-screen bust confirmation; Bust and the shutter are disabled meanwhile.
+ * Camera step: header (one row: ← back to the table, then the player banner), the live preview
+ * with boxes below it, bottom bar with the "cards seen" count and the row Bust (when [onBust] is
+ * set) · shutter · Type; zoom pills + torch float above it. The preview shows the whole camera
+ * frame (letterboxed, [ContentScale.Fit]) right under the header, so it shows exactly what the
+ * detector and the review photo see; the bars are in the ground color. [bustToast] shows the
+ * shared bust undo toast over the preview. [bustOverlay] (the busted player's name) covers
+ * everything with the full-screen bust confirmation; Bust and the shutter are disabled meanwhile.
  */
 @Composable
 internal fun ScanCameraStep(
@@ -130,11 +133,15 @@ internal fun ScanCameraStep(
     LaunchedEffect(analyzer, player.id) { analyzer.clearStats() }
 
     val busting = bustOverlay != null
-    val seen = stats?.tracks?.map { it.detection }?.toCards()?.count { it.first.isScoring } ?: 0
+    // Only the cards of the scanned row count (a neighbour's cards at the edge are left out, as on the review).
+    val seen = stats?.let { s -> rowKept(s.tracks.map { it.detection }, s.uprightWidth, s.uprightHeight) }
+        ?.toCards()?.count { it.first.isScoring } ?: 0
     val canShoot = permission.granted && stats != null && stats?.error == null && !capturing && !busting
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().background(colors.ground)) {
+            // Own area above the preview (no scrim over it): no part of the frame is hidden.
+            CameraHeader(player = player, mode = mode, onBack = onBack)
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -143,6 +150,7 @@ internal fun ScanCameraStep(
                     .background(colors.ground),
             ) {
                 if (permission.granted) {
+                    // Whole frame, top-aligned: spare height on tall phones goes below it (zoom / torch row).
                     CameraPreview(
                         modifier = Modifier.fillMaxSize(),
                         showDebugInfo = false,
@@ -152,12 +160,16 @@ internal fun ScanCameraStep(
                                 boxes = trackBoxes(s.tracks),
                                 imageWidth = s.uprightWidth,
                                 imageHeight = s.uprightHeight,
-                                crop = true,
+                                crop = false,
+                                verticalBias = -1f,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         },
                         onTorchControls = { torch = it },
                         onZoomControls = { zoom = it },
+                        contentScale = ContentScale.Fit,
+                        alignment = Alignment.TopCenter,
+                        background = colors.ground,
                     )
                 } else if (permission.showPanel) {
                     PermissionMissing(
@@ -165,19 +177,24 @@ internal fun ScanCameraStep(
                         onOpenSettings = permission.openSettings,
                     )
                 }
-                CameraHeader(
-                    player = player,
-                    mode = mode,
-                    onBack = onBack,
-                    hint = when {
-                        !permission.granted -> null
-                        capturing -> stringResource(R.string.camera_reading)
-                        notReady -> stringResource(R.string.camera_starting)
-                        stats?.error != null -> stringResource(R.string.camera_detector_unavailable)
-                        else -> null
-                    },
-                    modifier = Modifier.align(Alignment.TopCenter),
-                )
+                // Hint pill (only while reading / on errors) floats over the top of the preview, so
+                // the frame doesn't jump when it comes and goes.
+                val hint = when {
+                    !permission.granted -> null
+                    capturing -> stringResource(R.string.camera_reading)
+                    notReady -> stringResource(R.string.camera_starting)
+                    stats?.error != null -> stringResource(R.string.camera_detector_unavailable)
+                    else -> null
+                }
+                if (hint != null) {
+                    HintPill(
+                        hint,
+                        Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(horizontal = Scan7Spacing.screenMargin)
+                            .padding(top = Scan7Spacing.m),
+                    )
+                }
                 // Lens/zoom + torch float over the preview (like the system camera), centred just above the bottom bar.
                 val zoomOverlay = zoom?.takeIf { permission.granted }
                 val torchOverlay = torch?.takeIf { permission.granted }
@@ -253,32 +270,26 @@ private val BannerName = Scan7Type.button.copy(fontSize = 28.sp, lineHeight = 34
 private val BannerAvatar = avatarSizeForHeight(38.dp)
 
 /**
- * Header overlay on the preview: a ground-colored scrim fading out (readable over bright tables)
- * behind one row: ← back to the table, then the player banner (token, "SCANNING" / "NEXT" with
- * the total over the name big in Unbounded). Then the [hint] pill (only while reading / on errors).
+ * Header above the preview, on the ground color (its own area: the preview frame is never under
+ * it): one row: ← back to the table, then the player banner (token, "SCANNING" / "NEXT" with the
+ * total over the name big in Unbounded).
  */
 @Composable
 private fun CameraHeader(
     player: PlayerUi,
     mode: ScanMode,
     onBack: () -> Unit,
-    hint: String?,
     modifier: Modifier = Modifier,
 ) {
     val colors = Scan7Theme.colors
-    val scrim = Brush.verticalGradient(
-        0f to colors.ground.copy(alpha = 0.82f),
-        0.6f to colors.ground.copy(alpha = 0.7f),
-        1f to colors.ground.copy(alpha = 0f),
-    )
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .fillMaxWidth()
-            .background(scrim)
+            .background(colors.ground)
             .windowInsetsPadding(WindowInsets.statusBars)
             .padding(horizontal = Scan7Spacing.screenMargin)
-            .padding(top = Scan7Spacing.s, bottom = Scan7Spacing.xl),
+            .padding(top = Scan7Spacing.s, bottom = Scan7Spacing.s),
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(Scan7Spacing.m),
@@ -292,7 +303,6 @@ private fun CameraHeader(
                 modifier = Modifier.weight(1f),
             )
         }
-        if (hint != null) HintPill(hint, Modifier.padding(top = Scan7Spacing.m))
     }
 }
 
