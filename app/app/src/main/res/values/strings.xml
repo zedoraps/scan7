@@ -496,6 +496,8 @@
     <!-- Multiplayer (docs/dev/MULTI_DEVICE.md): share, join, claims, guest round screen. -->
     <string name="share_notification_channel">Multiplayer</string>
     <string name="share_notification_title">Scan7 is sharing a game</string>
+    <string name="share_notification_hosting">Sharing your game</string>
+    <string name="share_notification_joined">Joined the game on %1$s</string>
     <string name="share_notification_text">The phones at your table stay connected.</string>
     <string name="share_action">Share this game</string>
     <!-- Pill next to Share / Join: multiplayer is new. -->

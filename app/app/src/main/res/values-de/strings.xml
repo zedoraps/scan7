@@ -477,6 +477,8 @@
     <!-- Mehrspieler (docs/dev/MULTI_DEVICE.md): teilen, beitreten, wer scannt wen, Gast-Rundenbildschirm. -->
     <string name="share_notification_channel">Mehrspieler</string>
     <string name="share_notification_title">Scan7 teilt ein Spiel</string>
+    <string name="share_notification_hosting">Du teilst dein Spiel</string>
+    <string name="share_notification_joined">Im Spiel auf %1$s</string>
     <string name="share_notification_text">Die Handys an deinem Tisch bleiben verbunden.</string>
     <string name="beta_tag">BETA</string>
     <string name="share_action">Dieses Spiel teilen</string>

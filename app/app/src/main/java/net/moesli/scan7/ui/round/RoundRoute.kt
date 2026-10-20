@@ -423,6 +423,13 @@ fun RoundRoute(
             }
         }
     }
+    // The session of this joined copy ended without the menu's Leave (the notification's "Leave
+    // game"): back to Home like Leave, instead of a copy that can't scan any more.
+    var wasGuest by remember(gameId) { mutableStateOf(false) }
+    LaunchedEffect(guest == null) {
+        if (guest != null) wasGuest = true
+        else if (wasGuest && snap.isJoined && repository.shareSession(gameId) == null) navigator.home()
+    }
     // The host app restarted (update, killed in the background) while sharing: share again with the
     // saved session and code, so the guests' rejoin finds it. "Stop sharing" deletes that session.
     LaunchedEffect(snap.isJoined, host == null) {
