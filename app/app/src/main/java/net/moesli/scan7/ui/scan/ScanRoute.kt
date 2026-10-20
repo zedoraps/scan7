@@ -33,6 +33,8 @@ import net.moesli.scan7.skyjo.skyjoGridOf
 import net.moesli.scan7.skyjo.emptySkyjoGrid
 import net.moesli.scan7.game.ResultSource
 import net.moesli.scan7.game.GameKind
+import net.moesli.scan7.game.deck
+import net.moesli.scan7.scoring.Deck
 import net.moesli.scan7.game.flip7Cards
 import net.moesli.scan7.ui.components.PlayerStatus
 import net.moesli.scan7.ui.nav.AfterScan
@@ -178,6 +180,7 @@ fun ScanRoute(
         roundNumber = roundNumber,
         onBackToTable = onLeave,
         initialCapture = capture,
+        deck = state.kind.deck ?: Deck.FLIP7,
         // Same bust / undo as the round screen (GameRepository.bust → BUST_TAP; undoBust), with
         // the full-screen overlay first: ~1 s with Undo, then on as after a save (no toast: the
         // overlay was the confirmation; only Back during it shows the toast, see bustWithOverlay).

@@ -136,6 +136,17 @@ class GameRepository(
 
     suspend fun setSkyjoPreview(on: Boolean) = settingsDao.put(SettingEntity(KEY_SKYJO_PREVIEW, on.toString()))
 
+    /** Debug setting "With a Vengeance (preview)": New game offers it next to Flip 7, like [skyjoPreview]. */
+    val vengeancePreview: Flow<Boolean> = if (!BuildConfig.DEBUG) {
+        flowOf(false)
+    } else {
+        settingsDao.observe(KEY_VENGEANCE_PREVIEW)
+            .map { it == "true" }
+            .distinctUntilChanged()
+    }
+
+    suspend fun setVengeancePreview(on: Boolean) = settingsDao.put(SettingEntity(KEY_VENGEANCE_PREVIEW, on.toString()))
+
     /** "Scan next" direction (round menu), app-wide; clockwise until changed. */
     val scanDirection: Flow<ScanDirection> = settingsDao.observe(KEY_SCAN_DIRECTION)
         .map(::parseScanDirection)
@@ -593,6 +604,7 @@ class GameRepository(
         const val KEY_VIEW_MODE = "view_mode"
         const val KEY_SAVE_SCANS = "save_scans_for_training"
         const val KEY_SKYJO_PREVIEW = "debug_skyjo_preview"
+        const val KEY_VENGEANCE_PREVIEW = "debug_vengeance_preview"
         const val KEY_SCAN_DIRECTION = "scan_direction"
         const val KEY_DEVICE_ID = "multiplayer_device_id"
 

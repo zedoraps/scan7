@@ -18,8 +18,9 @@ import java.util.zip.GZIPOutputStream
 /**
  * Protocol version (docs/dev/MULTI_DEVICE.md §5.4). Bump it for any change an older peer can't read;
  * new optional fields with defaults don't need a bump (unknown keys are ignored).
- * Skyjo games (debug preview: kind, ender, set_round_ender) are unknown to version 1 peers: bump
- * before they ship, so an old phone says "update" instead of failing on Skyjo cards.
+ * Skyjo and With a Vengeance games (debug previews: kind, ender, set_round_ender, the Vengeance card
+ * labels) are unknown to version 1 peers: bump before they ship, so an old phone says "update"
+ * instead of failing on their cards.
  */
 const val PROTOCOL_VERSION = 1
 

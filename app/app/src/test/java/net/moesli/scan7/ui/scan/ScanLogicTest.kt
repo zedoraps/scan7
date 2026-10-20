@@ -23,6 +23,7 @@ import net.moesli.scan7.scoring.Card.PLUS_4
 import net.moesli.scan7.scoring.Card.PLUS_6
 import net.moesli.scan7.scoring.Card.SECOND_CHANCE
 import net.moesli.scan7.scoring.Card.TIMES_2
+import net.moesli.scan7.scoring.Deck
 import net.moesli.scan7.scoring.scoreRow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -377,5 +378,74 @@ class ScanLogicTest {
         val tiny = HitBox(3, 100f, 100f, 110f, 110f) // 10 × 10 → 48 × 48 around its center
         assertEquals(3, pickBox(listOf(tiny), 125f, 125f, minSize = 48f))
         assertEquals(null, pickBox(listOf(tiny), 131f, 105f, minSize = 48f))
+    }
+
+    // ---- Flip 7: With a Vengeance -----------------------------------------------------------------
+
+    @Test
+    fun vengeance_chipAndSpokenLabels() {
+        assertEquals(
+            listOf("13", "13★", "7", "0", "÷2", "−6", "Just One More", "Flip Four"),
+            listOf(Card.N13, Card.LUCKY_13, Card.UNLUCKY_7, Card.THE_ZERO, Card.DIVIDE_2, Card.MINUS_6, Card.JUST_ONE_MORE, Card.FLIP_FOUR)
+                .map { it.chipLabel().en },
+        )
+        assertEquals("minus 6", Card.MINUS_6.spokenLabel().en)
+        assertEquals("geteilt durch 2", Card.DIVIDE_2.spokenLabel().de)
+        assertEquals("Lucky 13", Card.LUCKY_13.spokenLabel().de)
+        assertEquals("The Zero", Card.THE_ZERO.spokenLabel().en)
+    }
+
+    @Test
+    fun vengeance_sortAndSplit() {
+        val split = splitCards(listOf(Card.MINUS_2, Card.STEAL, Card.LUCKY_13, N3, Card.DIVIDE_2, Card.N13, Card.MINUS_10, Card.THE_ZERO))
+        assertEquals(listOf(Card.THE_ZERO, N3, Card.N13, Card.LUCKY_13, Card.DIVIDE_2, Card.MINUS_2, Card.MINUS_10), split.scoring)
+        assertEquals(listOf(Card.STEAL), split.ignored)
+    }
+
+    @Test
+    fun vengeance_formula() {
+        assertEquals("(8 + 11 + 13) ÷ 2\n− 6", breakdownText(listOf(Card.N13, N11, N8, Card.DIVIDE_2, Card.MINUS_6)))
+        assertEquals("5 ÷ 2", breakdownText(listOf(N5, Card.DIVIDE_2)))
+        assertEquals("12\n− 2 − 10", breakdownText(listOf(N12, Card.MINUS_10, Card.MINUS_2)))
+        assertEquals("0\n− 4", breakdownText(listOf(Card.MINUS_4)))
+        assertEquals("5 + 13 + 13", breakdownText(listOf(Card.LUCKY_13, N5, Card.N13)))
+        // The Zero: nothing but the bonus.
+        assertEquals("0", breakdownText(listOf(Card.THE_ZERO, N12, Card.MINUS_2)))
+        assertEquals("15", breakdownText(listOf(Card.THE_ZERO, N1, N2, N3, N4, N5, N6, Card.MINUS_2)))
+        assertEquals(
+            "8 plus 11 plus 13 divided by 2 minus 6 equals 10",
+            spokenFormula(breakdownFormula(listOf(Card.N13, N11, N8, Card.DIVIDE_2, Card.MINUS_6))).en,
+        )
+        // Below zero: the hidden total is the floor.
+        assertEquals("0", breakdownFormula(listOf(N3, Card.MINUS_10)).last().text)
+    }
+
+    @Test
+    fun vengeance_duplicatesAndLimit() {
+        assertEquals(emptyMap<Int, Int>(), duplicateCounts(listOf(Card.LUCKY_13, Card.N13)))
+        assertEquals(mapOf(13 to 2), duplicateCounts(listOf(Card.N13, Card.N13)))
+        assertEquals(mapOf(13 to 3), duplicateCounts(listOf(Card.LUCKY_13, Card.N13, Card.N13)))
+        assertEquals(ReviewVariant.Scored, reviewVariant(listOf(Card.LUCKY_13, Card.N13)))
+        assertEquals(ReviewVariant.Bust, reviewVariant(listOf(Card.UNLUCKY_7, N7)))
+        // 13, Lucky 13 and five more numbers: a Flip 7 with seven number cards, the limit.
+        val seven = listOf(N1, N2, N3, N4, N5, Card.N13, Card.LUCKY_13)
+        assertFalse(canAddNumber(seven))
+        assertEquals(56, scoreRow(seven).totalIgnoringBust())
+    }
+
+    @Test
+    fun vengeance_manualGrid() {
+        assertEquals(
+            listOf("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "13★"),
+            manualNumbers(Deck.VENGEANCE).map { it.chipLabel().en },
+        )
+        assertEquals(Card.THE_ZERO, manualNumbers(Deck.VENGEANCE).first())
+        assertEquals(listOf("÷2", "−2", "−4", "−6", "−8", "−10"), manualModifiers(Deck.VENGEANCE).map { it.chipLabel().en })
+        assertEquals(ManualNumbers, manualNumbers(Deck.FLIP7))
+        // A scanned Unlucky 7 becomes the grid's 7.
+        assertEquals(listOf(N7), manualStart(listOf(Card.UNLUCKY_7)).scoring)
+        val outcome = manualOutcome(listOf(Card.N13, Card.LUCKY_13, Card.DIVIDE_2), emptyList())
+        assertTrue(outcome is ScanOutcome.Scored)
+        assertEquals(13, (outcome as ScanOutcome.Scored).score.total)
     }
 }

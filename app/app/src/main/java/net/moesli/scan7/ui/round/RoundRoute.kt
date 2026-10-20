@@ -32,7 +32,6 @@ import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.data.GameSnapshot
 import net.moesli.scan7.data.outlivingUi
 import net.moesli.scan7.game.EnderPenalty
-import net.moesli.scan7.game.GameKind
 import net.moesli.scan7.game.ScanDirection
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.ui.components.LocalBustAllowed
@@ -417,8 +416,8 @@ fun RoundRoute(
     val snapshot by remember(gameId) { repository.observeGame(gameId) }.collectAsStateWithLifecycle(initialValue = null)
     val afterScan by remember { repository.setting(AfterScan.SETTING_KEY) }.collectAsStateWithLifecycle(initialValue = null)
     val entrySetting by remember { repository.setting(EntryMode.SETTING_KEY) }.collectAsStateWithLifecycle(initialValue = null)
-    // No detector for Skyjo yet: its cards are always typed in (the grid entry).
-    val entry = if (snapshot?.state?.kind == GameKind.SKYJO) EntryMode.TYPE else EntryMode.fromSetting(entrySetting)
+    // No detector for Skyjo / With a Vengeance yet: their cards are always typed in.
+    val entry = if (snapshot?.state?.kind?.rules?.hasDetector == false) EntryMode.TYPE else EntryMode.fromSetting(entrySetting)
     val flags = rememberSaveable(saver = RoundFlags.Saver) { RoundFlags() }
     val scope = rememberCoroutineScope()
     val controller = remember(gameId, navigator) { RoundController(repository, gameId, scope, navigator, flags, toast) }
@@ -579,7 +578,7 @@ fun RoundRoute(
                     target = snap.state.target.takeUnless { snap.state.isOver || readOnly },
                     direction = snap.state.scanDirection,
                     afterScan = AfterScan.fromSetting(afterScan),
-                    entry = entry.takeIf { snap.state.kind != GameKind.SKYJO },
+                    entry = entry.takeIf { snap.state.kind.rules.hasDetector },
                 ),
                 onScoreboard = { sheet.hideThen(navigator::scoreboard) },
                 onArrange = if (readOnly) null else ({ sheet.hideThen(controller::onEnterArrange) }),

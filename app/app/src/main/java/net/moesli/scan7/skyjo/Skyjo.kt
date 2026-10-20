@@ -53,6 +53,7 @@ object SkyjoRules : GameRules {
     override val lowestWins = true
     override val hasBust = false
     override val hasRoundEnder = true
+    override val hasDetector = false
 
     /** Twelve −2 cards (more than the deck has, but a safe floor for a typed total). */
     override val minPoints = -2 * SKYJO_SLOTS

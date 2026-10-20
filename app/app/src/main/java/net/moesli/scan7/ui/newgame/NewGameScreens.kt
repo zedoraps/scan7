@@ -205,8 +205,11 @@ fun PickPlayersScreen(
     }
 }
 
+/** Games a debug build can offer next to the brand's ([NewGameRoute]). */
+private val PreviewGames = setOf(GameKind.SKYJO, GameKind.VENGEANCE)
+
 /**
- * Which game ([games]: Flip 7 | Skyjo, only with more than one) and, for a game with a round ender
+ * Which game ([games]: Flip 7 | With a Vengeance | Skyjo, only with more than one) and, for a game with a round ender
  * (Skyjo), its [EnderPenalty] with a line on what it does. Above the target row.
  */
 @Composable
@@ -444,10 +447,14 @@ fun NewGameRoute(
     var selected by rememberSaveable(stateSaver = LongListSaver) { mutableStateOf(initialSeating.orEmpty()) }
     var draft by rememberSaveable(stateSaver = DraftSaver) { mutableStateOf<SeatingDraft?>(null) }
     var target by rememberSaveable { mutableIntStateOf(initialTarget) }
-    // The brand's games (Scanjo: Skyjo only); Scan7 debug builds can add the Skyjo preview.
+    // The brand's games (Scanjo: Skyjo only); Scan7 debug builds can add the previews.
     val skyjoPreview by repository.skyjoPreview.collectAsStateWithLifecycle(initialValue = false)
-    val games = (Brand.games + listOfNotNull(GameKind.SKYJO.takeIf { skyjoPreview })).distinct()
-    var kind by rememberSaveable { mutableStateOf(initialKind.takeIf { it in Brand.games || it == GameKind.SKYJO } ?: Brand.games.first()) }
+    val vengeancePreview by repository.vengeancePreview.collectAsStateWithLifecycle(initialValue = false)
+    val games = (
+        Brand.games +
+            listOfNotNull(GameKind.VENGEANCE.takeIf { vengeancePreview && GameKind.FLIP7 in Brand.games }, GameKind.SKYJO.takeIf { skyjoPreview })
+        ).distinct()
+    var kind by rememberSaveable { mutableStateOf(initialKind.takeIf { it in Brand.games || it in PreviewGames } ?: Brand.games.first()) }
     var penalty by rememberSaveable { mutableStateOf(initialPenalty) }
     // Saved as a key, so an open editor survives rotation / process death.
     var editorKey by rememberSaveable { mutableStateOf<Long?>(null) }

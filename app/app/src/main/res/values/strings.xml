@@ -219,6 +219,7 @@
     <string name="newgame_target_raise">Raise target</string>
     <string name="game_flip7" translatable="false">Flip 7</string>
     <string name="game_skyjo" translatable="false">Skyjo</string>
+    <string name="game_vengeance">With a Vengeance</string>
     <string name="newgame_game">Game</string>
     <string name="newgame_round_ender">Round ender</string>
     <string name="ender_official">Official</string>
@@ -347,6 +348,18 @@
     <string name="card_flip_three">Flip 3</string>
     <string name="card_second_chance">2nd chance</string>
     <string name="card_back">Back</string>
+    <!-- Flip 7: With a Vengeance card names, as printed. -->
+    <string name="card_lucky_13_chip">13★</string>
+    <string name="card_lucky_13">Lucky 13</string>
+    <string name="card_unlucky_7">Unlucky 7</string>
+    <string name="card_the_zero">The Zero</string>
+    <string name="card_just_one_more">Just One More</string>
+    <string name="card_swap">Swap</string>
+    <string name="card_steal">Steal</string>
+    <string name="card_discard">Discard</string>
+    <string name="card_flip_four">Flip Four</string>
+    <string name="card_minus_spoken">minus %1$d</string>
+    <string name="card_divide_two_spoken">divided by 2</string>
     <string name="card_plus_spoken">plus %1$d</string>
     <string name="card_times_two_spoken">times 2</string>
     <!-- Bust summary, "Two 7s", "Two 3s, two 7s" (the first one is capitalized in code). -->
@@ -357,6 +370,8 @@
     <string name="dup_many">%2$d× %1$d</string>
     <string name="formula_plus">plus</string>
     <string name="formula_times">times</string>
+    <string name="formula_minus">minus</string>
+    <string name="formula_divided">divided by</string>
     <string name="formula_equals">%1$s equals %2$s</string>
     <string name="formula_flip7">%1$s Flip 7</string>
     <string name="formula_flip7_spoken">%1$s Flip 7 bonus</string>

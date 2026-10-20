@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -60,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.scoring.CardKind
+import net.moesli.scan7.scoring.Deck
 import net.moesli.scan7.scoring.scoreRow
 import net.moesli.scan7.ui.text.secondChanceText
 import net.moesli.scan7.ui.components.PlayerUi
@@ -82,7 +84,8 @@ private const val MODIFIER_COLUMNS = 6
 private const val DISABLED_TOGGLE_ALPHA = 0.4f
 
 /**
- * Manual entry: selected cards as chips (tap to remove), toggle grid 0–12 and +2 … +10, ×2 (each
+ * Manual entry: selected cards as chips (tap to remove), toggle grid of the [deck]'s numbers and
+ * modifiers (Flip 7: 0–12 and +2 … +10, ×2; With a Vengeance: 0–13, Lucky 13 and ÷2, −2 … −10; each
  * at most once), ignored cards from the scan greyed (info only), live breakdown + total, Save.
  * If prefilled duplicates remain (Fix after a bust scan), Save becomes "Confirm bust"; their grid
  * toggle shows "×2" and removes one copy per tap (see [toggleCard]).
@@ -97,8 +100,11 @@ internal fun ManualEntryStep(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
     afterScan: AfterScanUi? = null,
+    deck: Deck = Deck.FLIP7,
 ) {
     val colors = Scan7Theme.colors
+    val numbers = remember(deck) { manualNumbers(deck) }
+    val modifiers = remember(deck) { manualModifiers(deck) }
     var selected by rememberSaveable(start) { mutableStateOf(start.scoring) }
     val ignored = start.ignored
     // Ignored cards add nothing, but a Second Chance among them cancels a duplicate.
@@ -179,8 +185,8 @@ internal fun ManualEntryStep(
                     .padding(start = Scan7Spacing.screenMargin, end = Scan7Spacing.screenMargin, top = Scan7Spacing.s, bottom = gridGap),
             ) {
                 SectionLabel(stringResource(R.string.manual_numbers))
-                // Dense: 0–6 over 7–12 (two rows instead of three).
-                CardGrid(ManualNumbers, if (dense) DENSE_NUMBER_COLUMNS else NUMBER_COLUMNS, selected, ignored, score.bust, dense) {
+                // Dense: two rows instead of three (Flip 7: 0–6 over 7–12).
+                CardGrid(numbers, if (dense) (numbers.size + 1) / 2 else NUMBER_COLUMNS, selected, ignored, score.bust, dense) {
                     selected = toggleCard(selected, it, ignored)
                 }
                 // Reserved line, so the hint appearing at 7 numbers doesn't move the number grid.
@@ -197,7 +203,7 @@ internal fun ManualEntryStep(
                     }
                 }
                 SectionLabel(stringResource(R.string.manual_modifiers))
-                CardGrid(ManualModifiers, MODIFIER_COLUMNS, selected, ignored, score.bust, dense) { selected = toggleCard(selected, it, ignored) }
+                CardGrid(modifiers, MODIFIER_COLUMNS, selected, ignored, score.bust, dense) { selected = toggleCard(selected, it, ignored) }
             }
             val shape = RoundedCornerShape(topStart = Scan7Radii.cardLarge, topEnd = Scan7Radii.cardLarge)
             Column(
@@ -277,7 +283,6 @@ private val ManualStatusHeight = 88.dp
 private val DenseStatusHeight = 72.dp
 
 /** Dense layout: number grid in 7 columns (two rows). */
-private const val DENSE_NUMBER_COLUMNS = 7
 
 /**
  * Dense layout (two-row number grid, 48 dp toggles, tighter gaps) when the regular one wouldn't

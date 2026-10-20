@@ -9,7 +9,9 @@ import net.moesli.scan7.game.ConfirmedCard
 import net.moesli.scan7.game.ResultSource
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.scoring.CardKind
+import net.moesli.scan7.scoring.Deck
 import net.moesli.scan7.scoring.RowScore
+import net.moesli.scan7.scoring.modifiedNumberSum
 import net.moesli.scan7.scoring.scoreRow
 
 /*
@@ -64,16 +66,21 @@ fun ScanOutcome.withExcluded(excluded: Set<Int>): ScanOutcome = when (this) {
 
 /** Whether this card can score (numbers and modifiers); action cards and `back` never do. */
 val Card.isScoring: Boolean
-    get() = kind == CardKind.NUMBER || kind == CardKind.MODIFIER_PLUS || kind == CardKind.MODIFIER_TIMES2
+    get() = kind != CardKind.ACTION && kind != CardKind.BACK
 
-/** Display order: numbers ascending, ×2, plus modifiers ascending, action cards, back. */
+/**
+ * Display order: numbers ascending (a Lucky 13 / Unlucky 7 / The Zero after the plain one), ×2,
+ * ÷2, plus modifiers ascending, minus modifiers ascending, action cards, back.
+ */
 private fun Card.sortKey(): Int = when (kind) {
-    CardKind.NUMBER -> 0
+    CardKind.NUMBER -> value!! * 3 + if (ordinal > Card.BACK.ordinal && this != Card.N13) 1 else 0
     CardKind.MODIFIER_TIMES2 -> 100
-    CardKind.MODIFIER_PLUS -> 200
-    CardKind.ACTION -> 300
+    CardKind.MODIFIER_DIVIDE2 -> 110
+    CardKind.MODIFIER_PLUS -> 200 + ordinal
+    CardKind.MODIFIER_MINUS -> 250 + ordinal
+    CardKind.ACTION -> 300 + ordinal
     CardKind.BACK -> 400
-} + ordinal
+}
 
 fun List<Card>.sortedForDisplay(): List<Card> = sortedBy { it.sortKey() }
 
@@ -104,13 +111,15 @@ const val FORMULA_LINE_BREAK = "\n"
 
 /**
  * The row's score in up to two lines, without "= total" (the big number shows it):
- * - line 1, the number cards and ×2: `6 + 7 + 8`, `(0 + 6 + 11 + 12) × 2` (parentheses only
- *   with ×2 around several numbers), `0` without number cards;
- * - line 2, the additions: plus modifiers, then the Flip 7 bonus: `+ 2 + 4 + 15` (shown labelled,
- *   `+ 15 Flip 7`); no line 2 without them.
+ * - line 1, the number cards and ×2 / ÷2: `6 + 7 + 8`, `(0 + 6 + 11 + 12) × 2`,
+ *   `(13 + 11 + 8) ÷ 2` (parentheses only around several numbers), `0` without number cards
+ *   and with The Zero (the row scores nothing but the bonus);
+ * - line 2, the additions: plus modifiers, minus modifiers, then the Flip 7 bonus:
+ *   `+ 2 + 4 + 15`, `− 6 + 15` (the bonus shown labelled, `+ 15 Flip 7`); no line 2 without them.
  * A single value stays alone (`7`); nothing at all is `0`. A duplicate cancelled by a Second
- * Chance counts once; plus modifiers count once each, as in [scoreRow]; action cards / backs add
- * nothing. The last part is the hidden [FormulaKind.TOTAL] for TalkBack ([spokenFormula]).
+ * Chance counts once; modifiers count once each, as in [scoreRow]; action cards / backs add
+ * nothing. The last part is the hidden [FormulaKind.TOTAL] for TalkBack ([spokenFormula]); it is
+ * 0 when minus cards would take the row below 0.
  * Empty for a bust row (the bust band says it).
  */
 fun breakdownFormula(cards: List<Card>): List<FormulaPart> {
@@ -118,35 +127,49 @@ fun breakdownFormula(cards: List<Card>): List<FormulaPart> {
     if (score.bust) return emptyList()
     val scoring = cards.filter { it.isScoring }.sortedForDisplay()
     val allNumbers = scoring.filter { it.kind == CardKind.NUMBER }.map { it.value!! }
-    val numbers = if (score.cancelledDuplicates.isEmpty()) allNumbers else allNumbers.distinct()
-    val plus = scoring.filter { it.kind == CardKind.MODIFIER_PLUS }.distinct().map { it.value!! }
-    val doubled = score.timesTwo && numbers.isNotEmpty()
-    val extras = plus.map { FormulaPart(it.toString(), FormulaKind.MODIFIER) } +
-        listOfNotNull(score.flip7Bonus.takeIf { it > 0 }?.let { FormulaPart(it.toString(), FormulaKind.BONUS) })
+    val numbers = when {
+        score.zeroed -> emptyList()
+        score.cancelledDuplicates.isEmpty() -> allNumbers
+        else -> allNumbers.distinct()
+    }
+    val factor = when {
+        numbers.isEmpty() -> null
+        score.timesTwo -> " × "
+        score.divideTwo -> " ÷ "
+        else -> null
+    }
+    // (sign, value) of the additions; The Zero leaves only the bonus.
+    val modifiers = if (score.zeroed) {
+        emptyList()
+    } else {
+        scoring.filter { it.kind == CardKind.MODIFIER_PLUS }.distinct().map { "+" to FormulaPart(it.value.toString(), FormulaKind.MODIFIER) } +
+            scoring.filter { it.kind == CardKind.MODIFIER_MINUS }.distinct().map { "−" to FormulaPart(it.value.toString(), FormulaKind.MODIFIER) }
+    }
+    val extras = modifiers + listOfNotNull(score.flip7Bonus.takeIf { it > 0 }?.let { "+" to FormulaPart(it.toString(), FormulaKind.BONUS) })
     val parts = mutableListOf<FormulaPart>()
     fun op(text: String) {
         parts += FormulaPart(text, FormulaKind.OPERATOR)
     }
-    if (numbers.isEmpty() && extras.size == 1) {
-        parts += extras.single()
+    if (numbers.isEmpty() && extras.size == 1 && extras.single().first == "+") {
+        parts += extras.single().second
     } else {
         if (numbers.isEmpty()) parts += FormulaPart("0", FormulaKind.NUMBER)
-        if (doubled && numbers.size > 1) op("(")
+        if (factor != null && numbers.size > 1) op("(")
         numbers.forEachIndexed { i, n ->
             if (i > 0) op(" + ")
             parts += FormulaPart(n.toString(), FormulaKind.NUMBER)
         }
-        if (doubled) {
+        if (factor != null) {
             if (numbers.size > 1) op(")")
-            op(" × ")
+            op(factor)
             parts += FormulaPart("2", FormulaKind.MODIFIER)
         }
-        extras.forEachIndexed { i, part ->
+        extras.forEachIndexed { i, (sign, part) ->
             if (i == 0) {
                 op(FORMULA_LINE_BREAK)
-                op("+ ")
+                op("$sign ")
             } else {
-                op(" + ")
+                op(" $sign ")
             }
             parts += part
         }
@@ -167,7 +190,9 @@ fun spokenFormula(parts: List<FormulaPart>): UiText {
     val words = shown.mapNotNull { p ->
         when (p.text) {
             " + ", "+ " -> uiText(R.string.formula_plus)
+            " − ", "− " -> uiText(R.string.formula_minus)
             " × " -> uiText(R.string.formula_times)
+            " ÷ " -> uiText(R.string.formula_divided)
             "(", ")", FORMULA_LINE_BREAK -> null
             // "plus 15 Flip 7 bonus" / "plus 15 Flip-7-Bonus".
             else -> if (p.kind == FormulaKind.BONUS) uiText(R.string.formula_flip7_spoken, p.text) else UiText.Raw(p.text)
@@ -180,14 +205,20 @@ fun spokenFormula(parts: List<FormulaPart>): UiText {
 }
 
 /** What the row would score without the bust rule (shown struck through on the bust panel). */
-fun RowScore.totalIgnoringBust(): Int = (if (timesTwo) numberSum * 2 else numberSum) + plusSum + flip7Bonus
+fun RowScore.totalIgnoringBust(): Int {
+    val cardPoints = if (zeroed) 0 else modifiedNumberSum(numberSum, timesTwo, divideTwo) + plusSum - minusSum
+    return (cardPoints + flip7Bonus).coerceAtLeast(0)
+}
 
-/** Number values that occur more than once in [cards], with their counts, ascending by value. */
+/**
+ * Number values that occur more than once in [cards], with their counts, ascending by value. Two
+ * 13s with a Lucky 13 among them are allowed (With a Vengeance), so they are not listed.
+ */
 fun duplicateCounts(cards: List<Card>): Map<Int, Int> =
     cards.filter { it.kind == CardKind.NUMBER }
         .groupingBy { it.value!! }
         .eachCount()
-        .filterValues { it > 1 }
+        .filter { (value, n) -> n > (if (value == 13 && Card.LUCKY_13 in cards) 2 else 1) }
         .toSortedMap()
 
 /**
@@ -307,19 +338,34 @@ fun reviewOutcome(cards: List<Card>): ScanOutcome {
 fun reviewOutcome(cards: List<DetectedCard>, excluded: Set<Int>): ScanOutcome =
     reviewOutcome(includedCards(cards, excluded)).withExcluded(excluded.filterTo(mutableSetOf()) { i -> cards.any { it.index == i } })
 
-/** Manual grid: numbers 0–12. */
-val ManualNumbers: List<Card> = Card.entries.filter { it.kind == CardKind.NUMBER }
+/**
+ * Manual grid numbers of [deck]: Flip 7 0–12; With a Vengeance The Zero, 1–13 and the Lucky 13
+ * (its own key: a second 13 next to it is allowed). No Unlucky 7 key: it scores as a 7.
+ */
+fun manualNumbers(deck: Deck): List<Card> =
+    deck.cards.filter { it.kind == CardKind.NUMBER && it != Card.UNLUCKY_7 }.sortedForDisplay()
 
-/** Manual grid: +2 +4 +6 +8 +10 ×2 (no action cards, no back). */
-val ManualModifiers: List<Card> = Card.entries.filter { it.kind == CardKind.MODIFIER_PLUS } + Card.TIMES_2
+/** Manual grid modifiers of [deck]: +2 … +10 ×2 / ÷2 −2 … −10 (no action cards, no back). */
+fun manualModifiers(deck: Deck): List<Card> {
+    val modifiers = deck.cards.filter { it.isScoring && it.kind != CardKind.NUMBER }
+    // Flip 7 keeps its order: the plus cards, then ×2.
+    return modifiers.filter { it.kind == CardKind.MODIFIER_PLUS } + modifiers.filter { it.kind != CardKind.MODIFIER_PLUS }.sortedForDisplay()
+}
+
+/** Manual grid: numbers 0–12 (Flip 7). */
+val ManualNumbers: List<Card> = manualNumbers(Deck.FLIP7)
+
+/** Manual grid: +2 +4 +6 +8 +10 ×2 (Flip 7). */
+val ManualModifiers: List<Card> = manualModifiers(Deck.FLIP7)
 
 /**
  * Starting state of the manual screen from prefilled cards (Fix / Edit): scoring cards in display
  * order with repeated modifiers collapsed (each exists once in the deck); duplicated numbers are
  * kept so the user sees why the row busts and can remove one. Action cards / backs go to ignored.
+ * An Unlucky 7 becomes a plain 7 (the grid has one 7 key; it scores the same).
  */
 fun manualStart(cards: List<Card>): SplitCards {
-    val split = splitCards(cards)
+    val split = splitCards(cards.map { if (it == Card.UNLUCKY_7) Card.N7 else it })
     val seenModifiers = mutableSetOf<Card>()
     val scoring = split.scoring.filter { it.kind == CardKind.NUMBER || seenModifiers.add(it) }
     return SplitCards(scoring, split.ignored)

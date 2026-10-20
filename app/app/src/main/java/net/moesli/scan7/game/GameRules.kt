@@ -1,6 +1,6 @@
 package net.moesli.scan7.game
 
-import net.moesli.scan7.scoring.Card
+import net.moesli.scan7.scoring.Deck
 import net.moesli.scan7.scoring.scoreRow
 import net.moesli.scan7.skyjo.SkyjoRules
 
@@ -32,6 +32,9 @@ interface GameRules {
     /** Lowest points of one round result (a negative minimum allows negative rounds). */
     val minPoints: Int
 
+    /** The scan camera can read this game's cards; without a detector every entry is typed in. */
+    val hasDetector: Boolean
+
     /** The card for a detector / stored [label], `null` if this game has no such card. */
     fun cardFromLabel(label: String): GameCard?
 
@@ -43,7 +46,16 @@ interface GameRules {
 enum class GameKind(val rules: GameRules) {
     FLIP7(Flip7Rules),
     SKYJO(SkyjoRules),
+    VENGEANCE(VengeanceRules),
 }
+
+/** The Flip 7 card set of this game (scan review, manual entry), `null` for Skyjo (its own cards and grid). */
+val GameKind.deck: Deck?
+    get() = when (this) {
+        GameKind.FLIP7 -> Deck.FLIP7
+        GameKind.VENGEANCE -> Deck.VENGEANCE
+        GameKind.SKYJO -> null
+    }
 
 /**
  * Skyjo's rule for the player who ended the round ([RoundState.endedBy]), chosen per game. Stored by
@@ -91,8 +103,30 @@ object Flip7Rules : GameRules {
     override val hasBust = true
     override val hasRoundEnder = false
     override val minPoints = 0
+    override val hasDetector = true
 
-    override fun cardFromLabel(label: String): GameCard? = Card.fromLabel(label)
+    override fun cardFromLabel(label: String): GameCard? = Deck.FLIP7.cardFromLabel(label)
+
+    override fun score(cards: List<ConfirmedCard>): CardsScore {
+        val row = scoreRow(cards.countedCards())
+        return CardsScore(row.total, row.bust)
+    }
+}
+
+/**
+ * Flip 7: With a Vengeance: Flip 7's race to 200 with its own cards (0–13, Lucky 13, Unlucky 7,
+ * The Zero, ÷2 and minus cards; [scoreRow] knows them). No detector yet: typed in. Brutal mode
+ * (negative rounds) is not supported yet.
+ */
+object VengeanceRules : GameRules {
+    override val defaultTarget = DEFAULT_TARGET
+    override val lowestWins = false
+    override val hasBust = true
+    override val hasRoundEnder = false
+    override val minPoints = 0
+    override val hasDetector = false
+
+    override fun cardFromLabel(label: String): GameCard? = Deck.VENGEANCE.cardFromLabel(label)
 
     override fun score(cards: List<ConfirmedCard>): CardsScore {
         val row = scoreRow(cards.countedCards())
