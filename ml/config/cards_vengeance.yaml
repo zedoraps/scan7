@@ -65,10 +65,10 @@ geometry:
   cutout_height: 832    # (aspect difference 0.3 %)
 
 # Word banner on number cards as fractions of card width/height: [x0, y0, x1, y1].
-# Measured on the 13 cutout: the printed banner frame spans x 0.033-0.967, y 0.718-0.827 (about
+# Measured on the 1-13 cutouts: the printed banner frame spans x 0.033-0.967, y 0.718-0.840 (about
 # 3 % higher than on Flip 7 cards, 0.755-0.865); the box adds ~0.5 % margin. Only used for the
 # contact sheet outline here; gen_synth takes the word area from synth_vengeance.yaml.
-banner: [0.028, 0.713, 0.972, 0.832]
+banner: [0.028, 0.713, 0.972, 0.845]
 
 cutouts:
   trim_px: 7
@@ -79,6 +79,7 @@ cutouts:
   # Per-file rotation (degrees clockwise) that turns the card as seen in the photo upright
   # (banner / title at the bottom resp. readable left to right). Keyed by file stem.
   rotate:
+    "03": 90
     lucky13: 90
     minus8: 90
     minus6: 90
