@@ -53,7 +53,7 @@ number_classes: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11
 # Where make_cutouts.py reads / writes (relative to ml/). No extra looks yet (extra: "").
 paths:
   src: data/cards_flat_vengeance
-  extra: ""
+  extra: data/cards_extra_vengeance   # English-edition looks (scripts/extract_vengeance_en_variants.py)
   out: out/cutouts_vengeance
 
 # Card geometry, measured from data/cards_flat_vengeance by make_cutouts.py --measure.
