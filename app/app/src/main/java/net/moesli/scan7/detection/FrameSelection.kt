@@ -25,6 +25,14 @@ const val SHARPNESS_WEIGHT = 1.0f
 data class FrameCandidate(val detections: List<Detection>, val sharpness: Float)
 
 /**
+ * The candidate of a frame of [imageWidth]×[imageHeight] (upright) with [detections]: only the
+ * cards the row grouping keeps count ([rowKept]), so a frame with a neighbour's cards at the
+ * edge doesn't win for having more cards.
+ */
+fun rowCandidate(detections: List<Detection>, imageWidth: Int, imageHeight: Int, sharpness: Float): FrameCandidate =
+    FrameCandidate(rowKept(detections, imageWidth, imageHeight), sharpness)
+
+/**
  * Selection score of [frame] among frames whose best sharpness is [maxSharpness]:
  *
  *   score = Σ s_i + [CONFIDENT_BONUS] · #{s_i ≥ [CONFIDENT_SCORE]} + [SHARPNESS_WEIGHT] · sharpness / maxSharpness

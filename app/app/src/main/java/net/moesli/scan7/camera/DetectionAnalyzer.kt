@@ -19,7 +19,8 @@ import net.moesli.scan7.detection.ACCEPT_SCORE
 import net.moesli.scan7.detection.Detection
 import net.moesli.scan7.detection.DetectionTracker
 import net.moesli.scan7.detection.DetectorHolder
-import net.moesli.scan7.detection.FrameCandidate
+import net.moesli.scan7.detection.rowCandidate
+import net.moesli.scan7.detection.uprightSize
 import net.moesli.scan7.detection.KEEP_SCORE
 import net.moesli.scan7.detection.SHUTTER_LOOKAHEAD_MS
 import net.moesli.scan7.detection.SHUTTER_LOOKBACK_MS
@@ -105,7 +106,8 @@ private class FrameSlot(val index: Int) {
  * freed by [releaseBuffers] (camera unbound), so they don't stay alive off-camera.
  *
  * [capture] (shutter) picks the best buffered frame from [SHUTTER_LOOKBACK_MS] before to
- * [SHUTTER_LOOKAHEAD_MS] after the press by [selectionScore]; the ring is only touched on the
+ * [SHUTTER_LOOKAHEAD_MS] after the press by [selectionScore] (only the cards the row grouping keeps,
+ * [rowCandidate]); the ring is only touched on the
  * detector thread, so no locking and no extra per-frame copies.
  */
 class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
@@ -191,7 +193,10 @@ class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
         // Nothing in the window (stalled detector): fall back to the latest frame.
         val slots = window.ifEmpty { listOfNotNull(valid.maxByOrNull { it.timeMs }) }.sortedBy { it.timeMs }
         if (slots.isEmpty()) return null
-        val candidates = slots.map { FrameCandidate(it.detections, it.sharpness) }
+        val candidates = slots.map {
+            val (w, h) = uprightSize(it.width, it.height, it.rotation)
+            rowCandidate(it.detections, w, h, it.sharpness)
+        }
         val best = selectBestFrame(candidates)
         val slot = slots[best]
         val rotate = Matrix().apply { postRotate(slot.rotation.toFloat()) }

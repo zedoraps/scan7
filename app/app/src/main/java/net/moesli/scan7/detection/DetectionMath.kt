@@ -156,8 +156,9 @@ fun iou(a: Box, b: Box): Float {
 }
 
 /**
- * How an image of [imageWidth]×[imageHeight] is shown centered in a [viewWidth]×[viewHeight] view:
- * [crop] = fill and crop (camera preview FILL_CENTER / ContentScale.Crop), else fit (letterboxed).
+ * How an image of [imageWidth]×[imageHeight] is shown in a [viewWidth]×[viewHeight] view:
+ * [crop] = fill and crop (ContentScale.Crop), else fit (letterboxed, ContentScale.Fit). [biasX] /
+ * [biasY] place it like Compose's BiasAlignment: −1 = start / top, 0 = centred, 1 = end / bottom.
  */
 data class DisplayMapping(val scale: Float, val offsetX: Float, val offsetY: Float, val imageWidth: Int, val imageHeight: Int) {
     /** Normalized image box → view pixels. */
@@ -173,14 +174,22 @@ data class DisplayMapping(val scale: Float, val offsetX: Float, val offsetY: Flo
         (x - offsetX) / scale / imageWidth to (y - offsetY) / scale / imageHeight
 
     companion object {
-        fun of(imageWidth: Int, imageHeight: Int, viewWidth: Float, viewHeight: Float, crop: Boolean): DisplayMapping {
+        fun of(
+            imageWidth: Int,
+            imageHeight: Int,
+            viewWidth: Float,
+            viewHeight: Float,
+            crop: Boolean,
+            biasX: Float = 0f,
+            biasY: Float = 0f,
+        ): DisplayMapping {
             val sx = viewWidth / imageWidth
             val sy = viewHeight / imageHeight
             val scale = if (crop) max(sx, sy) else min(sx, sy)
             return DisplayMapping(
                 scale = scale,
-                offsetX = (viewWidth - imageWidth * scale) / 2f,
-                offsetY = (viewHeight - imageHeight * scale) / 2f,
+                offsetX = (viewWidth - imageWidth * scale) / 2f * (1f + biasX),
+                offsetY = (viewHeight - imageHeight * scale) / 2f * (1f + biasY),
                 imageWidth = imageWidth,
                 imageHeight = imageHeight,
             )

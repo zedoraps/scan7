@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import net.moesli.scan7.detection.Detection
 import net.moesli.scan7.detection.DisplayMapping
+import net.moesli.scan7.detection.rowLeftOut
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.training.TrainingCapture
 import net.moesli.scan7.scoring.scoreRow
@@ -104,6 +105,12 @@ class ScanCapture(
 
     /** Recognized cards, scoring and ignored, in detection order. */
     val cards: List<Card> = detectedCards.map { it.card }
+
+    /**
+     * Detections the row grouping leaves out ([rowLeftOut]: a neighbour's cards at the edge of the
+     * frame); the review starts with them left out, one tap brings a card back.
+     */
+    val autoExcluded: Set<Int> = rowLeftOut(detections, bitmap.width, bitmap.height)
 }
 
 /** How a [ScanCapture] was made (stored with "Save scans for training"). */

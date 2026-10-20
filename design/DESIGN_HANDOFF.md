@@ -123,7 +123,7 @@ On the left, one skewed segment per player in seating order (scored in the playe
 ## 5. Other screens
 Keep the flow and content from `docs/dev/SCREENS.md`, and restyle the screens with these tokens and components (they were drafted before this direction).
 - **Player sheet.** A bottom sheet with the same card styling: primary Scan (cyan, tall), Manual, Bust (magenta outline).
-- **Camera.** Live boxes in cyan 3 px with a 1.5 px white outline and a cyan label tag top left; ignored cards dashed grey "IGNORED"; a header with the player token and "Scanning Mia"; a big shutter; "Type instead".
+- **Camera.** Live boxes in cyan 3 px with a 1.5 px white outline and a cyan label tag top left; ignored cards dashed grey "IGNORED"; a header with the player token and "Scanning Mia"; a big shutter; "Type instead". **Deviation (2026-10-20, approved):** the preview is not full-bleed. The header has its own ground-coloured area, and the whole 4:3 camera frame is shown letterboxed below it (top-aligned, bars in `ground`), so the preview shows exactly what the detector and the review photo see.
 - **Review.** A bottom panel with the player, the total big in cyan, the breakdown line, card chips and the buttons Retake (icon) · Fix · OK (primary). The bust variant has a magenta header band "✕ BUST · Two 7s", duplicate chips outlined in magenta and the buttons Fix · Confirm bust (magenta). The 7-different variant has a "+15" badge.
 - **End of round.** The same table/list layout, showing round points per card, rank badges, advanced rings and "Next round" as primary.
 

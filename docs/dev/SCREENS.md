@@ -105,7 +105,7 @@ States: all open (start of round); mixed; all scored ("Close round" highlighted)
 
 ## 5 Camera
 The player points the camera at their row and captures it.
-- Full-screen live camera.
+- Live camera showing the whole camera frame (letterboxed under the header, not cropped), so the preview shows exactly what the detector and the review photo see.
 - Top: player avatar and name ("Scanning Ben"), close/back.
 - Live boxes on the cards (cyan with white outline) with small labels.
 - Optional hint: "Fit the whole row in the frame".
