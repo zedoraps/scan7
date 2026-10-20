@@ -28,7 +28,7 @@ data class RowScore(
     val divideTwo: Boolean = false,
     /** With a Vengeance: sum of the minus cards (positive), subtracted after ÷2. */
     val minusSum: Int = 0,
-    /** With a Vengeance: The Zero is in the row, so only the Flip 7 bonus scores. */
+    /** With a Vengeance: The Zero is in the row without a Flip 7, so the row scores 0. */
     val zeroed: Boolean = false,
     /** With a Vengeance: a Lucky 13 lets two 13s stand (both count for the Flip 7). */
     val luckyPair: Boolean = false,
@@ -49,7 +49,8 @@ data class RowScore(
  * (left-out cards, incl. a left-out Second Chance, must not be in [cards]).
  *
  * With a Vengeance: a Lucky 13 allows one second 13 (both score and both count for the Flip 7;
- * a third 13 busts); The Zero makes the row score only the Flip 7 bonus; an Unlucky 7 is a 7.
+ * a third 13 busts); The Zero makes the row score 0 unless it is a Flip 7 (card text "Score zero,
+ * unless you Flip 7": then it scores as usual, the Zero adding 0); an Unlucky 7 is a 7.
  *
  * Each modifier exists only once in the deck, so a repeated modifier is treated as a scan
  * artefact and counted once: a second `x2` / `div2` does not stack and a repeated `plusN` /
@@ -70,8 +71,8 @@ fun scoreRow(cards: List<Card>): RowScore {
     val divideTwo = Card.DIVIDE_2 in cards
     val plusSum = cards.filter { it.kind == CardKind.MODIFIER_PLUS }.toSet().sumOf { it.value!! }
     val minusSum = cards.filter { it.kind == CardKind.MODIFIER_MINUS }.toSet().sumOf { it.value!! }
-    val zeroed = Card.THE_ZERO in cards
     val bonus = if (counts.size + (if (luckyPair) 1 else 0) >= FLIP_7_CARDS) FLIP_7_BONUS else 0
+    val zeroed = Card.THE_ZERO in cards && bonus == 0
     val cardPoints = if (zeroed) 0 else modifiedNumberSum(numberSum, timesTwo, divideTwo) + plusSum - minusSum
     return RowScore(
         numberSum = numberSum,

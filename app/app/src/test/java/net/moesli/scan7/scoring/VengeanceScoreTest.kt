@@ -61,14 +61,17 @@ class VengeanceScoreTest {
     }
 
     @Test
-    fun theZero_scoresOnlyTheFlip7Bonus() {
+    fun theZero_scoresZero_unlessFlip7() {
         val zero = scoreRow(listOf(THE_ZERO, N12, N11, DIVIDE_2, MINUS_2))
         assertTrue(zero.zeroed)
         assertEquals(0, zero.total)
-        // The Zero counts as a number for the Flip 7 (and as a 0 for duplicates).
+        // "Score zero, unless you Flip 7": The Zero counts as a number for the Flip 7, and then
+        // the row scores as usual: 0 + 1 + 2 + 3 + 4 + 5 + 12 − 10 + 15 = 32.
         val flip7 = scoreRow(listOf(THE_ZERO, N1, N2, N3, N4, N5, N12, MINUS_10))
+        assertFalse(flip7.zeroed)
         assertEquals(15, flip7.flip7Bonus)
-        assertEquals(15, flip7.total)
+        assertEquals(32, flip7.total)
+        assertTrue(scoreRow(listOf(THE_ZERO, THE_ZERO)).bust)
     }
 
     @Test

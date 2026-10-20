@@ -56,7 +56,7 @@ enum class Card(override val label: String, val kind: CardKind, val value: Int? 
     /** Counts as a 7 (drawing it discards the other cards, so the row simply doesn't have them). */
     UNLUCKY_7("unlucky7", CardKind.NUMBER, 7),
 
-    /** Counts as a 0 for Flip 7, but the row scores nothing apart from the Flip 7 bonus. */
+    /** A 0 that makes the row score 0, unless the row is a Flip 7 (then it scores as usual). */
     THE_ZERO("zero", CardKind.NUMBER, 0),
     DIVIDE_2("div2", CardKind.MODIFIER_DIVIDE2),
     MINUS_2("minus2", CardKind.MODIFIER_MINUS, 2),

@@ -113,7 +113,7 @@ const val FORMULA_LINE_BREAK = "\n"
  * The row's score in up to two lines, without "= total" (the big number shows it):
  * - line 1, the number cards and ×2 / ÷2: `6 + 7 + 8`, `(0 + 6 + 11 + 12) × 2`,
  *   `(13 + 11 + 8) ÷ 2` (parentheses only around several numbers), `0` without number cards
- *   and with The Zero (the row scores nothing but the bonus);
+ *   and with The Zero without a Flip 7 (the row scores 0);
  * - line 2, the additions: plus modifiers, minus modifiers, then the Flip 7 bonus:
  *   `+ 2 + 4 + 15`, `− 6 + 15` (the bonus shown labelled, `+ 15 Flip 7`); no line 2 without them.
  * A single value stays alone (`7`); nothing at all is `0`. A duplicate cancelled by a Second
@@ -138,7 +138,7 @@ fun breakdownFormula(cards: List<Card>): List<FormulaPart> {
         score.divideTwo -> " ÷ "
         else -> null
     }
-    // (sign, value) of the additions; The Zero leaves only the bonus.
+    // (sign, value) of the additions; The Zero (no Flip 7) leaves none.
     val modifiers = if (score.zeroed) {
         emptyList()
     } else {

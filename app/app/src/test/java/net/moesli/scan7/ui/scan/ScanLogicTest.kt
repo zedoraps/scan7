@@ -409,9 +409,9 @@ class ScanLogicTest {
         assertEquals("12\n− 2 − 10", breakdownText(listOf(N12, Card.MINUS_10, Card.MINUS_2)))
         assertEquals("0\n− 4", breakdownText(listOf(Card.MINUS_4)))
         assertEquals("5 + 13 + 13", breakdownText(listOf(Card.LUCKY_13, N5, Card.N13)))
-        // The Zero: nothing but the bonus.
+        // The Zero: 0 without a Flip 7, the usual formula with one.
         assertEquals("0", breakdownText(listOf(Card.THE_ZERO, N12, Card.MINUS_2)))
-        assertEquals("15", breakdownText(listOf(Card.THE_ZERO, N1, N2, N3, N4, N5, N6, Card.MINUS_2)))
+        assertEquals("0 + 1 + 2 + 3 + 4 + 5 + 6\n− 2 + 15", breakdownText(listOf(Card.THE_ZERO, N1, N2, N3, N4, N5, N6, Card.MINUS_2)))
         assertEquals(
             "8 plus 11 plus 13 divided by 2 minus 6 equals 10",
             spokenFormula(breakdownFormula(listOf(Card.N13, N11, N8, Card.DIVIDE_2, Card.MINUS_6))).en,
