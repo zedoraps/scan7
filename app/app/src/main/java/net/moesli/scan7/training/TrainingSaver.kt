@@ -59,6 +59,7 @@ object TrainingSaver {
             outcome = outcome?.toTrainingOutcome(capture),
             capture = capture.meta.choice,
             excludedDetections = outcome?.excluded.orEmpty(),
+            autoExcludedDetections = capture.autoExcluded,
         )
 
     /**

@@ -93,10 +93,13 @@ internal fun ScanFlowContent(
             },
         )
     }
-    // Detections the user left out on the review (indices; kept when coming back from Fix). Saved,
-    // so a review restored after process death (same capture, e.g. the debug photo) keeps them.
-    // A new shutter photo / Retake clears them.
-    var excluded by rememberSaveable(player.id, stateSaver = IntSetSaver) { mutableStateOf(emptySet<Int>()) }
+    // Detections left out on the review (indices; kept when coming back from Fix). A new capture
+    // starts with the row grouping's choice (ScanCapture.autoExcluded: a neighbour's cards at the
+    // edge), the user can bring each back. Saved, so a review restored after process death (same
+    // capture, e.g. the debug photo) keeps the user's choice. Retake clears them.
+    var excluded by rememberSaveable(player.id, stateSaver = IntSetSaver) {
+        mutableStateOf(initialCapture?.autoExcluded ?: emptySet())
+    }
     val leave = if (mode == ScanMode.ScanNext) onBackToTable else onCancel
 
     // "Save scans for training" (on by default): every shutter photo is saved (outcome null) as
@@ -139,7 +142,7 @@ internal fun ScanFlowContent(
                         ),
                     )
                     if (saveScans) savedCapture = capture to TrainingSaver.saveCapture(context, capture)
-                    excluded = emptySet()
+                    excluded = capture.autoExcluded
                     step = Step.Review(capture)
                 },
                 onTypeInstead = { step = Step.Manual(SplitCards(emptyList(), emptyList()), back = Step.Camera) },

@@ -107,6 +107,27 @@ class GameFlowTest : FlowTest() {
     }
 
     @Test
+    fun review_neighbourCardAtTheEdgeStartsLeftOut_tapBringsItBack() {
+        val (gameId, ids) = seedGame()
+        io { putSetting(AfterScan.SETTING_KEY, AfterScan.TABLE.name) }
+        captureCards = listOf(Card.N3, Card.N7, Card.N12, Card.N10)
+        captureNeighbour = Card.N5
+        launchRound()
+
+        click(hasContentDescription(str(R.string.action_scan_player, "Anna")))
+        waitFor(hasContentDescription(str(R.string.review_photo, "Anna")))
+        // The neighbour's 5 is left out automatically: 3 + 7 + 12 + 10.
+        waitFor(hasContentDescription(plural(R.plurals.points, 32)))
+        waitFor(hasContentDescription(str(R.string.chip_excluded, "5")))
+        rule.onAllNodes(hasContentDescription(str(R.string.chip_excluded, "5")) and hasClickActionMatcher()).onFirst().performClick()
+        waitFor(hasContentDescription(plural(R.plurals.points, 37)))
+        click(hasContentDescription(str(R.string.after_scan_description_table, str(R.string.review_ok))))
+
+        waitFor(scoredCard("Anna", 37, 37))
+        assertEquals(37, snapshot(gameId).state.total(ids[0]))
+    }
+
+    @Test
     fun inCardBust_undoToastReopensPlayer() {
         val (gameId, ids) = seedGame()
         launchRound()

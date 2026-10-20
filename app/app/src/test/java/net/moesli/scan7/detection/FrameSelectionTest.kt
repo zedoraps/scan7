@@ -33,6 +33,19 @@ class FrameSelectionTest {
     }
 
     @Test
+    fun neighbourCardsAtTheEdgeDontCount() {
+        // Frame 1 has the same row plus a neighbour's card cut by the top edge: it must not win on card count.
+        val row = (0 until 3).map { i -> Detection("0${i + 1}", 0.9f, Box(0.1f + i * 0.25f, 0.5f, 0.3f + i * 0.25f, 0.7f)) }
+        val neighbour = Detection("12", 0.9f, Box(0.8f, 0f, 0.98f, 0.12f))
+        val frames = listOf(
+            rowCandidate(row, 960, 1280, 100f),
+            rowCandidate(row + neighbour, 960, 1280, 90f),
+        )
+        assertEquals(3, frames[1].detections.size)
+        assertEquals(0, selectBestFrame(frames))
+    }
+
+    @Test
     fun emptyAndLaterOnTies() {
         assertEquals(-1, selectBestFrame(emptyList()))
         assertEquals(1, selectBestFrame(listOf(FrameCandidate(dets(0.5f), 1f), FrameCandidate(dets(0.5f), 1f))))
