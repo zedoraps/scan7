@@ -542,8 +542,8 @@
     <string name="join_rejected_full">This game is full (at most 11 phones).</string>
     <string name="join_rejected_removed">The host removed this phone. Scan the code again to rejoin.</string>
     <string name="join_failed">Couldn\'t join the game.</string>
-    <string name="permission_rationale_nearby">Scan7 uses \"Nearby devices\" and precise location to connect the phones at your table. Scan7 never uses your location, and nothing goes to the internet.</string>
-    <string name="permission_rationale_location">Android needs location access to find nearby phones. Scan7 never uses your location.</string>
+    <string name="permission_rationale_nearby">Scan7 uses \"Nearby devices\" and precise location to connect the phones at your table. Scan7 never stores or shares your location, and nothing goes to the internet.</string>
+    <string name="permission_rationale_location">Android needs location access to find nearby phones. Scan7 never stores or shares your location.</string>
     <string name="permission_continue">Continue</string>
     <string name="permission_denied">Without this permission the phones can\'t connect.</string>
     <string name="permission_settings">Open settings</string>
@@ -561,8 +561,8 @@
     <string name="radio_permission_nearby">the \"Nearby devices\" permission</string>
     <string name="radio_permission_location">location access</string>
     <string name="radio_permission_both">the \"Nearby devices\" permission and location access</string>
-    <string name="radio_location_off">Turn on Location. Android needs it to find nearby phones; Scan7 never uses your location.</string>
-    <string name="radio_bluetooth_off">Turn on Bluetooth. The phones find each other over Bluetooth.</string>
+    <string name="radio_location_off">Turn on Location. Android needs Location on to find nearby phones over Bluetooth. Scan7 never stores or shares your location.</string>
+    <string name="radio_bluetooth_off">Bluetooth is off. Turn it on: the phones find each other most reliably over Bluetooth.</string>
     <string name="radio_wifi_off">Wi-Fi is off. Turn it on for a faster link (no network needed).</string>
     <string name="radio_nearby_refused">Google Play services won\'t connect: it says the permission %1$s is missing, although Scan7 has it (code %2$s). Check Scan7\'s permissions in the app settings, then try again.</string>
     <string name="radio_rejected">The host\'s phone didn\'t let this phone in. Scan the code again.</string>

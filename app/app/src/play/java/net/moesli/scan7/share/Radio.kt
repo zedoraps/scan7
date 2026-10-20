@@ -57,7 +57,7 @@ object Radio : RadioSupport {
 
     private fun blocking(context: Context, discovering: Boolean): RadioSetting? {
         val s = settings(context)
-        return NearbyPermissions.blockingSetting(discovering, locationOn = s.locationOn != false, bluetoothOn = s.bluetoothOn != false)
+        return NearbyPermissions.blockingSetting(discovering, locationOn = s.locationOn != false)
     }
 
     override fun host(context: Context, link: JoinLink, scheduler: Scheduler): RadioLink<HostTransport> {

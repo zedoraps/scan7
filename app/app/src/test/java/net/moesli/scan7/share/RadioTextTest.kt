@@ -32,7 +32,8 @@ class RadioTextTest {
     @Test
     fun problems_offerTheRightFix() {
         val location = RadioText.status(RadioRole.GUEST, TransportStatus.NeedsSetting(RadioSetting.LOCATION, 8025), play)!!
-        assertEquals("Turn on Location. Android needs it to find nearby phones; Scan7 never uses your location.", location.text.en)
+        assertEquals("Turn on Location. Android needs Location on to find nearby phones over Bluetooth. Scan7 never stores or shares your location.", location.text.en)
+        assertTrue("speichert und teilt deinen Standort nie" in location.text.de)
         assertEquals(listOf(RadioFix.LOCATION_SETTINGS), location.fixes)
         assertTrue(location.problem)
         assertEquals(listOf(RadioFix.BLUETOOTH_SETTINGS), RadioText.status(RadioRole.HOST, TransportStatus.NeedsSetting(RadioSetting.BLUETOOTH), play)!!.fixes)
@@ -60,6 +61,14 @@ class RadioTextTest {
         val m = RadioText.status(RadioRole.GUEST, TransportStatus.Reconnecting(1_000), old)!!
         assertEquals(listOf(RadioFix.PLAY_SERVICES, RadioFix.TRY_AGAIN), m.fixes)
         assertTrue("SERVICE_VERSION_UPDATE_REQUIRED" in m.text.en)
+    }
+
+    @Test
+    fun bluetoothOff_isOnlyAHint() {
+        val hint = RadioText.bluetoothHint(RadioSettings(locationOn = true, bluetoothOn = false, wifiOn = true))!!
+        assertFalse(hint.problem)
+        assertEquals(listOf(RadioFix.BLUETOOTH_SETTINGS), hint.fixes)
+        assertNull(RadioText.bluetoothHint(RadioSettings(true, null, true)))
     }
 
     @Test

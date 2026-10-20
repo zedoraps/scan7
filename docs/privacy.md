@@ -40,7 +40,7 @@ With *Share this game* one phone (the host) shows a QR code; other phones at the
 - **Permissions, asked only when you tap Share or Join:** *Nearby devices* (Bluetooth and Wi-Fi, to
   find and connect to the other phones), *local network* (Android 17), *camera* (to read the QR
   code) and *precise location*. Android and Nearby require the location permission to search for
-  nearby phones over Bluetooth and Wi-Fi. **Scan7 never reads, uses or stores your location.**
+  nearby phones over Bluetooth and Wi-Fi. **Scan7 never reads, uses, stores or shares your location.**
   While a game is shared, a notification shows this.
 - Google Play services, which provides the connection, is part of your phone's system and may send
   its own usage diagnostics to Google according to your device settings. Scan7 adds nothing to it.
@@ -112,7 +112,7 @@ mit *Einem Spiel beitreten*. Scan7 tut das nur, wenn du auf einen dieser Knöpfe
   (Bluetooth und WLAN, um die anderen Handys zu finden und zu verbinden), *lokales Netzwerk*
   (Android 17), *Kamera* (für den QR-Code) und *genauer Standort*. Android und Nearby verlangen die
   Standortberechtigung, um über Bluetooth und WLAN nach Handys in der Nähe zu suchen. **Scan7 liest,
-  nutzt und speichert deinen Standort nie.** Solange ein Spiel geteilt wird, zeigt eine
+  nutzt, speichert und teilt deinen Standort nie.** Solange ein Spiel geteilt wird, zeigt eine
   Benachrichtigung das an.
 - Die Google-Play-Dienste, die die Verbindung herstellen, gehören zum System deines Handys und
   können nach deinen Geräteeinstellungen eigene Nutzungsdiagnosen an Google senden. Scan7 fügt dem

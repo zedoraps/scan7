@@ -522,8 +522,8 @@
     <string name="join_rejected_full">Das Spiel ist voll (höchstens 11 Handys).</string>
     <string name="join_rejected_removed">Der Gastgeber hat dieses Handy entfernt. Scanne den Code, um wieder beizutreten.</string>
     <string name="join_failed">Beitreten hat nicht geklappt.</string>
-    <string name="permission_rationale_nearby">Scan7 verbindet die Handys an deinem Tisch über „Geräte in der Nähe“ und den genauen Standort. Scan7 nutzt deinen Standort nie, und nichts geht ins Internet.</string>
-    <string name="permission_rationale_location">Android braucht den Standortzugriff, um Handys in der Nähe zu finden. Scan7 nutzt deinen Standort nie.</string>
+    <string name="permission_rationale_nearby">Scan7 verbindet die Handys an deinem Tisch über „Geräte in der Nähe“ und den genauen Standort. Scan7 speichert und teilt deinen Standort nie, und nichts geht ins Internet.</string>
+    <string name="permission_rationale_location">Android braucht den Standortzugriff, um Handys in der Nähe zu finden. Scan7 speichert und teilt deinen Standort nie.</string>
     <string name="permission_continue">Weiter</string>
     <string name="permission_denied">Ohne diese Berechtigung können sich die Handys nicht verbinden.</string>
     <string name="radio_permissions_missing">Scan7 braucht die Berechtigungen „Geräte in der Nähe“ und Standort, um die Handys zu verbinden.</string>
@@ -538,8 +538,8 @@
     <string name="radio_permission_nearby">die Berechtigung „Geräte in der Nähe“</string>
     <string name="radio_permission_location">den Standortzugriff</string>
     <string name="radio_permission_both">die Berechtigung „Geräte in der Nähe“ und den Standortzugriff</string>
-    <string name="radio_location_off">Schalte den Standort ein. Android braucht ihn, um Handys in der Nähe zu finden; Scan7 nutzt deinen Standort nie.</string>
-    <string name="radio_bluetooth_off">Schalte Bluetooth ein. Die Handys finden sich über Bluetooth.</string>
+    <string name="radio_location_off">Schalte den Standort ein. Android braucht ihn, um Handys in der Nähe über Bluetooth zu finden. Scan7 speichert und teilt deinen Standort nie.</string>
+    <string name="radio_bluetooth_off">Bluetooth ist aus. Schalte es ein: Über Bluetooth finden sich die Handys am zuverlässigsten.</string>
     <string name="radio_wifi_off">WLAN ist aus. Schalte es für eine schnellere Verbindung ein (kein Netzwerk nötig).</string>
     <string name="radio_nearby_refused">Die Google Play-Dienste verbinden nicht: Sie melden, dass die Berechtigung %1$s fehlt, obwohl Scan7 sie hat (Code %2$s). Prüf die Berechtigungen von Scan7 in den App-Einstellungen und versuch es dann nochmal.</string>
     <string name="radio_rejected">Das Handy des Gastgebers hat dieses Handy nicht reingelassen. Scanne den Code nochmal.</string>

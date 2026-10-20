@@ -49,13 +49,11 @@ object NearbyPermissions {
      * Location *setting* on, on every API level: Android turns BLE scanning off with Location
      * unless the app declares `neverForLocation` on BLUETOOTH_SCAN, which Scan7 doesn't (Nearby
      * needs location; source.android.com/docs/core/connect/bluetooth/ble). Advertising doesn't scan,
-     * which fits the field report (Samsung phones could host but not join). Both need Bluetooth.
+     * which fits the field report (Samsung phones could host but not join). Bluetooth off only
+     * gives a hint ([net.moesli.scan7.share.RadioText.bluetoothHint]): Nearby can still use Wi-Fi.
      */
-    fun blockingSetting(discovering: Boolean, locationOn: Boolean, bluetoothOn: Boolean): RadioSetting? = when {
-        !bluetoothOn -> RadioSetting.BLUETOOTH
-        discovering && !locationOn -> RadioSetting.LOCATION
-        else -> null
-    }
+    fun blockingSetting(discovering: Boolean, locationOn: Boolean): RadioSetting? =
+        if (discovering && !locationOn) RadioSetting.LOCATION else null
 
     enum class Rationale {
         /** "Android needs location access to find nearby phones; Scan7 never uses your location." */

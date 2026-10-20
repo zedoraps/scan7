@@ -59,11 +59,9 @@ class NearbyPartsTest {
 
     @Test
     fun settings_discoveryNeedsLocation_bothNeedBluetooth() {
-        assertEquals(RadioSetting.LOCATION, NearbyPermissions.blockingSetting(discovering = true, locationOn = false, bluetoothOn = true))
-        assertEquals(null, NearbyPermissions.blockingSetting(discovering = false, locationOn = false, bluetoothOn = true)) // advertising
-        assertEquals(RadioSetting.BLUETOOTH, NearbyPermissions.blockingSetting(discovering = false, locationOn = true, bluetoothOn = false))
-        assertEquals(RadioSetting.BLUETOOTH, NearbyPermissions.blockingSetting(discovering = true, locationOn = false, bluetoothOn = false))
-        assertEquals(null, NearbyPermissions.blockingSetting(discovering = true, locationOn = true, bluetoothOn = true))
+        assertEquals(RadioSetting.LOCATION, NearbyPermissions.blockingSetting(discovering = true, locationOn = false))
+        assertEquals(null, NearbyPermissions.blockingSetting(discovering = false, locationOn = false)) // advertising
+        assertEquals(null, NearbyPermissions.blockingSetting(discovering = true, locationOn = true))
     }
 
     @Test

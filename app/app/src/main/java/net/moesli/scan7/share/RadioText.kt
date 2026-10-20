@@ -79,6 +79,10 @@ object RadioText {
         }
     }
 
+    /** Bluetooth off: a hint only (Nearby still tries over Wi-Fi; the try goes on). */
+    fun bluetoothHint(settings: RadioSettings?): RadioMessage? =
+        if (settings?.bluetoothOn == false) RadioMessage(uiText(R.string.radio_bluetooth_off), listOf(RadioFix.BLUETOOTH_SETTINGS)) else null
+
     /** Wi-Fi off: a hint only (Bluetooth works without it, just slower). */
     fun wifiHint(settings: RadioSettings?): RadioMessage? =
         if (settings?.wifiOn == false) RadioMessage(uiText(R.string.radio_wifi_off), listOf(RadioFix.WIFI_SETTINGS)) else null

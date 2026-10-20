@@ -84,7 +84,8 @@ fun RadioPanel(
     val playServices = remember(resumes) { runtime.playServices() }
     val settings = remember(resumes, logVersion, status) { runtime.radioSettings() }
     val message = RadioText.status(role, status, playServices)
-    val wifi = RadioText.wifiHint(settings)
+    // Switches that are off but don't stop the try: hints under the main line.
+    val hints = listOfNotNull(RadioText.bluetoothHint(settings), RadioText.wifiHint(settings))
     val textStyle = if (compact) Scan7Type.text12 else Scan7Type.text15
     val buttonHeight = if (compact) Scan7Spacing.minTouch else Scan7Spacing.minTouch + 8.dp
     val act = { fix: RadioFix ->
@@ -111,11 +112,12 @@ fun RadioPanel(
                 else SecondaryButton(label, { act(fix) }, Modifier.fillMaxWidth(), height = buttonHeight)
             }
         }
-        wifi?.let { w ->
-            Text(w.text.resolve(), color = colors.textMuted, style = Scan7Type.text12)
+        hints.forEach { h ->
+            val fix = h.fixes.first()
+            Text(h.text.resolve(), color = colors.textMuted, style = Scan7Type.text12)
             SecondaryButton(
-                stringResource(R.string.radio_open_wifi),
-                { act(RadioFix.WIFI_SETTINGS) },
+                stringResource(fixLabel(fix)),
+                { act(fix) },
                 height = Scan7Spacing.minTouch,
                 cornerRadius = Scan7Radii.iconButton,
                 textStyle = Scan7Type.text12,
