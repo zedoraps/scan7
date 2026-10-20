@@ -11,7 +11,7 @@ object Brand {
     const val JOIN_SCHEME = "scan7"
 
     /** The games New game offers, the first is the default (debug builds can add the Skyjo preview). */
-    val games: List<GameKind> = listOf(GameKind.FLIP7)
+    val games: List<GameKind> = listOf(GameKind.FLIP7, GameKind.VENGEANCE)
 
     /** Always dark: people play in dim rooms, and the brand has no light palette. */
     const val FOLLOWS_SYSTEM_THEME = false

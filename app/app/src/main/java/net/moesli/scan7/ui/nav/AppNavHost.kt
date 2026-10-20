@@ -314,16 +314,14 @@ private fun DebugRoute(screen: DebugScreen, nav: EntryNav, debug: DebugLaunch) {
             val scope = rememberCoroutineScope()
             val saveScans by repository.saveScansForTraining.collectAsStateWithLifecycle(initialValue = true)
             val skyjo by repository.skyjoPreview.collectAsStateWithLifecycle(initialValue = false)
-            val vengeance by repository.vengeancePreview.collectAsStateWithLifecycle(initialValue = false)
             val home = rememberDebugHomeState()
             DebugHomeScreen(
-                state = home.ui(saveScans, skyjo, vengeance),
+                state = home.ui(saveScans, skyjo),
                 onBack = back,
                 onLiveCamera = { open(DebugScreen.CAMERA) },
                 onDetectFromPhoto = { open(DebugScreen.PHOTO) },
                 onSaveScansChange = { on -> scope.launch { runCatching { outlivingUi { repository.setSaveScansForTraining(on) } } } },
                 onSkyjoPreviewChange = { on -> scope.launch { runCatching { outlivingUi { repository.setSkyjoPreview(on) } } } },
-                onVengeancePreviewChange = { on -> scope.launch { runCatching { outlivingUi { repository.setVengeancePreview(on) } } } },
                 onLoadDetector = home::loadDetector,
                 onAvatars = { open(DebugScreen.AVATARS) },
                 onMultiplayer = { open(DebugScreen.MULTIPLAYER) },

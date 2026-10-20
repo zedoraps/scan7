@@ -64,7 +64,6 @@ data class DebugHomeUi(
     val keepScore: Float,
     val saveScans: Boolean,
     val skyjoPreview: Boolean,
-    val vengeancePreview: Boolean = false,
     val appVersion: String,
     val buildType: String,
     val dbSchema: Int,
@@ -83,7 +82,6 @@ fun DebugHomeScreen(
     onSaveScansChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     onSkyjoPreviewChange: (Boolean) -> Unit = {},
-    onVengeancePreviewChange: (Boolean) -> Unit = {},
     onLoadDetector: () -> Unit = {},
     onAvatars: () -> Unit = {},
     onMultiplayer: () -> Unit = {},
@@ -131,12 +129,6 @@ fun DebugHomeScreen(
                 "New game offers Skyjo: cards entered by hand in a 3 × 4 grid, lowest total wins",
                 state.skyjoPreview,
                 onSkyjoPreviewChange,
-            )
-            ToggleCard(
-                "With a Vengeance (preview)",
-                "New game offers Flip 7: With a Vengeance: cards 0–13, Lucky 13, ÷2, minus cards; typed in, no detector yet",
-                state.vengeancePreview,
-                onVengeancePreviewChange,
             )
 
             Section("Design")
