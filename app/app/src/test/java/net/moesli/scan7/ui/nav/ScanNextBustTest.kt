@@ -123,9 +123,9 @@ class ScanNextBustTest {
     }
 
     @Test
-    fun afterScanSetting_defaultsToNext() {
-        assertEquals(AfterScan.NEXT, AfterScan.fromSetting(null))
-        assertEquals(AfterScan.NEXT, AfterScan.fromSetting("garbage"))
+    fun afterScanSetting_defaultsToTable() {
+        assertEquals(AfterScan.TABLE, AfterScan.fromSetting(null))
+        assertEquals(AfterScan.TABLE, AfterScan.fromSetting("garbage"))
         assertEquals(AfterScan.TABLE, AfterScan.fromSetting(AfterScan.TABLE.name))
         assertEquals(AfterScan.NEXT, AfterScan.fromSetting(AfterScan.NEXT.name))
     }

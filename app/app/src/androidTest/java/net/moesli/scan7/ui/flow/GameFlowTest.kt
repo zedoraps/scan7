@@ -65,7 +65,9 @@ class GameFlowTest : FlowTest() {
         click(openCard("Anna"))
         clickLabel(str(R.string.action_enter_manually))
         listOf("3", "7", "12", str(R.string.card_plus_spoken, 4)).forEach { click(hasContentDescription(it) and isToggleable()) }
-        // After a score = Next (default): Save continues with Ben.
+        // After a score = Back to table (default); ▾ → Next: Save continues with Ben.
+        click(hasContentDescription(str(R.string.after_scan_choose, str(R.string.action_save))))
+        click(hasText(str(R.string.after_scan_next, "Ben")))
         click(hasContentDescription(str(R.string.after_scan_description_next, str(R.string.action_save), "Ben")))
 
         waitFor(hasContentDescription(str(R.string.review_photo, "Ben")))
@@ -87,7 +89,6 @@ class GameFlowTest : FlowTest() {
     @Test
     fun review_tapCardLeavesItOut_scoreUpdates_okSaves() {
         val (gameId, ids) = seedGame()
-        io { putSetting(AfterScan.SETTING_KEY, AfterScan.TABLE.name) }
         captureCards = listOf(Card.N3, Card.N7, Card.N12, Card.N10)
         launchRound()
 
