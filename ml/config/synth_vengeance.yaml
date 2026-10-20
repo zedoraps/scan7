@@ -1,0 +1,22 @@
+# Synthetic data for Flip 7: With a Vengeance (scripts/gen_synth.py --config config/synth_vengeance.yaml).
+# Everything not set here comes from synth.yaml; a section set here replaces that whole section.
+base: synth.yaml
+
+cards_config: config/cards_vengeance.yaml   # class list (28 Vengeance classes)
+out: out/synth_vengeance                     # default output dir (never the Flip 7 out/synth)
+
+# Cutout dirs, relative to ml/ (scripts/make_cutouts.py --config config/cards_vengeance.yaml).
+# Vengeance 1-12 have no flat photos yet: the Flip 7 cutouts of 1-12 stand in (same labels, same
+# card layout, slightly different print colours: see "Looks" in
+# config/cards_vengeance.yaml). Once data/cards_flat_vengeance/01.jpg ... exist, both looks are
+# used side by side (or drop the second entry for Vengeance looks only).
+cutouts:
+  - dir: out/cutouts_vengeance
+    # Banner word area on Vengeance number cards (measured on the 13: inner frame y 0.727-0.817),
+    # ~4 % higher than Flip 7's text.inner.
+    text_inner: [0.055, 0.727, 0.945, 0.817]
+  - dir: out/cutouts
+    classes: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
+
+# Flip 7's look weights (English 0 / back / Second Chance) don't apply here.
+variants: {}

@@ -12,6 +12,15 @@ image; cards hidden more than ~70% (occluded or outside the frame) get no label.
 Output (Ultralytics layout): <out>/images/{train,val}/*.jpg, <out>/labels/{train,val}/*.txt,
 <out>/dataset.yaml. The output dir is wiped first (only if it is empty or was made by this
 script). Deterministic per --seed (independent of --workers).
+
+Other card sets use their own synth config (`--config`), which can start from another one with
+`base: synth.yaml` (top-level sections it sets replace the base's whole section) and choose the
+cards config (`cards_config:`, class list), the cutout dirs (`cutouts:`, a list of
+`{dir, classes?, text_inner?}`: `classes` takes only those classes from that dir, `text_inner` is
+the banner word area of that dir's looks) and the default output dir (`out:`):
+
+    uv run python scripts/gen_synth.py --config config/synth_vengeance.yaml --count 40 \
+        --out out/synth_vengeance_sample                     # With a Vengeance
 """
 
 from __future__ import annotations
@@ -51,6 +60,37 @@ TEXT_STROKES = [(70, 40, 45), (60, 45, 60), (45, 45, 60), (40, 50, 70)]
 def load_yaml(p: Path) -> dict:
     with open(p) as f:
         return yaml.safe_load(f)
+
+
+def load_synth_config(p: Path) -> dict:
+    """A synth config; `base: <file>` (relative to this file) is loaded first and every top-level
+    section this file sets replaces the base's section as a whole (no deep merge)."""
+    p = Path(p)
+    cfg = load_yaml(p) or {}
+    base = cfg.pop("base", None)
+    if base:
+        merged = load_synth_config(p.parent / base)
+        merged.update(cfg)
+        return merged
+    return cfg
+
+
+def cards_config_path(cfg: dict) -> Path:
+    """The cards config (class list) a synth config uses, default config/cards.yaml."""
+    return ML / cfg["cards_config"] if cfg.get("cards_config") else CARDS_CONFIG
+
+
+def cutout_dirs(cfg: dict | None = None) -> list[dict]:
+    """synth config `cutouts:` as [{dir: Path, classes: set | None, text_inner: list | None}];
+    default: out/cutouts with all classes. Entries may be plain dir strings (relative to ml/)."""
+    spec = (cfg or {}).get("cutouts") or [str(CUTOUTS.relative_to(ML))]
+    out = []
+    for e in spec:
+        e = {"dir": e} if isinstance(e, str) else dict(e)
+        only = e.get("classes")
+        out.append({"dir": ML / e["dir"], "classes": None if only is None else [str(c) for c in only],
+                    "text_inner": e.get("text_inner")})
+    return out
 
 
 def class_of(stem: str, classes: list[str]) -> str:
@@ -176,16 +216,30 @@ def prepare_backgrounds(cfg, workers) -> list[Path]:
     return out
 
 
-def cutout_files(classes) -> dict[str, list[Path]]:
+def cutout_files(classes, cfg: dict | None = None) -> dict[str, list[Path]]:
+    """Cutout PNGs per class from all cutout dirs (in config order, then by name). A dir without
+    a `classes` filter must only hold classes of `classes`; with a filter, other stems are skipped."""
     files: dict[str, list[Path]] = {c: [] for c in classes}
-    for f in sorted(CUTOUTS.glob("*.png")):
-        files[class_of(f.stem, classes)].append(f)
+    for d in cutout_dirs(cfg):
+        only = d["classes"]
+        if only is not None and set(only) - set(classes):
+            raise ValueError(f"cutouts {d['dir']}: classes {sorted(set(only) - set(classes))} are not in the class list")
+        if not d["dir"].is_dir():
+            raise RuntimeError(f"no cutout dir {d['dir']} (run make_cutouts.py)")
+        for f in sorted(d["dir"].glob("*.png")):
+            if only is None:
+                files[class_of(f.stem, classes)].append(f)
+                continue
+            try:
+                files[class_of(f.stem, only)].append(f)
+            except ValueError:
+                pass  # a class this dir does not contribute
     return files
 
 
-def load_cutouts(classes) -> dict[str, list[np.ndarray]]:
+def load_cutouts(classes, cfg: dict | None = None) -> dict[str, list[np.ndarray]]:
     cut: dict[str, list[np.ndarray]] = {c: [] for c in classes}
-    for c, fs in cutout_files(classes).items():
+    for c, fs in cutout_files(classes, cfg).items():
         for f in fs:
             img = cv2.imread(str(f), cv2.IMREAD_UNCHANGED)
             if img is None or img.ndim != 3 or img.shape[2] != 4:
@@ -193,28 +247,40 @@ def load_cutouts(classes) -> dict[str, list[np.ndarray]]:
             cut[c].append(img)
     missing = [c for c, v in cut.items() if not v]
     if missing:
-        raise RuntimeError(f"missing cutouts for {missing} in {CUTOUTS} (run make_cutouts.py)")
+        dirs = ", ".join(str(d["dir"]) for d in cutout_dirs(cfg))
+        raise RuntimeError(f"missing cutouts for {missing} in {dirs} (run make_cutouts.py)")
     return cut
 
 
 def variant_table(classes, cfg) -> tuple[dict[str, np.ndarray], dict[str, list]]:
     """Per class: pick probabilities of its cutouts (same order as load_cutouts) and the banner
     inner box per cutout (None = text.inner). synth.yaml `variants` is keyed by source stem
-    (out/cutouts/sources.yaml, written by make_cutouts.py): a listed look gets its share of the
-    class's instances, the remaining share is split evenly among the class's other looks."""
+    (<cutout dir>/sources.yaml, written by make_cutouts.py) or, where stems of two dirs collide, by
+    the source path (e.g. data/cards_flat/01.jpg): a listed look gets its share of the class's
+    instances, the remaining share is split evenly among the class's other looks. A look without
+    its own variants.text_inner gets its cutout dir's `text_inner` (if set)."""
     vc = cfg.get("variants") or {}
     weights = {str(k): float(v) for k, v in (vc.get("weights") or {}).items()}
     inners = {str(k): v for k, v in (vc.get("text_inner") or {}).items()}
-    src_file = CUTOUTS / "sources.yaml"
-    sources = {}
-    if src_file.exists():
-        sources = {str(k): Path(v).stem for k, v in (yaml.safe_load(src_file.read_text()) or {}).items()}
+    dirs = cutout_dirs(cfg)
+    sources, dir_inner = {}, {}  # cutout path -> source path (relative to ml/) / its dir's text_inner
+    for d in dirs:
+        src_file = d["dir"] / "sources.yaml"
+        srcs = (yaml.safe_load(src_file.read_text()) or {}) if src_file.exists() else {}
+        for f in d["dir"].glob("*.png"):
+            sources[f] = str(srcs.get(f.stem, f.stem))
+            dir_inner[f] = d["text_inner"]
+
+    def key(f: Path, table: dict) -> str | None:
+        src = sources.get(f, f.stem)
+        return src if src in table else Path(src).stem if Path(src).stem in table else None
+
     used = set()
     probs, inner = {}, {}
-    for c, fs in cutout_files(classes).items():
-        src = [sources.get(f.stem, f.stem) for f in fs]
-        fixed = [weights.get(s) for s in src]
-        used.update(s for s in src if s in weights)
+    for c, fs in cutout_files(classes, cfg).items():
+        wk = [key(f, weights) for f in fs]
+        fixed = [weights[k] if k else None for k in wk]
+        used.update(k for k in wk if k)
         given = sum(w for w in fixed if w is not None)
         n_free = sum(w is None for w in fixed)
         if given > 1 + 1e-9 or (n_free == 0 and abs(given - 1) > 1e-9 and fs):
@@ -222,12 +288,14 @@ def variant_table(classes, cfg) -> tuple[dict[str, np.ndarray], dict[str, list]]
         rest = (1 - given) / n_free if n_free else 0.0
         p = np.array([rest if w is None else w for w in fixed], np.float64)
         probs[c] = p / p.sum() if len(p) else p
-        inner[c] = [inners.get(s) for s in src]
-        used.update(s for s in src if s in inners)
+        ik = [key(f, inners) for f in fs]
+        inner[c] = [inners[k] if k else dir_inner.get(f) for f, k in zip(fs, ik)]
+        used.update(k for k in ik if k)
     unknown = (set(weights) | set(inners)) - used
     if unknown:
-        raise ValueError(f"synth.yaml variants refer to unknown cutout sources {sorted(unknown)} "
-                         f"(see {src_file}; run make_cutouts.py)")
+        where = ", ".join(str(d["dir"] / "sources.yaml") for d in dirs)
+        raise ValueError(f"synth config variants refer to unknown cutout sources {sorted(unknown)} "
+                         f"(see {where}; run make_cutouts.py)")
     return probs, inner
 
 
@@ -241,7 +309,7 @@ def init_worker(cfg, cards_cfg, bg_paths):
     G["cfg"] = cfg
     G["classes"] = cards_cfg["classes"]
     G["number"] = set(cards_cfg["number_classes"])
-    G["cutouts"] = load_cutouts(cards_cfg["classes"])
+    G["cutouts"] = load_cutouts(cards_cfg["classes"], cfg)
     G["variant_p"], G["variant_inner"] = variant_table(cards_cfg["classes"], cfg)
     G["class_p"] = class_probs(cards_cfg["classes"], cfg)
     G["bgs"] = bg_paths
@@ -868,29 +936,30 @@ def main():
     ap.add_argument("--count", type=int, default=None, help="number of images (default: synth.yaml count)")
     ap.add_argument("--val-frac", type=float, default=None, help="validation fraction (default 0.1)")
     ap.add_argument("--seed", type=int, default=None, help="random seed (default: synth.yaml seed)")
-    ap.add_argument("--out", type=Path, default=DEFAULT_OUT, help=f"output dir (default {DEFAULT_OUT})")
+    ap.add_argument("--out", type=Path, default=None, help=f"output dir (default: the synth config's `out`, "
+                    f"else {DEFAULT_OUT})")
     ap.add_argument("--workers", type=int, default=max(1, (mp.cpu_count() or 2) - 1))
     ap.add_argument("--config", type=Path, default=SYNTH_CONFIG)
     args = ap.parse_args()
 
-    cfg = load_yaml(args.config)
-    cards_cfg = load_yaml(CARDS_CONFIG)
+    cfg = load_synth_config(args.config)
+    cards_cfg = load_yaml(cards_config_path(cfg))
     classes = cards_cfg["classes"]
     count = args.count if args.count is not None else int(cfg["count"])
     val_frac = args.val_frac if args.val_frac is not None else float(cfg.get("val_frac", 0.1))
     seed = args.seed if args.seed is not None else int(cfg["seed"])
 
-    load_cutouts(classes)  # fail early
+    load_cutouts(classes, cfg)  # fail early
     vp, _ = variant_table(classes, cfg)
     cp = class_probs(classes, cfg)
     if cp.max() - cp.min() > 1e-9:
         print("class pick rates: " + ", ".join(f"{c} {q:.1%}" for c, q in zip(classes, cp)))
     for c, p in vp.items():
         if len(p) > 1:
-            src = [f.stem for f in cutout_files(classes)[c]]
+            src = [f"{f.parent.name}/{f.stem}" for f in cutout_files(classes, cfg)[c]]
             print(f"variants {c}: " + ", ".join(f"{s} {q:.0%}" for s, q in zip(src, p)))
     bgs = prepare_backgrounds(cfg, args.workers)
-    out = prepare_out(args.out)
+    out = prepare_out(args.out if args.out is not None else (ML / cfg["out"] if cfg.get("out") else DEFAULT_OUT))
 
     n_val = int(round(count * val_frac))
     val = set(np.random.default_rng(seed).permutation(count)[:n_val].tolist())

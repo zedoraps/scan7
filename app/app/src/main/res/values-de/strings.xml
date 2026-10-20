@@ -206,7 +206,7 @@
     <string name="newgame_target_lower">Ziel senken</string>
     <string name="newgame_target_raise">Ziel erhöhen</string>
     <string name="newgame_game">Spiel</string>
-    <string name="game_vengeance">With a Vengeance</string>
+    <string name="game_vengeance">Voll fies!</string>
     <string name="newgame_round_ender">Rundenende</string>
     <string name="ender_official">Offiziell</string>
     <string name="ender_always">Immer ×2</string>
@@ -329,15 +329,15 @@
     <string name="card_flip_three">Flip 3</string>
     <string name="card_second_chance">2nd Chance</string>
     <string name="card_back">Rückseite</string>
-    <!-- Flip 7: With a Vengeance: card names as printed. -->
+    <!-- Flip 7 – Voll fies! (German edition of With a Vengeance): card names as printed (action titles in English). -->
     <string name="card_lucky_13_chip">13★</string>
     <string name="card_lucky_13">Lucky 13</string>
     <string name="card_unlucky_7">Unlucky 7</string>
-    <string name="card_the_zero">The Zero</string>
-    <string name="card_just_one_more">Just One More</string>
-    <string name="card_swap">Swap</string>
+    <string name="card_the_zero">Null</string>
+    <string name="card_just_one_more">Just 1 More &amp; Freeze</string>
+    <string name="card_swap">Switch</string>
     <string name="card_steal">Steal</string>
-    <string name="card_discard">Discard</string>
+    <string name="card_discard">Burn</string>
     <string name="card_flip_four">Flip Four</string>
     <string name="card_plus_spoken">plus %1$d</string>
     <string name="card_times_two_spoken">mal 2</string>

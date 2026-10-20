@@ -1,0 +1,94 @@
+# scan7 card config for Flip 7: With a Vengeance (German edition "Flip 7 – Voll fies!").
+# Same format as cards.yaml (read by scripts/make_cutouts.py --config config/cards_vengeance.yaml
+# and via synth_vengeance.yaml by scripts/gen_synth.py).
+#
+# Class order = YOLO class order of a Vengeance-only dataset. Fixed once a model is trained on it:
+# never reorder, only append. It is the app's order (scoring/Card.kt: the Vengeance cards in enum
+# order, numbers first, the shared back last); labels are the app's detector labels ("01".."12"
+# are the same labels as in Flip 7). Vengeance has no plain 0: its only zero is The Zero ("zero").
+classes:
+  - "01"
+  - "02"
+  - "03"
+  - "04"
+  - "05"
+  - "06"
+  - "07"
+  - "08"
+  - "09"
+  - "10"
+  - "11"
+  - "12"
+  - "13"
+  - lucky13
+  - unlucky7
+  - zero
+  - div2
+  - minus2
+  - minus4
+  - minus6
+  - minus8
+  - minus10
+  - just_one_more   # printed "JUST 1 MORE & FREEZE"
+  - swap            # printed "SWITCH"
+  - steal           # printed "STEAL"
+  - discard         # printed "BURN"
+  - flip4           # printed "FLIP FOUR"
+  - back            # Vengeance back (dark blue, "VOLL FIES!"), not the light-blue Flip 7 back
+
+# Looks (German edition, photographed 2026-10-20): 1-12 use the Flip 7 number layout and font
+# (frame, ribbons, top/bottom half-rings, side shells, German word banner) but are printed flatter:
+# cream (not peach) ground, single-colour shells, digit with a dark outline + yellow inner line,
+# some colours shifted (6 violet instead of magenta, 12 / 1 grey-taupe, 7 coral, 2 yellow-green),
+# and the banner sits ~3 % higher. 13 (blue), Lucky 13 (rainbow-striped 13, "LUCKY"), Unlucky 7
+# (all-grey 7, "UNLUCKY") and The Zero (rainbow-striped 0, "NULL", much like the English Flip 7
+# "ZERO" 0) are portrait number cards. Modifiers are red (Flip 7: orange). Action cards carry
+# English titles with German rules text. The back is navy ("VOLL FIES! JETZT ERST RECHT").
+
+# Classes that carry the plain word banner (EINS ... DREIZEHN) that gen_synth may randomize.
+# Not lucky13 / unlucky7 / zero: their banner word (LUCKY, UNLUCKY, NULL) is what tells them apart
+# from a plain 13 / 7 / Flip 7 0, so it must stay.
+number_classes: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13"]
+
+# Where make_cutouts.py reads / writes (relative to ml/). No extra looks yet (extra: "").
+paths:
+  src: data/cards_flat_vengeance
+  extra: ""
+  out: out/cutouts_vengeance
+
+# Card geometry, measured from data/cards_flat_vengeance by make_cutouts.py --measure.
+geometry:
+  aspect: 0.719         # width / height; measured median 0.7188 over 17 photos (std 0.002), = Flip 7 (0.721)
+  corner_radius: 0.036  # fraction of card width; measured median 0.0362 (std 0.002), a bit rounder-cornered
+                        # Flip 7 cards measure 0.042
+  cutout_width: 600     # same cutout size as Flip 7 (600x832), so both sets mix in one synthetic dataset
+  cutout_height: 832    # (aspect difference 0.3 %)
+
+# Word banner on number cards as fractions of card width/height: [x0, y0, x1, y1].
+# Measured on the 13 cutout: the printed banner frame spans x 0.033-0.967, y 0.718-0.827 (about
+# 3 % higher than on Flip 7 cards, 0.755-0.865); the box adds ~0.5 % margin. Only used for the
+# contact sheet outline here; gen_synth takes the word area from synth_vengeance.yaml.
+banner: [0.028, 0.713, 0.972, 0.832]
+
+cutouts:
+  trim_px: 7
+  # Per-file Lab chroma threshold that also counts as card (make_cutouts.card_mask): the navy back's
+  # edge is as dark as the mat, so brightness alone (Otsu) loses its corners.
+  chroma:
+    back: 10
+  # Per-file rotation (degrees clockwise) that turns the card as seen in the photo upright
+  # (banner / title at the bottom resp. readable left to right). Keyed by file stem.
+  rotate:
+    lucky13: 90
+    minus8: 90
+    minus6: 90
+    minus4: 90
+    minus2: 90
+    div2: 90
+    just_one_more: 90
+    flip4: 90
+    flip4_2: 90
+    swap: 90
+    steal: 90
+    discard: 90
+    zero: 90

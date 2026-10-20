@@ -41,6 +41,7 @@ The folders are listed below. File names matter in `cards_flat/`.
 | Folder | Content |
 |---|---|
 | `ml/data/cards_flat/` | One straight-on photo per card on a dark background, named by class: `00.jpg` … `12.jpg`, `plus2.jpg`, `plus4.jpg`, `plus6.jpg`, `plus8.jpg`, `plus10.jpg`, `x2.jpg`, `freeze.jpg`, `flip3.jpg`, `second_chance.jpg`, `back.jpg`. Extra photos of the same class: `07_2.jpg`, `07_3.jpg`, … |
+| `ml/data/cards_flat_vengeance/` | Same for Flip 7: With a Vengeance (German "Voll fies!"), classes from `ml/config/cards_vengeance.yaml`: `13`, `lucky13`, `unlucky7`, `zero`, `div2`, `minus2` … `minus10`, `just_one_more`, `swap`, `steal`, `discard`, `flip4` (+ `flip4_2`), `back`; 1–12 still missing. Raw shots (incl. table scenes) in `ml/data/vengeance_raw/` |
 | `ml/data/backgrounds/` | 30–50 photos of tables, floors, fabrics, desk mats, with no cards |
 | `ml/data/real_photos/train/` | Real game photos for fine-tuning (to be labeled) |
 | `ml/data/real_photos/test/` | Real game photos for evaluation only. **Never train on these.** |
@@ -62,7 +63,10 @@ The folders are listed below. File names matter in `cards_flat/`.
 ```sh
 cd ml
 uv run python scripts/make_cutouts.py            # add --measure to re-measure aspect / corner radius, --debug for detection overlays
+uv run python scripts/make_cutouts.py --config config/cards_vengeance.yaml   # With a Vengeance -> out/cutouts_vengeance
+uv run python scripts/gen_synth.py --config config/synth_vengeance.yaml --count 40 --out out/synth_vengeance_sample   # its synth data (base: synth.yaml)
 ```
+- With a Vengeance has its own cards config (`paths:` = src / extra / out dirs; `cutouts.chroma` for the navy back, whose edge is as dark as the mat) and synth config (`cards_config`, `cutouts:` dir list with per-dir class filter + banner word area, `out`). Until Vengeance 1–12 are photographed, the Flip 7 cutouts of 1–12 stand in.
 - The input is `ml/data/cards_flat/*.jpg`, one photo per card on the dark mat. The file stem is the class (`<class>_<n>.jpg` is an extra photo of the same class).
 - The script writes upright, perspective-corrected RGBA cutouts (600×832 px) with an anti-aliased rounded-corner alpha to `ml/out/cutouts/<stem>.png`. It trims a few px off each edge so no mat remains and leaves the colors as photographed. `ml/out/cutouts/contact_sheet.jpg` shows all cutouts on a checkerboard with the banner box outlined in magenta on number cards.
 - To find a card, the script thresholds the HSV brightness (Otsu), takes the convex hull of the largest blob, fits a line to the straight middle part of each edge, intersects these lines for the 4 sharp corners and computes the homography.
