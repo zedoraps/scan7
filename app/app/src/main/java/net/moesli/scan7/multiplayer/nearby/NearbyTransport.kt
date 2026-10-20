@@ -3,6 +3,7 @@ package net.moesli.scan7.multiplayer.nearby
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import net.moesli.scan7.multiplayer.ClientTransport
 import net.moesli.scan7.multiplayer.HostTransport
 import net.moesli.scan7.multiplayer.PeerId
@@ -28,29 +29,72 @@ sealed interface TransportStatus {
 
     data object Discovering : TransportStatus
 
+    /** Still looking, but nothing found for [NearbyClientTransport.NOT_FOUND_MS] (discovery keeps running). */
+    data object NotFound : TransportStatus
+
     data class Connecting(val endpointId: String) : TransportStatus
 
     data class Connected(val endpointId: String) : TransportStatus
 
-    /** Lost the host; [retryInMs] until the next attempt. */
+    /** Lost the host, or the last try failed; [retryInMs] until the next attempt. */
     data class Reconnecting(val retryInMs: Long) : TransportStatus
 
-    /** Permissions missing: [permissions] (empty when Nearby itself reported it, e.g. location off). */
-    data class MissingPermissions(val permissions: List<String>) : TransportStatus
+    /** Runtime permissions our check finds missing ([code] = Nearby's, when Nearby reported it). No retry until the user acts. */
+    data class MissingPermissions(val permissions: List<String>, val code: Int = 0) : TransportStatus
 
-    data class Failed(val error: ApiError, val message: String? = null) : TransportStatus
+    /** A phone setting is off (our check before starting, or Nearby's 8025). No retry until the user acts. */
+    data class NeedsSetting(val setting: RadioSetting, val code: Int = 0) : TransportStatus
+
+    /**
+     * Nearby says [permission] is missing although our check finds every permission granted (field
+     * report 2026-10-19 on Samsung phones). Retrying by itself only made the screen flicker: the user
+     * taps Try again. [permission] `null` = Nearby didn't say which.
+     */
+    data class NearbyRefused(val permission: String?, val code: Int) : TransportStatus
+
+    data class Failed(val error: ApiError, val message: String? = null, val code: Int = 0) : TransportStatus
 
     data object Stopped : TransportStatus
 }
+
+/** Counters for the "Technical details" of the share sheet / join screen. */
+data class LinkStats(
+    /** startAdvertising / startDiscovery calls (each try). */
+    val starts: Int = 0,
+    /** Connection requests sent (guest). */
+    val requests: Int = 0,
+    /** Failed tries since the last good link. */
+    val failuresInARow: Int = 0,
+    /** Nearby's last failure: code and call. */
+    val lastCode: Int? = null,
+    val lastCall: String? = null,
+    /** The permission Nearby last named as missing. */
+    val nearbyMissing: String? = null,
+)
 
 /** Nearby service id: one per app id, so debug (`.b`, …) and release builds never see each other. */
 fun nearbyServiceId(applicationId: String) = "$applicationId.mp"
 
 /**
+ * How a failed call ends the try: a permission or setting the user has to fix (no retry), or `null`
+ * (retry). Nearby naming a permission our check finds granted is [TransportStatus.NearbyRefused].
+ */
+private fun ApiResult.Failed.blocked(missingNow: List<String>): TransportStatus? = when (error) {
+    ApiError.SETTING_OFF -> TransportStatus.NeedsSetting(NearbyCodes.describe(code).setting ?: RadioSetting.LOCATION, code)
+    ApiError.MISSING_PERMISSION ->
+        if (missingNow.isNotEmpty()) TransportStatus.MissingPermissions(missingNow, code)
+        else TransportStatus.NearbyRefused(NearbyCodes.describe(code).permission, code)
+    else -> null
+}
+
+private fun ApiResult.Failed.describe() = "$code ${NearbyCodes.describe(code).name}${message?.let { " ($it)" }.orEmpty()}"
+
+/**
  * Host side over Nearby Connections, `P2P_STAR` hub (docs/dev/MULTI_DEVICE.md §6.1). Advertises
  * `s7|<sessionId>`, accepts only connection requests that prove the QR token ([JoinAuth]), and
- * chunks frames above the BYTES limit ([FrameChunker]). [missingPermissions] is checked before
- * advertising starts.
+ * chunks frames above the BYTES limit ([FrameChunker]). [missingPermissions] and [blockingSetting]
+ * are checked before advertising starts; a radio failure is retried ([backoffMs], at most
+ * [NearbyClientTransport.MAX_FAILURES] in a row), 8008 once after stopping everything.
  */
 class NearbyHostTransport(
     private val api: ConnectionsApi,
@@ -61,14 +105,23 @@ class NearbyHostTransport(
     private val missingPermissions: () -> List<String> = { emptyList() },
     /** Time for queued payloads (e.g. `hello_rejected`) to leave before a disconnect. */
     private val flushDelayMs: Long = FLUSH_DELAY_MS,
+    /** A setting that is off and needed to advertise (Bluetooth), checked before each try. */
+    private val blockingSetting: () -> RadioSetting? = { null },
+    private val backoffMs: List<Long> = NearbyClientTransport.DEFAULT_BACKOFF_MS,
+    private val log: (String) -> Unit = {},
 ) : HostTransport {
     private val _status = MutableStateFlow<TransportStatus>(TransportStatus.Idle)
     val status: StateFlow<TransportStatus> = _status.asStateFlow()
+    private val _stats = MutableStateFlow(LinkStats())
+    val stats: StateFlow<LinkStats> = _stats.asStateFlow()
 
     private var listener: HostTransport.Listener? = null
     private val chunker = FrameChunker(api.maxPayloadBytes)
     private val pending = mutableSetOf<String>()
     private val connected = mutableSetOf<String>()
+    private var stopped = false
+    private var retry: Cancellable? = null
+    private var busyRetried = false
 
     /** Connection requests turned away for a wrong / missing token (debug screen). */
     var rejectedRequests = 0
@@ -78,17 +131,69 @@ class NearbyHostTransport(
 
     override fun start(listener: HostTransport.Listener) {
         this.listener = listener
+        advertise()
+    }
+
+    private fun advertise() {
+        if (stopped) return
         val missing = missingPermissions()
         if (missing.isNotEmpty()) {
+            log("host: permissions missing ${missing.joinToString { it.substringAfterLast('.') }}")
             _status.value = TransportStatus.MissingPermissions(missing)
             return
         }
+        blockingSetting()?.let {
+            log("host: $it is off")
+            _status.value = TransportStatus.NeedsSetting(it)
+            return
+        }
+        _stats.update { it.copy(starts = it.starts + 1) }
         api.startAdvertising(JoinAuth.advertisedName(sessionId), serviceId, connectionCallback) { result ->
-            _status.value = when (result) {
-                ApiResult.Ok -> TransportStatus.Advertising
-                is ApiResult.Failed -> result.toStatus()
+            if (stopped) return@startAdvertising
+            when {
+                result == ApiResult.Ok -> {
+                    _stats.update { it.copy(failuresInARow = 0) }
+                    _status.value = TransportStatus.Advertising
+                }
+                // Our own earlier advertising still runs: that's what we want.
+                result is ApiResult.Failed && result.error == ApiError.ALREADY_ACTIVE -> _status.value = TransportStatus.Advertising
+                result is ApiResult.Failed -> failed(result)
             }
         }
+    }
+
+    private fun failed(result: ApiResult.Failed) {
+        val n = _stats.value.failuresInARow + 1
+        _stats.update {
+            it.copy(
+                failuresInARow = n, lastCode = result.code, lastCall = "startAdvertising",
+                nearbyMissing = NearbyCodes.describe(result.code).permission ?: it.nearbyMissing,
+            )
+        }
+        log("host: startAdvertising failed: ${result.describe()} (try $n)")
+        result.blocked(missingPermissions())?.let {
+            _status.value = it
+            return
+        }
+        when {
+            // 8008: Nearby still holds a discovery (or an older advertising) of this app; clear it once.
+            result.error == ApiError.BUSY && !busyRetried -> {
+                busyRetried = true
+                log("host: clearing Nearby (stopDiscovery, stopAllEndpoints), then once more")
+                api.stopDiscovery()
+                api.stopAllEndpoints()
+                schedule(BUSY_RETRY_MS)
+            }
+            result.error == ApiError.BUSY || n >= NearbyClientTransport.MAX_FAILURES ->
+                _status.value = TransportStatus.Failed(result.error, result.message, result.code)
+            else -> schedule(backoffMs[minOf(n - 1, backoffMs.lastIndex)])
+        }
+    }
+
+    private fun schedule(delay: Long) {
+        _status.value = TransportStatus.Reconnecting(delay)
+        retry?.cancel()
+        retry = scheduler.schedule(delay) { advertise() }
     }
 
     override fun send(peer: PeerId, frame: ByteArray) {
@@ -115,6 +220,8 @@ class NearbyHostTransport(
 
     /** Stop sharing: no more advertising, every link closed. */
     override fun stop() {
+        stopped = true
+        retry?.cancel()
         api.stopAdvertising()
         api.stopAllEndpoints()
         connected.toList().forEach(::lost)
@@ -135,21 +242,31 @@ class NearbyHostTransport(
         override fun onConnectionInitiated(endpointId: String, remoteName: String) {
             if (!JoinAuth.verify(remoteName, sessionId, token)) {
                 rejectedRequests++
+                log("host: rejected $endpointId (no valid proof)")
                 api.rejectConnection(endpointId)
                 return
             }
+            log("host: accepting $endpointId")
             pending += endpointId
             api.acceptConnection(endpointId, payloads) { result ->
-                if (result is ApiResult.Failed) pending -= endpointId
+                if (result is ApiResult.Failed) {
+                    log("host: acceptConnection $endpointId failed: ${result.describe()}")
+                    pending -= endpointId
+                }
             }
         }
 
         override fun onConnectionResult(endpointId: String, result: ApiResult) {
             if (!pending.remove(endpointId)) return
-            if (result == ApiResult.Ok && connected.add(endpointId)) listener?.onPeerConnected(PeerId(endpointId))
+            if (result is ApiResult.Failed) log("host: link to $endpointId failed: ${result.describe()}")
+            if (result == ApiResult.Ok && connected.add(endpointId)) {
+                log("host: linked $endpointId")
+                listener?.onPeerConnected(PeerId(endpointId))
+            }
         }
 
         override fun onDisconnected(endpointId: String) {
+            log("host: $endpointId disconnected")
             pending -= endpointId
             lost(endpointId)
         }
@@ -157,6 +274,9 @@ class NearbyHostTransport(
 
     companion object {
         const val FLUSH_DELAY_MS = 300L
+
+        /** After clearing Nearby for 8008: a moment for Play services to wind down. */
+        const val BUSY_RETRY_MS = 500L
     }
 }
 
@@ -166,6 +286,12 @@ class NearbyHostTransport(
  * after a drop it reports `onDisconnected`, rediscovers with backoff and reports `onConnected`
  * again (the [net.moesli.scan7.multiplayer.ClientSession] then sends a fresh `hello`). [disconnect]
  * ends it for good.
+ *
+ * Failures (docs/dev/MULTI_DEVICE.md §6.1): a missing permission or a switched-off setting stops
+ * the tries until the user acts ([TransportStatus.MissingPermissions], [TransportStatus.NeedsSetting],
+ * [TransportStatus.NearbyRefused]); 8008 clears Nearby once and tries again; any other failed try
+ * (radio error, unanswered request, host lost mid-handshake) backs off, and after [MAX_FAILURES] in
+ * a row it stops at [TransportStatus.Failed] with a Try again button instead of "Connecting…" forever.
  *
  * Every connection attempt has its own callbacks ([Attempt]). On this side the host has **one
  * endpoint id for all links**, so a late callback of an earlier link (its `onDisconnected` once the
@@ -186,9 +312,14 @@ class NearbyClientTransport(
     private val connectTimeoutMs: Long = CONNECT_TIMEOUT_MS,
     /** Field-test trail: why the link dropped, which late callbacks were ignored. */
     private val log: (String) -> Unit = {},
+    /** A setting that is off and needed to discover (Location, Bluetooth), checked before each try. */
+    private val blockingSetting: () -> RadioSetting? = { null },
+    private val notFoundMs: Long = NOT_FOUND_MS,
 ) : ClientTransport {
     private val _status = MutableStateFlow<TransportStatus>(TransportStatus.Idle)
     val status: StateFlow<TransportStatus> = _status.asStateFlow()
+    private val _stats = MutableStateFlow(LinkStats())
+    val stats: StateFlow<LinkStats> = _stats.asStateFlow()
 
     private var listener: ClientTransport.Listener? = null
     private val chunker = FrameChunker(api.maxPayloadBytes)
@@ -199,6 +330,8 @@ class NearbyClientTransport(
     private var attempt = 0
     private var retry: Cancellable? = null
     private var connectTimer: Cancellable? = null
+    private var notFoundTimer: Cancellable? = null
+    private var busyRetried = false
 
     /** The attempt that owns [connecting] / [endpoint] (`null` between attempts); callbacks of any other are ignored. */
     private var current: Attempt? = null
@@ -230,6 +363,7 @@ class NearbyClientTransport(
         closed = true
         retry?.cancel()
         connectTimer?.cancel()
+        notFoundTimer?.cancel()
         stopDiscovery()
         val ep = endpoint ?: connecting
         _status.value = TransportStatus.Stopped
@@ -244,23 +378,34 @@ class NearbyClientTransport(
         if (closed || endpoint != null || connecting != null) return
         val missing = missingPermissions()
         if (missing.isNotEmpty()) {
+            log("permissions missing: ${missing.joinToString { it.substringAfterLast('.') }}")
             _status.value = TransportStatus.MissingPermissions(missing)
             return
         }
+        blockingSetting()?.let {
+            log("$it is off")
+            _status.value = TransportStatus.NeedsSetting(it)
+            return
+        }
         _status.value = TransportStatus.Discovering
+        _stats.update { it.copy(starts = it.starts + 1) }
         discovering = true
+        notFoundTimer?.cancel()
+        notFoundTimer = scheduler.schedule(notFoundMs) {
+            if (discovering && _status.value == TransportStatus.Discovering) {
+                log("host not found for ${notFoundMs / 1000} s, still looking")
+                _status.value = TransportStatus.NotFound
+            }
+        }
         api.startDiscovery(serviceId, discoveryCallback) { result ->
             when {
                 result == ApiResult.Ok -> Unit
                 result is ApiResult.Failed && result.error == ApiError.ALREADY_ACTIVE -> Unit
-                result is ApiResult.Failed && result.error == ApiError.MISSING_PERMISSION -> {
-                    discovering = false
-                    _status.value = TransportStatus.MissingPermissions(emptyList())
-                }
                 result is ApiResult.Failed -> {
                     discovering = false
+                    notFoundTimer?.cancel()
                     // A late failure must not knock over a link found in the meantime.
-                    if (endpoint == null && connecting == null) scheduleRetry()
+                    if (endpoint == null && connecting == null && !closed) failed("startDiscovery", result)
                 }
             }
         }
@@ -269,12 +414,49 @@ class NearbyClientTransport(
     private fun stopDiscovery() {
         if (discovering) api.stopDiscovery()
         discovering = false
+        notFoundTimer?.cancel()
     }
+
+    /** A failed try: stop where the user must act, clear Nearby once for 8008, else back off (at most [MAX_FAILURES] in a row). */
+    private fun failed(call: String, result: ApiResult.Failed) {
+        val n = _stats.value.failuresInARow + 1
+        _stats.update {
+            it.copy(
+                failuresInARow = n, lastCode = result.code, lastCall = call,
+                nearbyMissing = NearbyCodes.describe(result.code).permission ?: it.nearbyMissing,
+            )
+        }
+        log("$call failed: ${result.describe()} (try $n)")
+        result.blocked(missingPermissions())?.let {
+            _status.value = it
+            return
+        }
+        when {
+            // 8008: Nearby still holds this app's advertising (it hosted before); clear it once.
+            result.error == ApiError.BUSY && !busyRetried -> {
+                busyRetried = true
+                log("clearing Nearby (stopAdvertising, stopAllEndpoints), then once more")
+                api.stopAdvertising()
+                api.stopAllEndpoints()
+                retryIn(NearbyHostTransport.BUSY_RETRY_MS)
+            }
+            result.error == ApiError.BUSY || n >= MAX_FAILURES -> _status.value = TransportStatus.Failed(result.error, result.message, result.code)
+            else -> scheduleRetry()
+        }
+    }
+
+    /** A try that ended without a Nearby code (timeout, host lost mid-handshake): counts like a failure. */
+    private fun gaveUp(call: String) = failed(call, ApiResult.Failed(ApiError.OTHER, 0, call))
 
     private fun scheduleRetry() {
         if (closed) return
         val delay = backoffMs[minOf(attempt, backoffMs.lastIndex)]
         attempt++
+        retryIn(delay)
+    }
+
+    private fun retryIn(delay: Long) {
+        if (closed) return
         _status.value = TransportStatus.Reconnecting(delay)
         retry?.cancel()
         retry = scheduler.schedule(delay) { discover() }
@@ -300,11 +482,16 @@ class NearbyClientTransport(
     private val discoveryCallback = object : DiscoveryCallback {
         override fun onEndpointFound(endpointId: String, name: String, serviceId: String) {
             if (closed || endpoint != null || connecting != null) return
-            if (serviceId != this@NearbyClientTransport.serviceId || !JoinAuth.matches(name, link.sessionId)) return
+            if (serviceId != this@NearbyClientTransport.serviceId || !JoinAuth.matches(name, link.sessionId)) {
+                log("found $endpointId, another game")
+                return
+            }
             stopDiscovery()
             val a = Attempt(++attempts)
             current = a
             connecting = endpointId
+            log("found the host ($endpointId), requesting (attempt ${a.number})")
+            _stats.update { it.copy(requests = it.requests + 1) }
             _status.value = TransportStatus.Connecting(endpointId)
             // Field test: the host lost Wi-Fi mid-request, no result ever came, and `connecting` then
             // made the guest ignore the host it found again ("Connecting…" forever).
@@ -315,7 +502,7 @@ class NearbyClientTransport(
                     current = null
                     connecting = null
                     api.disconnectFromEndpoint(endpointId)
-                    scheduleRetry()
+                    gaveUp("requestConnection timeout")
                 }
             }
             api.requestConnection(requestName(), endpointId, a) { result ->
@@ -323,11 +510,7 @@ class NearbyClientTransport(
                     current = null
                     connecting = null
                     connectTimer?.cancel()
-                    if (result.error == ApiError.MISSING_PERMISSION) {
-                        _status.value = TransportStatus.MissingPermissions(emptyList())
-                    } else {
-                        scheduleRetry()
-                    }
+                    failed("requestConnection", result)
                 }
             }
         }
@@ -335,10 +518,11 @@ class NearbyClientTransport(
         override fun onEndpointLost(endpointId: String) {
             // The host vanished before we got connected: look again (a connected link reports onDisconnected instead).
             if (connecting == endpointId && endpoint == null) {
+                log("host $endpointId lost before the link")
                 current = null
                 connecting = null
                 connectTimer?.cancel()
-                scheduleRetry()
+                gaveUp("endpoint lost")
             }
         }
     }
@@ -358,7 +542,9 @@ class NearbyClientTransport(
                 api.rejectConnection(endpointId)
                 return
             }
-            api.acceptConnection(endpointId, payloads) { }
+            api.acceptConnection(endpointId, payloads) { result ->
+                if (result is ApiResult.Failed) log("acceptConnection failed: ${result.describe()}")
+            }
         }
 
         override fun onConnectionResult(endpointId: String, result: ApiResult) {
@@ -371,16 +557,20 @@ class NearbyClientTransport(
             if (result == ApiResult.Ok && !closed) {
                 endpoint = endpointId
                 attempt = 0
+                busyRetried = false
+                _stats.update { it.copy(failuresInARow = 0) }
                 retry?.cancel()
+                log("linked to $endpointId (attempt $number)")
                 _status.value = TransportStatus.Connected(endpointId)
                 listener?.onConnected()
             } else if (result is ApiResult.Failed && result.error == ApiError.REJECTED) {
                 current = null
+                log("the host rejected the link (attempt $number)")
                 // Wrong token / removed: the host won't take us; don't hammer it.
-                _status.value = TransportStatus.Failed(ApiError.REJECTED, result.message)
+                _status.value = TransportStatus.Failed(ApiError.REJECTED, result.message, result.code)
             } else {
                 current = null
-                scheduleRetry()
+                if (result is ApiResult.Failed) failed("connectionResult", result) else scheduleRetry()
             }
         }
 
@@ -400,8 +590,11 @@ class NearbyClientTransport(
 
         /** Bluetooth handshakes took ~11 s in the field test: well above that. */
         const val CONNECT_TIMEOUT_MS = 30_000L
+
+        /** Failed tries in a row before the guest (or host) stops and offers Try again. */
+        const val MAX_FAILURES = 6
+
+        /** "Not found yet": the host phone isn't seen after this long. */
+        const val NOT_FOUND_MS = 20_000L
     }
 }
-
-private fun ApiResult.Failed.toStatus(): TransportStatus =
-    if (error == ApiError.MISSING_PERMISSION) TransportStatus.MissingPermissions(emptyList()) else TransportStatus.Failed(error, message)

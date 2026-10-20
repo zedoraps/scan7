@@ -1,7 +1,8 @@
 package net.moesli.scan7.ui.round
 
-import net.moesli.scan7.multiplayer.nearby.TransportStatus
-import androidx.lifecycle.compose.LifecycleResumeEffect
+import net.moesli.scan7.share.RadioRole
+import net.moesli.scan7.ui.share.OnReturnFromSettings
+import net.moesli.scan7.ui.share.RadioPanel
 import kotlinx.coroutines.delay
 import android.util.Log
 import androidx.compose.foundation.background
@@ -553,15 +554,10 @@ fun RoundRoute(
     }
 
     // ---- Multiplayer ------------------------------------------------------------------------
-    // Host back from the app settings with the permissions now granted: start the radio again (nobody
-    // could join without it, so a fresh code costs nothing).
-    LifecycleResumeEffect(host?.transport) {
-        if (host?.transport is TransportStatus.MissingPermissions && host.mode == LinkMode.RADIO && permissions.missing().isEmpty()) {
-            shareRuntime.stopHosting()
-            shareRuntime.host(gameId, LinkMode.RADIO)
-        }
-        onPauseOrDispose {}
-    }
+    // Host back from a settings screen the share sheet opened: one fresh radio try, same QR code
+    // (not keyed on the status: that restarted the radio on every status change).
+    val retryRadio = { if (host?.mode == LinkMode.RADIO) shareRuntime.retryHosting(gameId) }
+    OnReturnFromSettings(permissions) { retryRadio() }
     if (flags.shareSheet) {
         // Opening the sheet starts sharing (radio after the permission, else the debug demo network).
         LaunchedEffect(Unit) {
@@ -578,11 +574,13 @@ fun RoundRoute(
             onDismiss = { flags.shareSheet = false },
             seated = snap.seatedPlayers,
             onClaimSelf = { id -> shareRuntime.hostClaim(id, listOf(id)) },
-            onAllow = {
-                permissions.run {
-                    shareRuntime.stopHosting()
-                    shareRuntime.host(gameId, LinkMode.RADIO)
+            onAllow = { permissions.run { retryRadio() } },
+            radioPanel = if (host?.mode == LinkMode.RADIO) {
+                {
+                    RadioPanel(RadioRole.HOST, host.transport, host.radioStats, shareRuntime, permissions, onRetry = { retryRadio() }, compact = true)
                 }
+            } else {
+                null
             },
         )
     }

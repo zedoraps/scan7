@@ -17,6 +17,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import net.moesli.scan7.R
 import net.moesli.scan7.multiplayer.nearby.NearbyPermissions
 import net.moesli.scan7.ui.components.Scan7ConfirmDialog
@@ -34,6 +36,28 @@ class RadioPermissionRequest internal constructor(private val context: Context) 
     internal var rationale by mutableStateOf(false)
     internal var denied by mutableStateOf(false)
     internal var launch: (Array<String>) -> Unit = {}
+
+    /**
+     * Set when a button sent the user to the system settings (app, Location, Bluetooth, Wi-Fi):
+     * [OnReturnFromSettings] then tries the radio again once. Not keyed on the radio's status: that
+     * retried on every status change and, with Nearby refusing a granted permission, made the Join
+     * screen flicker between "Connecting" and "permissions" forever (field report 2026-10-19).
+     */
+    internal var sentToSettings = false
+
+    /** Opens a settings screen ([action], e.g. `Settings.ACTION_LOCATION_SOURCE_SETTINGS`); the return tries again. */
+    fun openSettings(action: String) {
+        sentToSettings = true
+        val intent = if (action == Settings.ACTION_APPLICATION_DETAILS_SETTINGS) {
+            Intent(action, Uri.fromParts("package", context.packageName, null))
+        } else {
+            Intent(action)
+        }
+        runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            .onFailure { context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    }
+
+    fun openAppSettings() = openSettings(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
 
     fun missing(): List<String> = NearbyPermissions.missing(Build.VERSION.SDK_INT) {
         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
@@ -97,10 +121,7 @@ fun rememberRadioPermissionRequest(): RadioPermissionRequest {
             onConfirm = {
                 request.denied = false
                 request.cancel()
-                context.startActivity(
-                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                )
+                request.openAppSettings()
             },
             onCancel = {
                 request.denied = false
@@ -109,4 +130,15 @@ fun rememberRadioPermissionRequest(): RadioPermissionRequest {
         )
     }
     return request
+}
+
+/** Back from a settings screen [request] opened: [onReturn] once (a fresh radio try). */
+@Composable
+fun OnReturnFromSettings(request: RadioPermissionRequest, onReturn: () -> Unit) {
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (request.sentToSettings) {
+            request.sentToSettings = false
+            onReturn()
+        }
+    }
 }

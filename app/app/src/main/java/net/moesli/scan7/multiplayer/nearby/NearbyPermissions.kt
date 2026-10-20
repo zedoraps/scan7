@@ -41,8 +41,21 @@ object NearbyPermissions {
     /** Which explanation the rationale line gives before the system dialog. */
     fun rationale(sdk: Int): Rationale = if (sdk <= 30) Rationale.LOCATION else Rationale.NEARBY_DEVICES
 
-    /** Before Android 12, discovery also needs the location *setting* switched on. */
-    fun needsLocationEnabled(sdk: Int): Boolean = sdk <= 30
+    /** Install-time permissions Nearby also checks (8032 / 8033); shown in the technical details. */
+    val installTime = listOf("android.permission.ACCESS_WIFI_STATE", "android.permission.CHANGE_WIFI_STATE")
+
+    /**
+     * The setting that stops this try before Nearby is touched, `null` = go. Discovery needs the
+     * Location *setting* on, on every API level: Android turns BLE scanning off with Location
+     * unless the app declares `neverForLocation` on BLUETOOTH_SCAN, which Scan7 doesn't (Nearby
+     * needs location; source.android.com/docs/core/connect/bluetooth/ble). Advertising doesn't scan,
+     * which fits the field report (Samsung phones could host but not join). Both need Bluetooth.
+     */
+    fun blockingSetting(discovering: Boolean, locationOn: Boolean, bluetoothOn: Boolean): RadioSetting? = when {
+        !bluetoothOn -> RadioSetting.BLUETOOTH
+        discovering && !locationOn -> RadioSetting.LOCATION
+        else -> null
+    }
 
     enum class Rationale {
         /** "Android needs location access to find nearby phones; Scan7 never uses your location." */
