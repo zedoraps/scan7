@@ -39,6 +39,7 @@ import net.moesli.scan7.multiplayer.ScanOrder
 import net.moesli.scan7.multiplayer.mapPlayerIds
 import net.moesli.scan7.multiplayer.nearby.Cancellable
 import net.moesli.scan7.multiplayer.nearby.JoinLink
+import net.moesli.scan7.multiplayer.nearby.LinkStats
 import net.moesli.scan7.multiplayer.nearby.Scheduler
 import net.moesli.scan7.multiplayer.nearby.TransportStatus
 import kotlinx.coroutines.cancel
@@ -60,6 +61,8 @@ data class HostInfo(
     /** Host player id → who scans them (guests only), for the badges. */
     val scannedBy: Map<Long, DeviceInfo>,
     val transport: TransportStatus? = null,
+    /** Radio counters for the technical details. */
+    val radioStats: LinkStats? = null,
 )
 
 /** What this phone joined. Player ids here are **local** (the joined copy in this phone's database). */
@@ -93,6 +96,8 @@ data class GuestInfo(
     val transport: TransportStatus? = null,
     /** Labels of every phone in the session by device id. */
     val labels: Map<String, DeviceLabel>,
+    /** Radio counters for the technical details. */
+    val radioStats: LinkStats? = null,
 )
 
 /**
@@ -150,6 +155,7 @@ class ShareRuntime(
 
     private inner class Hosting(val gameId: Long, val link: JoinLink, val mode: LinkMode, val session: HostSession) {
         var transportStatus: TransportStatus? = null
+        var radioStats: LinkStats? = null
         val jobs = mutableListOf<Job>()
     }
 
@@ -158,6 +164,7 @@ class ShareRuntime(
         var localGameId: Long? = null
         var uid: String? = null
         var transportStatus: TransportStatus? = null
+        var radioStats: LinkStats? = null
         var lastPlayers: Map<Long, Player> = emptyMap()
         val jobs = mutableListOf<Job>()
 
@@ -202,7 +209,10 @@ class ShareRuntime(
             hosting = h
             session.onChange = { hostChanged(h) }
             repository.route(gameId) { build -> withContext(dispatcher) { session.perform(build(session.state)) } }
-            radioLink?.let { r -> h.jobs += scope.launch { r.status.collect { h.transportStatus = it; publish() } } }
+            radioLink?.let { r ->
+                h.jobs += scope.launch { r.status.collect { h.transportStatus = it; publish() } }
+                h.jobs += scope.launch { r.stats.collect { h.radioStats = it; publish() } }
+            }
             session.start()
             saveHost(h)
             if (mode == LinkMode.RADIO) radio.sessionActive(context, true)
@@ -221,7 +231,11 @@ class ShareRuntime(
             repository.route(h.gameId, null)
             repository.setScanFilter(h.gameId, null)
             repository.deleteShareSession(h.gameId)
-            val moved = Hosting(gameId, h.link, h.mode, h.session).also { it.transportStatus = h.transportStatus; it.jobs += h.jobs }
+            val moved = Hosting(gameId, h.link, h.mode, h.session).also {
+                it.transportStatus = h.transportStatus
+                it.radioStats = h.radioStats
+                it.jobs += h.jobs
+            }
             hosting = moved
             h.session.newGame(game, players)
             repository.route(gameId) { build -> withContext(dispatcher) { h.session.perform(build(h.session.state)) } }
@@ -230,6 +244,17 @@ class ShareRuntime(
             updateHostFilter(moved)
             publish()
         }
+    }
+
+    /**
+     * The share sheet's Try again / back from the settings: a fresh radio for the same session and
+     * QR code (paused, then shared again), so phones already connected find it again.
+     */
+    fun retryHosting(gameId: Long) = scope.launch {
+        val h = hosting?.takeIf { it.gameId == gameId && it.mode == LinkMode.RADIO } ?: return@launch
+        RadioLog.app.add("app", "host: try again")
+        stopHostingNow(keepSession = true)
+        host(h.gameId, LinkMode.RADIO)
     }
 
     /** Host: "who am I · who do I scan" (the host always wins). */
@@ -347,7 +372,10 @@ class ShareRuntime(
         if (j.mode != LinkMode.RADIO) return network().connect()
         val r = radio.join(context, j.link, scheduler) ?: return null
         j.statusJob?.cancel()
-        j.statusJob = scope.launch { r.status.collect { j.transportStatus = it; publish() } }
+        j.statusJob = scope.launch {
+            launch { r.stats.collect { j.radioStats = it; publish() } }
+            r.status.collect { j.transportStatus = it; publish() }
+        }
         return r.transport
     }
 
@@ -376,6 +404,24 @@ class ShareRuntime(
     }
 
     fun clearRefusal() = scope.launch { joined?.session?.clearRejections() }
+
+    /**
+     * The Join screen's Try again / back from the settings: a fresh radio link for the joined session
+     * (outbox, claims and saved rejoin stay; a leave + join deleted the saved session every time).
+     */
+    fun retryJoin() = scope.launch {
+        val j = joined?.takeIf { it.mode == LinkMode.RADIO } ?: return@launch
+        if (j.session.view.value.status == ClientStatus.JOINED) return@launch
+        RadioLog.app.add("app", "guest: try again")
+        transportFor(j)?.let(j.session::attach)
+    }
+
+    /** Phone switches the radio depends on, for the join / share screens (`null` without a radio). */
+    fun radioSettings(): RadioSettings? = radio.settings(context)
+
+    fun playServices(): PlayServicesInfo? = radio.playServices(context)
+
+    fun fixPlayServices(activity: android.app.Activity) = radio.fixPlayServices(activity)
 
     /** Leave game: the claims are released; the joined copy stays in the history. */
     fun leave() = scope.launch { leaveNow() }
@@ -475,6 +521,7 @@ class ShareRuntime(
             self = roster.first { it.deviceId == HOST_DEVICE },
             scannedBy = guests.flatMap { d -> d.scans.map { it to d } }.toMap(),
             transport = h.transportStatus,
+            radioStats = h.radioStats,
         )
     }
 
@@ -513,6 +560,7 @@ class ShareRuntime(
             joinRejection = v.joinRejection,
             transport = j.transportStatus,
             labels = labels,
+            radioStats = j.radioStats,
         )
     }
 

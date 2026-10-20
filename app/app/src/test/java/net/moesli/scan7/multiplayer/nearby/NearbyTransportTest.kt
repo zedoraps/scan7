@@ -88,7 +88,7 @@ class NearbyTransportTest {
         val eve = t.guest("eve", link = join.copy(token = "guessed"))
         t.settle()
         assertEquals(1, t.hostTransport.rejectedRequests)
-        assertEquals(TransportStatus.Failed(ApiError.REJECTED, null), eve.transport.status.value)
+        assertEquals(TransportStatus.Failed(ApiError.REJECTED, null, 8004), eve.transport.status.value)
         assertEquals(emptySet<String>(), t.hostTransport.endpoints)
         assertEquals(null, eve.session.view.value.game)
         assertTrue(t.hostApi.sent.isEmpty())
@@ -232,7 +232,7 @@ class NearbyTransportTest {
         api.discovery!!.onEndpointFound("h1", JoinAuth.advertisedName(join.sessionId), service)
         api.connection!!.onConnectionInitiated("h1", JoinAuth.advertisedName(join.sessionId))
         api.connection!!.onConnectionResult("h1", ApiResult.Failed(ApiError.REJECTED, 8004))
-        assertEquals(TransportStatus.Failed(ApiError.REJECTED, null), transport.status.value)
+        assertEquals(TransportStatus.Failed(ApiError.REJECTED, null, 8004), transport.status.value)
         assertEquals(0, scheduler.pending)
     }
 
@@ -302,6 +302,166 @@ class NearbyTransportTest {
     }
 
     @Test
+    fun nearbyNamingAGrantedPermission_stopsWithoutRetrying() {
+        // Field report 2026-10-19 (Samsung): Nearby said "missing permission" while our check found
+        // everything granted, the resume effect retried, and the screen flickered forever.
+        val api = ManualApi()
+        val scheduler = FakeScheduler()
+        val logged = mutableListOf<String>()
+        api.discoveryResults += ApiResult.Failed(ApiError.MISSING_PERMISSION, 8036)
+        val transport = NearbyClientTransport(api, service, join, scheduler, log = { logged += it })
+        transport.start(DiscoveryProbe())
+        assertEquals(TransportStatus.NearbyRefused(NearbyPermissions.ACCESS_FINE_LOCATION, 8036), transport.status.value)
+        scheduler.advanceBy(10 * 60_000)
+        assertEquals(1, api.count("startDiscovery"))
+        assertEquals(0, scheduler.pending)
+        val stats = transport.stats.value
+        assertEquals(8036, stats.lastCode)
+        assertEquals("startDiscovery", stats.lastCall)
+        assertEquals(NearbyPermissions.ACCESS_FINE_LOCATION, stats.nearbyMissing)
+        assertTrue(logged.any { "8036 MISSING_PERMISSION_ACCESS_FINE_LOCATION" in it })
+    }
+
+    @Test
+    fun nearbyNamingAPermissionOurCheckAlsoMisses_isMissingPermissions() {
+        val api = ManualApi()
+        val scheduler = FakeScheduler()
+        var missing = emptyList<String>()
+        api.discoveryResults += ApiResult.Failed(ApiError.MISSING_PERMISSION, 8037)
+        // Revoked between our check and Nearby's.
+        val transport = NearbyClientTransport(api, service, join, scheduler, missingPermissions = { missing.also { missing = listOf(NearbyPermissions.BLUETOOTH_SCAN) } })
+        transport.start(DiscoveryProbe())
+        assertEquals(TransportStatus.MissingPermissions(listOf(NearbyPermissions.BLUETOOTH_SCAN), 8037), transport.status.value)
+        assertEquals(0, scheduler.pending)
+    }
+
+    @Test
+    fun locationOff_isNeedsSetting_beforeNearbyAndFromNearby() {
+        val api = ManualApi()
+        val scheduler = FakeScheduler()
+        var off: RadioSetting? = RadioSetting.LOCATION
+        val transport = NearbyClientTransport(api, service, join, scheduler, blockingSetting = { off })
+        transport.start(DiscoveryProbe())
+        assertEquals(TransportStatus.NeedsSetting(RadioSetting.LOCATION), transport.status.value)
+        assertEquals(emptyList<String>(), api.calls) // Nearby not touched
+        assertEquals(0, scheduler.pending)
+
+        // Our check passes, Nearby still says 8025.
+        off = null
+        val api2 = ManualApi()
+        api2.discoveryResults += ApiResult.Failed(ApiError.SETTING_OFF, 8025)
+        val t2 = NearbyClientTransport(api2, service, join, scheduler)
+        t2.start(DiscoveryProbe())
+        assertEquals(TransportStatus.NeedsSetting(RadioSetting.LOCATION, 8025), t2.status.value)
+        assertEquals(0, scheduler.pending)
+    }
+
+    @Test
+    fun radioErrors_stopAfterSixInARow_insteadOfConnectingForever() {
+        val api = ManualApi()
+        val scheduler = FakeScheduler()
+        repeat(10) { api.discoveryResults += ApiResult.Failed(ApiError.RADIO, 8007) }
+        val transport = NearbyClientTransport(api, service, join, scheduler)
+        transport.start(DiscoveryProbe())
+        assertEquals(TransportStatus.Reconnecting(1_000), transport.status.value)
+        scheduler.advanceBy(10 * 60_000)
+        assertEquals(NearbyClientTransport.MAX_FAILURES, api.count("startDiscovery"))
+        assertEquals(TransportStatus.Failed(ApiError.RADIO, null, 8007), transport.status.value)
+        assertEquals(6, transport.stats.value.failuresInARow)
+        assertEquals(0, scheduler.pending)
+    }
+
+    @Test
+    fun aLinkResetsTheFailureCount() {
+        val api = ManualApi()
+        val scheduler = FakeScheduler()
+        repeat(5) { api.discoveryResults += ApiResult.Failed(ApiError.RADIO, 8007) }
+        val transport = NearbyClientTransport(api, service, join, scheduler)
+        transport.start(DiscoveryProbe())
+        scheduler.advanceBy(31_000) // 1 + 2 + 4 + 8 + 16 s
+        assertEquals(TransportStatus.Discovering, transport.status.value) // the 6th try worked
+        api.discovery!!.onEndpointFound("h1", JoinAuth.advertisedName(join.sessionId), service)
+        api.connection!!.onConnectionInitiated("h1", JoinAuth.advertisedName(join.sessionId))
+        api.connection!!.onConnectionResult("h1", ApiResult.Ok)
+        assertEquals(0, transport.stats.value.failuresInARow)
+        assertEquals(1, transport.stats.value.requests)
+    }
+
+    @Test
+    fun alreadyHaveActiveStrategy_clearsNearbyOnce_thenFails() {
+        val api = ManualApi()
+        val scheduler = FakeScheduler()
+        api.discoveryResults += ApiResult.Failed(ApiError.BUSY, 8008)
+        val transport = NearbyClientTransport(api, service, join, scheduler)
+        transport.start(DiscoveryProbe())
+        assertEquals(1, api.count("stopAdvertising"))
+        assertEquals(1, api.count("stopAllEndpoints"))
+        assertEquals(TransportStatus.Reconnecting(NearbyHostTransport.BUSY_RETRY_MS), transport.status.value)
+        scheduler.advanceBy(NearbyHostTransport.BUSY_RETRY_MS)
+        assertEquals(2, api.count("startDiscovery"))
+        assertEquals(TransportStatus.Discovering, transport.status.value)
+
+        // Twice in a row: say so instead of looping.
+        val api2 = ManualApi()
+        repeat(2) { api2.discoveryResults += ApiResult.Failed(ApiError.BUSY, 8008) }
+        val t2 = NearbyClientTransport(api2, service, join, scheduler)
+        t2.start(DiscoveryProbe())
+        scheduler.advanceBy(60_000)
+        assertEquals(TransportStatus.Failed(ApiError.BUSY, null, 8008), t2.status.value)
+        assertEquals(2, api2.count("startDiscovery"))
+    }
+
+    @Test
+    fun hostNotFound_after20s_keepsLooking() {
+        val api = ManualApi()
+        val scheduler = FakeScheduler()
+        val transport = NearbyClientTransport(api, service, join, scheduler)
+        transport.start(DiscoveryProbe())
+        scheduler.advanceBy(NearbyClientTransport.NOT_FOUND_MS - 1)
+        assertEquals(TransportStatus.Discovering, transport.status.value)
+        scheduler.advanceBy(1)
+        assertEquals(TransportStatus.NotFound, transport.status.value)
+        assertEquals(0, api.count("stopDiscovery")) // still discovering
+        api.discovery!!.onEndpointFound("h1", JoinAuth.advertisedName(join.sessionId), service)
+        assertEquals(TransportStatus.Connecting("h1"), transport.status.value)
+    }
+
+    @Test
+    fun host_retriesRadioErrors_clears8008_andChecksBluetooth() {
+        val scheduler = FakeScheduler()
+        val api = ManualApi()
+        api.advertisingResults += ApiResult.Failed(ApiError.BUSY, 8008)
+        val host = NearbyHostTransport(api, service, join.sessionId, join.token, scheduler)
+        host.start(NoopHost)
+        assertEquals(1, api.count("stopDiscovery"))
+        scheduler.advanceBy(NearbyHostTransport.BUSY_RETRY_MS)
+        assertEquals(TransportStatus.Advertising, host.status.value)
+
+        val api2 = ManualApi()
+        repeat(10) { api2.advertisingResults += ApiResult.Failed(ApiError.RADIO, 8007) }
+        val host2 = NearbyHostTransport(api2, service, join.sessionId, join.token, scheduler)
+        host2.start(NoopHost)
+        scheduler.advanceBy(10 * 60_000)
+        assertEquals(TransportStatus.Failed(ApiError.RADIO, null, 8007), host2.status.value)
+        assertEquals(NearbyClientTransport.MAX_FAILURES, api2.count("startAdvertising"))
+
+        val api3 = ManualApi()
+        val host3 = NearbyHostTransport(api3, service, join.sessionId, join.token, scheduler, blockingSetting = { RadioSetting.BLUETOOTH })
+        host3.start(NoopHost)
+        assertEquals(TransportStatus.NeedsSetting(RadioSetting.BLUETOOTH), host3.status.value)
+        assertEquals(emptyList<String>(), api3.calls)
+
+        // Nearby naming a granted permission on the host: no loop either.
+        val api4 = ManualApi()
+        api4.advertisingResults += ApiResult.Failed(ApiError.MISSING_PERMISSION, 8038)
+        val host4 = NearbyHostTransport(api4, service, join.sessionId, join.token, scheduler)
+        host4.start(NoopHost)
+        scheduler.advanceBy(60_000)
+        assertEquals(TransportStatus.NearbyRefused(NearbyPermissions.BLUETOOTH_ADVERTISE, 8038), host4.status.value)
+        assertEquals(1, api4.count("startAdvertising"))
+    }
+
+    @Test
     fun nearbyRefusing_forPermissions_isReported() {
         val medium = FakeNearbyMedium()
         val scheduler = FakeScheduler()
@@ -309,13 +469,13 @@ class NearbyTransportTest {
         val host = NearbyHostTransport(hostApi, service, join.sessionId, join.token, scheduler)
         host.start(NoopHost)
         medium.deliverAll()
-        assertEquals(TransportStatus.MissingPermissions(emptyList()), host.status.value)
+        assertEquals(TransportStatus.NearbyRefused(null, 0), host.status.value)
 
         val guestApi = medium.api().also { it.permissionDenied = true }
         val guest = NearbyClientTransport(guestApi, service, join, scheduler)
         guest.start(DiscoveryProbe())
         medium.deliverAll()
-        assertEquals(TransportStatus.MissingPermissions(emptyList()), guest.status.value)
+        assertEquals(TransportStatus.NearbyRefused(null, 0), guest.status.value)
         assertEquals(0, scheduler.pending) // no retry loop
     }
 
@@ -514,12 +674,16 @@ class NearbyTransportTest {
         var payloads: PayloadCallback? = null
         var requestResult: ApiResult = ApiResult.Ok
 
+        /** Answers of the next startDiscovery / startAdvertising calls (then Ok). */
+        val discoveryResults = ArrayDeque<ApiResult>()
+        val advertisingResults = ArrayDeque<ApiResult>()
+
         fun count(call: String) = calls.count { it == call }
 
         override fun startAdvertising(localName: String, serviceId: String, callback: ConnectionCallback, done: (ApiResult) -> Unit) {
             calls += "startAdvertising"
             advertising = callback
-            done(ApiResult.Ok)
+            done(advertisingResults.removeFirstOrNull() ?: ApiResult.Ok)
         }
 
         override fun stopAdvertising() {
@@ -529,7 +693,7 @@ class NearbyTransportTest {
         override fun startDiscovery(serviceId: String, callback: DiscoveryCallback, done: (ApiResult) -> Unit) {
             calls += "startDiscovery"
             discovery = callback
-            done(ApiResult.Ok)
+            done(discoveryResults.removeFirstOrNull() ?: ApiResult.Ok)
         }
 
         override fun stopDiscovery() {
