@@ -18,7 +18,7 @@ class MakeCutoutsPathsTest(unittest.TestCase):
     def test_config_paths_and_cli_override(self):
         cfg = mc.load_config(ML / "config" / "cards_vengeance.yaml")
         src, extra, out = mc.resolve_paths(cfg)
-        self.assertEqual((src, extra, out), (ML / "data/cards_flat_vengeance", None, ML / "out/cutouts_vengeance"))
+        self.assertEqual((src, extra, out), (ML / "data/cards_flat_vengeance", ML / "data/cards_extra_vengeance", ML / "out/cutouts_vengeance"))
         src, extra, out = mc.resolve_paths(cfg, out="out/x", extra="data/cards_extra")
         self.assertEqual((extra, out), (ML / "data/cards_extra", ML / "out/x"))
         self.assertIsNone(mc.resolve_paths({}, extra="")[1])
@@ -28,7 +28,9 @@ class SynthConfigTest(unittest.TestCase):
     def test_base_merge_replaces_whole_sections(self):
         cfg = gs.load_synth_config(ML / "config" / "synth_vengeance.yaml")
         base = gs.load_yaml(gs.SYNTH_CONFIG)
-        self.assertEqual(cfg["variants"], {})
+        # Its own variants (English looks) replace Flip 7's whole section.
+        self.assertEqual(cfg["variants"]["weights"]["back_en_render"], 0.4)
+        self.assertNotIn("00_en_rainbow", cfg["variants"]["weights"])
         self.assertEqual(cfg["row"], base["row"])
         self.assertNotIn("base", cfg)
         self.assertEqual(gs.cards_config_path(cfg), ML / "config" / "cards_vengeance.yaml")
