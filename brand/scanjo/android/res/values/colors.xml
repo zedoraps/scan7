@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sj_ground">#EAF3FB</color>
+    <color name="sj_surface">#FFFFFF</color>
+    <color name="sj_line">#CFE0F0</color>
+    <color name="sj_text">#12233D</color>
+    <color name="sj_muted">#4F6580</color>
+    <color name="sj_accent">#2A6FD8</color>
+    <color name="sj_accent_text">#2563C7</color>
+    <color name="sj_accent_tint">#DCE9FB</color>
+    <color name="sj_on_accent">#FFFFFF</color>
+    <color name="sj_penalty">#D62E7E</color>
+    <color name="sj_on_penalty">#FFFFFF</color>
+    <color name="sj_done_bg">#E1ECF6</color>
+    <color name="sj_done_line">#D6E4F1</color>
+    <color name="sj_done_ink">#6B7F98</color>
+    <color name="sj_open_dash">#9FB6CF</color>
+    <!-- Player colors (same in both modes) -->
+    <color name="sj_player_amber">#FFC24B</color>
+    <color name="sj_player_violet">#B39BFF</color>
+    <color name="sj_player_lime">#A8E55C</color>
+    <color name="sj_player_sand">#F2E3C4</color>
+    <color name="sj_player_sky">#7FA8FF</color>
+    <color name="sj_player_mint">#4FE0A8</color>
+    <color name="sj_player_khaki">#C9B28A</color>
+    <color name="sj_player_salmon">#FF9C8A</color>
+    <color name="sj_player_steel">#A9B8CC</color>
+    <color name="sj_player_chartreuse">#E2F06B</color>
+    <color name="sj_player_chalk">#E8EDF3</color>
+    <color name="sj_player_peach">#FFB27A</color>
+    <color name="sj_player_rose">#F2A7C3</color>
+    <color name="sj_player_leaf">#6FCF7F</color>
+    <color name="sj_player_olive">#9DB86A</color>
+    <!-- Camera overlay (same in both modes) -->
+    <color name="sj_scan_box">#2A6FD8</color>
+    <color name="sj_scan_box_outline">#FFFFFF</color>
+    <color name="sj_scan_cleared">#FFFFFF</color>
+    <color name="sj_scan_on_box">#FFFFFF</color>
+</resources>

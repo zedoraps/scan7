@@ -46,6 +46,13 @@ val hasUploadKey = listOf(uploadStoreFile, uploadStorePassword, uploadKeyAlias, 
 val scan7Flavors: Boolean = providers.gradleProperty("scan7.flavors").orNull == "true"
 val scan7Foss: Boolean = providers.gradleProperty("scan7.foss").orNull == "true"
 
+// ---- Brand (brand/BRAND.md, brand/scanjo/BRAND.md) -----------------------------------------------
+// The default build is Scan7 (Flip 7). -Pscan7.brand=scanjo builds Scanjo, the Skyjo score counter:
+// its own app ID, name, launcher icon, theme (Sky Day / Night), fonts and join-link scheme from
+// src/scanjo; Scan7's own pieces live in src/scan7. Same code otherwise (shared modules come later).
+val scan7Brand: String = providers.gradleProperty("scan7.brand").orNull ?: "scan7"
+require(scan7Brand == "scan7" || scan7Brand == "scanjo") { "scan7.brand must be scan7 or scanjo, not $scan7Brand" }
+
 android {
     namespace = "net.moesli.scan7"
     compileSdk {
@@ -53,13 +60,15 @@ android {
     }
 
     defaultConfig {
-        applicationId = "net.moesli.scan7"
+        applicationId = if (scan7Brand == "scanjo") "net.moesli.scanjo" else "net.moesli.scan7"
         minSdk = 29
         targetSdk = 37
         versionCode = scan7VersionCode
         versionName = scan7VersionName
         buildConfigField("String", "SOURCE_URL", "\"$scan7SourceUrl\"")
         buildConfigField("String", "PRIVACY_URL", "\"$scan7PrivacyUrl\"")
+        // The QR join link (scan7://join / scanjo://join): the two apps never take each other's links.
+        manifestPlaceholders["joinScheme"] = scan7Brand
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -280,6 +289,9 @@ val copyLicenseTexts = tasks.register<CopyLicenseTexts>("copyLicenseTexts") {
 androidComponents {
     onVariants { variant ->
         variant.sources.assets?.addGeneratedSourceDirectory(copyLicenseTexts, CopyLicenseTexts::outputDir)
+        // Brand pieces (see "Brand" above): Kotlin (name, games, theme, fonts) and resources (icon, name, colors).
+        variant.sources.kotlin?.addStaticSourceDirectory("src/$scan7Brand/java")
+        if (file("src/$scan7Brand/res").isDirectory) variant.sources.res?.addStaticSourceDirectory("src/$scan7Brand/res")
         // Flavorless build: the play sources + manifest (Nearby radio), or with -Pscan7.foss=true the
         // Play-free `Radio` from src/foss.
         if (!scan7Flavors) {

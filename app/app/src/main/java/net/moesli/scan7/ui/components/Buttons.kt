@@ -65,11 +65,11 @@ internal fun Modifier.scan7Clickable(
     onClickLabel: String? = null,
 ): Modifier = clickable(enabled = enabled, onClickLabel = onClickLabel, role = role, onClick = onClick)
 
-/** "Close round" label in the 88 dp secondary button (Unbounded 600 12, line height 1.3). */
+/** "Close round" label in the 88 dp secondary button (DisplayFont 600 12, line height 1.3). */
 private val SmallButtonStyle = Scan7Type.button.copy(fontSize = 12.sp, lineHeight = 15.6.sp)
 
 /**
- * Primary button: cyan fill, `onAccent` label in Unbounded 600. Default is the 64 dp bottom
+ * Primary button: cyan fill, `onAccent` label in DisplayFont 600. Default is the 64 dp bottom
  * button (radius 16); the header "Done" uses height 48, radius 12, 15 sp.
  */
 @Composable
@@ -98,7 +98,7 @@ fun PrimaryButton(
     }
 }
 
-/** Secondary button: transparent with a 1.5 dp `line` border, text color label (Unbounded 600). */
+/** Secondary button: transparent with a 1.5 dp `line` border, text color label (DisplayFont 600). */
 @Composable
 fun SecondaryButton(
     text: String,
@@ -211,10 +211,14 @@ fun IconButton(
  */
 val LocalTypeEntry = compositionLocalOf { false }
 
+/** `false` in a game without bust (Skyjo): no Bust buttons (in-card, list row, player sheet). Provided by the round screen. */
+val LocalBustAllowed = compositionLocalOf { true }
+
 /**
  * In-card / in-row Scan + Bust pair: two equal columns, 6 dp apart. Scan is cyan with the scan
  * icon (keypad in Type mode, [LocalTypeEntry]), Bust is a magenta outline with the word "BUST".
- * Labelled "Scan Mia" ("Enter cards for Mia") / "Mark Mia as bust".
+ * Labelled "Scan Mia" ("Enter cards for Mia") / "Mark Mia as bust". Without bust ([LocalBustAllowed])
+ * Scan takes the full width.
  */
 @Composable
 fun ScanBustActions(
@@ -253,6 +257,7 @@ fun ScanBustActions(
         ) {
             if (type) KeypadIcon(colors.onAccent) else ScanIcon(colors.onAccent)
         }
+        if (!LocalBustAllowed.current) return@Row
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier

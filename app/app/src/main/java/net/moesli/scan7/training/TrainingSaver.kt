@@ -17,7 +17,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.moesli.scan7.BuildConfig
-import net.moesli.scan7.detection.MODEL_VERSION_ASSET
+import net.moesli.scan7.detection.DetectorModel
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.ui.scan.ScanCapture
 import net.moesli.scan7.ui.scan.ScanOutcome
@@ -47,7 +47,7 @@ object TrainingSaver {
         TrainingSample(
             timestampMillis = now,
             appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-            modelVersion = modelVersion(context),
+            modelVersion = modelVersion(context, capture.meta.model),
             zoomRatio = capture.meta.zoomRatio,
             rotationDegrees = capture.meta.rotationDegrees,
             imageWidth = capture.bitmap.width,
@@ -157,15 +157,12 @@ object TrainingSaver {
         context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(sample.toJson().toByteArray()) }
     }
 
-    /** The bundled model's version, read from assets once (sample() runs on the main thread per shutter). */
-    @Volatile
-    private var modelVersion: Result<String?>? = null
+    /** Each bundled model's version, read from assets once (sample() runs on the main thread per shutter). */
+    private val modelVersions = java.util.concurrent.ConcurrentHashMap<DetectorModel, Result<String?>>()
 
-    private fun modelVersion(context: Context): String? = (
-        modelVersion ?: runCatching {
-            context.assets.open(MODEL_VERSION_ASSET).bufferedReader().use { it.readLine()?.trim() }
-        }.also { modelVersion = it }
-    ).getOrNull()
+    private fun modelVersion(context: Context, model: DetectorModel): String? = modelVersions.getOrPut(model) {
+        runCatching { context.assets.open(model.versionAsset).bufferedReader().use { it.readLine()?.trim() } }
+    }.getOrNull()
 }
 
 private fun ScanOutcome.toTrainingOutcome(capture: ScanCapture): TrainingOutcome {

@@ -3,6 +3,7 @@ package net.moesli.scan7.data
 import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.ConfirmedCard
 import net.moesli.scan7.game.DepartedPlayer
+import net.moesli.scan7.game.GameRules
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.Player
 import net.moesli.scan7.game.PlayerResult
@@ -11,17 +12,16 @@ import net.moesli.scan7.game.ScoreAdjustment
 import net.moesli.scan7.game.Seat
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.game.defaultPositions
-import net.moesli.scan7.scoring.Card
 
 internal fun PlayerEntity.toPlayer() =
     Player(id, name, Avatar(avatarFace, avatarPattern, avatarColor).normalized(), createdAt, archived)
 
-internal fun ResultWithCards.toResult() = PlayerResult(
+internal fun ResultWithCards.toResult(rules: GameRules) = PlayerResult(
     status = result.status,
     points = result.points,
     source = result.source,
     // Unknown labels (e.g. a class removed from a future model) are dropped.
-    cards = cards.sortedBy { it.position }.mapNotNull { c -> Card.fromLabel(c.label)?.let { ConfirmedCard(it, c.ignored) } },
+    cards = cards.sortedBy { it.position }.mapNotNull { c -> rules.cardFromLabel(c.label)?.let { ConfirmedCard(it, c.ignored, c.slot) } },
     updatedAt = result.updatedAt,
 )
 
@@ -31,6 +31,8 @@ internal fun GameWithDetails.toState(): GameState {
     val fallback = defaultPositions(ordered.size)
     return GameState(
         id = game.id,
+        kind = game.kind,
+        enderPenalty = game.enderPenalty,
         target = game.target,
         seats = ordered.mapIndexed { i, s ->
             val pos = if (s.tableX != null && s.tableY != null) TablePosition(s.tableX, s.tableY) else fallback[i]
@@ -39,8 +41,9 @@ internal fun GameWithDetails.toState(): GameState {
         rounds = rounds.sortedBy { it.round.number }.map { r ->
             RoundState(
                 number = r.round.number,
-                results = r.results.associate { it.result.playerId to it.toResult() },
+                results = r.results.associate { it.result.playerId to it.toResult(game.kind.rules) },
                 closedAt = r.round.closedAt,
+                endedBy = r.round.endedBy,
             )
         },
         startedAt = game.startedAt,
@@ -75,6 +78,8 @@ internal fun GameState.toGameEntity() = GameEntity(
     endedEarly = endedEarly,
     target = target,
     viewMode = viewMode,
+    kind = kind,
+    enderPenalty = enderPenalty,
 )
 
 /** Seated players (seatIndex 0…n-1), then the departed ones (after them, without a table spot). */
@@ -85,4 +90,4 @@ internal fun GameState.toSeatEntities(gameId: Long) = seats.mapIndexed { i, s ->
 }
 
 internal fun ConfirmedCard.toEntity(resultId: Long, position: Int) =
-    ResultCardEntity(resultId = resultId, position = position, label = card.label, ignored = ignored)
+    ResultCardEntity(resultId = resultId, position = position, label = card.label, ignored = ignored, slot = slot)

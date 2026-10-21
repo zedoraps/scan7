@@ -41,6 +41,7 @@ The folders are listed below. File names matter in `cards_flat/`.
 | Folder | Content |
 |---|---|
 | `ml/data/cards_flat/` | One straight-on photo per card on a dark background, named by class: `00.jpg` … `12.jpg`, `plus2.jpg`, `plus4.jpg`, `plus6.jpg`, `plus8.jpg`, `plus10.jpg`, `x2.jpg`, `freeze.jpg`, `flip3.jpg`, `second_chance.jpg`, `back.jpg`. Extra photos of the same class: `07_2.jpg`, `07_3.jpg`, … |
+| `ml/data/cards_flat_vengeance/` | Same for Flip 7: With a Vengeance (German "Voll fies!"), classes from `ml/config/cards_vengeance.yaml`: `01` … `13`, `lucky13`, `unlucky7`, `zero`, `div2`, `minus2` … `minus10`, `just_one_more`, `swap`, `steal`, `discard`, `flip4` (+ `flip4_2`), `back` (all 28 classes). Raw shots (incl. table scenes) in `ml/data/vengeance_raw/`, `vengeance_raw2/` |
 | `ml/data/backgrounds/` | 30–50 photos of tables, floors, fabrics, desk mats, with no cards |
 | `ml/data/real_photos/train/` | Real game photos for fine-tuning (to be labeled) |
 | `ml/data/real_photos/test/` | Real game photos for evaluation only. **Never train on these.** |
@@ -62,7 +63,20 @@ The folders are listed below. File names matter in `cards_flat/`.
 ```sh
 cd ml
 uv run python scripts/make_cutouts.py            # add --measure to re-measure aspect / corner radius, --debug for detection overlays
+uv run python scripts/make_cutouts.py --config config/cards_vengeance.yaml   # With a Vengeance -> out/cutouts_vengeance
+uv run python scripts/gen_synth.py --config config/synth_vengeance.yaml --count 5000 --seed 1 --workers 6   # its synth data (base: synth.yaml) -> out/synth_vengeance
 ```
+- With a Vengeance has its own cards config (`paths:` = src / extra / out dirs; `cutouts.chroma` for the navy back, whose edge is as dark as the mat) and synth config (`cards_config`, `cutouts:` dir list with per-dir class filter + banner word area, `out`). It uses Vengeance cutouts only (a separate model; the Flip 7 model stays as it is).
+- **Vengeance model** (separate, 28 classes, ids from `config/cards_vengeance.yaml`): stage 1 synth training on mini, initialised from Flip 7 `ft_v5` (head re-initialised for 28 classes), same settings as the Flip 7 synth stage but at 800 px:
+  ```sh
+  rsync -a --exclude '*.cache' ml/out/synth_vengeance/ pmo@mini:scan7-ml/out/synth_vengeance/   # then path: /home/pmo/scan7-ml/out/synth_vengeance in its dataset.yaml
+  ssh pmo@mini 'cd ~/scan7-ml && . ./env-mini.sh && nohup nice -n 10 python scripts/train.py --model runs/ft_v5/weights/best.pt --data /home/pmo/scan7-ml/out/synth_vengeance/dataset.yaml --imgsz 800 --epochs 60 --patience 15 --batch 16 --device cpu --name veng_synth_v1 > train_veng_synth_v1.log 2>&1 &'
+  ```
+  Result (2026-10-21): best mAP50-95 0.941 (synth val, epoch 50). Then `ft_veng4`, a 12-epoch fine-tune for the 4 (pale mint, misread as 1 / 7 / Unlucky 7 under warm light): `config/synth_vengeance_4.yaml` (base synth_vengeance.yaml: the 4 drawn 4x, warmer `temperature`, more occluders and upside-down cards; 2400 images) + 1500 synth_vengeance + the 29 train scans of `ml/data/app_scans_vengeance/` x6 (split as in import_app_scans.py, 20 % test in `out/real_vengeance/test`), mix in `out/mix_veng4`. It is the app's Vengeance model:
+  ```sh
+  uv run scripts/export.py runs/ft_veng4/weights/best.pt --imgsz 800 --cards config/cards_vengeance.yaml --asset-dir vengeance --verify-dir data/vengeance_raw   # -> app assets/vengeance/
+  ```
+  Next: Label Studio sets for the Vengeance photos and scans (real train/test), and fresh scans of the 4 in warm light as a fair test.
 - The input is `ml/data/cards_flat/*.jpg`, one photo per card on the dark mat. The file stem is the class (`<class>_<n>.jpg` is an extra photo of the same class).
 - The script writes upright, perspective-corrected RGBA cutouts (600×832 px) with an anti-aliased rounded-corner alpha to `ml/out/cutouts/<stem>.png`. It trims a few px off each edge so no mat remains and leaves the colors as photographed. `ml/out/cutouts/contact_sheet.jpg` shows all cutouts on a checkerboard with the banner box outlined in magenta on number cards.
 - To find a card, the script thresholds the HSV brightness (Otsu), takes the convex hull of the largest blob, fits a line to the straight middle part of each edge, intersects these lines for the 4 sharp corners and computes the homography.

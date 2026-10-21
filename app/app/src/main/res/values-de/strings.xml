@@ -60,9 +60,11 @@
     <!-- Player status -->
     <string name="tag_open">OFFEN</string>
     <string name="tag_scored">✓ +%1$d</string>
+    <string name="tag_scored_negative">✓ −%1$d</string>
     <string name="status_open">Noch nicht gewertet</string>
     <string name="status_scored">%1$d Punkte</string>
     <string name="status_bust">Raus</string>
+    <string name="progress_scored_lowest">%1$d/%2$d · niedrigste gewinnt · Ende bei %3$d</string>
     <plurals name="progress_scored">
         <item quantity="one">%1$d von %2$d fertig · bis %3$d</item>
         <item quantity="other">%1$d von %2$d fertig · bis %3$d</item>
@@ -203,6 +205,41 @@
     <string name="newgame_target_description">Ziel, Punkte zum Sieg</string>
     <string name="newgame_target_lower">Ziel senken</string>
     <string name="newgame_target_raise">Ziel erhöhen</string>
+    <string name="newgame_game">Spiel</string>
+    <string name="game_vengeance">Voll fies!</string>
+    <string name="newgame_round_ender">Rundenende</string>
+    <string name="ender_official">Offiziell</string>
+    <string name="ender_always">Immer ×2</string>
+    <string name="ender_off">Aus</string>
+    <string name="ender_crazy">Verrückt ×2</string>
+    <string name="ender_official_description">Wer die Runde beendet und nicht die wenigsten Punkte hat, bekommt sie doppelt, wenn sie über 0 liegen.</string>
+    <string name="ender_always_description">Wer die Runde beendet und nicht die wenigsten Punkte hat, bekommt sie doppelt, auch unter 0.</string>
+    <string name="ender_off_description">Die Runde zu beenden kostet nichts extra.</string>
+    <string name="ender_crazy_description">Wer die Runde beendet und nicht die wenigsten Punkte hat, bekommt das Doppelte der höchsten Punktzahl der Runde.</string>
+    <string name="ender_title">Wer hat Runde %1$d beendet?</string>
+    <string name="ender_body">Tippe auf die Person, die zuerst alle Karten aufgedeckt hat.</string>
+    <plurals name="ender_row_spoken">
+        <item quantity="one">%1$s, %2$d Punkt</item>
+        <item quantity="other">%1$s, %2$d Punkte</item>
+    </plurals>
+    <plurals name="ender_row_doubled_spoken">
+        <item quantity="one">%1$s, %2$d Punkt, zählt %3$d</item>
+        <item quantity="other">%1$s, %2$d Punkte, zählt %3$d</item>
+    </plurals>
+    <string name="skyjo_grid">Auslage</string>
+    <string name="skyjo_grid_hint">Reihen und Spalten wie auf dem Tisch. Eine abgelegte Spalte bleibt leer.</string>
+    <string name="skyjo_values">Karte</string>
+    <plurals name="skyjo_cards_count">
+        <item quantity="one">%1$d von %2$d Karten</item>
+        <item quantity="other">%1$d von %2$d Karten</item>
+    </plurals>
+    <string name="skyjo_total_only">Nur Summe</string>
+    <string name="skyjo_slot_empty">leer</string>
+    <string name="skyjo_slot_spoken">Reihe %1$d, Spalte %2$d: %3$s</string>
+    <string name="skyjo_slot_clear">Leer</string>
+    <string name="skyjo_slot_clear_spoken">Feld leeren</string>
+    <string name="skyjo_total_title">Rundenpunkte für %1$s</string>
+    <string name="skyjo_total_field">Rundenpunkte</string>
     <string name="seats_title">Plätze</string>
     <string name="seats_hint_table">Zieh alle an ihren Platz oder starte direkt</string>
     <string name="seats_hint_list">Zieh die Zeilen in Sitzreihenfolge oder starte direkt</string>
@@ -226,6 +263,8 @@
     <string name="scoreboard_adjusted_legend">± Summe enthält Korrekturen</string>
     <string name="a11y_leading">, führt</string>
     <string name="scoreboard_cell_points">Runde %1$d, %2$s: %3$s</string>
+    <string name="scoreboard_cell_doubled">Strafe fürs Beenden der Runde</string>
+    <string name="scoreboard_doubled_legend">* inkl. Strafe fürs Beenden der Runde ohne die wenigsten Punkte</string>
     <string name="scoreboard_cell_bust">Runde %1$d, %2$s: raus</string>
     <string name="scoreboard_cell_open">Runde %1$d, %2$s: noch nicht gewertet</string>
 
@@ -290,8 +329,20 @@
     <string name="card_flip_three">Flip 3</string>
     <string name="card_second_chance">2nd Chance</string>
     <string name="card_back">Rückseite</string>
+    <!-- Flip 7 – Voll fies! (German edition of With a Vengeance): card names as printed (action titles in English). -->
+    <string name="card_lucky_13_chip">13★</string>
+    <string name="card_lucky_13">Lucky 13</string>
+    <string name="card_unlucky_7">Unlucky 7</string>
+    <string name="card_the_zero">Null</string>
+    <string name="card_just_one_more">Just 1 More &amp; Freeze</string>
+    <string name="card_swap">Switch</string>
+    <string name="card_steal">Steal</string>
+    <string name="card_discard">Burn</string>
+    <string name="card_flip_four">Flip Four</string>
     <string name="card_plus_spoken">plus %1$d</string>
     <string name="card_times_two_spoken">mal 2</string>
+    <string name="card_minus_spoken">minus %1$d</string>
+    <string name="card_divide_two_spoken">geteilt durch 2</string>
     <string name="dup_two">zwei %1$der</string>
     <string name="dup_three">drei %1$der</string>
     <string name="dup_four">vier %1$der</string>
@@ -299,9 +350,14 @@
     <string name="dup_many">%2$d× %1$d</string>
     <string name="formula_plus">plus</string>
     <string name="formula_times">mal</string>
+    <string name="formula_minus">minus</string>
+    <string name="formula_divided">geteilt durch</string>
     <string name="formula_equals">%1$s gleich %2$s</string>
     <string name="formula_flip7">%1$s Flip 7</string>
     <string name="formula_flip7_spoken">%1$s Flip-7-Bonus</string>
+    <string name="formula_zero">Null → %1$s</string>
+    <string name="formula_zero_spoken">Null macht %1$s daraus</string>
+    <string name="formula_floor">wird zu</string>
     <string name="second_chance_used">Second Chance genutzt · %1$s zählt einmal</string>
 
     <!-- Review + manual entry -->
@@ -438,6 +494,7 @@
     <string name="about_tp_zxing">QR-Codes zum Beitreten · Apache-2.0</string>
     <string name="about_tp_nearby">Spielen auf mehreren Handys · proprietär (Google-Bedingungen)</string>
     <string name="about_tp_unbounded">Schrift · © 2022 The Unbounded Project Authors · SIL OFL 1.1</string>
+    <string name="about_tp_fredoka">Schrift · © 2016 The Fredoka Project Authors · SIL OFL 1.1</string>
     <string name="about_tp_dmmono">Schrift · © 2020 The DM Mono Project Authors · SIL OFL 1.1</string>
     <string name="home_more_options">Weitere Optionen</string>
 

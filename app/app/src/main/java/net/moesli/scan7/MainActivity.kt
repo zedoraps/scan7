@@ -59,10 +59,13 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         // Always dark: light bar icons whatever the system theme is.
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-        )
+        // Bar icons follow the brand theme: Scan7 always dark, Scanjo light or dark after the system.
+        val barStyle = if (Brand.FOLLOWS_SYSTEM_THEME) {
+            SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT)
+        } else {
+            SystemBarStyle.dark(Color.TRANSPARENT)
+        }
+        enableEdgeToEdge(statusBarStyle = barStyle, navigationBarStyle = barStyle)
         if (BuildConfig.DEBUG && intent.getBooleanExtra(EXTRA_DEBUG_CPU, false)) {
             net.moesli.scan7.detection.DetectorHolder.forceCpu = true
         }
@@ -83,8 +86,8 @@ class MainActivity : ComponentActivity() {
         )
         // Seed only on a fresh start (not on recreation: the saved back stack wins then).
         val seedNow = seed?.takeIf { savedInstanceState == null }
-        // Multiplayer: the host's QR read by the system camera (scan7://join, play flavor manifest).
-        val joinLink = intent?.data?.takeIf { it.scheme == "scan7" && savedInstanceState == null }?.toString()
+        // Multiplayer: the host's QR read by the system camera (scan7:// or scanjo://join, play manifest).
+        val joinLink = intent?.data?.takeIf { it.scheme == Brand.JOIN_SCHEME && savedInstanceState == null }?.toString()
         setContent {
             Scan7Theme {
                 val context = LocalContext.current

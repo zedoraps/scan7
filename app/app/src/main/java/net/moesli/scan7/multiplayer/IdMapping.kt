@@ -8,7 +8,7 @@ import net.moesli.scan7.game.GameState
  */
 fun GameState.mapPlayerIds(f: (Long) -> Long): GameState = copy(
     seats = seats.map { it.copy(playerId = f(it.playerId)) },
-    rounds = rounds.map { r -> r.copy(results = r.results.mapKeys { (p, _) -> f(p) }) },
+    rounds = rounds.map { r -> r.copy(results = r.results.mapKeys { (p, _) -> f(p) }, endedBy = r.endedBy?.let(f)) },
     adjustments = adjustments.map { it.copy(playerId = f(it.playerId)) },
     joinedRounds = joinedRounds.mapKeys { (p, _) -> f(p) },
     departed = departed.map { it.copy(playerId = f(it.playerId)) },
@@ -25,6 +25,7 @@ fun GameAction.mapPlayerIds(f: (Long) -> Long): GameAction = when (this) {
     is RestoreAdjustment -> copy(adjustment = adjustment.copy(playerId = f(adjustment.playerId)))
     is ReorderSeats -> copy(order = order.map(f))
     is MovePosition -> copy(playerId = f(playerId))
+    is SetRoundEnder -> copy(playerId = playerId?.let(f))
     is ChangeLineup -> copy(
         seats = seats.map { it.copy(playerId = f(it.playerId)) },
         newPlayers = newPlayers.map { it.copy(id = f(it.id)) },

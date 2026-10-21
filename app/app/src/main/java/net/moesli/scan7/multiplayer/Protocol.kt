@@ -17,7 +17,8 @@ import java.util.zip.GZIPOutputStream
 
 /**
  * Protocol version (docs/dev/MULTI_DEVICE.md §5.4). Bump it for any change an older peer can't read;
- * new optional fields with defaults don't need a bump (unknown keys are ignored).
+ * new optional fields with defaults don't need a bump (unknown keys are ignored). Version 1 has not
+ * shipped yet: until it does, it changes freely (game kinds, Skyjo / Vengeance cards) without a bump.
  */
 const val PROTOCOL_VERSION = 1
 

@@ -188,6 +188,14 @@ fun ScoreboardScreen(
                     }
                 }
             }
+            if (table.rows.any { r -> r.cells.any { it.doubled } }) {
+                Text(
+                    stringResource(R.string.scoreboard_doubled_legend),
+                    color = colors.textMuted,
+                    style = Scan7Type.text12,
+                    modifier = Modifier.padding(top = Scan7Spacing.s, start = Scan7Spacing.xs),
+                )
+            }
             // Explains the "±" on adjusted totals (there is no adjustments row).
             if (table.adjusted.isNotEmpty()) {
                 Text(
@@ -357,13 +365,17 @@ private fun Cell(cell: ScoreCell, description: String, onClick: (() -> Unit)?, c
                     softWrap = false,
                 )
             }
-            ResultStatus.SCORED -> Text(
-                text,
-                color = colors.text,
-                style = Scan7Type.text14,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-            )
+            ResultStatus.SCORED -> Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text,
+                    color = colors.text,
+                    style = Scan7Type.text14,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                )
+                // Skyjo: the round ender's penalty is counted in ("108×2" read like 216; the legend explains "*").
+                if (cell.doubled) Text("*", color = colors.textMuted, style = Scan7Type.text13, maxLines = 1)
+            }
             ResultStatus.OPEN -> Text(text, color = colors.textMuted, style = Scan7Type.text14)
         }
     }

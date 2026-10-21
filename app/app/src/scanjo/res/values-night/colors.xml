@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Scanjo window colors in dark mode (Sky Night). The launcher icon is the same in both modes. -->
+<resources>
+    <color name="scan7_ground">#FF10172E</color>
+    <color name="scan7_accent">#FF6FA0FF</color>
+</resources>

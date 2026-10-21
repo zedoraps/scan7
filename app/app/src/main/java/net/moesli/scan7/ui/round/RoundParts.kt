@@ -52,38 +52,11 @@ import net.moesli.scan7.ui.components.PrimaryButton
 import net.moesli.scan7.ui.components.RoundView
 import net.moesli.scan7.ui.components.ViewToggle
 import net.moesli.scan7.ui.components.scan7Clickable
+import net.moesli.scan7.ui.theme.AppIcon
 import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
-
-/** App icon (prototype header SVG, viewBox 100): cyan tile, dark card with the "7", scan line. */
-@Composable
-fun AppIcon(modifier: Modifier = Modifier, size: Dp = 32.dp) {
-    val c = Scan7Theme.colors
-    val seven = Path().apply {
-        moveTo(42f, 35f)
-        relativeLineTo(16f, 0f)
-        relativeLineTo(-9f, 25f)
-    }
-    Canvas(modifier.size(size)) {
-        scale(this.size.width / 100f, pivot = Offset.Zero) {
-            drawRoundRect(c.accent, size = Size(100f, 100f), cornerRadius = CornerRadius(24f))
-            rotate(-8f, pivot = Offset(50f, 50f)) {
-                drawRoundRect(c.ground, topLeft = Offset(30f, 20f), size = Size(40f, 60f), cornerRadius = CornerRadius(7f))
-                drawPath(seven, c.accent, style = Stroke(9f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-                drawRoundRect(c.text, topLeft = Offset(12f, 66f), size = Size(76f, 10f), cornerRadius = CornerRadius(5f))
-                drawRoundRect(
-                    c.ground,
-                    topLeft = Offset(12f, 66f),
-                    size = Size(76f, 10f),
-                    cornerRadius = CornerRadius(5f),
-                    style = Stroke(2.5f),
-                )
-            }
-        }
-    }
-}
 
 /** Header (top 48, height 48): icon · view toggle · ⋮ menu ("Rearrange seats / order" is in the menu); arrange mode: title + hint + Done. */
 @Composable

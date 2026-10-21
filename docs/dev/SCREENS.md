@@ -74,6 +74,7 @@ Note: player colors must stay distinguishable from accent cyan and bust magenta.
 ## 3 New game, pick players
 - All stored players with checkboxes (avatar and name).
 - **+ New player** inline. It opens 2a, and the new player is selected automatically.
+- **Game**: segmented Flip 7 | With a Vengeance (default Flip 7), above the target.
 - A compact **target** row (default **200**, − / + in steps of 10), pinned above the buttons.
 - **Next** (primary, full width), enabled with 2–10 players. Arranging seats on the next step is optional.
 

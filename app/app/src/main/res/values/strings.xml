@@ -66,10 +66,12 @@
     <!-- Player status (tags, TalkBack) -->
     <string name="tag_open">OPEN</string>
     <string name="tag_scored">✓ +%1$d</string>
+    <string name="tag_scored_negative">✓ −%1$d</string>
     <string name="status_open">Not scored yet</string>
     <string name="status_scored">Scored %1$d</string>
     <string name="status_bust">Bust</string>
     <!-- Progress strip: "2 of 4 scored · to 200". -->
+    <string name="progress_scored_lowest">%1$d/%2$d · lowest wins · ends at %3$d</string>
     <plurals name="progress_scored">
         <item quantity="one">%1$d of %2$d scored · to %3$d</item>
         <item quantity="other">%1$d of %2$d scored · to %3$d</item>
@@ -215,6 +217,44 @@
     <string name="newgame_target_description">Target, points to win</string>
     <string name="newgame_target_lower">Lower target</string>
     <string name="newgame_target_raise">Raise target</string>
+    <string name="game_flip7" translatable="false">Flip 7</string>
+    <string name="game_skyjo" translatable="false">Skyjo</string>
+    <string name="game_vengeance">With a Vengeance</string>
+    <string name="newgame_game">Game</string>
+    <string name="newgame_round_ender">Round ender</string>
+    <string name="ender_official">Official</string>
+    <string name="ender_always">Always ×2</string>
+    <string name="ender_off">Off</string>
+    <string name="ender_crazy">Crazy ×2</string>
+    <string name="ender_official_description">Whoever ends the round without the lowest score gets their points doubled, if above 0.</string>
+    <string name="ender_always_description">Whoever ends the round without the lowest score gets their points doubled, also below 0.</string>
+    <string name="ender_off_description">Ending the round has no penalty.</string>
+    <string name="ender_crazy_description">Whoever ends the round without the lowest score gets double the round\'s highest score.</string>
+    <string name="ender_title">Who ended round %1$d?</string>
+    <string name="ender_body">Tap who revealed all their cards first.</string>
+    <string name="ender_points_doubled" translatable="false">%1$d → %2$d</string>
+    <plurals name="ender_row_spoken">
+        <item quantity="one">%1$s, %2$d point</item>
+        <item quantity="other">%1$s, %2$d points</item>
+    </plurals>
+    <plurals name="ender_row_doubled_spoken">
+        <item quantity="one">%1$s, %2$d point, counts %3$d</item>
+        <item quantity="other">%1$s, %2$d points, counts %3$d</item>
+    </plurals>
+    <string name="skyjo_grid">Grid</string>
+    <string name="skyjo_grid_hint">Rows and columns as on the table. Leave a removed column empty.</string>
+    <string name="skyjo_values">Card</string>
+    <plurals name="skyjo_cards_count">
+        <item quantity="one">%1$d of %2$d cards</item>
+        <item quantity="other">%1$d of %2$d cards</item>
+    </plurals>
+    <string name="skyjo_total_only">Total only</string>
+    <string name="skyjo_slot_empty">empty</string>
+    <string name="skyjo_slot_spoken">Row %1$d, column %2$d: %3$s</string>
+    <string name="skyjo_slot_clear">Empty</string>
+    <string name="skyjo_slot_clear_spoken">Empty the slot</string>
+    <string name="skyjo_total_title">Round points for %1$s</string>
+    <string name="skyjo_total_field">Round points</string>
     <string name="seats_title">Seats</string>
     <string name="seats_hint_table">Drag players to where they sit, or just start</string>
     <string name="seats_hint_list">Drag rows into seating order, or just start</string>
@@ -240,6 +280,8 @@
     <string name="scoreboard_adjusted_legend">± Total includes adjustments</string>
     <string name="a11y_leading">, leading</string>
     <string name="scoreboard_cell_points">Round %1$d, %2$s: %3$s</string>
+    <string name="scoreboard_cell_doubled">penalty for ending the round</string>
+    <string name="scoreboard_doubled_legend">* incl. the penalty for ending the round without the lowest score</string>
     <string name="scoreboard_cell_bust">Round %1$d, %2$s: bust</string>
     <string name="scoreboard_cell_open">Round %1$d, %2$s: not scored yet</string>
 
@@ -306,6 +348,18 @@
     <string name="card_flip_three">Flip 3</string>
     <string name="card_second_chance">2nd chance</string>
     <string name="card_back">Back</string>
+    <!-- Flip 7: With a Vengeance card names, as printed. -->
+    <string name="card_lucky_13_chip">13★</string>
+    <string name="card_lucky_13">Lucky 13</string>
+    <string name="card_unlucky_7">Unlucky 7</string>
+    <string name="card_the_zero">The Zero</string>
+    <string name="card_just_one_more">Just One More</string>
+    <string name="card_swap">Swap</string>
+    <string name="card_steal">Steal</string>
+    <string name="card_discard">Discard</string>
+    <string name="card_flip_four">Flip Four</string>
+    <string name="card_minus_spoken">minus %1$d</string>
+    <string name="card_divide_two_spoken">divided by 2</string>
     <string name="card_plus_spoken">plus %1$d</string>
     <string name="card_times_two_spoken">times 2</string>
     <!-- Bust summary, "Two 7s", "Two 3s, two 7s" (the first one is capitalized in code). -->
@@ -316,9 +370,16 @@
     <string name="dup_many">%2$d× %1$d</string>
     <string name="formula_plus">plus</string>
     <string name="formula_times">times</string>
+    <string name="formula_minus">minus</string>
+    <string name="formula_divided">divided by</string>
     <string name="formula_equals">%1$s equals %2$s</string>
     <string name="formula_flip7">%1$s Flip 7</string>
     <string name="formula_flip7_spoken">%1$s Flip 7 bonus</string>
+    <!-- The Zero without a Flip 7 makes the row 0; %1$s = 0. -->
+    <string name="formula_zero">The Zero → %1$s</string>
+    <string name="formula_zero_spoken">The Zero makes it %1$s</string>
+    <!-- Spoken "→": the minus cards would go below 0, so the row counts 0 ("3 minus 10 becomes 0"). -->
+    <string name="formula_floor">becomes</string>
     <string name="second_chance_used">Second Chance used · %1$s counted once</string>
 
     <!-- Review + manual entry (ui/scan) -->
@@ -457,6 +518,7 @@
     <string name="about_tp_zxing">QR codes for joining a game · Apache-2.0</string>
     <string name="about_tp_nearby">Playing on several phones · proprietary (Google terms)</string>
     <string name="about_tp_unbounded">Font · © 2022 The Unbounded Project Authors · SIL OFL 1.1</string>
+    <string name="about_tp_fredoka">Font · © 2016 The Fredoka Project Authors · SIL OFL 1.1</string>
     <string name="about_tp_dmmono">Font · © 2020 The DM Mono Project Authors · SIL OFL 1.1</string>
     <string name="home_more_options">More options</string>
 

@@ -4,7 +4,6 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
-import net.moesli.scan7.scoring.scoreRow
 
 /**
  * Immutable state of one game. All mutations return a new state and throw
@@ -15,10 +14,16 @@ import net.moesli.scan7.scoring.scoreRow
  * someone's total reached [target], or it was ended early from the menu ([endedEarly], see
  * [isOver]); [finishedAt] follows that automatically.
  *
+ * What depends on the game ([kind]: who wins, bust, the cards' points, the round ender) comes from
+ * its [GameRules]; "best" below means highest for Flip 7 and lowest for Skyjo.
+ *
  * Mutations that record a time take `now` (epoch millis); this class never reads the clock.
  */
 data class GameState(
     val id: Long = 0,
+    val kind: GameKind = GameKind.FLIP7,
+    /** Skyjo: how the round ender is penalised ([RoundState.endedBy]); unused by games without a round ender. */
+    val enderPenalty: EnderPenalty = EnderPenalty.OFFICIAL,
     val target: Int = DEFAULT_TARGET,
     /** Seating order (= clockwise order around the table = list order). */
     val seats: List<Seat>,
@@ -73,6 +78,8 @@ data class GameState(
         require(rounds.mapIndexed { i, r -> r.number == i + 1 }.all { it }) { "Rounds must be numbered 1..n" }
         require(rounds.dropLast(1).all { it.isClosed }) { "Only the last round may be open" }
     }
+
+    val rules: GameRules get() = kind.rules
 
     // ---- Queries -------------------------------------------------------------------------
 
@@ -132,8 +139,34 @@ data class GameState(
         require(round in 0..rounds.size) { "No round $round" }
         val counted = rounds.take(round)
         val adjusted = adjustments.filter { it.round <= round }
-        return everyoneIds.associateWith { p -> counted.sumOf { it.points(p) } + adjusted.filter { it.playerId == p }.sumOf { it.delta } }
+        return everyoneIds.associateWith { p -> counted.sumOf { roundPoints(it, p) } + adjusted.filter { it.playerId == p }.sumOf { it.delta } }
     }
+
+    /**
+     * [playerId]'s counted points in [round]: as entered, or the [EnderPenalty] for a penalised round
+     * ender ([isDoubled]). Every total uses this.
+     */
+    fun roundPoints(round: RoundState, playerId: Long): Int =
+        if (isDoubled(round, playerId)) enderPenalty.enderPoints(round.points(playerId), othersPoints(round, playerId)) else round.points(playerId)
+
+    /** [roundPoints] by round number. */
+    fun roundPoints(round: Int, playerId: Long): Int = roundPoints(round(round), playerId)
+
+    /**
+     * Skyjo: [playerId] ended [round] and the game's [enderPenalty] applies (they don't have the
+     * strictly lowest score of the round): their points are doubled ([EnderPenalty.CRAZY]: double the
+     * round's highest). Always `false` for games without a round ender.
+     */
+    fun isDoubled(round: RoundState, playerId: Long): Boolean {
+        if (!rules.hasRoundEnder || round.endedBy != playerId) return false
+        val res = round.result(playerId)
+        if (!res.isDone) return false
+        return enderPenalty.doubles(res.points, othersPoints(round, playerId))
+    }
+
+    /** Everyone else's entered points in [round] (done results only). */
+    private fun othersPoints(round: RoundState, playerId: Long): List<Int> =
+        round.results.filter { (p, r) -> p != playerId && r.isDone }.map { it.value.points }
 
     fun total(playerId: Long): Int = totals.getValue(playerId)
 
@@ -146,9 +179,19 @@ data class GameState(
     /** Totals of the seated players only (leaders, winners and game over ignore departed players). */
     private val seatedTotals: Map<Long, Int> get() = totals.filterKeys { it in playerIds }
 
-    /** Seated player(s) with the highest total, in seating order; empty while nobody has points. */
+    /**
+     * Seated player(s) with the best total, in seating order; empty while nobody has points. Lowest
+     * wins: by the totals of the closed rounds (an open player's 0 in the running round would lead
+     * otherwise), empty before the first round is closed.
+     */
     val leaders: List<Long>
         get() {
+            if (rules.lowestWins) {
+                val closed = rounds.count { it.isClosed }
+                if (closed == 0) return emptyList()
+                val t = totalsThrough(closed).filterKeys { it in playerIds }
+                return t.filterValues { it == t.values.min() }.keys.toList()
+            }
             val t = seatedTotals
             val best = t.values.max()
             return if (best <= 0) emptyList() else t.filterValues { it == best }.keys.toList()
@@ -187,23 +230,24 @@ data class GameState(
     val isOver: Boolean get() = currentRound.isClosed && (endedEarly || seatedTotals.values.any { it >= target })
 
     /**
-     * Highest total of the seated players once [isOver] (several on an exact tie = shared win), in
+     * Best total of the seated players once [isOver] (several on an exact tie = shared win), in
      * seating order. A player who left can't win.
      */
     val winners: List<Long>
         get() {
             if (!isOver) return emptyList()
             val t = seatedTotals
-            val best = t.values.max()
+            val best = if (rules.lowestWins) t.values.min() else t.values.max()
             return t.filterValues { it == best }.keys.toList()
         }
 
     /**
-     * Rank of each player by points in [round] (1 = best; equal points share a rank, the next rank
-     * is skipped: 1, 1, 3). A bust ranks below a scored 0; open players rank last.
+     * Rank of each player by counted points in [round] (1 = best; equal points share a rank, the
+     * next rank is skipped: 1, 1, 3). A bust ranks below a scored 0; open players rank last.
      */
     fun roundRanks(round: Int = currentRound.number): Map<Long, Int> {
         val r = round(round)
+        val sign = if (rules.lowestWins) -1L else 1L
         return rank { p ->
             val res = r.result(p)
             val statusKey = when (res.status) {
@@ -211,14 +255,16 @@ data class GameState(
                 ResultStatus.BUST -> 1
                 ResultStatus.OPEN -> 0
             }
-            res.points.toLong() * 4 + statusKey
+            // Open players rank last also when the lowest wins: their 0 must not beat a real score.
+            if (res.isOpen) Long.MIN_VALUE else sign * roundPoints(r, p) * 4 + statusKey
         }
     }
 
     /** Standings after rounds 1..[round] by total (same ranking scheme as [roundRanks]). */
     fun standings(round: Int = rounds.size): Map<Long, Int> {
         val t = totalsThrough(round)
-        return rank { t.getValue(it).toLong() }
+        val sign = if (rules.lowestWins) -1L else 1L
+        return rank { sign * t.getValue(it) }
     }
 
     private fun rank(key: (Long) -> Long): Map<Long, Int> {
@@ -229,9 +275,9 @@ data class GameState(
     // ---- Scoring -------------------------------------------------------------------------
 
     /**
-     * Scores [playerId] from confirmed cards (scan review OK, manual save, edit). Duplicate
-     * numbers make it a bust (0 points). [round] defaults to the running round; a closed round
-     * can be edited and totals / game over are recomputed.
+     * Scores [playerId] from confirmed cards (scan review OK, manual save, edit) by the game's
+     * [GameRules.score] (Flip 7: duplicate numbers make it a bust, 0 points). [round] defaults to
+     * the running round; a closed round can be edited and totals / game over are recomputed.
      */
     fun scoreCards(
         playerId: Long,
@@ -241,10 +287,11 @@ data class GameState(
         round: Int = currentRound.number,
     ): GameState {
         require(source == ResultSource.SCAN || source == ResultSource.MANUAL) { "Cards come from a scan or manual entry" }
-        val score = scoreRow(cards.countedCards())
+        require(cards.all { rules.cardFromLabel(it.card.label) == it.card }) { "Cards of another game" }
+        val score = rules.score(cards)
         val result = PlayerResult(
             status = if (score.bust) ResultStatus.BUST else ResultStatus.SCORED,
-            points = score.total,
+            points = score.points,
             source = source,
             cards = cards,
             updatedAt = now,
@@ -252,16 +299,18 @@ data class GameState(
         return setResult(playerId, round, result, now)
     }
 
-    /** Sets [points] directly without cards (manual correction). */
+    /** Sets [points] directly without cards (manual correction; at least [GameRules.minPoints]). */
     fun scorePoints(playerId: Long, points: Int, now: Long, round: Int = currentRound.number): GameState {
-        require(points >= 0) { "Points can't be negative" }
+        require(points >= rules.minPoints) { "Points below ${rules.minPoints}" }
         val result = PlayerResult(ResultStatus.SCORED, points, ResultSource.MANUAL, emptyList(), now)
         return setResult(playerId, round, result, now)
     }
 
     /** One-tap bust (in-card Bust button, player sheet, or editing a closed round). */
-    fun bust(playerId: Long, now: Long, round: Int = currentRound.number): GameState =
-        setResult(playerId, round, PlayerResult(ResultStatus.BUST, 0, ResultSource.BUST_TAP, emptyList(), now), now)
+    fun bust(playerId: Long, now: Long, round: Int = currentRound.number): GameState {
+        check(rules.hasBust) { "$kind has no bust" }
+        return setResult(playerId, round, PlayerResult(ResultStatus.BUST, 0, ResultSource.BUST_TAP, emptyList(), now), now)
+    }
 
     /** Undo of [bust] from the toast: back to open. Only for a tap bust in the running round. */
     fun undoBust(playerId: Long, now: Long): GameState {
@@ -326,16 +375,33 @@ data class GameState(
 
     // ---- Round lifecycle -----------------------------------------------------------------
 
-    /** Closes the running round: every open player becomes BUST (source CLOSE_ROUND). */
+    /**
+     * Closes the running round: every open player becomes BUST (source CLOSE_ROUND); in a game
+     * without bust they score 0 instead (same source, so [reopenRound] opens them again).
+     */
     fun closeRound(now: Long): GameState {
         val r = currentRound
         check(!r.isClosed) { "Round ${r.number} is already closed" }
         check(!abandoned) { "Game was abandoned" }
+        val closedStatus = if (rules.hasBust) ResultStatus.BUST else ResultStatus.SCORED
         val results = playerIds.associateWith { p ->
             val res = r.result(p)
-            if (res.isOpen) PlayerResult(ResultStatus.BUST, 0, ResultSource.CLOSE_ROUND, emptyList(), now) else res
+            if (res.isOpen) PlayerResult(closedStatus, 0, ResultSource.CLOSE_ROUND, emptyList(), now) else res
         }
         return copy(rounds = rounds.replace(r.number, r.copy(results = results, closedAt = now))).settled(now)
+    }
+
+    /**
+     * Skyjo: [playerId] ended [round] (revealed all cards first; `null` = nobody / not known), so the
+     * [enderPenalty] may double their points. Set when the round is closed, changeable afterwards
+     * (also on a closed round: totals and game over are recomputed).
+     */
+    fun withRoundEnder(playerId: Long?, now: Long, round: Int = currentRound.number): GameState {
+        check(rules.hasRoundEnder) { "$kind has no round ender" }
+        check(!abandoned) { "Game was abandoned" }
+        require(playerId == null || playedIn(playerId, round)) { "Player $playerId didn't play round $round" }
+        val r = round(round)
+        return copy(rounds = rounds.replace(round, r.copy(endedBy = playerId))).settled(now)
     }
 
     /** Starts the next round with everyone open. Only after the round is closed and the game isn't over. */
@@ -448,9 +514,10 @@ data class GameState(
         }
         for (p in joining) joined = if (round.number > 1) joined + (p to round.number) else joined - p
         val results = round.results.filterKeys { it !in leaving } + joining.associateWith { PlayerResult(updatedAt = now) }
+        val endedBy = round.endedBy?.takeIf { it !in leaving }
         return copy(
             seats = lineup.map { Seat(it.playerId, it.position.clamped()) },
-            rounds = rounds.replace(round.number, round.copy(results = results)),
+            rounds = rounds.replace(round.number, round.copy(results = results, endedBy = endedBy)),
             joinedRounds = joined,
             departed = departedNow,
         ).settled(now)
@@ -538,7 +605,7 @@ data class GameState(
 
     companion object {
         /**
-         * New game with [players] in seating order (avatar colors may repeat).
+         * New game of [kind] with [players] in seating order (avatar colors may repeat).
          * Positions default to an even ring; with [previousPositions] (from the last game with the
          * same player set) those spots are reused, handed out clockwise in the new seating order.
          * Explicit [positions] (one per player, in seating order: arranged on the seating step) win
@@ -551,6 +618,8 @@ data class GameState(
             previousPositions: Map<Long, TablePosition>? = null,
             id: Long = 0,
             positions: List<TablePosition>? = null,
+            kind: GameKind = GameKind.FLIP7,
+            enderPenalty: EnderPenalty = EnderPenalty.OFFICIAL,
         ): GameState {
             require(players.isNotEmpty()) { "A game needs at least one player" }
             require(players.size <= MAX_PLAYERS) { "At most $MAX_PLAYERS players" }
@@ -558,6 +627,8 @@ data class GameState(
             val ids = players.map { it.id }
             return GameState(
                 id = id,
+                kind = kind,
+                enderPenalty = enderPenalty,
                 target = target,
                 seats = positions?.let { p -> ids.mapIndexed { i, id -> Seat(id, p[i].clamped()) } }
                     ?: initialSeats(ids, previousPositions),

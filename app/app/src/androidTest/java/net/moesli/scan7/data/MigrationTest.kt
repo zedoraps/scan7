@@ -6,7 +6,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import net.moesli.scan7.game.ConfirmedCard
+import net.moesli.scan7.game.EnderPenalty
+import net.moesli.scan7.game.GameKind
+import net.moesli.scan7.game.ResultSource
 import net.moesli.scan7.game.ResultStatus
+import net.moesli.scan7.scoring.Card
+import net.moesli.scan7.skyjo.SkyjoCard
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Rule
@@ -231,6 +237,62 @@ class MigrationTest {
                 assertEquals(joinedId, repo.joinedGameId("uid-1"))
                 assertEquals(7L, repo.activeGame.first()!!.state.id) // the joined copy is not "the game to resume"
                 assertEquals(listOf("Anna", "Ben"), repo.players.first().map { it.name }) // hidden guest player
+            }
+        } finally {
+            room.close()
+        }
+    }
+
+    @Test
+    fun v6ToV7_oldGamesAreFlip7_andSkyjoGamesStore() {
+        helper.createDatabase(dbName, 6).use { db ->
+            db.execSQL(
+                "INSERT INTO players (id, name, avatarFace, avatarPattern, avatarColor, createdAt, archived, joinedOnly) VALUES " +
+                    "(1, 'Anna', 'grin', 'plain', 'amber', 10, 0, 0), (2, 'Ben', 'grin', 'plain', 'sand', 11, 0, 0)",
+            )
+            db.execSQL("INSERT INTO games (id, startedAt, finishedAt, abandoned, endedEarly, target, viewMode) VALUES (7, 100, 300, 0, 0, 200, NULL)")
+            db.execSQL(
+                "INSERT INTO game_players (gameId, playerId, seatIndex, tableX, tableY, joinedRound, leftRound) VALUES " +
+                    "(7, 1, 0, 0.5, 0.0, 1, NULL), (7, 2, 1, 0.5, 1.0, 1, NULL)",
+            )
+            db.execSQL("INSERT INTO rounds (id, gameId, number, closedAt) VALUES (1, 7, 1, 250)")
+            db.execSQL(
+                "INSERT INTO round_results (id, roundId, playerId, status, points, source, updatedAt) VALUES " +
+                    "(1, 1, 1, 'SCORED', 12, 'SCAN', 120), (2, 1, 2, 'BUST', 0, 'BUST_TAP', 130)",
+            )
+            db.execSQL("INSERT INTO result_cards (id, resultId, position, label, ignored) VALUES (1, 1, 0, '12', 0)")
+        }
+
+        // Validates against the exported 7.json.
+        helper.runMigrationsAndValidate(dbName, 7, true).use { db ->
+            db.query("SELECT kind, enderPenalty FROM games").use { c ->
+                c.moveToFirst()
+                assertEquals("FLIP7", c.getString(0))
+                assertEquals("OFFICIAL", c.getString(1))
+            }
+        }
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val room = Room.databaseBuilder(context, Scan7Database::class.java, dbName).addMigrations(*MIGRATIONS).build()
+        try {
+            runBlocking {
+                val repo = GameRepository(room, clock = { 1000L })
+                val old = checkNotNull(repo.loadGame(7))
+                assertEquals(GameKind.FLIP7, old.kind)
+                assertEquals(Card.N12, old.result(1, 1).cards.single().card)
+
+                // A Skyjo game round-trips its kind, rule, grid slots and round ender.
+                val id = repo.startGame(listOf(1, 2), target = 100, kind = GameKind.SKYJO, enderPenalty = EnderPenalty.ALWAYS)
+                repo.scoreCards(id, 1, listOf(ConfirmedCard(SkyjoCard.N5, slot = 3), ConfirmedCard(SkyjoCard.M2, slot = 7)), ResultSource.MANUAL)
+                repo.scorePoints(id, 2, 1)
+                repo.setRoundEnder(id, 1)
+                repo.closeRoundAndStartNext(id)
+                val s = checkNotNull(repo.loadGame(id))
+                assertEquals(GameKind.SKYJO, s.kind)
+                assertEquals(EnderPenalty.ALWAYS, s.enderPenalty)
+                assertEquals(listOf(3, 7), s.result(1, 1).cards.map { it.slot })
+                assertEquals(1L, s.round(1).endedBy)
+                assertEquals(6, s.total(1))
             }
         } finally {
             room.close()

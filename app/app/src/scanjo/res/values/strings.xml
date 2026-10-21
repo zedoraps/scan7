@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Scanjo: the strings that name the app or its game (they override main/res; see app/build.gradle.kts "Brand"). -->
+<resources>
+    <string name="app_name" translatable="false">Scanjo</string>
+    <string name="home_intro_players">Pick who\'s playing, then enter each player\'s grid of cards at the end of a round. Scanjo adds it up, and the lowest total wins.</string>
+    <string name="home_version">Scanjo %1$s (%2$d)</string>
+    <string name="about_disclaimer">Unofficial score counter for Skyjo. Not affiliated with Magilano.</string>
+    <string name="about_license_body">Scanjo is free software: you may use, study, share and change it under the GNU Affero General Public License v3.0. Its source code is public.</string>
+    <string name="camera_permission_body">Scanjo uses the camera to read the cards on the table. Images stay on this phone.</string>
+    <string name="camera_permission_body_settings">Camera access is turned off for Scanjo. Turn it on in the app settings under Permissions → Camera.</string>
+    <string name="share_notification_title">Scanjo is sharing a game</string>
+    <string name="share_hint">Scan this code with Scanjo on the other phones.</string>
+    <string name="share_no_radio">This version of Scanjo can\'t connect phones (it has no Google Play services).</string>
+    <string name="join_not_a_game">That\'s not a Scanjo game code.</string>
+    <string name="join_camera_needed">Scanjo needs the camera to read the code.</string>
+    <string name="join_rejected_version">Update Scanjo on this phone to join this game.</string>
+    <string name="permission_rationale_nearby">Scanjo uses \"Nearby devices\" and precise location to connect the phones at your table. Scanjo never uses your location, and nothing goes to the internet.</string>
+    <string name="permission_rationale_location">Android needs location access to find nearby phones. Scanjo never uses your location.</string>
+    <string name="radio_permissions_missing">Scanjo needs the \"Nearby devices\" and location permissions to connect the phones.</string>
+</resources>

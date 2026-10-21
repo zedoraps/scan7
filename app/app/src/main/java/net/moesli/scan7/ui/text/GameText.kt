@@ -3,6 +3,8 @@ package net.moesli.scan7.ui.text
 import net.moesli.scan7.R
 import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.AvatarCatalog
+import net.moesli.scan7.game.EnderPenalty
+import net.moesli.scan7.game.GameKind
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.scoring.CardKind
 import net.moesli.scan7.scoring.RowScore
@@ -12,24 +14,42 @@ import net.moesli.scan7.scoring.RowScore
  * card names, avatar names, the Second Chance line. JVM-tested through the XML strings.
  */
 
-/** Chip / box tag text: "7", "+4", "×2", "Freeze", "Flip 3", "2nd chance", "Back". */
+/**
+ * Chip / box tag text: "7", "+4", "×2", "−6", "÷2", "13★" (Lucky 13), "Freeze", "Flip 3",
+ * "2nd chance", "Back". An Unlucky 7 is a "7" and The Zero a "0" (they score as such; TalkBack
+ * names them).
+ */
 fun Card.chipText(): UiText = when (kind) {
-    CardKind.NUMBER -> UiText.Raw(value.toString())
+    CardKind.NUMBER -> if (this == Card.LUCKY_13) uiText(R.string.card_lucky_13_chip) else UiText.Raw(value.toString())
     CardKind.MODIFIER_PLUS -> UiText.Raw("+$value")
     CardKind.MODIFIER_TIMES2 -> UiText.Raw("×2")
+    CardKind.MODIFIER_MINUS -> UiText.Raw("−$value")
+    CardKind.MODIFIER_DIVIDE2 -> UiText.Raw("÷2")
     CardKind.ACTION, CardKind.BACK -> when (this) {
         Card.FREEZE -> uiText(R.string.card_freeze)
         Card.FLIP_THREE -> uiText(R.string.card_flip_three)
         Card.SECOND_CHANCE -> uiText(R.string.card_second_chance)
+        Card.JUST_ONE_MORE -> uiText(R.string.card_just_one_more)
+        Card.SWAP -> uiText(R.string.card_swap)
+        Card.STEAL -> uiText(R.string.card_steal)
+        Card.DISCARD -> uiText(R.string.card_discard)
+        Card.FLIP_FOUR -> uiText(R.string.card_flip_four)
         else -> uiText(R.string.card_back)
     }
 }
 
-/** Spoken label for TalkBack: "7", "plus 4", "times 2", "Freeze". */
+/** Spoken label for TalkBack: "7", "plus 4", "times 2", "minus 6", "divided by 2", "Lucky 13", "Freeze". */
 fun Card.spokenText(): UiText = when (kind) {
-    CardKind.NUMBER -> UiText.Raw(value.toString())
+    CardKind.NUMBER -> when (this) {
+        Card.LUCKY_13 -> uiText(R.string.card_lucky_13)
+        Card.UNLUCKY_7 -> uiText(R.string.card_unlucky_7)
+        Card.THE_ZERO -> uiText(R.string.card_the_zero)
+        else -> UiText.Raw(value.toString())
+    }
     CardKind.MODIFIER_PLUS -> uiText(R.string.card_plus_spoken, value!!)
     CardKind.MODIFIER_TIMES2 -> uiText(R.string.card_times_two_spoken)
+    CardKind.MODIFIER_MINUS -> uiText(R.string.card_minus_spoken, value!!)
+    CardKind.MODIFIER_DIVIDE2 -> uiText(R.string.card_divide_two_spoken)
     else -> chipText()
 }
 
@@ -91,4 +111,30 @@ fun avatarDescription(name: String?, avatar: Avatar): UiText {
     val a = avatar.normalized()
     val text = uiText(R.string.avatar_description, avatarColorName(a.color), avatarFaceName(a.face))
     return if (name.isNullOrBlank()) text else uiText(R.string.avatar_description_named, name.trim(), text)
+}
+
+/** Game name: "Flip 7", "Skyjo" (names, not translated). */
+fun GameKind.title(): UiText = when (this) {
+    GameKind.FLIP7 -> uiText(R.string.game_flip7)
+    GameKind.SKYJO -> uiText(R.string.game_skyjo)
+    GameKind.VENGEANCE -> uiText(R.string.game_vengeance)
+}
+
+/** New game segment: "Official", "Always ×2", "Crazy ×2", "Off". */
+fun EnderPenalty.label(): UiText = when (this) {
+    EnderPenalty.OFFICIAL -> uiText(R.string.ender_official)
+    EnderPenalty.ALWAYS -> uiText(R.string.ender_always)
+    EnderPenalty.CRAZY -> uiText(R.string.ender_crazy)
+    EnderPenalty.OFF -> uiText(R.string.ender_off)
+}
+
+/** The penalties in the order New game offers them (Off last). */
+val EnderPenaltyChoices: List<EnderPenalty> = listOf(EnderPenalty.OFFICIAL, EnderPenalty.ALWAYS, EnderPenalty.CRAZY, EnderPenalty.OFF)
+
+/** What the [EnderPenalty] does, under the segments. */
+fun EnderPenalty.description(): UiText = when (this) {
+    EnderPenalty.OFFICIAL -> uiText(R.string.ender_official_description)
+    EnderPenalty.ALWAYS -> uiText(R.string.ender_always_description)
+    EnderPenalty.CRAZY -> uiText(R.string.ender_crazy_description)
+    EnderPenalty.OFF -> uiText(R.string.ender_off_description)
 }

@@ -7,6 +7,7 @@ import net.moesli.scan7.multiplayer.nearby.NearbyPermissions.BLUETOOTH_ADVERTISE
 import net.moesli.scan7.multiplayer.nearby.NearbyPermissions.BLUETOOTH_CONNECT
 import net.moesli.scan7.multiplayer.nearby.NearbyPermissions.BLUETOOTH_SCAN
 import net.moesli.scan7.multiplayer.nearby.NearbyPermissions.NEARBY_WIFI_DEVICES
+import net.moesli.scan7.Brand
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -95,11 +96,15 @@ class NearbyPartsTest {
         val link = JoinLink.create(SecureRandom())
         assertEquals(10, link.sessionId.length)
         assertEquals(link, JoinLink.parse(link.toUri()))
-        assertTrue(link.toUri().startsWith("scan7://join?v=1&s="))
+        // The brand's scheme (scan7:// / scanjo://): one app never reads the other's codes.
+        val scheme = Brand.JOIN_SCHEME
+        assertTrue(link.toUri().startsWith("$scheme://join?v=1&s="))
         assertNull(JoinLink.parse("https://example.com/join?s=a&t=b&v=1"))
-        assertNull(JoinLink.parse("scan7://join?v=1&s=abc"))
-        assertNull(JoinLink.parse("scan7://join?s=abc&t=def"))
-        assertEquals(JoinLink("abc", "d+f", 2), JoinLink.parse("scan7://join?v=2&s=abc&t=d%2Bf"))
+        assertNull(JoinLink.parse("$scheme://join?v=1&s=abc"))
+        assertNull(JoinLink.parse("$scheme://join?s=abc&t=def"))
+        assertEquals(JoinLink("abc", "d+f", 2), JoinLink.parse("$scheme://join?v=2&s=abc&t=d%2Bf"))
+        val other = if (scheme == "scan7") "scanjo" else "scan7"
+        assertNull(JoinLink.parse("$other://join?v=1&s=abc&t=def"))
     }
 
     @Test

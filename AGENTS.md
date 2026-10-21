@@ -24,7 +24,7 @@ README.md              public project page (screenshots, download, license)
 changelog/             tenzir-ship changelog: unreleased/ entries, releases/vX.Y.Z/ (notes.md); docs/dev/RELEASE.md
 docs/                  privacy.md (Pages), store/ (Play listing), third_party/ (licence texts), readme/ (README images)
 docs/dev/              DEVELOPMENT.md (setup, stages), BRIEF.md (plan), APP_FLOW.md, SCREENS.md, MULTI_DEVICE.md, RELEASE.md, PLATFORM_AUDIT.md
-brand/                 logo SVG/PNG, colors.xml, BRAND.md
+brand/                 logo SVG/PNG, colors.xml, BRAND.md (Scan7); scanjo/ = the Scanjo brand kit (BRAND.md is its spec, tokens.json)
 ml/                    Python (uv project): data, synthetic generator, training, export
   config/              cards.yaml (class list, geometry), synth.yaml (generator)
   scripts/             make_cutouts, gen_synth, preview_synth, train, predict, export
@@ -34,20 +34,22 @@ ml/                    Python (uv project): data, synthetic generator, training,
 app/                   Android Gradle root; module app/, package net.moesli.scan7
   app/src/main/java/net/moesli/scan7/
     scoring/           plain-Kotlin scoring rules (JVM unit tests)
-    game/              plain-Kotlin game state + rules (GameState: rounds, bust, close, seating; JVM unit tests)
+    game/              plain-Kotlin game state + rules (GameState: rounds, bust, close, seating; GameRules per GameKind: who wins, bust, card set, round ender; JVM unit tests)
+    skyjo/             (preview, debug only) Skyjo cards −2…12, grid helpers, SkyjoRules (lowest wins at 100, EnderPenalty for the round ender)
     data/              Room DB (entities, DAOs), GameRepository (Flows + actions), AppGraph container
     camera/ detection/ CameraX preview, detector, overlay
     ui/nav/            app navigation: Navigation 3 (NavDisplay in AppNavHost; @Serializable Route keys, pure Stack ops, NavMotion fade-through transitions, a back swipe follows the same fade; Home is the start screen)
     ui/round/          Round screen + RoundRoute/RoundController (snapshot → RoundUiState, actions → repository)
     training/          "Save scans for training" (JPEG + JSON sidecar via MediaStore; setting, default on in debug builds, always off in release)
-    debug/             debug menu (Detector: live camera, detect from photo, model/backend info · Training data: save-scans toggle), hidden: tap the Home wordmark 5× (debug builds only, BuildConfig.DEBUG; TalkBack action "Open debug menu"); the scan-flow demo has no menu entry (only the debug_scan_demo / debug_scan_photo hooks)
+    debug/             debug menu (Detector: live camera, detect from photo, model/backend info · Training data: save-scans toggle · Games: "Skyjo games (preview)" toggle), hidden: tap the Home wordmark 5× (debug builds only, BuildConfig.DEBUG; TalkBack action "Open debug menu"); the scan-flow demo has no menu entry (only the debug_scan_demo / debug_scan_photo hooks)
     ui/about/          About & licenses (Home: tap the version footer): version, AGPL + source link, privacy link, third-party notices (static list; texts from LICENSE + docs/third_party/ copied into assets at build time)
     ui/theme/          Scan7 theme, colors, fonts, wordmark
     ui/text/           UiText (string ids for plain-Kotlin text), GameText (card/avatar names), AppLocales (app language)
     multiplayer/       (beta) plain-Kotlin multi-phone protocol: GameAction, Host/ClientSession, GuestRules, FakeNetwork; nearby/ = Nearby adapter on an owned ConnectionsApi (+ permissions, QR link)
     share/             ShareRuntime: the phone's sessions on one thread, host store = GameRepository.applyLocal, guest = read-only joined copy; RadioSupport (src/play: Nearby + ShareService, the default build; src/foss: none, -Pscan7.foss=true)
     ui/share/          share sheet (QR), claim sheet, Join screen (QR reader), permission request, save players
-  app/src/play/        (default build; src/foss/ = no radio) GmsConnectionsApi, Radio + ShareService, Nearby permissions + scan7://join manifest
+  app/src/play/        (default build; src/foss/ = no radio) GmsConnectionsApi, Radio + ShareService, Nearby permissions + scan7:// / scanjo://join manifest
+  app/src/scan7/, app/src/scanjo/   brand pieces (Brand object: games, join scheme, theme mode; ui/theme/BrandTheme.kt: colors, M3 scheme, display font, AppIcon; scanjo/res overrides icon, name, window theme, app-naming strings)
   app/schemas/         exported Room schemas (committed; bump the DB version + add a migration on change)
 ```
 
@@ -65,7 +67,7 @@ uv run python scripts/import_app_scans.py           # pull app training scans fr
 uv run python -m unittest discover -s tests         # Python unit tests (ml/tests)
 uv run scripts/export.py runs/synth_v1/weights/best.pt  # own PEP 723 env: NOT `uv run python`; installs into app assets
 ```
-The app's `model.tflite` is **not in git** (gitignored, ~10 MB per version): after a fresh clone, `cd app && ./gradlew downloadModel` (released model from `app/model.properties`, SHA-256 checked) or run the export once before building the app.
+The app's `model.tflite` is **not in git** (gitignored, ~10 MB per version): after a fresh clone, `cd app && ./gradlew downloadModel` (released model from `app/model.properties`, SHA-256 checked) or run the export once before building the app. With a Vengeance has its own model in `assets/vengeance/` (`export.py --cards config/cards_vengeance.yaml --asset-dir vengeance`); without it the app builds, and Vengeance is typed in only.
 Debug-only app hooks (debug builds): `adb shell am start -n net.moesli.scan7/.MainActivity --es debug_photo /data/data/net.moesli.scan7/files/x.jpg [--ez debug_cpu true]`
 (copy the photo in with `adb push x.jpg /data/local/tmp/ && adb shell run-as net.moesli.scan7 cp /data/local/tmp/x.jpg files/`).
 `--es debug_scan_demo camera|next|edit|bust|flip7|empty` / `--es debug_scan_photo <path>`: the scan flow with a fake player (demo screen, no menu entry).
@@ -109,6 +111,7 @@ ANDROID_SERIAL=<serial> ./gradlew -Pscan7.idSuffix=.uitest connectedDebugAndroid
 ./gradlew installDebug             # install on the connected phone
 ANDROID_SERIAL=emulator-5554 ./gradlew -Pscan7.idSuffix=.b installDebug   # parallel agents: side-by-side copy on the shared emulator. ALWAYS set ANDROID_SERIAL: installDebug otherwise installs on every device incl. the user's phone
 ./gradlew -Pscan7.foss=true assembleDebug   # without Play services (no multiplayer; F-Droid). The flavorless default is the Play build with Nearby (Share / Join, BETA); same task names
+./gradlew -Pscan7.brand=scanjo assembleDebug   # Scanjo (Skyjo score counter, net.moesli.scanjo): own icon, name, Sky Day/Night theme, Fredoka, Skyjo only; same task names, combines with -Pscan7.foss / idSuffix
 ./gradlew -Pscan7.flavors=true assemblePlayDebug assembleFossDebug   # instead: both flavors `play` (default) + `foss` (tasks get the flavor name)
 adb logcat -s Scan7Nearby Scan7Frames   # multiplayer field test: every Nearby call/callback + every game message as JSON
 ./gradlew --stop                   # stops ALL Gradle daemons of this version on the Mac, incl. other agents' running builds: only when no other agent is building
@@ -169,8 +172,12 @@ The emulators run at nice 5 next to training; idle they cost ~1.5 cores in total
 | 2026-10-18 | **Card size = largest that fits** the real table area (Large → Medium → Compact, then `tableCardScale`), not player count (`ui/round/RoundLayout.kt`); deviates from the handoff on purpose (user: 6 players on a tall phone = Large). List rows: Regular only when all rows fit **without scrolling** (8 players on 411×914 dp = Compact). |
 | 2026-10-19 | **Shipped model is ft_v5 @ 800 px** (fp32; `MODEL_INPUT_SIZE = 800`). It has the best "fully correct" rate on both test sets (DE 20/29, EN web 19/47 vs ft_v1 19/29, 11/47). It has ~1.5× the 640 px inference cost (~105 ms est. on the Pixel GPU). ft_v4 @ 800 is the close runner-up. Report: ml/out/eval/OVERNIGHT_REPORT.md (not in git). |
 | 2026-10-19 | **Multiplayer merged as beta** (Nearby, [docs/dev/MULTI_DEVICE.md](docs/dev/MULTI_DEVICE.md)): the Play build is the default, `-Pscan7.foss=true` builds without Play services (no multiplayer); runtime permissions asked only on Share / Join, incl. precise location (required by Nearby discovery, never read or stored). |
+| 2026-10-19 | **Skyjo (preview, branch feature/skyjo).** Plan: one repo, shared modules, a second app "Scanjo" later; first Skyjo as a second `GameKind` in Scan7 behind the debug toggle (release builds never offer it). `GameRules` per game (highest/lowest wins, bust, card set, round ender); Skyjo = sum of the 3 × 4 grid (columns of three are removed on the table before scoring), lowest wins, ends at 100; the round ender is asked on closing the round and penalised per game (`EnderPenalty`: Official = ×2 if not strictly lowest and > 0 · Always ×2 · Crazy ×2 = double the round's highest · Off). No Skyjo detector yet: cards are typed into the grid (or "Total only"). DB v7; wire fields with defaults, protocol stays 1 until Skyjo ships. |
+| 2026-10-19 | **Scanjo brand** (brand/scanjo/, user's kit): the same app module built with `-Pscan7.brand=scanjo` (app ID `net.moesli.scanjo`, join scheme `scanjo://`), not a separate module yet. Shared screens read only the theme tokens; each brand's `BrandTheme.kt` maps its palette onto `Scan7Colors` (Scanjo: Sky Day light by default, Sky Night in dark mode; Scan7 stays always dark). Scanjo offers Skyjo only. Kit rules not followed yet: ✓ is still the font glyph, the scoreboard marks penalties with "*" + legend instead of a "×2 PENALTY" tag, no "LOWEST" badge. |
 | 2026-10-19 | **Navigation 3** replaces the self-made back stack (audit batch D, #4/#5/#13; supersedes the 2026-10-18 navigation row, the swap/seating parts stay): `NavDisplay` on a `NavBackStack<Route>` saved with the sealed `Route` serializer (`rememberSerializable`, no reflection), entry decorators for saveable state + a ViewModel store per entry. Each `stateKey` is at most once on the stack (pushing an existing one goes back to it); a "Scan next" chain shares one key so the camera stays bound. Subtle transitions + in-app predictive back (`ui/nav/NavMotion.kt`), none between two camera screens. Still no ViewModels: DB writes stay on `AppGraph.appScope` (`outlivingUi`); add an entry-scoped ViewModel only where it clearly simplifies a screen. No Hilt/Koin. |
+| 2026-10-20 | **Flip 7: With a Vengeance** is a second game in Scan7 (New game: Flip 7 \| With a Vengeance; `GameKind.VENGEANCE`). One `Card` enum for both (Vengeance cards appended after the 23 Flip 7 classes, never reorder), `Deck` = each game's cards, one `scoreRow` for both (÷2 rounded down before the minus cards, Flip 7 bonus, floor 0; Lucky 13 allows a second 13; The Zero: 0 unless the row is a Flip 7, then as usual). Typed in until its own detector exists (`GameRules.hasDetector`); Brutal mode not yet. Multiplayer protocol v1 has not shipped: it changes without a version bump until it does. |
 | 2026-10-20 | **Whole-frame camera preview + row grouping** (deviates from the handoff's full-bleed camera; user-approved). The scan camera shows the full 4:3 frame letterboxed (`ContentScale.Fit`, top-aligned under its own header area, bars in ground; boxes with the matching `DisplayMapping`), so the preview = detector input = review photo = training JPEG (the old FILL_CENTER crop hid ~13 % per side on tall phones, and neighbours' cards there got scored). Neighbours' cards are left out by **row grouping** (`detection/RowGrouping.kt`: link gaps ≤ 0.4 × median card size; main group = most cards; other groups left out if at the border (≤ 1 %) or > 1 median size away), not by size cutoffs or border margins (field data: those remove own cards). The review starts with them left out (tap to bring back); best-frame choice and "cards seen" count only the main group; training sidecar `"auto_excluded"` per detection. |
+| 2026-10-21 | **With a Vengeance scans with its own detector** (supersedes "typed in until its own detector exists" in the 2026-10-20 row): `DetectorModel` per deck (FLIP7 = assets root, VENGEANCE = `assets/vengeance/`, 28 classes from `ml/config/cards_vengeance.yaml`); `DetectorHolder` keeps one model loaded and swaps on demand; the training sidecar's model version names the model used. Model `ft_veng4` (veng_synth_v1 from ft_v5 on synth, fine-tuned for the 4 with the user's scans). Scoring follows the rule book: the floor at 0 comes **before** the +15 Flip 7 bonus; the formula shows it (`→ 0`) and "The Zero → 0". |
 
 ## Branding (summary; details in brand/BRAND.md)
 - App name **Scan7**; wordmark "scan" in text color + "7" in accent (`Scan7Wordmark`).

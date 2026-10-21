@@ -13,7 +13,7 @@ data class Standing(val playerId: Long, val rank: Int, val total: Int, val isWin
 
 /**
  * Standings after the last round, best first; equal totals keep the seating order. Players who
- * left mid-game follow, unranked, by total.
+ * left mid-game follow, unranked, best total first.
  */
 fun standingsOf(state: GameState): List<Standing> {
     val ranks = state.standings()
@@ -24,7 +24,7 @@ fun standingsOf(state: GameState): List<Standing> {
         .sortedBy { it.rank }
     val left = state.departed
         .map { Standing(it.playerId, 0, totals.getValue(it.playerId), isWinner = false, left = true) }
-        .sortedByDescending { it.total }
+        .sortedBy { if (state.rules.lowestWins) it.total else -it.total }
     return seated + left
 }
 

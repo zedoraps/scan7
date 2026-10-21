@@ -56,6 +56,8 @@ data class RoundUiState(
     val typeEntry: Boolean = false,
     /** Multiplayer: the share icon (host) or the guest's limits; `null` = a plain local game. */
     val share: RoundShareUi? = null,
+    /** The lowest total wins (Skyjo): the strip says "lowest wins · ends at 100". */
+    val lowestWins: Boolean = false,
 ) {
     /** The player for "Scan next", or null when nobody is open. */
     val nextOpen: RoundPlayer?

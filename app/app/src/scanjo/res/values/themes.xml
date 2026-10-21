@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Scanjo window theme: light (Sky Day) by default, dark in values-night; otherwise like main/res. -->
+<resources>
+    <style name="Theme.Scan7" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/scan7_ground</item>
+        <item name="android:colorBackground">@color/scan7_ground</item>
+        <item name="android:colorAccent">@color/scan7_accent</item>
+    </style>
+</resources>

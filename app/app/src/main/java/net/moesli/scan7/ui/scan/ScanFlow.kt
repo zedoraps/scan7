@@ -14,11 +14,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.moesli.scan7.camera.DetectionAnalyzer
 import net.moesli.scan7.data.AppGraph
 import kotlinx.coroutines.Deferred
+import net.moesli.scan7.detection.DetectorModel
 import net.moesli.scan7.detection.KEEP_SCORE
 import net.moesli.scan7.training.SavedSample
 import net.moesli.scan7.training.TrainingCapture
 import net.moesli.scan7.training.TrainingSaver
 import net.moesli.scan7.scoring.Card
+import net.moesli.scan7.scoring.Deck
 import net.moesli.scan7.ui.components.PlayerUi
 import net.moesli.scan7.ui.round.BustToastState
 
@@ -62,6 +64,7 @@ private sealed interface Step {
  * @param bustOverlay the busted player's name while the camera shows the full-screen bust overlay
  *   (after a Bust tap, ~1 s); its Undo calls [onUndoBustOverlay].
  * @param initialCapture non-null starts in Review on this capture (debug: review a photo file).
+ * @param deck the game's cards: the manual keypad (Flip 7 or With a Vengeance).
  */
 @Composable
 internal fun ScanFlowContent(
@@ -80,10 +83,11 @@ internal fun ScanFlowContent(
     afterScan: AfterScanUi? = null,
     bustOverlay: String? = null,
     onUndoBustOverlay: () -> Unit = {},
+    deck: Deck = Deck.FLIP7,
 ) {
     val context = LocalContext.current
     // One analyzer for the whole flow: it buffers the recent frames for the best-frame shutter.
-    val analyzer = remember { DetectionAnalyzer(context) }
+    val analyzer = remember(deck) { DetectionAnalyzer(context, DetectorModel.of(deck)) }
     var step by remember(player.id) {
         mutableStateOf(
             when {
@@ -132,6 +136,7 @@ internal fun ScanFlowContent(
                             zoomRatio = frame.zoomRatio,
                             backend = frame.backend,
                             threshold = frame.threshold,
+                            model = DetectorModel.of(deck),
                             choice = TrainingCapture(
                                 bestOf = frame.choice.bestOf,
                                 chosenOffsetMs = frame.choice.chosenOffsetMs,
@@ -190,6 +195,7 @@ internal fun ScanFlowContent(
                 onCancel = cancel,
                 modifier = modifier,
                 afterScan = afterScan,
+                deck = deck,
             )
         }
     }

@@ -65,7 +65,7 @@ import net.moesli.scan7.ui.theme.Scan7Radii
 import net.moesli.scan7.ui.theme.Scan7Spacing
 import net.moesli.scan7.ui.theme.Scan7Theme
 import net.moesli.scan7.ui.theme.Scan7Type
-import net.moesli.scan7.ui.theme.Unbounded
+import net.moesli.scan7.ui.theme.DisplayFont
 
 /**
  * What the confirm buttons (review OK / Confirm bust, manual Save) do after saving: the remembered
@@ -268,7 +268,7 @@ private fun AfterScanMenu(
 
 /**
  * Full-screen bust confirmation after the camera's Bust tap: magenta, "✕", the name and "BUST" in
- * big Unbounded (never color alone), and Undo. Swallows taps and Back while it is shown (~1 s).
+ * big DisplayFont (never color alone), and Undo. Swallows taps and Back while it is shown (~1 s).
  */
 @Composable
 internal fun BustOverlay(name: String, onUndo: () -> Unit, modifier: Modifier = Modifier) {
@@ -297,7 +297,7 @@ internal fun BustOverlay(name: String, onUndo: () -> Unit, modifier: Modifier = 
             Text(
                 name,
                 color = colors.onBust,
-                style = Scan7Type.button.copy(fontFamily = Unbounded, fontSize = 40.sp, lineHeight = 48.sp),
+                style = Scan7Type.button.copy(fontFamily = DisplayFont, fontSize = 40.sp, lineHeight = 48.sp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

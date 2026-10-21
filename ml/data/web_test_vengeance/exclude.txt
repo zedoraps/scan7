@@ -1,0 +1,7 @@
+# Web test images (Flip 7: With a Vengeance, English edition) that must NOT be used to evaluate
+# recognition (one stem per line, '#' = comment).
+# op_Showcase_1 fills the hidden bottom of the variant cutout data/cards_extra_vengeance/swap_en_render.png
+# (scripts/extract_vengeance_en_variants.py); fro_03 is a smaller copy of the same photo.
+# Evaluating on them would test on training data. They stay in images/; evaluation scripts skip these stems.
+op_Showcase_1
+fro_03

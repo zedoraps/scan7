@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scanjo brand guide</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&amp;family=DM+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2563C7}a:hover{color:#12233D}
+</style>
+</helmet>
+<div style="width: 1440px; height: 4200px; box-sizing: border-box; background: #EAF3FB; color: #12233D; font-family: 'DM Mono', monospace; padding: 80px; display: flex; flex-direction: column; gap: 96px">
+
+<!-- HERO -->
+<section style="display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 64px; align-items: center">
+<div style="display: flex; flex-direction: column; gap: 24px">
+<div style="font-size: 13px; letter-spacing: 0.22em; color: #4F6580">BRAND GUIDE · VERSION 1</div>
+<h1 style="margin: 0; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 156px; line-height: 0.9; letter-spacing: -0.02em">scan<span style="color: #2A6FD8">jo</span></h1>
+<div style="font-family: 'Fredoka', sans-serif; font-weight: 500; font-size: 32px; line-height: 1.25">Scan your grid. Lowest score wins,<br>we do the math.</div>
+<div style="font-size: 14px; line-height: 1.6; color: #4F6580">A score counter for Skyjo · an app by Bastelapps · sibling of Scan7</div>
+</div>
+<div style="display: flex; justify-content: center"><dc-import name="Logo" size="{{heroSize}}" radius="{{heroR}}" hint-size="320px,320px"></dc-import></div>
+</section>
+
+<!-- 01 LOGO -->
+<section style="display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; align-items: baseline; gap: 16px; border-bottom: 2px solid #12233D; padding-bottom: 16px"><span style="font-size: 14px; color: #2A6FD8">01</span><h2 style="margin: 0; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 40px">Logo</h2></div>
+<div style="display: grid; grid-template-columns: 420px minmax(0, 1fr); gap: 48px">
+<div style="display: flex; flex-direction: column; gap: 16px; font-size: 15px; line-height: 1.6">
+<div style="font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 22px">How it's built</div>
+<sc-for list="{{construction}}" as="k" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 8px"><span style="color: #2A6FD8">{{k.n}}</span><span>{{k.t}}</span></div>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; align-items: flex-end; gap: 32px">
+<sc-for list="{{sizes}}" as="s" hint-placeholder-count="4">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 10px">
+<dc-import name="Logo" size="{{s.size}}" radius="{{s.r}}" hint-size="96px,96px"></dc-import>
+<div style="font-size: 12px; color: #4F6580">{{s.label}}</div>
+</div>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px">
+<div style="height: 180px; border-radius: 20px; background: #FFFFFF; border: 1.5px solid #CFE0F0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px">
+<dc-import name="Logo" size="{{crop}}" radius="{{cropRound}}" hint-size="88px,88px"></dc-import><div style="font-size: 12px; color: #4F6580">Round crop</div></div>
+<div style="height: 180px; border-radius: 20px; background: #FFFFFF; border: 1.5px solid #CFE0F0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px">
+<dc-import name="Logo" size="{{crop}}" radius="{{cropSq}}" hint-size="88px,88px"></dc-import><div style="font-size: 12px; color: #4F6580">Rounded square</div></div>
+<div style="height: 180px; border-radius: 20px; background: #10172E; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px">
+<dc-import name="Logo" size="{{crop}}" radius="{{cropSq}}" hint-size="88px,88px"></dc-import><div style="font-size: 12px; color: #A0AECB">On Sky Night</div></div>
+<div style="height: 180px; border-radius: 20px; background: #FFFFFF; border: 1.5px solid #CFE0F0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px">
+<dc-import name="Logo" size="{{crop}}" radius="{{cropSq}}" tile="transparent" ink="#12233D" mark="#FFFFFF" beam="#FFFFFF" beam-line="#12233D" hint-size="88px,88px"></dc-import><div style="font-size: 12px; color: #4F6580">Monochrome</div></div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- 02 WORDMARK -->
+<section style="display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; align-items: baseline; gap: 16px; border-bottom: 2px solid #12233D; padding-bottom: 16px"><span style="font-size: 14px; color: #2A6FD8">02</span><h2 style="margin: 0; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 40px">Wordmark &amp; lockup</h2></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) 340px; gap: 24px">
+<div style="height: 200px; border-radius: 24px; background: #FFFFFF; border: 1.5px solid #CFE0F0; display: flex; align-items: center; justify-content: center; gap: 20px">
+<dc-import name="Logo" size="{{lock}}" radius="{{lockR}}" hint-size="72px,72px"></dc-import>
+<div style="font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 72px; letter-spacing: -0.01em">scan<span style="color: #2A6FD8">jo</span></div>
+</div>
+<div style="height: 200px; border-radius: 24px; background: #10172E; display: flex; align-items: center; justify-content: center; gap: 20px">
+<dc-import name="Logo" size="{{lock}}" radius="{{lockR}}" hint-size="72px,72px"></dc-import>
+<div style="font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 72px; letter-spacing: -0.01em; color: #EEF3FF">scan<span style="color: #6FA0FF">jo</span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px; font-size: 14px; line-height: 1.55">
+<sc-for list="{{wordRules}}" as="w" hint-placeholder-count="4"><div style="display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 6px"><span style="color: #2A6FD8">→</span><span>{{w}}</span></div></sc-for>
+</div>
+</div>
+</section>
+
+<!-- 03 COLOR -->
+<section style="display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; align-items: baseline; gap: 16px; border-bottom: 2px solid #12233D; padding-bottom: 16px"><span style="font-size: 14px; color: #2A6FD8">03</span><h2 style="margin: 0; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 40px">Color</h2></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px">
+<sc-for list="{{palettes}}" as="p" hint-placeholder-count="2">
+<div style="border-radius: 24px; background: {{p.ground}}; border: 1.5px solid {{p.line}}; padding: 28px; display: flex; flex-direction: column; gap: 16px; color: {{p.text}}">
+<div style="display: flex; align-items: baseline; justify-content: space-between"><div style="font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 26px">{{p.name}}</div><div style="font-size: 12px; color: {{p.muted}}">{{p.when}}</div></div>
+<sc-for list="{{p.colors}}" as="c" hint-placeholder-count="9">
+<div style="display: grid; grid-template-columns: 56px 120px 96px minmax(0, 1fr); gap: 16px; align-items: center">
+<div style="height: 36px; border-radius: 10px; background: {{c.hex}}; border: 1px solid {{p.line}}"></div>
+<div style="font-size: 14px; font-weight: 500">{{c.role}}</div>
+<div style="font-size: 13px; color: {{p.muted}}">{{c.hex}}</div>
+<div style="font-size: 13px; color: {{p.muted}}">{{c.use}}</div>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+<div style="font-size: 14px; line-height: 1.6; color: #4F6580; max-width: 1000px">Player colors use the shared 15-color avatar palette. Pink is reserved for the ×2 penalty and is never a player color. Skyjo's −2, −1 and 0 cards are blue, so scan boxes always get a white outline on top of the blue.</div>
+</section>
+
+<!-- 04 TYPE -->
+<section style="display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; align-items: baseline; gap: 16px; border-bottom: 2px solid #12233D; padding-bottom: 16px"><span style="font-size: 14px; color: #2A6FD8">04</span><h2 style="margin: 0; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 40px">Typography</h2></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px">
+<div style="border-radius: 24px; background: #FFFFFF; border: 1.5px solid #CFE0F0; padding: 32px; display: flex; flex-direction: column; gap: 20px">
+<div style="font-size: 12px; letter-spacing: 0.2em; color: #4F6580">FREDOKA · 600 · wordmark, scores, titles, buttons</div>
+<div style="display: flex; align-items: baseline; gap: 24px"><span style="font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 64px; line-height: 1">−4 23 41</span><span style="font-size: 12px; color: #4F6580">Score · 64</span></div>
+<div style="display: flex; align-items: baseline; gap: 24px"><span style="font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 32px">Round 6</span><span style="font-size: 12px; color: #4F6580">Title · 32</span></div>
+<div style="display: flex; align-items: baseline; gap: 24px"><span style="font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 22px">Mia's grid</span><span style="font-size: 12px; color: #4F6580">Heading · 22</span></div>
+<div style="display: flex; align-items: baseline; gap: 24px"><span style="font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 17px">Scan next</span><span style="font-size: 12px; color: #4F6580">Button · 17</span></div>
+</div>
+<div style="border-radius: 24px; background: #FFFFFF; border: 1.5px solid #CFE0F0; padding: 32px; display: flex; flex-direction: column; gap: 20px">
+<div style="font-size: 12px; letter-spacing: 0.2em; color: #4F6580">DM MONO · 400/500 · labels, tags, body</div>
+<div style="display: flex; align-items: baseline; gap: 24px"><span style="font-size: 12px; letter-spacing: 0.2em">LOWEST WINS · ENDS AT 100</span><span style="font-size: 12px; color: #4F6580">Label · 12 caps</span></div>
+<div style="display: flex; align-items: baseline; gap: 24px"><span style="font-size: 15px">Tap a player to scan their grid.</span><span style="font-size: 12px; color: #4F6580">Body · 15</span></div>
+<div style="display: flex; align-items: baseline; gap: 24px"><span style="font-size: 12px; font-weight: 500">✓ −4 · column cleared</span><span style="font-size: 12px; color: #4F6580">Tag · 12</span></div>
+<div style="font-size: 14px; line-height: 1.6; color: #4F6580">Numbers use Fredoka for warmth; everything that explains uses DM Mono for precision. Scores are always set with a real minus sign (−), not a hyphen.</div>
+</div>
+</div>
+</section>
+
+<!-- 05 UI -->
+<section style="display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; align-items: baseline; gap: 16px; border-bottom: 2px solid #12233D; padding-bottom: 16px"><span style="font-size: 14px; color: #2A6FD8">05</span><h2 style="margin: 0; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 40px">Interface elements</h2></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px">
+
+<div style="display: flex; flex-direction: column; gap: 16px">
+<div style="font-size: 12px; letter-spacing: 0.2em; color: #4F6580">BUTTONS</div>
+<button style="height: 64px; border-radius: 16px; border: none; background: #2A6FD8; color: #FFFFFF; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 17px">Scan next · Ben</button>
+<button style="height: 56px; border-radius: 16px; border: 1.5px solid #CFE0F0; background: #FFFFFF; color: #12233D; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 16px">Close round</button>
+<button style="height: 56px; border-radius: 16px; border: none; background: #D62E7E; color: #FFFFFF; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 16px">Confirm ×2 penalty</button>
+<div style="font-size: 12px; letter-spacing: 0.2em; color: #4F6580; margin-top: 12px">TAGS</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<span style="height: 28px; padding: 0 10px; border-radius: 7px; background: #DCE9FB; color: #2563C7; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center">✓ −4</span>
+<span style="height: 28px; padding: 0 10px; border-radius: 7px; background: #DCE9FB; color: #2563C7; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center">column cleared</span>
+<span style="height: 28px; padding: 0 10px; border-radius: 7px; background: #D62E7E; color: #FFFFFF; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center">×2 PENALTY</span>
+<span style="height: 28px; padding: 0 10px; border-radius: 7px; border: 1.5px dashed #9FB6CF; color: #4F6580; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; box-sizing: border-box">OPEN</span>
+<span style="height: 28px; padding: 0 10px; border-radius: 7px; background: #12233D; color: #FFFFFF; font-size: 11px; letter-spacing: 0.14em; display: inline-flex; align-items: center">LOWEST</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 16px">
+<div style="font-size: 12px; letter-spacing: 0.2em; color: #4F6580">PLAYER ROWS</div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="3">
+<div style="height: 64px; border-radius: 16px; background: {{r.bg}}; border: 1.5px solid {{r.line}}; display: grid; grid-template-columns: 32px minmax(0, 1fr) auto 52px; column-gap: 12px; align-items: center; padding: 0 14px">
+<div style="width: 24px; height: 32px; border-radius: 5px; background: {{r.color}}; transform: rotate(-8deg); opacity: {{r.dim}}; display: flex; align-items: center; justify-content: center; font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 13px; color: #12233D">{{r.initial}}</div>
+<div style="font-size: 15px; color: {{r.ink}}">{{r.name}}</div>
+<div style="height: 26px; padding: 0 9px; border-radius: 7px; background: {{r.tagBg}}; color: {{r.tagInk}}; border: {{r.tagLine}}; box-sizing: border-box; font-size: 12px; font-weight: 500; display: flex; align-items: center; white-space: nowrap">{{r.tag}}</div>
+<div style="font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 26px; text-align: right; color: {{r.ink}}">{{r.total}}</div>
+</div>
+</sc-for>
+<div style="font-size: 13px; line-height: 1.55; color: #4F6580">Open players stay white and raised; finished players fade back so the eye finds who's left.</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 16px">
+<div style="font-size: 12px; letter-spacing: 0.2em; color: #4F6580">SCAN BOXES</div>
+<div style="height: 230px; border-radius: 20px; background: #4A5563; position: relative; overflow: hidden" aria-label="Scan box example over a card placeholder">
+<div style="position: absolute; left: 70px; top: 40px; width: 110px; height: 150px; border-radius: 12px; background: #C9D6E3; transform: rotate(-6deg)"></div>
+<div style="position: absolute; left: 62px; top: 32px; width: 126px; height: 166px; border-radius: 14px; border: 3px solid #2A6FD8; outline: 2px solid #FFFFFF; transform: rotate(-6deg); box-sizing: border-box">
+<div style="position: absolute; left: -3px; top: -3px; padding: 3px 9px; border-radius: 12px 0 10px 0; background: #2A6FD8; color: #FFFFFF; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 14px">−2</div>
+</div>
+<div style="position: absolute; right: 20px; top: 60px; width: 90px; height: 120px; border-radius: 12px; border: 2px dashed #FFFFFF; opacity: 0.8; display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-size: 11px; letter-spacing: 0.12em">CLEARED</div>
+</div>
+<div style="font-size: 13px; line-height: 1.55; color: #4F6580">Detected card: 3 px blue + 2 px white outline, value tag top-left. Cleared column slots: dashed white.</div>
+</div>
+
+</div>
+</section>
+
+<!-- 06 RULES -->
+<section style="display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; align-items: baseline; gap: 16px; border-bottom: 2px solid #12233D; padding-bottom: 16px"><span style="font-size: 14px; color: #2A6FD8">06</span><h2 style="margin: 0; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 40px">Do &amp; don't</h2></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px">
+<sc-for list="{{rules}}" as="r" hint-placeholder-count="6">
+<div style="border-radius: 20px; background: #FFFFFF; border: 1.5px solid #CFE0F0; padding: 22px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; letter-spacing: 0.18em; font-weight: 500; color: {{r.color}}">{{r.kind}}</div>
+<div style="font-size: 15px; line-height: 1.55">{{r.text}}</div>
+</div>
+</sc-for>
+</div>
+<div style="font-size: 13px; color: #4F6580">Scanjo is an independent app by Bastelapps. Skyjo is a trademark of its owner; Scanjo never uses Skyjo's name in its icon, artwork or card designs.</div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":4200}}'>
+class Component extends DCLogic {
+renderVals() {
+const day = { name: 'Sky Day', when: 'Main theme · daylight', ground: '#FFFFFF', line: '#CFE0F0', text: '#12233D', muted: '#4F6580',
+colors: [
+{ role: 'Ground', hex: '#EAF3FB', use: 'App background' },
+{ role: 'Surface', hex: '#FFFFFF', use: 'Open player cards, sheets' },
+{ role: 'Line', hex: '#CFE0F0', use: 'Borders, dividers' },
+{ role: 'Text', hex: '#12233D', use: 'Primary text, scan line' },
+{ role: 'Muted', hex: '#4F6580', use: 'Labels, secondary text' },
+{ role: 'Accent', hex: '#2A6FD8', use: 'Buttons, icon tile, “jo”' },
+{ role: 'Accent tint', hex: '#DCE9FB', use: 'Scored tags, selection' },
+{ role: 'Done card', hex: '#E1ECF6', use: 'Finished players' },
+{ role: 'Penalty', hex: '#D62E7E', use: '×2 penalty only' }
+] };
+const night = { name: 'Sky Night', when: 'Dark mode · evenings', ground: '#10172E', line: '#2E3B66', text: '#EEF3FF', muted: '#A0AECB',
+colors: [
+{ role: 'Ground', hex: '#10172E', use: 'App background' },
+{ role: 'Surface', hex: '#1B2443', use: 'Open player cards, sheets' },
+{ role: 'Line', hex: '#2E3B66', use: 'Borders, dividers' },
+{ role: 'Text', hex: '#EEF3FF', use: 'Primary text' },
+{ role: 'Muted', hex: '#A0AECB', use: 'Labels, secondary text' },
+{ role: 'Accent', hex: '#6FA0FF', use: 'Buttons, highlights' },
+{ role: 'Accent tint', hex: '#1F2F57', use: 'Scored tags, selection' },
+{ role: 'Done card', hex: '#131B35', use: 'Finished players' },
+{ role: 'Penalty', hex: '#FF5FA2', use: '×2 penalty only' }
+] };
+const rows = [
+{ name: 'Ben', initial: 'B', color: '#A8E55C', total: 37, s: 'open', tag: 'OPEN' },
+{ name: 'Philip', initial: 'P', color: '#FFC24B', total: 23, s: 'done', tag: '✓ −4' },
+{ name: 'Mia', initial: 'M', color: '#F2E3C4', total: 58, s: 'pen', tag: '×2 +34' }
+].map((r) => ({ ...r,
+bg: r.s === 'open' ? '#FFFFFF' : '#E1ECF6', line: r.s === 'open' ? '#CFE0F0' : '#D6E4F1', ink: r.s === 'open' ? '#12233D' : '#5E708A', dim: r.s === 'open' ? 1 : 0.6,
+tagBg: r.s === 'done' ? '#DCE9FB' : (r.s === 'pen' ? '#D62E7E' : 'transparent'), tagInk: r.s === 'done' ? '#2563C7' : (r.s === 'pen' ? '#FFFFFF' : '#4F6580'),
+tagLine: r.s === 'open' ? '1.5px dashed #9FB6CF' : 'none' }));
+return {
+heroSize: 320, heroR: 74, crop: 88, cropRound: 44, cropSq: 22, lock: 72, lockR: 17,
+construction: [
+{ n: '1', t: 'A 3 × 4 grid of cards: one player’s hand at a glance.' },
+{ n: '2', t: 'The third column is dashed: a cleared column, the move every player hopes for.' },
+{ n: '3', t: 'Two small minus marks: in this game, low scores win.' },
+{ n: '4', t: 'A scan line through the middle of the last row, shared with Scan7. The whole mark is centred in the tile.' },
+{ n: '5', t: 'Everything tilted −8°, the family angle of all Bastelapps games.' }
+],
+sizes: [{ size: 96, r: 22, label: '96 · store' }, { size: 64, r: 15, label: '64' }, { size: 48, r: 11, label: '48 · launcher' }, { size: 32, r: 8, label: '32 · min. 24' }],
+wordRules: ['Always lowercase: scanjo.', '“scan” in text color, “jo” in accent.', 'Clear space around the lockup: ¼ of the icon width.', 'Never stretch, outline or recolor the icon.'],
+palettes: [day, night], rows,
+rules: [
+{ kind: 'DO', color: '#2563C7', text: 'Use Sky Day by default; switch to Sky Night in dark mode or dim rooms.' },
+{ kind: 'DO', color: '#2563C7', text: 'Pair every penalty with the word “×2 PENALTY” — never color alone.' },
+{ kind: 'DO', color: '#2563C7', text: 'Give scan boxes a white outline so they stay visible on blue cards.' },
+{ kind: 'DON’T', color: '#B0215F', text: 'Use Skyjo’s artwork, card designs or logo anywhere in the app or store listing.' },
+{ kind: 'DON’T', color: '#B0215F', text: 'Use pink for anything but the penalty, or offer it as a player color.' },
+{ kind: 'DON’T', color: '#B0215F', text: 'Mix Scan7’s cyan or Unbounded font into Scanjo screens.' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

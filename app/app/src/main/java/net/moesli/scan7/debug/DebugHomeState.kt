@@ -37,7 +37,7 @@ class DebugHomeState(private val context: Context, private val scope: CoroutineS
     }
 
 
-    fun ui(saveScans: Boolean): DebugHomeUi = DebugHomeUi(
+    fun ui(saveScans: Boolean, skyjoPreview: Boolean): DebugHomeUi = DebugHomeUi(
         modelVersion = model?.version,
         modelBytes = model?.bytes,
         detector = detector,
@@ -45,6 +45,7 @@ class DebugHomeState(private val context: Context, private val scope: CoroutineS
         acceptScore = ACCEPT_SCORE,
         keepScore = KEEP_SCORE,
         saveScans = saveScans,
+        skyjoPreview = skyjoPreview,
         appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
         buildType = BuildConfig.BUILD_TYPE,
         dbSchema = DB_SCHEMA_VERSION,

@@ -12,6 +12,8 @@ import net.moesli.scan7.BuildConfig
 import net.moesli.scan7.game.Avatar
 import net.moesli.scan7.game.ConfirmedCard
 import net.moesli.scan7.game.DEFAULT_TARGET
+import net.moesli.scan7.game.EnderPenalty
+import net.moesli.scan7.game.GameKind
 import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.MAX_NAME_LENGTH
 import net.moesli.scan7.game.Player
@@ -40,6 +42,7 @@ import net.moesli.scan7.multiplayer.ResetToOpen
 import net.moesli.scan7.multiplayer.RestoreAdjustment
 import net.moesli.scan7.multiplayer.ScoreCards
 import net.moesli.scan7.multiplayer.ScorePoints
+import net.moesli.scan7.multiplayer.SetRoundEnder
 import net.moesli.scan7.multiplayer.SetTarget
 import net.moesli.scan7.multiplayer.SwapSeats
 import net.moesli.scan7.multiplayer.UndoBust
@@ -118,6 +121,20 @@ class GameRepository(
     }
 
     suspend fun setSaveScansForTraining(on: Boolean) = settingsDao.put(SettingEntity(KEY_SAVE_SCANS, on.toString()))
+
+    /**
+     * Debug setting "Skyjo games (preview)": New game offers Skyjo next to Flip 7. Default off;
+     * release builds never (the toggle is in the debug menu, like [saveScansForTraining]).
+     */
+    val skyjoPreview: Flow<Boolean> = if (!BuildConfig.DEBUG) {
+        flowOf(false)
+    } else {
+        settingsDao.observe(KEY_SKYJO_PREVIEW)
+            .map { it == "true" }
+            .distinctUntilChanged()
+    }
+
+    suspend fun setSkyjoPreview(on: Boolean) = settingsDao.put(SettingEntity(KEY_SKYJO_PREVIEW, on.toString()))
 
     /** "Scan next" direction (round menu), app-wide; clockwise until changed. */
     val scanDirection: Flow<ScanDirection> = settingsDao.observe(KEY_SCAN_DIRECTION)
@@ -249,12 +266,14 @@ class GameRepository(
         seating: List<Long>,
         target: Int = DEFAULT_TARGET,
         positions: List<TablePosition>? = null,
+        kind: GameKind = GameKind.FLIP7,
+        enderPenalty: EnderPenalty = EnderPenalty.OFFICIAL,
     ): Long = db.withTransaction {
         val now = clock()
         val byId = playerDao.byIds(seating).associateBy { it.id }
         val players = seating.map { checkNotNull(byId[it]) { "No player $it" }.toPlayer() }
         val previousPositions = if (positions == null) previousPositions(seating) else null
-        val state = GameState.newGame(players, target, now, previousPositions, positions = positions)
+        val state = GameState.newGame(players, target, now, previousPositions, positions = positions, kind = kind, enderPenalty = enderPenalty)
         for (gameId in gameDao.unfinishedIds()) {
             val other = gameDao.load(gameId) ?: continue
             persist(other, other.toState(), other.toState().abandon(now))
@@ -306,6 +325,10 @@ class GameRepository(
     suspend fun closeRound(gameId: Long): GameState = apply(gameId) { s -> CloseRound(s.currentRound.number) }
 
     suspend fun nextRound(gameId: Long): GameState = apply(gameId) { s -> NextRound(s.currentRound.number) }
+
+    /** Skyjo: who ended [round] (null = the running one; [playerId] null = nobody), before closing it or later. */
+    suspend fun setRoundEnder(gameId: Long, playerId: Long?, round: Int? = null): GameState =
+        apply(gameId) { s -> SetRoundEnder(round ?: s.currentRound.number, playerId) }
 
     /**
      * "Next round" (everyone done) or a confirmed "Close round": closes the running round and,
@@ -532,9 +555,9 @@ class GameRepository(
         for (round in new.rounds) {
             val oldRound = old?.rounds?.getOrNull(round.number - 1)
             val roundId = roundIds[round.number]
-                ?: gameDao.insertRound(RoundEntity(gameId = gameId, number = round.number, closedAt = round.closedAt))
-            if (oldRound != null && oldRound.closedAt != round.closedAt) {
-                gameDao.updateRound(RoundEntity(roundId, gameId, round.number, round.closedAt))
+                ?: gameDao.insertRound(RoundEntity(gameId = gameId, number = round.number, closedAt = round.closedAt, endedBy = round.endedBy))
+            if (oldRound != null && (oldRound.closedAt != round.closedAt || oldRound.endedBy != round.endedBy)) {
+                gameDao.updateRound(RoundEntity(roundId, gameId, round.number, round.closedAt, round.endedBy))
             }
             // Results of the players in that round: everyone seated in the running round; in a closed
             // one whoever has a result (players who joined later / had left have none).
@@ -569,6 +592,7 @@ class GameRepository(
     private companion object {
         const val KEY_VIEW_MODE = "view_mode"
         const val KEY_SAVE_SCANS = "save_scans_for_training"
+        const val KEY_SKYJO_PREVIEW = "debug_skyjo_preview"
         const val KEY_SCAN_DIRECTION = "scan_direction"
         const val KEY_DEVICE_ID = "multiplayer_device_id"
 

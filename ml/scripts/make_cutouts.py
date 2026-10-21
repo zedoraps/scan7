@@ -5,6 +5,11 @@ corners), perspective-correct it to an upright portrait rectangle, apply the per
 from config/cards.yaml, and save an RGBA PNG with an anti-aliased rounded-corner alpha mask
 to ml/out/cutouts/<stem>.png. Also writes ml/out/cutouts/contact_sheet.jpg.
 
+Other card sets (Flip 7: With a Vengeance) have their own config: `--config
+config/cards_vengeance.yaml`. Its `paths:` section (src / extra / out, relative to ml/) replaces
+the Flip 7 defaults data/cards_flat, data/cards_extra, out/cutouts; --src / --extra / --out
+override both.
+
 Naming: a photo stem is a class name (`12`) or `<class>_<n>` (`12_2`) for another photo of the
 same class. Extra looks of a class that do not come from a photo (e.g. English-edition variants
 cut from a render, see scripts/extract_en_variants.py) are stored already rectified as RGBA
@@ -16,6 +21,7 @@ other variant. out/cutouts/sources.yaml maps every cutout stem to its source fil
 
     uv run python scripts/make_cutouts.py            # cutouts + contact sheet
     uv run python scripts/make_cutouts.py --measure  # also print measured aspect / corner radius
+    uv run python scripts/make_cutouts.py --config config/cards_vengeance.yaml   # -> out/cutouts_vengeance
 """
 
 from __future__ import annotations
@@ -37,9 +43,28 @@ WORK_LONG_SIDE = 2000  # detection resolution (long side, px)
 EDGE_MARGIN = 2  # px (at cutout size) the alpha stays inside the detected card silhouette
 
 
-def load_config() -> dict:
-    with open(CONFIG) as f:
+def load_config(path: Path = CONFIG) -> dict:
+    with open(path) as f:
         return yaml.safe_load(f)
+
+
+def resolve_paths(cfg: dict, src: str | None = None, extra: str | None = None,
+                  out: str | None = None) -> tuple[Path, Path | None, Path]:
+    """(src, extra, out) dirs: CLI value, else the config's `paths:` entry (relative to ml/), else
+    the Flip 7 defaults. An empty `extra` in the config (or `--extra ''`) means no extra looks."""
+    paths = cfg.get("paths") or {}
+
+    def pick(cli, key, default):
+        if cli is not None:
+            return (ML / cli) if cli else None
+        if key in paths:
+            return (ML / paths[key]) if paths[key] else None
+        return default
+
+    s, e, o = pick(src, "src", SRC), pick(extra, "extra", EXTRA), pick(out, "out", OUT)
+    if s is None or o is None:
+        raise ValueError("src and out must not be empty")
+    return s, e, o
 
 
 def extra_class(stem: str, classes: list[str]) -> str:
@@ -57,17 +82,28 @@ def class_of(stem: str, classes: list[str]) -> str:
     base, _, suffix = stem.rpartition("_")
     if base in classes and suffix.isdigit():
         return base
-    raise ValueError(f"{stem}: not a known class name (see config/cards.yaml)")
+    raise ValueError(f"{stem}: not a known class name (see the cards config)")
+
+
+def rel(p: Path) -> str:
+    """Path relative to ml/ when inside it (as sources.yaml stores it), else absolute."""
+    p = p.resolve()
+    return str(p.relative_to(ML)) if p.is_relative_to(ML) else str(p)
 
 
 # ---------------------------------------------------------------- detection
 
 
-def card_mask(img: np.ndarray) -> np.ndarray:
-    """Binary mask (convex) of the bright card on the dark mat."""
+def card_mask(img: np.ndarray, chroma: float | None = None) -> np.ndarray:
+    """Binary mask (convex) of the bright card on the dark mat. `chroma`: also count pixels whose
+    Lab chroma exceeds it as card (for dark but colourful cards, e.g. the navy Vengeance back,
+    whose edge is as dark as the grey mat; the mat itself has chroma <= ~6)."""
     v = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)[..., 2]
     v = cv2.GaussianBlur(v, (0, 0), 3)
     _, m = cv2.threshold(v, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    if chroma:
+        lab = cv2.cvtColor(cv2.GaussianBlur(img, (0, 0), 3), cv2.COLOR_BGR2LAB).astype(np.float32)
+        m[np.hypot(lab[..., 1] - 128, lab[..., 2] - 128) > chroma] = 255
     k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
     m = cv2.morphologyEx(m, cv2.MORPH_OPEN, k)
     m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, k)
@@ -234,10 +270,17 @@ def contact_sheet(items, banner, number_classes, cols=6, cell_w=220):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--measure", action="store_true", help="print measured aspect ratio and corner radius")
-    ap.add_argument("--debug", action="store_true", help="also save detection overlays to out/cutouts/debug/")
+    ap.add_argument("--debug", action="store_true", help="also save detection overlays to <out>/debug/")
+    ap.add_argument("--config", type=Path, default=CONFIG, help="cards config, relative to ml/ (default config/cards.yaml)")
+    ap.add_argument("--src", type=str, default=None, help="photo dir, relative to ml/ (default: config paths.src "
+                    "or data/cards_flat)")
+    ap.add_argument("--extra", type=str, default=None, help="dir of pre-rectified extra looks (default: config "
+                    "paths.extra or data/cards_extra; '' = none)")
+    ap.add_argument("--out", type=str, default=None, help="output dir (default: config paths.out or out/cutouts)")
     args = ap.parse_args()
 
-    cfg = load_config()
+    cfg = load_config(ML / args.config)  # relative to ml/ (an absolute path stays as it is)
+    src_dir, extra_dir, out_dir = resolve_paths(cfg, args.src, args.extra, args.out)
     classes = cfg["classes"]
     geo = cfg["geometry"]
     out_w = int(geo["cutout_width"])
@@ -245,13 +288,16 @@ def main():
     radius = geo["corner_radius"] * out_w
     trim = float(cfg["cutouts"]["trim_px"])
     rotations = cfg["cutouts"].get("rotate") or {}
+    chroma = cfg["cutouts"].get("chroma") or {}
     alpha = rounded_alpha(out_w, out_h, radius)
 
-    OUT.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
     if args.debug:
-        (OUT / "debug").mkdir(exist_ok=True)
+        (out_dir / "debug").mkdir(exist_ok=True)
 
-    files = sorted(SRC.glob("*.jpg"))
+    files = sorted(src_dir.glob("*.jpg"))
+    if not files:
+        raise SystemExit(f"no photos in {src_dir}")
     items, aspects, radii = [], [], []
     for f in files:
         stem = f.stem
@@ -261,7 +307,7 @@ def main():
             raise RuntimeError(f"cannot read {f}")
         scale = WORK_LONG_SIDE / max(img.shape[:2])
         small = cv2.resize(img, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
-        mask = card_mask(small)
+        mask = card_mask(small, chroma.get(stem))
         corners_small = find_corners(mask)
         corners = corners_small / scale
         rot = int(rotations.get(stem, 0))
@@ -281,7 +327,7 @@ def main():
         a = np.minimum(alpha, sil)
         cut = int(np.count_nonzero(alpha.astype(int) - a > 127))
         rgba = np.dstack([rgb, a])
-        cv2.imwrite(str(OUT / f"{stem}.png"), rgba)
+        cv2.imwrite(str(out_dir / f"{stem}.png"), rgba)
         items.append((stem, cls, rgba))
 
         if args.measure:
@@ -292,15 +338,15 @@ def main():
         if args.debug:
             dbg = small.copy()
             cv2.polylines(dbg, [corners_small.astype(np.int32)], True, (0, 255, 0), 2)
-            cv2.imwrite(str(OUT / "debug" / f"{stem}.jpg"), dbg)
+            cv2.imwrite(str(out_dir / "debug" / f"{stem}.jpg"), dbg)
         print(f"{stem:15s} -> {cls:14s} rot {rot:3d}  silhouette clipped {cut} px")
 
     # extra looks (already rectified RGBA) -> <class>_<n>
-    sources = {stem: f"data/cards_flat/{stem}.jpg" for stem, _, _ in items}
-    for stale in OUT.glob("*.png"):  # numbered cutouts from an earlier run that no source backs any more
+    sources = {stem: rel(src_dir / f"{stem}.jpg") for stem, _, _ in items}
+    for stale in out_dir.glob("*.png"):  # numbered cutouts from an earlier run that no source backs any more
         if stale.stem not in sources and stale.stem.rpartition("_")[2].isdigit():
             stale.unlink()
-    for f in sorted(EXTRA.glob("*.png")) if EXTRA.is_dir() else []:
+    for f in sorted(extra_dir.glob("*.png")) if extra_dir and extra_dir.is_dir() else []:
         cls = extra_class(f.stem, classes)
         rgba = cv2.imread(str(f), cv2.IMREAD_UNCHANGED)
         if rgba is None or rgba.ndim != 3 or rgba.shape[2] != 4 or rgba.shape[:2] != (out_h, out_w):
@@ -309,11 +355,11 @@ def main():
         while f"{cls}_{n}" in sources:
             n += 1
         stem = f"{cls}_{n}"
-        cv2.imwrite(str(OUT / f"{stem}.png"), rgba)
-        sources[stem] = f"data/cards_extra/{f.name}"
+        cv2.imwrite(str(out_dir / f"{stem}.png"), rgba)
+        sources[stem] = rel(f)
         items.append((stem, cls, rgba))
         print(f"{stem:15s} -> {cls:14s} from cards_extra/{f.name}")
-    with open(OUT / "sources.yaml", "w") as fh:
+    with open(out_dir / "sources.yaml", "w") as fh:
         fh.write("# written by scripts/make_cutouts.py: cutout stem -> source file (relative to ml/)\n")
         yaml.safe_dump(sources, fh, sort_keys=True)
 
@@ -325,8 +371,8 @@ def main():
     order = {c: i for i, c in enumerate(classes)}
     items.sort(key=lambda t: (order[t[1]], t[0]))
     sheet = contact_sheet(items, cfg["banner"], set(cfg["number_classes"]))
-    cv2.imwrite(str(OUT / "contact_sheet.jpg"), sheet, [cv2.IMWRITE_JPEG_QUALITY, 92])
-    print(f"wrote {len(items)} cutouts + contact sheet to {OUT}")
+    cv2.imwrite(str(out_dir / "contact_sheet.jpg"), sheet, [cv2.IMWRITE_JPEG_QUALITY, 92])
+    print(f"wrote {len(items)} cutouts + contact sheet to {out_dir}")
 
 
 if __name__ == "__main__":

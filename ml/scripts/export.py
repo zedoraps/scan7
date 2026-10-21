@@ -17,6 +17,8 @@ torch<2.14, and the training env uses torch 2.14. So call it with `uv run script
     cd ml
     uv run scripts/export.py runs/synth_v1/weights/last.pt
     uv run scripts/export.py runs/synth_v1/weights/best.pt --no-install   # export + verify only
+    uv run scripts/export.py runs/veng_synth_v1/weights/best.pt --imgsz 800 --cards config/cards_vengeance.yaml \
+        --asset-dir vengeance --verify-dir data/vengeance_raw   # With a Vengeance: assets/vengeance/
     uv run scripts/export.py runs/ft_v1/weights/best.pt --int8 static_e2e --no-install
     uv run scripts/export.py runs/ft_v1/weights/best.pt --int8 all   # all variants (evaluate: scripts/eval_tflite.py)
 
@@ -46,7 +48,7 @@ Steps:
  2. Print the input/output tensor details.
  3. Verify: run the PyTorch checkpoint and the .tflite (with the app's preprocessing: centered
     letterbox, pad 114, RGB 0-1, NCHW) on --verify-count real photos and compare boxes.
- 4. Copy (the --int8 file if given) to app/app/src/main/assets/model.tflite, write labels.txt (cards.yaml class order) and
+ 4. Copy (the --int8 file if given) to app/app/src/main/assets/[<asset-dir>/]model.tflite, write labels.txt (--cards class order) and
     model_version.txt (one line, shown in the app footer).
 """
 import argparse
@@ -238,7 +240,8 @@ def export_ultralytics_int8(src: Path, size: int, calib_files, work: Path) -> Pa
         lbl = f.parent.parent / "labels" / f.with_suffix(".txt").name
         if lbl.exists() and not (cal / "labels" / lbl.name).exists():
             (cal / "labels" / lbl.name).symlink_to(lbl.resolve())
-    classes = yaml.safe_load((ML / "config/cards.yaml").read_text())["classes"]
+    cards = ML / args.cards
+    classes = yaml.safe_load(cards.read_text())["classes"]
     data = cal / "calib.yaml"
     data.write_text(yaml.safe_dump({"path": str(cal), "train": "images", "val": "images",
                                     "names": dict(enumerate(classes))}, sort_keys=False))
@@ -273,6 +276,10 @@ def main():
     ap.add_argument("--verify-count", type=int, default=3)
     ap.add_argument("--conf", type=float, default=0.25)
     ap.add_argument("--no-install", action="store_true", help="don't copy into the app assets")
+    ap.add_argument("--cards", default="config/cards.yaml", help="class list the checkpoint must match (relative to ml/)")
+    ap.add_argument("--asset-dir", default="",
+                    help="assets subfolder of a game's own model (the app's DetectorModel), e.g. vengeance; "
+                         "default: the assets root (Flip 7)")
     args = ap.parse_args()
 
     if args.int8 in ("all", "ultralytics"):
@@ -284,11 +291,12 @@ def main():
 
     torch.set_num_threads(max(1, (os.cpu_count() or 4) // 2))  # leave CPU for the running training
     weights = Path(args.weights).resolve()
-    classes = yaml.safe_load((ML / "config/cards.yaml").read_text())["classes"]
+    cards = ML / args.cards
+    classes = yaml.safe_load(cards.read_text())["classes"]
     model = YOLO(str(weights))
     names = [model.names[i] for i in range(len(model.names))]
     if names != classes:
-        sys.exit(f"Checkpoint class names {names} differ from cards.yaml {classes}")
+        sys.exit(f"Checkpoint class names {names} differ from {cards.name} {classes}")
     print(f"torch {torch.__version__}; checkpoint {weights} (epoch {model.ckpt.get('epoch')})")
 
     # Export from a copy so the .tflite lands in a scratch dir, never next to the (possibly live) checkpoint.
@@ -336,15 +344,16 @@ def main():
             install, precision = q, f"int8-{scheme}"
 
     if not args.no_install:
-        ASSETS.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(install, ASSETS / "model.tflite")
-        (ASSETS / "labels.txt").write_text("\n".join(classes) + "\n")
+        assets = ASSETS / args.asset_dir
+        assets.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(install, assets / "model.tflite")
+        (assets / "labels.txt").write_text("\n".join(classes) + "\n")
         epoch = model.ckpt.get("epoch")
         version = (f"{weights.parent.parent.name}/{weights.stem}"
                    + (f" ep{epoch}" if epoch is not None and epoch >= 0 else "")
                    + f" · {precision} · {args.imgsz}px · {dt.date.today().isoformat()}")
-        (ASSETS / "model_version.txt").write_text(version + "\n")
-        print(f"Installed into {ASSETS}: model.tflite, labels.txt, model_version.txt ({version})")
+        (assets / "model_version.txt").write_text(version + "\n")
+        print(f"Installed into {assets}: model.tflite, labels.txt, model_version.txt ({version})")
 
 
 if __name__ == "__main__":

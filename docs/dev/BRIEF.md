@@ -50,7 +50,7 @@ Useful facts about the designs:
 - 6 and 9 have a dot under them, so full 360° rotation is safe in augmentation.
 - Similar-looking pairs to watch: 3 / 7 / 10 (reddish), 1 / 12 (gray).
 - Number cards have a word banner at the bottom (German: EINS, ZWEI…). The model must ignore this text so it also works with the English edition (ONE, TWO…).
-- **Card variants across editions** (same class, different look): the English edition's rainbow-striped `00` ("ZERO"), other card backs (e.g. turquoise frame, "THE GREATEST CARD GAME OF ALL TIME!"), and English banners/modifier text. In the English edition 6 and 9 have **no dot**, so orientation comes only from the banner or arch text. The generator gets the variants as extra cutouts of their class (`<class>_<n>`). "Flip 7: With a Vengeance" is a different game; a later version will support it as a separate class set.
+- **Card variants across editions** (same class, different look): the English edition's rainbow-striped `00` ("ZERO"), other card backs (e.g. turquoise frame, "THE GREATEST CARD GAME OF ALL TIME!"), and English banners/modifier text. In the English edition 6 and 9 have **no dot**, so orientation comes only from the banner or arch text. The generator gets the variants as extra cutouts of their class (`<class>_<n>`). "Flip 7: With a Vengeance" is a different game: its rules and cards are in the app as a debug preview (`GameKind.VENGEANCE`, `Deck.VENGEANCE`, typed in); the detector gets its own class set from photos of the real cards.
 - The deck is unbalanced: one 0, one 1, two 2s … twelve 12s. It has few modifiers and actions. The training data must be class-balanced.
 
 ## How cards lie on the table

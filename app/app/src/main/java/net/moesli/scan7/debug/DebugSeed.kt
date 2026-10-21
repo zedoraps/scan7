@@ -5,6 +5,11 @@ import android.content.Intent
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import net.moesli.scan7.Brand
+import net.moesli.scan7.game.GameKind
+import net.moesli.scan7.skyjo.SKYJO_TARGET
+import net.moesli.scan7.skyjo.SkyjoCard
+import net.moesli.scan7.skyjo.toConfirmedCards
 import net.moesli.scan7.data.AppGraph
 import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.game.AvatarCatalog
@@ -80,20 +85,8 @@ suspend fun seedAndOpen(context: Context, launch: DebugSeedLaunch): List<Route> 
     val ids = Names.mapIndexed { i, name -> repo.addPlayer(name, AvatarCatalog.examples[i].second) }
     if (launch.scenario == SeedScenario.HISTORY) seedHistory(context, ids)
     val seated = ids.take(launch.scenario.players)
-    val gameId = repo.startGame(seated)
     val over = launch.scenario == SeedScenario.GAMEOVER
-    // Closed rounds: Philip leads with 35 a round (40 in the game-over game → over after round 5).
-    for (round in 1..5) {
-        seated.forEachIndexed { i, id ->
-            when {
-                i == 0 -> repo.scorePoints(gameId, id, if (over) 40 else 35)
-                (i + round) % 4 == 0 -> repo.bust(gameId, id)
-                else -> repo.scorePoints(gameId, id, (i * 7 + round * 13) % 30 + 2)
-            }
-        }
-        repo.closeRoundAndStartNext(gameId)
-    }
-    if (!over) runningRound(repo, gameId, seated)
+    val gameId = if (SeedSkyjo) seedSkyjo(repo, seated, over) else seedFlip7(repo, seated, over)
     when (launch.open) {
         DebugOpen.ROUND_LIST -> repo.setViewMode(gameId, ViewMode.LIST)
         DebugOpen.ROUND_TABLE, DebugOpen.SHEET_OPEN, DebugOpen.SHEET_DONE, DebugOpen.ADJUST_DIALOG ->
@@ -116,6 +109,64 @@ suspend fun seedAndOpen(context: Context, launch: DebugSeedLaunch): List<Route> 
     }
 }
 
+/** The brand's game: Scanjo seeds Skyjo games, Scan7 Flip 7 ([Brand.games]). */
+private val SeedSkyjo: Boolean get() = Brand.games.first() == GameKind.SKYJO
+
+/** Flip 7: closed rounds with Philip leading at 35 a round (40 in the game-over game → over after round 5). */
+private suspend fun seedFlip7(repo: GameRepository, seated: List<Long>, over: Boolean): Long {
+    val gameId = repo.startGame(seated)
+    for (round in 1..5) {
+        seated.forEachIndexed { i, id ->
+            when {
+                i == 0 -> repo.scorePoints(gameId, id, if (over) 40 else 35)
+                (i + round) % 4 == 0 -> repo.bust(gameId, id)
+                else -> repo.scorePoints(gameId, id, (i * 7 + round * 13) % 30 + 2)
+            }
+        }
+        repo.closeRoundAndStartNext(gameId)
+    }
+    if (!over) runningRound(repo, gameId, seated)
+    return gameId
+}
+
+/**
+ * Skyjo (official round-ender rule): Philip leads with the lowest total (3 a round), a round ender
+ * per round (the one not lowest gets doubled), one negative round; in the game-over game the others
+ * pass 100 in round 5.
+ */
+private suspend fun seedSkyjo(repo: GameRepository, seated: List<Long>, over: Boolean): Long {
+    val gameId = repo.startGame(seated, target = SKYJO_TARGET, kind = GameKind.SKYJO)
+    for (round in 1..5) {
+        seated.forEachIndexed { i, id ->
+            val points = when {
+                i == 0 -> 3
+                (i + round) % 5 == 0 -> -2
+                else -> (i * 7 + round * 5) % 15 + if (over) 14 else 2
+            }
+            repo.scorePoints(gameId, id, points)
+        }
+        repo.setRoundEnder(gameId, seated[round % seated.size])
+        repo.closeRoundAndStartNext(gameId)
+    }
+    if (!over) {
+        seated.forEachIndexed { i, id ->
+            when (i) {
+                0 -> repo.scoreCards(gameId, id, SkyjoGrid.toConfirmedCards())
+                1 -> repo.scoreCards(gameId, id, SkyjoClearedGrid.toConfirmedCards())
+                3, 7 -> repo.scorePoints(gameId, id, 14 + i)
+                5 -> repo.scorePoints(gameId, id, -4)
+                else -> Unit // open
+            }
+        }
+        repo.adjustTotal(gameId, seated[0], 5, "penalty")
+    }
+    return gameId
+}
+
+/** A full grid (sum 9) and one with the third column cleared (sum 21), row by row. */
+private val SkyjoGrid: List<SkyjoCard?> = listOf(-2, 0, 1, 3, 2, -1, 4, 0, 1, 0, -1, 2).map(SkyjoCard::of)
+private val SkyjoClearedGrid: List<SkyjoCard?> = listOf(5, 2, null, 8, 1, 0, null, 3, -1, 3, null, 0).map { it?.let(SkyjoCard::of) }
+
 /**
  * Past games for the Home history, written with a fake clock (dates relative to now). The last one
  * (same 6 players as the running game, 2 rounds) is abandoned when [seedAndOpen] starts that game.
@@ -129,12 +180,15 @@ private suspend fun seedHistory(context: Context, ids: List<Long>) {
     /** [rounds] rounds; [winners] (indices into [players]) reach 200 in the last one (or lead when it is ended early). */
     suspend fun play(players: List<Long>, start: Long, rounds: Int, winners: Set<Int>, endEarly: Boolean = false) {
         t = start
-        val gameId = repo.startGame(players)
+        val gameId = if (SeedSkyjo) repo.startGame(players, target = SKYJO_TARGET, kind = GameKind.SKYJO) else repo.startGame(players)
         val win = if (endEarly) 40 else (200 + rounds - 1) / rounds
+        // Skyjo: the winners stay low, the others pass 100 only in the last round.
+        val lose = 80 / rounds
         for (round in 1..rounds) {
             t += 9 * 60_000L
             players.forEachIndexed { i, id ->
                 when {
+                    SeedSkyjo -> repo.scorePoints(gameId, id, if (i in winners) round % 3 else if (round == rounds) 100 - lose * (rounds - 1) + i else lose)
                     i in winners -> repo.scorePoints(gameId, id, win)
                     (i + round) % 5 == 0 -> repo.bust(gameId, id)
                     else -> repo.scorePoints(gameId, id, (win - 4 - i * 3).coerceAtLeast(2))
@@ -149,7 +203,7 @@ private suspend fun seedHistory(context: Context, ids: List<Long>) {
     play(ids.take(5), now - day, rounds = 3, winners = setOf(1), endEarly = true)
     // Unfinished: the running game (started below with the real clock) abandons it.
     t = now - 3 * 3_600_000L
-    val abandoned = repo.startGame(ids.take(6))
+    val abandoned = if (SeedSkyjo) repo.startGame(ids.take(6), target = SKYJO_TARGET, kind = GameKind.SKYJO) else repo.startGame(ids.take(6))
     repeat(2) {
         ids.take(6).forEachIndexed { i, id -> repo.scorePoints(abandoned, id, 10 + i * 4) }
         repo.closeRoundAndStartNext(abandoned)

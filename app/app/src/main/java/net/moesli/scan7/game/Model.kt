@@ -63,12 +63,15 @@ enum class ViewMode {
 }
 
 /**
- * A card confirmed for a player's row. [ignored] cards (action cards, `back`) are kept for
- * statistics and shown as grey chips but never count towards the score.
+ * A card confirmed for a player's result, of the game's card set ([GameRules.cardFromLabel]).
+ * [ignored] cards (Flip 7: action cards, `back`) are kept for statistics and shown as grey chips
+ * but never count towards the score. [slot] = the card's place in a fixed layout (Skyjo: 0–11 in
+ * the 3 × 4 grid, row by row; an empty slot = a removed card), `null` for a free row (Flip 7).
  */
 data class ConfirmedCard(
-    val card: Card,
-    val ignored: Boolean = card.kind == CardKind.ACTION || card.kind == CardKind.BACK,
+    val card: GameCard,
+    val ignored: Boolean = card is Card && (card.kind == CardKind.ACTION || card.kind == CardKind.BACK),
+    val slot: Int? = null,
 )
 
 /** One player's result in one round. [points] is 0 unless [status] is [ResultStatus.SCORED]. */
@@ -82,8 +85,8 @@ data class PlayerResult(
     val isOpen: Boolean get() = status == ResultStatus.OPEN
     val isDone: Boolean get() = status != ResultStatus.OPEN
 
-    /** Score breakdown of the confirmed cards, or `null` if no cards were recorded. */
-    val breakdown: RowScore? get() = if (cards.isEmpty()) null else scoreRow(cards.countedCards())
+    /** Flip 7 score breakdown of the confirmed cards, or `null` if no Flip 7 cards were recorded. */
+    val breakdown: RowScore? get() = if (cards.none { it.card is Card }) null else scoreRow(cards.countedCards())
 
     companion object {
         val OPEN = PlayerResult()
@@ -95,7 +98,10 @@ data class PlayerResult(
  * points) but still counts: it cancels one duplicate in [scoreRow].
  */
 fun List<ConfirmedCard>.countedCards(): List<Card> =
-    filter { !it.ignored || it.card == Card.SECOND_CHANCE }.map { it.card }
+    filter { !it.ignored || it.card == Card.SECOND_CHANCE }.flip7Cards()
+
+/** The Flip 7 cards of a result (other games' cards are skipped). */
+fun List<ConfirmedCard>.flip7Cards(): List<Card> = mapNotNull { it.card as? Card }
 
 /** Free card position in the table view, normalized to 0–1 within the arrangeable area. */
 data class TablePosition(val x: Float, val y: Float) {
@@ -117,11 +123,14 @@ data class RoundState(
     val number: Int,
     val results: Map<Long, PlayerResult>,
     val closedAt: Long? = null,
+    /** Skyjo: the player who ended the round (revealed all cards first), for [EnderPenalty]; `null` = not set. */
+    val endedBy: Long? = null,
 ) {
     val isClosed: Boolean get() = closedAt != null
 
     fun result(playerId: Long): PlayerResult = results[playerId] ?: PlayerResult.OPEN
 
+    /** [playerId]'s points as entered, before a round-end rule ([GameState.roundPoints] has the counted ones). */
     fun points(playerId: Long): Int = result(playerId).points
 }
 

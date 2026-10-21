@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Scanjo: the strings that name the app or its game (they override main/res; see app/build.gradle.kts "Brand"). -->
+<resources>
+    <string name="home_intro_players">Wähl aus, wer mitspielt, und gib am Rundenende die Kartenauslage jedes Spielers ein. Scanjo rechnet zusammen, und die niedrigste Summe gewinnt.</string>
+    <string name="home_version">Scanjo %1$s (%2$d)</string>
+    <string name="about_disclaimer">Inoffizieller Punktezähler für Skyjo. Keine Verbindung zu Magilano.</string>
+    <string name="about_license_body">Scanjo ist freie Software: Du darfst sie unter der GNU Affero General Public License v3.0 nutzen, untersuchen, weitergeben und verändern. Der Quellcode ist öffentlich.</string>
+    <string name="camera_permission_body">Scanjo liest mit der Kamera die Karten auf dem Tisch. Die Bilder bleiben auf diesem Handy.</string>
+    <string name="camera_permission_body_settings">Der Kamerazugriff ist für Scanjo ausgeschaltet. Schalte ihn in den App-Einstellungen unter Berechtigungen → Kamera ein.</string>
+    <string name="share_notification_title">Scanjo teilt ein Spiel</string>
+    <string name="share_hint">Scanne diesen Code mit Scanjo auf den anderen Handys.</string>
+    <string name="share_no_radio">Diese Version von Scanjo kann keine Handys verbinden (ohne Google-Play-Dienste).</string>
+    <string name="join_not_a_game">Das ist kein Scanjo-Spielcode.</string>
+    <string name="join_camera_needed">Scanjo braucht die Kamera, um den Code zu lesen.</string>
+    <string name="join_rejected_version">Aktualisiere Scanjo auf diesem Handy, um beizutreten.</string>
+    <string name="permission_rationale_nearby">Scanjo verbindet die Handys an deinem Tisch über „Geräte in der Nähe“ und den genauen Standort. Scanjo nutzt deinen Standort nie, und nichts geht ins Internet.</string>
+    <string name="permission_rationale_location">Android braucht den Standortzugriff, um Handys in der Nähe zu finden. Scanjo nutzt deinen Standort nie.</string>
+    <string name="radio_permissions_missing">Scanjo braucht die Berechtigungen „Geräte in der Nähe“ und Standort, um die Handys zu verbinden.</string>
+</resources>

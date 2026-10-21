@@ -8,10 +8,11 @@ import net.moesli.scan7.game.GameState
 import net.moesli.scan7.game.ResultStatus
 
 /**
- * One cell of the scoreboard: a player's result in a round. [played] = false: the player wasn't in
- * that round (joined later or had left): "–", not editable.
+ * One cell of the scoreboard: a player's result in a round, [points] as counted (Skyjo: [doubled]
+ * for the round ender). [played] = false: the player wasn't in that round (joined later or had
+ * left): "–", not editable.
  */
-data class ScoreCell(val status: ResultStatus, val points: Int = 0, val played: Boolean = true)
+data class ScoreCell(val status: ResultStatus, val points: Int = 0, val played: Boolean = true, val doubled: Boolean = false)
 
 /** One round of the scoreboard; [isRunning] = the round is not closed yet (never in an abandoned game). */
 data class ScoreTableRow(val round: Int, val cells: List<ScoreCell>, val isRunning: Boolean)
@@ -40,7 +41,11 @@ fun scoreTable(state: GameState): ScoreTable {
         ScoreTableRow(
             round = r.number,
             cells = ids.map { id ->
-                if (state.playedIn(id, r.number)) r.result(id).let { ScoreCell(it.status, it.points) } else ScoreCell(ResultStatus.OPEN, played = false)
+                if (state.playedIn(id, r.number)) {
+                    ScoreCell(r.result(id).status, state.roundPoints(r, id), doubled = state.isDoubled(r, id))
+                } else {
+                    ScoreCell(ResultStatus.OPEN, played = false)
+                }
             },
             isRunning = !r.isClosed && !state.abandoned,
         )
@@ -66,7 +71,10 @@ fun ScoreCell.text(): UiText = when (status) {
 
 /** Content description of a cell, e.g. "Round 2, Anna: bust". */
 fun ScoreCell.describe(round: Int, name: String): UiText = if (!played) uiText(R.string.scoreboard_cell_absent, round, name) else when (status) {
-    ResultStatus.SCORED -> uiText(R.string.scoreboard_cell_points, round, name, uiPlural(R.plurals.points, points))
+    ResultStatus.SCORED -> {
+        val cell = uiText(R.string.scoreboard_cell_points, round, name, uiPlural(R.plurals.points, points))
+        if (doubled) UiText.Join(listOf(cell, uiText(R.string.scoreboard_cell_doubled)), ", ") else cell
+    }
     ResultStatus.BUST -> uiText(R.string.scoreboard_cell_bust, round, name)
     ResultStatus.OPEN -> uiText(R.string.scoreboard_cell_open, round, name)
 }

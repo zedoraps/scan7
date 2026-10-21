@@ -1,0 +1,45 @@
+# Synthetic data for Flip 7: With a Vengeance (scripts/gen_synth.py --config config/synth_vengeance.yaml).
+# Everything not set here comes from synth.yaml; a section set here replaces that whole section.
+base: synth.yaml
+
+cards_config: config/cards_vengeance.yaml   # class list (28 Vengeance classes)
+out: out/synth_vengeance                     # default output dir (never the Flip 7 out/synth)
+
+# Cutout dirs, relative to ml/ (scripts/make_cutouts.py --config config/cards_vengeance.yaml).
+# Vengeance looks only: the Flip 7 cutouts (out/cutouts) are deliberately not used, this is a
+# separate Vengeance model.
+cutouts:
+  - dir: out/cutouts_vengeance
+    # Banner word area on Vengeance number cards 1-13: inside the inner yellow frame line of all of
+    # them (measured on the cutouts: 01-09 inner frame y 0.733-0.827, 10-13 y 0.725-0.820; the
+    # words span y 0.745-0.814). Flip 7's text.inner (0.768-0.838) would sit too low.
+    text_inner: [0.055, 0.733, 0.945, 0.820]
+
+# English-edition looks (data/cards_extra_vengeance, cut from the publisher's deck render and BGG
+# scans): ~40 % per class, the German photo gets the rest.
+variants:
+  weights:
+    back_en_render: 0.4
+    06_en_render: 0.4
+    09_en_render: 0.4
+    zero_en_render: 0.4
+    lucky13_en_render: 0.4
+    unlucky7_en_render: 0.4
+    div2_en_render: 0.4
+    minus2_en_render: 0.4
+    minus4_en_render: 0.4
+    minus6_en_render: 0.4
+    minus8_en_render: 0.4
+    minus10_en_render: 0.4
+    swap_en_render: 0.4
+    just_one_more_en_render: 0.2
+    just_one_more_en_scan: 0.2
+    flip4_en_render: 0.2
+    flip4_en_scan: 0.2
+    steal_en_render: 0.2
+    steal_en_scan: 0.2
+    discard_en_render: 0.2
+    discard_en_scan: 0.2
+  text_inner:   # the English banner's inner area (the default would paint over its frame line)
+    06_en_render: [0.075, 0.725, 0.925, 0.806]
+    09_en_render: [0.075, 0.725, 0.925, 0.806]

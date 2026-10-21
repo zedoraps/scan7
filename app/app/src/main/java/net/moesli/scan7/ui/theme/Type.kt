@@ -11,12 +11,6 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import net.moesli.scan7.R
 
-/** Unbounded (OFL): round number, totals, player initials, primary button labels, wordmark. */
-val Unbounded = FontFamily(
-    Font(R.font.unbounded_semibold, FontWeight.SemiBold),
-    Font(R.font.unbounded_bold, FontWeight.Bold),
-)
-
 /** DM Mono (OFL): everything else — names, labels, tags, body text. */
 val DmMono = FontFamily(
     Font(R.font.dm_mono_regular, FontWeight.Normal),
@@ -31,7 +25,7 @@ private val Trimmed = LineHeightStyle(
 )
 
 private fun unbounded(size: TextUnit, weight: FontWeight = FontWeight.Bold, lineHeight: Float = 1.2f) = TextStyle(
-    fontFamily = Unbounded,
+    fontFamily = DisplayFont,
     fontWeight = weight,
     fontSize = size,
     lineHeight = size * lineHeight,
@@ -48,7 +42,7 @@ private fun mono(size: TextUnit, weight: FontWeight = FontWeight.Normal, letterS
 )
 
 /**
- * Text styles from the design handoff (§2 Type). Unbounded only for the round number, totals,
+ * Text styles from the design handoff (§2 Type). DisplayFont only for the round number, totals,
  * initials and primary button labels; DM Mono for everything else. Caps labels use 0.14–0.24 em.
  */
 object Scan7Type {
@@ -68,10 +62,10 @@ object Scan7Type {
     /** Player name in the "Scan next" button. */
     val buttonName = unbounded(18.sp)
 
-    /** Primary button label (Unbounded 600). */
+    /** Primary button label (DisplayFont 600). */
     val button = unbounded(16.sp, FontWeight.SemiBold)
 
-    /** Small Unbounded heading, e.g. "Arrange seats" in the header. */
+    /** Small DisplayFont heading, e.g. "Arrange seats" in the header. */
     val headline16 = unbounded(16.sp)
 
     /** DM Mono text sizes. */
@@ -96,16 +90,16 @@ object Scan7Type {
 
 /**
  * Material typography mapped onto the brand fonts (used by Material containers and the debug
- * screens). Display/headline: Unbounded. Title/label/body: DM Mono (handoff: DM Mono for all text
- * except the Unbounded cases).
+ * screens). Display/headline: DisplayFont. Title/label/body: DM Mono (handoff: DM Mono for all text
+ * except the DisplayFont cases).
  */
 val Scan7Typography = Typography(
-    displayLarge = Default.displayLarge.copy(fontFamily = Unbounded, fontWeight = FontWeight.Bold, letterSpacing = 0.sp),
-    displayMedium = Default.displayMedium.copy(fontFamily = Unbounded, fontWeight = FontWeight.Bold, letterSpacing = 0.sp),
-    displaySmall = Default.displaySmall.copy(fontFamily = Unbounded, fontWeight = FontWeight.Bold, letterSpacing = 0.sp),
-    headlineLarge = Default.headlineLarge.copy(fontFamily = Unbounded, fontWeight = FontWeight.SemiBold),
-    headlineMedium = Default.headlineMedium.copy(fontFamily = Unbounded, fontWeight = FontWeight.SemiBold),
-    headlineSmall = Default.headlineSmall.copy(fontFamily = Unbounded, fontWeight = FontWeight.SemiBold),
+    displayLarge = Default.displayLarge.copy(fontFamily = DisplayFont, fontWeight = FontWeight.Bold, letterSpacing = 0.sp),
+    displayMedium = Default.displayMedium.copy(fontFamily = DisplayFont, fontWeight = FontWeight.Bold, letterSpacing = 0.sp),
+    displaySmall = Default.displaySmall.copy(fontFamily = DisplayFont, fontWeight = FontWeight.Bold, letterSpacing = 0.sp),
+    headlineLarge = Default.headlineLarge.copy(fontFamily = DisplayFont, fontWeight = FontWeight.SemiBold),
+    headlineMedium = Default.headlineMedium.copy(fontFamily = DisplayFont, fontWeight = FontWeight.SemiBold),
+    headlineSmall = Default.headlineSmall.copy(fontFamily = DisplayFont, fontWeight = FontWeight.SemiBold),
     titleLarge = Default.titleLarge.copy(fontFamily = DmMono, fontWeight = FontWeight.Medium),
     titleMedium = Default.titleMedium.copy(fontFamily = DmMono, fontWeight = FontWeight.Medium),
     titleSmall = Default.titleSmall.copy(fontFamily = DmMono, fontWeight = FontWeight.Medium),
@@ -117,9 +111,9 @@ val Scan7Typography = Typography(
     labelSmall = Default.labelSmall.copy(fontFamily = DmMono, fontWeight = FontWeight.Normal),
 )
 
-/** Big score number (e.g. a row total): Unbounded Bold in the accent color is the brand look. */
+/** Big score number (e.g. a row total): DisplayFont Bold in the accent color is the brand look. */
 val ScoreNumberStyle = TextStyle(
-    fontFamily = Unbounded,
+    fontFamily = DisplayFont,
     fontWeight = FontWeight.Bold,
     fontSize = 56.sp,
     lineHeight = 64.sp,

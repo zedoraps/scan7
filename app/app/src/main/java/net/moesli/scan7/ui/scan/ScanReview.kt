@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import net.moesli.scan7.detection.DetectorModel
 import net.moesli.scan7.ui.text.resolve
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -122,6 +123,8 @@ data class CaptureMeta(
     val zoomRatio: Float? = null,
     val backend: String? = null,
     val threshold: Float? = null,
+    /** The game's detector that found the cards (its version goes into the training sidecar). */
+    val model: DetectorModel = DetectorModel.FLIP7,
     /** Best-frame shutter ([net.moesli.scan7.camera.FrameChoice]); null for debug captures. */
     val choice: TrainingCapture? = null,
 )
@@ -510,13 +513,15 @@ internal fun FormulaText(
     val spoken = spokenFormula(parts).resolve()
     // The bonus is labelled ("+ 15 Flip 7"), else "+ 7 + 15" reads like a 15 card.
     val bonusFormat = stringResource(R.string.formula_flip7)
+    // The Zero without a Flip 7: "The Zero → 0", so the 0 doesn't look like a scoring error.
+    val zeroFormat = stringResource(R.string.formula_zero)
     // A finite [maxLines] marks a fixed-height slot (two lines): large font scales / narrow phones
     // shrink the formula until it fits the slot instead of wrapping into a cut third line.
     BasicText(
         text = buildAnnotatedString {
             parts.filter { it.kind != FormulaKind.TOTAL }.forEach { p ->
                 val color = when (p.kind) {
-                    FormulaKind.NUMBER, FormulaKind.TOTAL -> colors.text
+                    FormulaKind.NUMBER, FormulaKind.TOTAL, FormulaKind.ZERO -> colors.text
                     FormulaKind.MODIFIER -> ModifierInk
                     FormulaKind.BONUS -> colors.accent
                     FormulaKind.OPERATOR -> colors.textMuted
@@ -526,7 +531,9 @@ internal fun FormulaText(
                     joinLines && p.text == FORMULA_LINE_BREAK -> " "
                     p.text == " × " -> " ×\u00A0"
                     p.text == "+ " -> "+\u00A0"
+                    p.text == FORMULA_FLOOR -> " →\u00A0"
                     p.kind == FormulaKind.BONUS -> bonusFormat.format(p.text).replace(' ', '\u00A0')
+                    p.kind == FormulaKind.ZERO -> zeroFormat.format(p.text).replace(' ', '\u00A0')
                     else -> p.text
                 }
                 withStyle(SpanStyle(color = color)) { append(text) }

@@ -262,7 +262,7 @@ internal fun ScanCameraStep(
     }
 }
 
-/** Player name in the camera banner: Unbounded SemiBold 28. */
+/** Player name in the camera banner: DisplayFont SemiBold 28. */
 private val BannerName = Scan7Type.button.copy(fontSize = 28.sp, lineHeight = 34.sp)
 
 /** Token in the camera banner (38 dp tall, next to the 48 dp back button). */
@@ -335,7 +335,7 @@ private fun TypeButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-/** "SCANNING · 96 PTS" over the name (Unbounded 28, one line), the player's avatar left of it. */
+/** "SCANNING · 96 PTS" over the name (DisplayFont 28, one line), the player's avatar left of it. */
 @Composable
 private fun PlayerBanner(player: PlayerUi, label: String, modifier: Modifier = Modifier) {
     val colors = Scan7Theme.colors

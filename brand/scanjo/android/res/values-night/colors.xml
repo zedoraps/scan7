@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sj_ground">#10172E</color>
+    <color name="sj_surface">#1B2443</color>
+    <color name="sj_line">#2E3B66</color>
+    <color name="sj_text">#EEF3FF</color>
+    <color name="sj_muted">#A0AECB</color>
+    <color name="sj_accent">#6FA0FF</color>
+    <color name="sj_accent_text">#8DB4FF</color>
+    <color name="sj_accent_tint">#1F2F57</color>
+    <color name="sj_on_accent">#10172E</color>
+    <color name="sj_penalty">#FF5FA2</color>
+    <color name="sj_on_penalty">#10172E</color>
+    <color name="sj_done_bg">#131B35</color>
+    <color name="sj_done_line">#1B2443</color>
+    <color name="sj_done_ink">#8190B0</color>
+    <color name="sj_open_dash">#3C4A78</color>
+</resources>
