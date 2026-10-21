@@ -72,7 +72,11 @@ uv run python scripts/gen_synth.py --config config/synth_vengeance.yaml --count 
   rsync -a --exclude '*.cache' ml/out/synth_vengeance/ pmo@mini:scan7-ml/out/synth_vengeance/   # then path: /home/pmo/scan7-ml/out/synth_vengeance in its dataset.yaml
   ssh pmo@mini 'cd ~/scan7-ml && . ./env-mini.sh && nohup nice -n 10 python scripts/train.py --model runs/ft_v5/weights/best.pt --data /home/pmo/scan7-ml/out/synth_vengeance/dataset.yaml --imgsz 800 --epochs 60 --patience 15 --batch 16 --device cpu --name veng_synth_v1 > train_veng_synth_v1.log 2>&1 &'
   ```
-  Next: label the Vengeance table photos (`ml/data/vengeance_raw/`) as real train/test sets and fine-tune, as for Flip 7.
+  Result (2026-10-21): best mAP50-95 0.941 (synth val, epoch 50). Then `ft_veng4`, a 12-epoch fine-tune for the 4 (pale mint, misread as 1 / 7 / Unlucky 7 under warm light): `config/synth_vengeance_4.yaml` (base synth_vengeance.yaml: the 4 drawn 4x, warmer `temperature`, more occluders and upside-down cards; 2400 images) + 1500 synth_vengeance + the 29 train scans of `ml/data/app_scans_vengeance/` x6 (split as in import_app_scans.py, 20 % test in `out/real_vengeance/test`), mix in `out/mix_veng4`. It is the app's Vengeance model:
+  ```sh
+  uv run scripts/export.py runs/ft_veng4/weights/best.pt --imgsz 800 --cards config/cards_vengeance.yaml --asset-dir vengeance --verify-dir data/vengeance_raw   # -> app assets/vengeance/
+  ```
+  Next: Label Studio sets for the Vengeance photos and scans (real train/test), and fresh scans of the 4 in warm light as a fair test.
 - The input is `ml/data/cards_flat/*.jpg`, one photo per card on the dark mat. The file stem is the class (`<class>_<n>.jpg` is an extra photo of the same class).
 - The script writes upright, perspective-corrected RGBA cutouts (600×832 px) with an anti-aliased rounded-corner alpha to `ml/out/cutouts/<stem>.png`. It trims a few px off each edge so no mat remains and leaves the colors as photographed. `ml/out/cutouts/contact_sheet.jpg` shows all cutouts on a checkerboard with the banner box outlined in magenta on number cards.
 - To find a card, the script thresholds the HSV brightness (Otsu), takes the convex hull of the largest blob, fits a line to the straight middle part of each edge, intersects these lines for the 4 sharp corners and computes the homography.
