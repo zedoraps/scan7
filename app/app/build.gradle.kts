@@ -205,6 +205,8 @@ dependencies {
 // alternatively export your own with ml/scripts/export.py.
 val modelProps = Properties().apply { rootProject.file("model.properties").inputStream().use(::load) }
 val modelAssetFile: RegularFile = layout.projectDirectory.file("src/main/assets/model.tflite")
+// With a Vengeance's own detector (DetectorModel.VENGEANCE); optional: without it Vengeance is typed in.
+val vengeanceModelAssetFile: RegularFile = layout.projectDirectory.file("src/main/assets/vengeance/model.tflite")
 
 abstract class DownloadModel : DefaultTask() {
     @get:Input abstract val url: Property<String>
@@ -230,20 +232,37 @@ abstract class DownloadModel : DefaultTask() {
     }
 }
 
+val downloadVengeanceModel = tasks.register<DownloadModel>("downloadVengeanceModel") {
+    description = "Downloads the released With a Vengeance model (app/model.properties) into assets/vengeance/model.tflite."
+    group = "scan7"
+    url = modelProps.getProperty("vengeance.url")
+    sha256 = modelProps.getProperty("vengeance.sha256")
+    target = vengeanceModelAssetFile
+}
+
 tasks.register<DownloadModel>("downloadModel") {
-    description = "Downloads the released detector model (app/model.properties) into assets/model.tflite."
+    description = "Downloads the released detector models (app/model.properties) into assets/model.tflite and assets/vengeance/."
     group = "scan7"
     url = providers.gradleProperty("scan7.modelUrl").orElse(modelProps.getProperty("model.url"))
     sha256 = providers.gradleProperty("scan7.modelSha256").orElse(modelProps.getProperty("model.sha256"))
     target = modelAssetFile
+    dependsOn(downloadVengeanceModel)
 }
 
 // Fail early with a hint instead of building an APK whose camera screens can't detect anything.
 val checkModelAsset = tasks.register("checkModelAsset") {
     val modelAsset = modelAssetFile.asFile
+    val vengeanceAsset = vengeanceModelAssetFile.asFile
     description = "Checks that the detector model (assets/model.tflite) is present."
     inputs.property("modelPresent", modelAsset.exists())
+    inputs.property("vengeanceModelPresent", vengeanceAsset.exists())
     doLast {
+        if (!vengeanceAsset.exists()) {
+            logger.warn(
+                "w: No With a Vengeance model (assets/vengeance/model.tflite): Vengeance cards can only be typed in. " +
+                    "cd app && ./gradlew downloadModel",
+            )
+        }
         if (!modelAsset.exists()) {
             throw GradleException(
                 "Missing app/src/main/assets/model.tflite (not in git). Download the released model: " +

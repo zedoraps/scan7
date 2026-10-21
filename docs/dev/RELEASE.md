@@ -13,7 +13,7 @@ is configured and what the user still has to do by hand.
 | versionName | `scan7.versionName` (bump per release), override `-Pscan7.versionName=…` | `app/gradle.properties` |
 | Source / privacy links | `scan7.sourceUrl`, `scan7.privacyUrl` become `BuildConfig.SOURCE_URL` / `PRIVACY_URL`, shown in About | `app/gradle.properties` (`zedoraps/scan7`) |
 | Release signing | `signingConfigs.release` from `scan7.upload.*` Gradle properties or `SCAN7_UPLOAD_*` env vars; unsigned (with a warning) when absent | `app/app/build.gradle.kts` |
-| Detector model | not in git; `./gradlew downloadModel` fetches the released `model.tflite` and checks its SHA-256; `checkModelAsset` fails the build early with that hint | `app/model.properties` |
+| Detector model | not in git; `./gradlew downloadModel` fetches the released `model.tflite` (and the With a Vengeance model, `assets/vengeance/`) and checks their SHA-256; `checkModelAsset` fails the build early with that hint (a missing Vengeance model is only a warning) | `app/model.properties` |
 | License texts | `copyLicenseTexts` copies `LICENSE` + `docs/third_party/*.txt` into the APK (`assets/licenses/`) for About & licenses | `app/app/build.gradle.kts` |
 | Debug features | debug menu (5 taps on the wordmark), launch hooks (`debug_*` extras) and "Save scans for training" exist in **debug builds only**; release builds never write training photos | `BuildConfig.DEBUG` checks |
 | Play / FOSS build | the flavorless default is the **Play build** with Google Play services Nearby (multiplayer *Share this game* / *Join a game*, beta); `-Pscan7.foss=true` builds without Play services (no multiplayer; F-Droid); `-Pscan7.flavors=true` adds both as flavors `play` (default) / `foss` instead | `app/app/build.gradle.kts`, `src/play/`, `src/foss/` |
@@ -47,6 +47,12 @@ On a model update: `cd ml && uv run scripts/export.py runs/<run>/weights/best.pt
 app), upload `app/app/src/main/assets/model.tflite` to a new release (tag e.g. `model-ft_v2`), set
 `model.url` + `model.sha256` (`shasum -a 256 …/model.tflite`) + `model.version` in
 `app/model.properties`, and commit that together with `assets/model_version.txt`.
+
+With a Vengeance has its own model, `assets/vengeance/model.tflite`
+(`export.py … --cards config/cards_vengeance.yaml --asset-dir vengeance`), released the same way
+as its own asset (tag e.g. `model-ft_veng4`, file `vengeance.tflite`) with `vengeance.url` /
+`vengeance.sha256` / `vengeance.version` in `app/model.properties`; `downloadModel` fetches both.
+Without it the app still builds (a warning) and Vengeance cards can only be typed in.
 
 ## Changelog (tenzir-ship)
 The changelog lives in `changelog/`. [tenzir-ship](https://github.com/tenzir/ship) manages it
