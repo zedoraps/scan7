@@ -1,0 +1,10 @@
+created: 2026-10-21
+title: With a Vengeance
+intro: >-
+  Scan7 now counts Flip 7: With a Vengeance too: pick it under New game, then scan
+  or type in the cards, and Scan7 scores them with the Vengeance rules. The camera
+  now shows the whole photo it reads and leaves other players' cards at the edge out,
+  and shared games are easier to join and to stop.
+source:
+  mode: sync-stable-queue
+  previous_stable: v0.1.1

@@ -1,6 +1,6 @@
 # Google Play listing in English (en-US, default)
 
-Limits: app name ≤ 30, short description ≤ 80, full description ≤ 4000 characters (now 1919;
+Limits: app name ≤ 30, short description ≤ 80, full description ≤ 4000 characters (now 2093;
 count the text blocks again after editing).
 "Flip 7" is only used descriptively (what the app is for). Never use The Op Games' artwork, card
 images, logo or name styling in the listing, the icon, the screenshots or the feature graphic.
@@ -30,6 +30,7 @@ THE WHOLE GAME
 • Scan7 tracks the running totals, the leader, the target score (200 by default) and the end of the game.
 • The scoreboard shows every round, and you can fix a past result any time.
 • Past games stay on Home: winner, points, rounds.
+• Also for Flip 7: With a Vengeance. Scan or type in its cards, and Scan7 scores them with its rules: ÷2, minus cards, Lucky 13 and The Zero.
 • Beta: play one game on several phones. Share it with a QR code, and everyone scans their own players. The phones talk directly over Bluetooth and Wi-Fi, without internet (needs Google Play services).
 
 PRIVATE BY DESIGN
@@ -40,7 +41,7 @@ PRIVATE BY DESIGN
 OPEN SOURCE
 Scan7 is free software under the GNU Affero General Public License v3.0. The source code, including the card detector's training pipeline, is public. The link is in the app under About & licenses.
 
-Scan7 is an unofficial score keeper for Flip 7. It is not affiliated with, endorsed by or sponsored by The Op Games. Flip 7 is a trademark of its owner and is used here only to describe what the app is for. You need your own copy of the game to play.
+Scan7 is an unofficial score keeper for Flip 7. It is not affiliated with, endorsed by or sponsored by The Op Games. Flip 7 and Flip 7: With a Vengeance are trademarks of their owner and are used here only to describe what the app is for. You need your own copy of the game to play.
 ```
 
 ## Category and contact
