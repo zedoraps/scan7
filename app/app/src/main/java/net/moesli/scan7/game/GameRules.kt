@@ -115,7 +115,7 @@ object Flip7Rules : GameRules {
 
 /**
  * Flip 7: With a Vengeance: Flip 7's race to 200 with its own cards (0–13, Lucky 13, Unlucky 7,
- * The Zero, ÷2 and minus cards; [scoreRow] knows them). No detector yet: typed in. Brutal mode
+ * The Zero, ÷2 and minus cards; [scoreRow] knows them). Its own detector model (assets/vengeance/). Brutal mode
  * (negative rounds) is not supported yet.
  */
 object VengeanceRules : GameRules {
@@ -124,7 +124,7 @@ object VengeanceRules : GameRules {
     override val hasBust = true
     override val hasRoundEnder = false
     override val minPoints = 0
-    override val hasDetector = false
+    override val hasDetector = true
 
     override fun cardFromLabel(label: String): GameCard? = Deck.VENGEANCE.cardFromLabel(label)
 

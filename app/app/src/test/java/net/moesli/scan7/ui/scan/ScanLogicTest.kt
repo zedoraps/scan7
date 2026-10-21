@@ -407,17 +407,34 @@ class ScanLogicTest {
         assertEquals("(8 + 11 + 13) ÷ 2\n− 6", breakdownText(listOf(Card.N13, N11, N8, Card.DIVIDE_2, Card.MINUS_6)))
         assertEquals("5 ÷ 2", breakdownText(listOf(N5, Card.DIVIDE_2)))
         assertEquals("12\n− 2 − 10", breakdownText(listOf(N12, Card.MINUS_10, Card.MINUS_2)))
-        assertEquals("0\n− 4", breakdownText(listOf(Card.MINUS_4)))
+        assertEquals("0\n− 4 → 0", breakdownText(listOf(Card.MINUS_4)))
         assertEquals("5 + 13 + 13", breakdownText(listOf(Card.LUCKY_13, N5, Card.N13)))
-        // The Zero: 0 without a Flip 7, the usual formula with one.
-        assertEquals("0", breakdownText(listOf(Card.THE_ZERO, N12, Card.MINUS_2)))
+        // The Zero: the number cards, then "The Zero → 0" without a Flip 7; the usual formula with one.
+        val zeroed = breakdownFormula(listOf(Card.THE_ZERO, N12, N11, Card.DIVIDE_2, Card.MINUS_2))
+        assertEquals("0 + 11 + 12\n0", breakdownText(listOf(Card.THE_ZERO, N12, N11, Card.DIVIDE_2, Card.MINUS_2)))
+        assertEquals(FormulaKind.ZERO, zeroed.dropLast(1).last().kind)
+        assertEquals("0 plus 11 plus 12 The Zero makes it 0 equals 0", spokenFormula(zeroed).en)
+        assertEquals("0 plus 11 plus 12 Null macht 0 daraus gleich 0", spokenFormula(zeroed).de)
         assertEquals("0 + 1 + 2 + 3 + 4 + 5 + 6\n− 2 + 15", breakdownText(listOf(Card.THE_ZERO, N1, N2, N3, N4, N5, N6, Card.MINUS_2)))
         assertEquals(
             "8 plus 11 plus 13 divided by 2 minus 6 equals 10",
             spokenFormula(breakdownFormula(listOf(Card.N13, N11, N8, Card.DIVIDE_2, Card.MINUS_6))).en,
         )
-        // Below zero: the hidden total is the floor.
+    }
+
+    @Test
+    fun vengeance_formula_floorBeforeTheBonus() {
+        // Below zero: "→ 0", and the hidden total is the floor.
+        assertEquals("3\n− 10 → 0", breakdownText(listOf(N3, Card.MINUS_10)))
         assertEquals("0", breakdownFormula(listOf(N3, Card.MINUS_10)).last().text)
+        assertEquals("3 minus 10 becomes 0 equals 0", spokenFormula(breakdownFormula(listOf(N3, Card.MINUS_10))).en)
+        // 1..6 + 13 = 34, ÷ 2 = 17, − 18 → 0, + 15 Flip 7 = 15.
+        val seven = listOf(N1, N2, N3, N4, N5, N6, Card.N13, Card.DIVIDE_2, Card.MINUS_10, Card.MINUS_8)
+        assertEquals("(1 + 2 + 3 + 4 + 5 + 6 + 13) ÷ 2\n− 8 − 10 → 0 + 15", breakdownText(seven))
+        assertEquals("15", breakdownFormula(seven).last().text)
+        assertEquals(FormulaKind.BONUS, breakdownFormula(seven).dropLast(1).last().kind)
+        // Exactly 0 is no floor.
+        assertEquals("10\n− 10", breakdownText(listOf(N10, Card.MINUS_10)))
     }
 
     @Test

@@ -375,6 +375,11 @@
     <string name="formula_equals">%1$s equals %2$s</string>
     <string name="formula_flip7">%1$s Flip 7</string>
     <string name="formula_flip7_spoken">%1$s Flip 7 bonus</string>
+    <!-- The Zero without a Flip 7 makes the row 0; %1$s = 0. -->
+    <string name="formula_zero">The Zero → %1$s</string>
+    <string name="formula_zero_spoken">The Zero makes it %1$s</string>
+    <!-- Spoken "→": the minus cards would go below 0, so the row counts 0 ("3 minus 10 becomes 0"). -->
+    <string name="formula_floor">becomes</string>
     <string name="second_chance_used">Second Chance used · %1$s counted once</string>
 
     <!-- Review + manual entry (ui/scan) -->

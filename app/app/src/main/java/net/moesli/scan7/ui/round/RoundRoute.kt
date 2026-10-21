@@ -1,5 +1,6 @@
 package net.moesli.scan7.ui.round
 
+import net.moesli.scan7.detection.DetectorModel
 import net.moesli.scan7.share.RadioRole
 import net.moesli.scan7.ui.share.OnReturnFromSettings
 import net.moesli.scan7.ui.share.RadioPanel
@@ -32,6 +33,7 @@ import net.moesli.scan7.data.GameRepository
 import net.moesli.scan7.data.GameSnapshot
 import net.moesli.scan7.data.outlivingUi
 import net.moesli.scan7.game.EnderPenalty
+import net.moesli.scan7.game.deck
 import net.moesli.scan7.game.ScanDirection
 import net.moesli.scan7.game.TablePosition
 import net.moesli.scan7.ui.components.LocalBustAllowed
@@ -416,8 +418,11 @@ fun RoundRoute(
     val snapshot by remember(gameId) { repository.observeGame(gameId) }.collectAsStateWithLifecycle(initialValue = null)
     val afterScan by remember { repository.setting(AfterScan.SETTING_KEY) }.collectAsStateWithLifecycle(initialValue = null)
     val entrySetting by remember { repository.setting(EntryMode.SETTING_KEY) }.collectAsStateWithLifecycle(initialValue = null)
-    // No detector for Skyjo / With a Vengeance yet: their cards are always typed in.
-    val entry = if (snapshot?.state?.kind?.rules?.hasDetector == false) EntryMode.TYPE else EntryMode.fromSetting(entrySetting)
+    // Games without a detector (Skyjo), or whose model this build lacks, always type their cards in.
+    val context = LocalContext.current
+    val kind = snapshot?.state?.kind
+    val canScan = remember(kind) { kind == null || kind.rules.hasDetector && kind.deck?.let { DetectorModel.of(it).isBundled(context) } != false }
+    val entry = if (canScan) EntryMode.fromSetting(entrySetting) else EntryMode.TYPE
     val flags = rememberSaveable(saver = RoundFlags.Saver) { RoundFlags() }
     val scope = rememberCoroutineScope()
     val controller = remember(gameId, navigator) { RoundController(repository, gameId, scope, navigator, flags, toast) }
@@ -425,7 +430,6 @@ fun RoundRoute(
     controller.snapshot = snapshot
     controller.entry = entry
     // Multiplayer (docs/dev/MULTI_DEVICE.md §2): this phone hosts this game, or it is a joined copy.
-    val context = LocalContext.current
     val shareRuntime = remember { AppGraph.share(context) }
     val shareState by shareRuntime.state.collectAsStateWithLifecycle()
     val host = shareState.host?.takeIf { it.gameId == gameId }
@@ -578,7 +582,7 @@ fun RoundRoute(
                     target = snap.state.target.takeUnless { snap.state.isOver || readOnly },
                     direction = snap.state.scanDirection,
                     afterScan = AfterScan.fromSetting(afterScan),
-                    entry = entry.takeIf { snap.state.kind.rules.hasDetector },
+                    entry = entry.takeIf { canScan },
                 ),
                 onScoreboard = { sheet.hideThen(navigator::scoreboard) },
                 onArrange = if (readOnly) null else ({ sheet.hideThen(controller::onEnterArrange) }),

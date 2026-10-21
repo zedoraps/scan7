@@ -100,8 +100,11 @@ fun Card.chipLabel(): UiText = chipText()
 /** Spoken label for TalkBack: "7", "plus 4", "times 2", "Freeze". */
 fun Card.spokenLabel(): UiText = spokenText()
 
-/** What a piece of the [breakdownFormula] is (its color on screen; [TOTAL] is not shown). */
-enum class FormulaKind { NUMBER, MODIFIER, BONUS, OPERATOR, TOTAL }
+/**
+ * What a piece of the [breakdownFormula] is (its color on screen; [TOTAL] is not shown). [ZERO] is
+ * the labelled result of The Zero without a Flip 7 ("The Zero → 0").
+ */
+enum class FormulaKind { NUMBER, MODIFIER, BONUS, OPERATOR, TOTAL, ZERO }
 
 /** One piece of the formula: a value, or an operator / parenthesis / line break with its spaces. */
 data class FormulaPart(val text: String, val kind: FormulaKind)
@@ -109,13 +112,19 @@ data class FormulaPart(val text: String, val kind: FormulaKind)
 /** Line break between the two formula lines. */
 const val FORMULA_LINE_BREAK = "\n"
 
+/** Before the floor: the minus cards would take the row below 0, so it counts 0 ("3 − 10 → 0"). */
+const val FORMULA_FLOOR = " → "
+
 /**
  * The row's score in up to two lines, without "= total" (the big number shows it):
  * - line 1, the number cards and ×2 / ÷2: `6 + 7 + 8`, `(0 + 6 + 11 + 12) × 2`,
- *   `(13 + 11 + 8) ÷ 2` (parentheses only around several numbers), `0` without number cards
- *   and with The Zero without a Flip 7 (the row scores 0);
+ *   `(13 + 11 + 8) ÷ 2` (parentheses only around several numbers), `0` without number cards;
  * - line 2, the additions: plus modifiers, minus modifiers, then the Flip 7 bonus:
  *   `+ 2 + 4 + 15`, `− 6 + 15` (the bonus shown labelled, `+ 15 Flip 7`); no line 2 without them.
+ *   If the minus cards would take the row below 0, [FORMULA_FLOOR] and `0` come before the bonus
+ *   (`− 8 − 10 → 0 + 15`: the floor comes before the bonus, as in [scoreRow]).
+ * The Zero without a Flip 7: the number cards on line 1, line 2 only the [FormulaKind.ZERO] `0`
+ * (shown as "The Zero → 0"); its modifiers don't count.
  * A single value stays alone (`7`); nothing at all is `0`. A duplicate cancelled by a Second
  * Chance counts once; modifiers count once each, as in [scoreRow]; action cards / backs add
  * nothing. The last part is the hidden [FormulaKind.TOTAL] for TalkBack ([spokenFormula]); it is
@@ -128,12 +137,11 @@ fun breakdownFormula(cards: List<Card>): List<FormulaPart> {
     val scoring = cards.filter { it.isScoring }.sortedForDisplay()
     val allNumbers = scoring.filter { it.kind == CardKind.NUMBER }.map { it.value!! }
     val numbers = when {
-        score.zeroed -> emptyList()
         score.cancelledDuplicates.isEmpty() -> allNumbers
         else -> allNumbers.distinct()
     }
     val factor = when {
-        numbers.isEmpty() -> null
+        numbers.isEmpty() || score.zeroed -> null
         score.timesTwo -> " × "
         score.divideTwo -> " ÷ "
         else -> null
@@ -145,7 +153,9 @@ fun breakdownFormula(cards: List<Card>): List<FormulaPart> {
         scoring.filter { it.kind == CardKind.MODIFIER_PLUS }.distinct().map { "+" to FormulaPart(it.value.toString(), FormulaKind.MODIFIER) } +
             scoring.filter { it.kind == CardKind.MODIFIER_MINUS }.distinct().map { "−" to FormulaPart(it.value.toString(), FormulaKind.MODIFIER) }
     }
-    val extras = modifiers + listOfNotNull(score.flip7Bonus.takeIf { it > 0 }?.let { "+" to FormulaPart(it.toString(), FormulaKind.BONUS) })
+    val bonus = score.flip7Bonus.takeIf { it > 0 }?.let { "+" to FormulaPart(it.toString(), FormulaKind.BONUS) }
+    val belowZero = !score.zeroed && modifiedNumberSum(score.numberSum, score.timesTwo, score.divideTwo) + score.plusSum - score.minusSum < 0
+    val extras = modifiers + listOfNotNull(bonus.takeIf { !belowZero })
     val parts = mutableListOf<FormulaPart>()
     fun op(text: String) {
         parts += FormulaPart(text, FormulaKind.OPERATOR)
@@ -173,6 +183,18 @@ fun breakdownFormula(cards: List<Card>): List<FormulaPart> {
             }
             parts += part
         }
+        if (belowZero) {
+            op(FORMULA_FLOOR)
+            parts += FormulaPart("0", FormulaKind.NUMBER)
+            bonus?.let { (sign, part) ->
+                op(" $sign ")
+                parts += part
+            }
+        }
+        if (score.zeroed) {
+            op(FORMULA_LINE_BREAK)
+            parts += FormulaPart("0", FormulaKind.ZERO)
+        }
     }
     return parts + FormulaPart(score.total.toString(), FormulaKind.TOTAL)
 }
@@ -193,9 +215,14 @@ fun spokenFormula(parts: List<FormulaPart>): UiText {
             " − ", "− " -> uiText(R.string.formula_minus)
             " × " -> uiText(R.string.formula_times)
             " ÷ " -> uiText(R.string.formula_divided)
+            FORMULA_FLOOR -> uiText(R.string.formula_floor)
             "(", ")", FORMULA_LINE_BREAK -> null
             // "plus 15 Flip 7 bonus" / "plus 15 Flip-7-Bonus".
-            else -> if (p.kind == FormulaKind.BONUS) uiText(R.string.formula_flip7_spoken, p.text) else UiText.Raw(p.text)
+            else -> when (p.kind) {
+                FormulaKind.BONUS -> uiText(R.string.formula_flip7_spoken, p.text)
+                FormulaKind.ZERO -> uiText(R.string.formula_zero_spoken, p.text)
+                else -> UiText.Raw(p.text)
+            }
         }
     }
     val text = UiText.Join(words, " ")
@@ -207,7 +234,7 @@ fun spokenFormula(parts: List<FormulaPart>): UiText {
 /** What the row would score without the bust rule (shown struck through on the bust panel). */
 fun RowScore.totalIgnoringBust(): Int {
     val cardPoints = if (zeroed) 0 else modifiedNumberSum(numberSum, timesTwo, divideTwo) + plusSum - minusSum
-    return (cardPoints + flip7Bonus).coerceAtLeast(0)
+    return cardPoints.coerceAtLeast(0) + flip7Bonus
 }
 
 /**

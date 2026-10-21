@@ -355,6 +355,9 @@
     <string name="formula_equals">%1$s gleich %2$s</string>
     <string name="formula_flip7">%1$s Flip 7</string>
     <string name="formula_flip7_spoken">%1$s Flip-7-Bonus</string>
+    <string name="formula_zero">Null → %1$s</string>
+    <string name="formula_zero_spoken">Null macht %1$s daraus</string>
+    <string name="formula_floor">wird zu</string>
     <string name="second_chance_used">Second Chance genutzt · %1$s zählt einmal</string>
 
     <!-- Review + manual entry -->

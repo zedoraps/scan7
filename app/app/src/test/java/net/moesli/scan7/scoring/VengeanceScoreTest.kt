@@ -29,13 +29,16 @@ class VengeanceScoreTest {
     }
 
     @Test
-    fun flip7Bonus_afterTheModifiers_thenTheFloor() {
+    fun flip7Bonus_afterTheModifiersAndTheFloor() {
         val seven = listOf(N1, N2, N3, N4, N5, N6, N13)
         assertEquals(34 + 15, scoreRow(seven).total)
-        // (34 ÷ 2) − 10 − 8 + 15 = 14.
-        assertEquals(14, scoreRow(seven + listOf(DIVIDE_2, MINUS_10, MINUS_8)).total)
-        // 17 − 30 + 15 = 2: the floor of 0 is applied last.
-        assertEquals(2, scoreRow(seven + listOf(DIVIDE_2, MINUS_10, MINUS_8, MINUS_6, MINUS_4, MINUS_2)).total)
+        // (34 ÷ 2) − 10 − 6 = 1, + 15 = 16.
+        assertEquals(16, scoreRow(seven + listOf(DIVIDE_2, MINUS_10, MINUS_6)).total)
+        // (34 ÷ 2) − 10 − 8 = −1 → 0, + 15 = 15.
+        assertEquals(15, scoreRow(seven + listOf(DIVIDE_2, MINUS_10, MINUS_8)).total)
+        // Rule book: subtract the modifiers ("your score can't drop below zero"), then add the
+        // Flip 7 bonus: 17 − 30 → 0, + 15 = 15.
+        assertEquals(15, scoreRow(seven + listOf(DIVIDE_2, MINUS_10, MINUS_8, MINUS_6, MINUS_4, MINUS_2)).total)
     }
 
     @Test

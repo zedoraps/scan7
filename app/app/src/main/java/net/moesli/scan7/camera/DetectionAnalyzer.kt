@@ -19,6 +19,7 @@ import net.moesli.scan7.detection.ACCEPT_SCORE
 import net.moesli.scan7.detection.Detection
 import net.moesli.scan7.detection.DetectionTracker
 import net.moesli.scan7.detection.DetectorHolder
+import net.moesli.scan7.detection.DetectorModel
 import net.moesli.scan7.detection.rowCandidate
 import net.moesli.scan7.detection.uprightSize
 import net.moesli.scan7.detection.KEEP_SCORE
@@ -100,7 +101,7 @@ private class FrameSlot(val index: Int) {
 
 /**
  * Runs the card detector (at [KEEP_SCORE]) on each RGBA_8888 analysis frame and feeds a
- * [DetectionTracker]. Must be installed on [DetectorHolder.executor]. Each frame is copied into
+ * [DetectionTracker] ([model]: the game's detector). Must be installed on [DetectorHolder.executor]. Each frame is copied into
  * the next slot of a ring of [RING_SIZE] reused bitmaps (row padding included); rotation and
  * letterboxing happen in a single draw inside the detector. The bitmaps are created lazily and
  * freed by [releaseBuffers] (camera unbound), so they don't stay alive off-camera.
@@ -110,7 +111,10 @@ private class FrameSlot(val index: Int) {
  * [rowCandidate]); the ring is only touched on the
  * detector thread, so no locking and no extra per-frame copies.
  */
-class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
+class DetectionAnalyzer(
+    context: Context,
+    private val model: DetectorModel = DetectorModel.FLIP7,
+) : ImageAnalysis.Analyzer {
     private val appContext = context.applicationContext
     private val fpsCounter = FpsCounter()
     private var fps = 0f
@@ -133,7 +137,7 @@ class DetectionAnalyzer(context: Context) : ImageAnalysis.Analyzer {
             fpsCounter.onFrame(it.imageInfo.timestamp)?.let { newFps -> fps = newFps }
             val rotation = it.imageInfo.rotationDegrees
             val base = FrameStats(fps, it.width, it.height, rotation)
-            val detector = DetectorHolder.getBlocking(appContext).getOrElse { e ->
+            val detector = DetectorHolder.getBlocking(appContext, model).getOrElse { e ->
                 _stats.value = base.copy(error = e.message ?: e.javaClass.simpleName)
                 return
             }

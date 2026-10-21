@@ -39,8 +39,9 @@ data class RowScore(
  * so one function scores Flip 7 and With a Vengeance:
  *
  * Total = (sum of number cards, doubled by `x2`, halved (rounded down) by `div2`) + plus modifiers
- * − minus modifiers + [FLIP_7_BONUS] if at least [FLIP_7_CARDS] different numbers are present,
- * never below 0; 0 if any number is duplicated.
+ * − minus modifiers, never below 0, then + [FLIP_7_BONUS] if at least [FLIP_7_CARDS] different
+ * numbers are present (Vengeance rule book: the floor comes before the bonus); 0 if any number is
+ * duplicated.
  *
  * Second Chance (Flip 7): each `second_chance` card in the row cancels one extra copy of a number
  * (the duplicate is discarded together with the Second Chance and the player stays in). If every
@@ -79,7 +80,7 @@ fun scoreRow(cards: List<Card>): RowScore {
         timesTwo = timesTwo,
         plusSum = plusSum,
         flip7Bonus = bonus,
-        total = if (bust) 0 else (cardPoints + bonus).coerceAtLeast(0),
+        total = if (bust) 0 else cardPoints.coerceAtLeast(0) + bonus,
         bust = bust,
         duplicatedNumbers = if (bust) duplicated else emptyList(),
         secondChanceUsed = if (cancelled) extraCopies else 0,

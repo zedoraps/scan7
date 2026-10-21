@@ -1,5 +1,6 @@
 package net.moesli.scan7.game
 
+import net.moesli.scan7.detection.DetectorModel
 import net.moesli.scan7.scoring.Card
 import net.moesli.scan7.scoring.Deck
 import org.junit.Assert.assertEquals
@@ -23,7 +24,9 @@ class VengeanceGameTest {
         assertTrue(rules.hasBust)
         assertFalse(rules.hasRoundEnder)
         assertEquals(0, rules.minPoints)
-        assertFalse(rules.hasDetector)
+        assertTrue(rules.hasDetector)
+        assertEquals("vengeance/model.tflite", DetectorModel.of(Deck.VENGEANCE).modelAsset)
+        assertEquals("labels.txt", DetectorModel.of(Deck.FLIP7).labelsAsset)
         assertTrue(GameKind.FLIP7.rules.hasDetector)
         assertEquals(Deck.VENGEANCE, GameKind.VENGEANCE.deck)
         assertEquals(Deck.FLIP7, GameKind.FLIP7.deck)
